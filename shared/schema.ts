@@ -55,6 +55,11 @@ export const users = pgTable("users", {
   role: text("role").default("viewer").notNull(),
   permissions: text("permissions").array().default(sql`ARRAY[]::text[]`),
   status: text("status").default("active").notNull(),
+  profilePhoto: text("profile_photo"),
+  bio: text("bio"),
+  title: text("title"),
+  linkedinUrl: text("linkedin_url"),
+  dashboardWidgets: text("dashboard_widgets").array().default(sql`ARRAY['revenue','listeners','content','alerts','trending','processing']::text[]`),
   createdAt: timestamp("created_at").defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
 });

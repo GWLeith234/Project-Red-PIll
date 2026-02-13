@@ -9,6 +9,11 @@ interface AuthUser {
   role: string;
   permissions: string[] | null;
   status: string;
+  profilePhoto: string | null;
+  bio: string | null;
+  title: string | null;
+  linkedinUrl: string | null;
+  dashboardWidgets: string[] | null;
   createdAt: string | null;
   lastLoginAt: string | null;
 }
