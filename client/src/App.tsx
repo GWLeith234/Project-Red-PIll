@@ -13,6 +13,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import Customize from "@/pages/Customize";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -73,7 +74,7 @@ function ProtectedRoutes() {
         <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><div className="text-2xl font-display">Analytics (Coming Soon)</div></PermissionGate>}</Route>
         <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
         <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>
-        <Route path="/settings">{() => <PermissionGate permission="settings.view"><div className="text-2xl font-display">Settings (Coming Soon)</div></PermissionGate>}</Route>
+        <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
         <Route component={NotFound} />
       </Switch>
     </AdminLayout>

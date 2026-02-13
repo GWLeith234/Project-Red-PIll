@@ -33,7 +33,7 @@ Preferred communication style: Simple, everyday language.
 - **Customize** (`/customize`): Branding management for logo, favicon, banner, colors, company name
 - **Audience** (`/audience`): Coming soon placeholder
 - **Analytics** (`/analytics`): Coming soon placeholder
-- **Settings** (`/settings`): Coming soon placeholder
+- **Settings** (`/settings`): Platform configuration with general, content pipeline, notifications, and security sections
 
 ### Backend
 - **Runtime**: Node.js with Express 5
@@ -63,6 +63,7 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/metrics/latest`, `POST /api/metrics`
 - `GET/POST /api/alerts`, `PATCH /api/alerts/:id`
 - `GET/PUT /api/branding`
+- `GET/PUT /api/settings` (permission-gated: settings.view, settings.edit)
 
 ### Database
 - **Database**: PostgreSQL (required, connection via `DATABASE_URL` environment variable)
@@ -80,6 +81,7 @@ Preferred communication style: Simple, everyday language.
 - **campaigns**: linked to advertisers
 - **metrics**: platform-wide KPIs
 - **alerts**: system notifications
+- **platformSettings**: timezone, dateFormat, defaultLanguage, autoPublishContent, contentTypes (array), defaultPlatforms (array), aiQuality, emailNotifications, alertThreshold, weeklyDigest, revenueAlerts, processingAlerts, sessionTimeoutMinutes, maxLoginAttempts, requireStrongPasswords, twoFactorEnabled, updatedAt
 
 ### Storage Layer
 - Single `storage` object in `server/storage.ts` implementing the `IStorage` interface
