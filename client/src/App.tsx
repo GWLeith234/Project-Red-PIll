@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import Customize from "@/pages/Customize";
 import Settings from "@/pages/Settings";
 import ModerationQueue from "@/pages/ModerationQueue";
+import AuthorProfile from "@/pages/AuthorProfile";
 import NotFound from "@/pages/not-found";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -93,6 +94,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Switch>
+          <Route path="/author/:authorId">{() => <AudienceLayout><AuthorProfile /></AudienceLayout>}</Route>
           <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
           <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
           <Route path="/news/:id">{() => <AudienceLayout><NewsPage /></AudienceLayout>}</Route>

@@ -327,14 +327,31 @@ export default function ArticlePage() {
 
                 <div className="flex items-center text-sm text-gray-500 mb-4">
                   <div className="flex items-center space-x-3">
-                    {podcast?.coverImage ? (
-                      <img src={podcast.coverImage} alt={podcast?.title} className="h-6 w-6 rounded-full object-cover" />
+                    {article.author ? (
+                      <>
+                        {article.author.profilePhoto ? (
+                          <img src={article.author.profilePhoto} alt={article.author.displayName} className="h-6 w-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
+                            <User className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                        <Link href={`/author/${article.author.id}`} className="font-medium text-gray-700 hover:text-blue-600 hover:underline cursor-pointer" data-testid="link-article-author">
+                          {article.author.displayName || "Staff Writer"}
+                        </Link>
+                      </>
                     ) : (
-                      <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
-                        <Mic className="h-3 w-3 text-white" />
-                      </div>
+                      <>
+                        {podcast?.coverImage ? (
+                          <img src={podcast.coverImage} alt={podcast?.title} className="h-6 w-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
+                            <Mic className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                        <span className="font-medium text-gray-700">{podcast?.host || "Editorial Team"}</span>
+                      </>
                     )}
-                    <span className="font-medium text-gray-700">{podcast?.host || "Editorial Team"}</span>
                   </div>
                   <span className="mx-3 text-gray-300">|</span>
                   <Clock className="h-3.5 w-3.5 mr-1" />

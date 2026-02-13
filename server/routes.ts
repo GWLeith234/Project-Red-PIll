@@ -236,7 +236,11 @@ export async function registerRoutes(
   app.get("/api/content-pieces/:id", async (req, res) => {
     const data = await storage.getContentPiece(req.params.id);
     if (!data) return res.status(404).json({ message: "Not found" });
-    res.json(data);
+    let author = null;
+    if (data.authorId) {
+      author = await storage.getAuthorPublicProfile(data.authorId);
+    }
+    res.json({ ...data, author });
   });
 
   app.post("/api/content-pieces", async (req, res) => {
@@ -302,6 +306,7 @@ export async function registerRoutes(
 
     const updated = await storage.updateContentPiece(req.params.id, {
       status: "published",
+      authorId: piece.authorId || user?.id,
       moderatedBy: user?.id,
       moderatedAt: new Date(),
       publishedAt: new Date(),
@@ -1071,6 +1076,21 @@ export async function registerRoutes(
     const episodes = await storage.getEpisodes(req.params.podcastId);
     const published = episodes.filter(e => e.processingStatus === "complete");
     res.json({ podcast, episodes: published });
+  });
+
+  // ── Public Author Profile (no auth) ──
+  app.get("/api/public/authors/:id", async (req, res) => {
+    const author = await storage.getAuthorPublicProfile(req.params.id);
+    if (!author) return res.status(404).json({ message: "Author not found" });
+    const articles = await storage.getContentPiecesByAuthor(req.params.id);
+    const enrichedArticles = await Promise.all(
+      articles.map(async (a) => {
+        const episode = await storage.getEpisode(a.episodeId);
+        const podcast = episode ? await storage.getPodcast(episode.podcastId) : null;
+        return { ...a, episode, podcast };
+      })
+    );
+    res.json({ author, articles: enrichedArticles });
   });
 
   // ── Commercial CRM: Companies ──

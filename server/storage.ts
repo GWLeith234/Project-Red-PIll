@@ -80,6 +80,9 @@ export interface IStorage {
 
   updateUserProfile(id: string, data: { profilePhoto?: string; bio?: string; title?: string; linkedinUrl?: string; dashboardWidgets?: string[]; displayName?: string }): Promise<User | undefined>;
 
+  getAuthorPublicProfile(id: string): Promise<{ id: string; displayName: string | null; profilePhoto: string | null; bio: string | null; title: string | null; linkedinUrl: string | null } | undefined>;
+  getContentPiecesByAuthor(authorId: string): Promise<ContentPiece[]>;
+
   getCommentsByArticle(articleId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
   deleteComment(id: string): Promise<void>;
@@ -310,6 +313,29 @@ export class DatabaseStorage implements IStorage {
   async updateUserProfile(id: string, data: { profilePhoto?: string; bio?: string; title?: string; linkedinUrl?: string; dashboardWidgets?: string[] }) {
     const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return updated;
+  }
+
+  async getAuthorPublicProfile(id: string) {
+    const [user] = await db.select({
+      id: users.id,
+      displayName: users.displayName,
+      profilePhoto: users.profilePhoto,
+      bio: users.bio,
+      title: users.title,
+      linkedinUrl: users.linkedinUrl,
+    }).from(users).where(
+      and(
+        eq(users.id, id),
+        eq(users.status, "active"),
+      )
+    );
+    return user;
+  }
+
+  async getContentPiecesByAuthor(authorId: string) {
+    return db.select().from(contentPieces)
+      .where(and(eq(contentPieces.authorId, authorId), eq(contentPieces.status, "published")))
+      .orderBy(desc(contentPieces.publishedAt));
   }
 
   async getCommentsByArticle(articleId: string) {
