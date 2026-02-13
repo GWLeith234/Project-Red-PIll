@@ -1,20 +1,49 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Mic, FileText, Video, Twitter, Linkedin, Mail,
   ArrowRight, CheckCircle2, Loader2, Clock, Search, Upload
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEpisodes, useContentPieces } from "@/lib/api";
+import { useEpisodes, useContentPieces, usePodcasts, useCreateEpisode } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ContentFactory() {
   const { data: episodes, isLoading: epLoading } = useEpisodes();
+  const { data: podcasts } = usePodcasts();
   const processingEp = episodes?.find((e: any) => e.processingStatus === "processing");
   const currentEpId = processingEp?.id;
   const { data: allContent, isLoading: contentLoading } = useContentPieces(currentEpId);
+  const createEpisode = useCreateEpisode();
+  const { toast } = useToast();
+
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", podcastId: "", duration: "" });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    createEpisode.mutate(
+      { title: form.title, podcastId: form.podcastId, duration: form.duration || undefined },
+      {
+        onSuccess: () => {
+          toast({ title: "Episode Queued", description: `"${form.title}" has been added to the processing pipeline.` });
+          setOpen(false);
+          setForm({ title: "", podcastId: "", duration: "" });
+        },
+        onError: (err: any) => {
+          toast({ title: "Error", description: err.message, variant: "destructive" });
+        },
+      }
+    );
+  }
 
   const grouped: Record<string, { icon: any; title: string; color: string; items: any[] }> = {
     video_clip: { icon: Video, title: "Viral Clips", color: "text-red-500", items: [] },
@@ -54,12 +83,51 @@ export default function ContentFactory() {
             <Clock className="mr-2 h-3 w-3" />
             Queue History
           </Button>
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-upload-episode">
+          <Button onClick={() => setOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-upload-episode">
             <Upload className="mr-2 h-3 w-3" />
             Upload New Episode
           </Button>
         </div>
       </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="glass-panel border-border">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Add New Episode</DialogTitle>
+            <DialogDescription className="font-mono text-xs">Queue an episode for AI content multiplication</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ep-title" className="font-mono text-xs uppercase tracking-wider">Episode Title</Label>
+              <Input id="ep-title" placeholder="e.g. Episode #143: AI Revolution" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required data-testid="input-episode-title" />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-mono text-xs uppercase tracking-wider">Show</Label>
+              <Select value={form.podcastId} onValueChange={(v) => setForm({ ...form, podcastId: v })} required>
+                <SelectTrigger data-testid="select-episode-podcast">
+                  <SelectValue placeholder="Select a podcast" />
+                </SelectTrigger>
+                <SelectContent>
+                  {podcasts?.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ep-duration" className="font-mono text-xs uppercase tracking-wider">Duration</Label>
+              <Input id="ep-duration" placeholder="e.g. 45:30" value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} data-testid="input-episode-duration" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="font-mono text-xs" data-testid="button-cancel-episode">Cancel</Button>
+              <Button type="submit" disabled={createEpisode.isPending || !form.podcastId} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-submit-episode">
+                {createEpisode.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Upload className="mr-2 h-3 w-3" />}
+                Queue Episode
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)]">
         <div className="col-span-12 lg:col-span-4 space-y-6">
