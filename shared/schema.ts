@@ -358,3 +358,5 @@ export type InsertDeal = z.infer<typeof insertDealSchema>;
 export type Deal = typeof deals.$inferSelect;
 export type InsertDealActivity = z.infer<typeof insertDealActivitySchema>;
 export type DealActivity = typeof dealActivities.$inferSelect;
+
+export * from "./models/chat";
