@@ -9,7 +9,8 @@ import {
   Settings, 
   Zap,
   Radio,
-  Users
+  Users,
+  Image as ImageIcon
 } from "lucide-react";
 
 const navigation = [
@@ -28,8 +29,10 @@ export function Sidebar() {
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-border text-sidebar-foreground font-sans fixed left-0 top-0 z-30">
       <div className="flex h-16 items-center border-b border-border px-6">
-        <Zap className="h-6 w-6 text-primary mr-2" />
-        <span className="text-xl font-bold font-display tracking-wider text-foreground">MEDIATECH</span>
+        <div className="border border-dashed border-muted-foreground/50 rounded-md p-1 flex items-center justify-center w-full h-10 hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group">
+          <ImageIcon className="h-4 w-4 text-muted-foreground mr-2 group-hover:text-gold" />
+          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground group-hover:text-gold">Your Logo Here</span>
+        </div>
       </div>
       
       <div className="flex-1 overflow-y-auto py-4">
