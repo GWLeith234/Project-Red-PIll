@@ -54,6 +54,8 @@ Preferred communication style: Simple, everyday language.
 
 ### API Endpoints
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/check-setup`, `POST /api/auth/setup`
+- `GET/PATCH /api/profile` (auth-gated: user's own profile with photo, bio, title, LinkedIn URL, dashboard widgets)
+- `POST /api/profile/analyze-linkedin` (auth-gated: scrapes LinkedIn profile OG tags to extract photo, name, title, bio)
 - `GET/POST /api/users`, `PATCH/DELETE /api/users/:id` (permission-gated: users.view, users.edit)
 - `GET/POST /api/podcasts`, `GET/PATCH/DELETE /api/podcasts/:id`
 - `GET/POST /api/episodes`, `GET/PATCH /api/episodes/:id`
@@ -73,7 +75,7 @@ Preferred communication style: Simple, everyday language.
 - **Connection**: `pg` (node-postgres) Pool
 
 ### Data Models
-- **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), createdAt, lastLoginAt
+- **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), profilePhoto, bio, title, linkedinUrl, dashboardWidgets (text array - toggleable dashboard sections), createdAt, lastLoginAt
 - **podcasts**: id, title, host, description, coverImage, subscribers, growthPercent, multiplicationFactor, status
 - **episodes**: id, podcastId, title, duration, publishedAt, processingStatus, processingProgress
 - **contentPieces**: id, episodeId, type, title, platform, status
