@@ -146,6 +146,27 @@ export const branding = pgTable("branding", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const platformSettings = pgTable("platform_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  timezone: text("timezone").default("America/New_York"),
+  dateFormat: text("date_format").default("MM/DD/YYYY"),
+  defaultLanguage: text("default_language").default("en"),
+  autoPublishContent: boolean("auto_publish_content").default(false),
+  contentTypes: text("content_types").array().default(sql`ARRAY['video_clip','article','social_post','newsletter','seo_asset']::text[]`),
+  defaultPlatforms: text("default_platforms").array().default(sql`ARRAY['TikTok','Reels','Shorts','Twitter','LinkedIn']::text[]`),
+  aiQuality: text("ai_quality").default("balanced"),
+  emailNotifications: boolean("email_notifications").default(true),
+  alertThreshold: text("alert_threshold").default("all"),
+  weeklyDigest: boolean("weekly_digest").default(true),
+  revenueAlerts: boolean("revenue_alerts").default(true),
+  processingAlerts: boolean("processing_alerts").default(true),
+  sessionTimeoutMinutes: integer("session_timeout_minutes").default(10080),
+  maxLoginAttempts: integer("max_login_attempts").default(5),
+  requireStrongPasswords: boolean("require_strong_passwords").default(true),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLoginAt: true });
 export const insertPodcastSchema = createInsertSchema(podcasts).omit({ id: true });
@@ -156,6 +177,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: tru
 export const insertMetricsSchema = createInsertSchema(metrics).omit({ id: true });
 export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true });
 export const insertBrandingSchema = createInsertSchema(branding).omit({ id: true, updatedAt: true });
+export const insertPlatformSettingsSchema = createInsertSchema(platformSettings).omit({ id: true, updatedAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -176,3 +198,5 @@ export type InsertAlert = z.infer<typeof insertAlertSchema>;
 export type Alert = typeof alerts.$inferSelect;
 export type InsertBranding = z.infer<typeof insertBrandingSchema>;
 export type Branding = typeof branding.$inferSelect;
+export type InsertPlatformSettings = z.infer<typeof insertPlatformSettingsSchema>;
+export type PlatformSettings = typeof platformSettings.$inferSelect;
