@@ -935,6 +935,53 @@ export async function registerRoutes(
     res.json(suggestions.slice(0, 10));
   });
 
+  // ── Public Subscribe (no auth - for visitor widgets on story/episode pages) ──
+  app.post("/api/public/subscribe", async (req, res) => {
+    const { email, firstName, lastName, podcastId, source } = req.body;
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      return res.status(400).json({ message: "Valid email is required" });
+    }
+    const existing = await storage.getSubscriberByEmail(email.trim().toLowerCase());
+    if (existing) {
+      if (podcastId) {
+        const links = await storage.getSubscriberPodcasts(existing.id);
+        if (!links.find(l => l.podcastId === podcastId)) {
+          await storage.addSubscriberToPodcast({ subscriberId: existing.id, podcastId });
+        }
+      }
+      return res.json({ message: "Subscribed successfully", alreadyExisted: true });
+    }
+    const sub = await storage.createSubscriber({
+      email: email.trim().toLowerCase(),
+      firstName: firstName?.trim() || null,
+      lastName: lastName?.trim() || null,
+      source: source || "website_widget",
+      status: "active",
+    });
+    if (podcastId) {
+      await storage.addSubscriberToPodcast({ subscriberId: sub.id, podcastId });
+    }
+    res.status(201).json({ message: "Subscribed successfully", alreadyExisted: false });
+  });
+
+  // ── Public Episode Detail (no auth - for public episode pages) ──
+  app.get("/api/public/episodes/:id", async (req, res) => {
+    const episode = await storage.getEpisode(req.params.id);
+    if (!episode) return res.status(404).json({ message: "Episode not found" });
+    const podcast = await storage.getPodcast(episode.podcastId);
+    const contentPieces = await storage.getContentPieces(episode.id);
+    res.json({ episode, podcast, contentPieces });
+  });
+
+  // ── Public Episodes by Podcast (no auth) ──
+  app.get("/api/public/podcasts/:podcastId/episodes", async (req, res) => {
+    const podcast = await storage.getPodcast(req.params.podcastId);
+    if (!podcast) return res.status(404).json({ message: "Podcast not found" });
+    const episodes = await storage.getEpisodes(req.params.podcastId);
+    const published = episodes.filter(e => e.processingStatus === "complete");
+    res.json({ podcast, episodes: published });
+  });
+
   // ── Commercial CRM: Companies ──
   app.get("/api/companies", requireAuth, requirePermission("sales.view"), async (_req, res) => {
     const data = await storage.getCompanies();

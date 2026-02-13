@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
 - **Customize** (`/customize`): Branding management for logo, favicon, banner, colors, company name
 - **Commercial CRM** (`/sales`): B2B sales CRM with Companies, Contacts, and Deals pipeline management for ad campaigns and sponsorships
 - **Subscriber CRM** (`/audience`): Subscriber audience management with smart cross-pollination suggestions
+- **Episode Page** (`/listen/:podcastId/episode/:episodeId`): Public episode detail page with audio player UI, related content, and subscriber capture widgets
 - **Analytics** (`/analytics`): Coming soon placeholder
 - **Settings** (`/settings`): Platform configuration with general, content pipeline, notifications, and security sections
 
@@ -61,6 +62,9 @@ Preferred communication style: Simple, everyday language.
 - `POST/DELETE /api/subscribers/:id/podcasts/:podcastId` (manage podcast subscriptions)
 - `POST /api/subscribers/analyze-social` (auth-gated: scrapes LinkedIn/X/Facebook profiles for photo, name, title)
 - `GET /api/subscribers/:id/suggestions` (smart cross-pollination: ranks unsubscribed podcasts by interest match)
+- `POST /api/public/subscribe` (no auth: visitor subscription from story/episode pages, deduplicates by email)
+- `GET /api/public/episodes/:id` (no auth: public episode detail with podcast and content pieces)
+- `GET /api/public/podcasts/:podcastId/episodes` (no auth: published episodes listing for a podcast)
 - `GET/POST /api/companies`, `GET/PATCH/DELETE /api/companies/:id` (permission-gated: sales.view, sales.edit)
 - `GET/POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id` (permission-gated: sales.view, sales.edit)
 - `GET/POST /api/deals`, `GET/PATCH/DELETE /api/deals/:id` (permission-gated: sales.view, sales.edit)

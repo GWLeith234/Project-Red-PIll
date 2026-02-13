@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, ChevronRight, Clock, ArrowLeft, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -394,9 +395,18 @@ export default function ArticlePage() {
                         {paragraph}
                       </p>
                       {i === 1 && paragraphs.length > 3 && (
-                        <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-1">
-                          <AdPlaceholder width={300} height={250} label="In-Article 1" />
-                        </div>
+                        <>
+                          <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-1">
+                            <AdPlaceholder width={300} height={250} label="In-Article 1" />
+                          </div>
+                          <div className="print:hidden">
+                            <InlineSubscribeWidget
+                              podcastId={podcast?.id}
+                              podcastTitle={podcast?.title}
+                              source="article_inline"
+                            />
+                          </div>
+                        </>
                       )}
                       {i === Math.floor(paragraphs.length * 0.7) && paragraphs.length > 5 && (
                         <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-2">
@@ -453,6 +463,13 @@ export default function ArticlePage() {
 
           <aside className="hidden lg:block w-[300px] shrink-0 print:hidden" data-testid="article-sidebar">
             <div className="sticky top-20 space-y-6">
+              <SidebarSubscribeWidget
+                podcastId={podcast?.id}
+                podcastTitle={podcast?.title}
+                podcastImage={podcast?.coverImage}
+                source="article_sidebar"
+              />
+
               <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
 
               <div className="border border-gray-100 bg-gray-50 p-4">
@@ -497,6 +514,12 @@ export default function ArticlePage() {
           </div>
         </div>
       </footer>
+
+      <StickyBottomSubscribeBar
+        podcastId={podcast?.id}
+        podcastTitle={podcast?.title}
+        source="article_sticky"
+      />
     </div>
   );
 }
