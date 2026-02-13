@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Mic, Users, Plus, MoreHorizontal, Settings, BarChart3, Globe, Loader2 } from "lucide-react";
+import { Mic, Users, Plus, MoreHorizontal, Settings, BarChart3, Globe, Loader2, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "wouter";
 import { usePodcasts, useCreatePodcast } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -159,6 +160,12 @@ export default function Network() {
               </CardContent>
 
               <CardFooter className="bg-card/30 p-4 flex gap-2 border-t border-border/50">
+                <Link href={`/news/${show.id}`} className="flex-1">
+                  <Button className="w-full bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 hover:text-blue-300 text-xs h-8" data-testid={`button-news-${show.id}`}>
+                    <Newspaper className="mr-2 h-3 w-3" />
+                    News Page
+                  </Button>
+                </Link>
                 <Button className="flex-1 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary-foreground text-xs h-8" data-testid={`button-manage-${show.id}`}>
                   <Settings className="mr-2 h-3 w-3" />
                   Manage

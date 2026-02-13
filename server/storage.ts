@@ -111,6 +111,13 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(contentPieces);
   }
+  async getArticlesForPodcast(podcastId: string) {
+    const eps = await db.select().from(episodes).where(eq(episodes.podcastId, podcastId));
+    if (eps.length === 0) return [];
+    const epIds = eps.map(e => e.id);
+    const all = await db.select().from(contentPieces).where(eq(contentPieces.type, "article")).orderBy(desc(contentPieces.publishedAt));
+    return all.filter(cp => epIds.includes(cp.episodeId));
+  }
   async createContentPiece(piece: InsertContentPiece) {
     const [created] = await db.insert(contentPieces).values(piece).returning();
     return created;

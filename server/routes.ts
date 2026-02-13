@@ -74,6 +74,13 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.get("/api/podcasts/:id/articles", async (req, res) => {
+    const podcast = await storage.getPodcast(req.params.id);
+    if (!podcast) return res.status(404).json({ message: "Podcast not found" });
+    const articles = await storage.getArticlesForPodcast(req.params.id);
+    res.json({ podcast, articles });
+  });
+
   app.post("/api/content-pieces", async (req, res) => {
     const parsed = insertContentPieceSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
@@ -227,11 +234,14 @@ export async function registerRoutes(
         { episodeId: ep1.id, type: "video_clip", title: "The Mainstream Media Dying", platform: "TikTok", status: "ready" },
         { episodeId: ep1.id, type: "video_clip", title: "Why X Won the Election", platform: "Reels", status: "ready" },
         { episodeId: ep1.id, type: "video_clip", title: "Crypto Regulation Debate", platform: "Shorts", status: "generating" },
-        { episodeId: ep1.id, type: "article", title: "5 Takeaways from Ep 142", platform: "News Page", status: "ready" },
-        { episodeId: ep1.id, type: "article", title: "Media Tech Revolution", platform: "News Page", status: "review" },
-        { episodeId: ep1.id, type: "article", title: "Breaking: Crypto Bill Update", platform: "News Page", status: "generating" },
-        { episodeId: ep1.id, type: "blog", title: "Deep Dive: Future of Media", platform: "Substack", status: "ready" },
-        { episodeId: ep1.id, type: "blog", title: "Opinion: Why Legacy Media Lost", platform: "Website", status: "review" },
+        { episodeId: ep1.id, type: "article", title: "5 Key Takeaways from Episode 142: The Future of Media", description: "From the decline of legacy networks to the rise of creator-owned platforms, this episode unpacked the forces reshaping how Americans consume news and entertainment. Here are the five most important insights.", platform: "News Page", status: "ready" },
+        { episodeId: ep1.id, type: "article", title: "Media Tech Revolution: Why Independent Creators Are Winning", description: "The advertising dollars are shifting. For the first time, independent media creators are capturing more programmatic ad revenue than traditional outlets in key demographics. We break down what this means for the industry.", platform: "News Page", status: "ready" },
+        { episodeId: ep1.id, type: "article", title: "Breaking: New Crypto Regulation Bill Could Change Digital Advertising", description: "A bipartisan bill introduced this week would create new rules for cryptocurrency payments in digital advertising. Industry experts weigh in on what this means for podcast monetization and programmatic ad buying.", platform: "News Page", status: "ready" },
+        { episodeId: ep1.id, type: "article", title: "Exclusive Interview: Senator Paul on Free Speech and Tech Policy", description: "In a wide-ranging conversation, Senator Paul discussed the intersection of technology regulation, free speech protections, and the growing influence of independent media in shaping public discourse.", platform: "News Page", status: "ready" },
+        { episodeId: ep1.id, type: "article", title: "The AI Content Multiplication Model: How One Episode Becomes 50 Assets", description: "Our proprietary AI pipeline transforms a single podcast episode into dozens of content pieces across platforms. We explain the technology behind the process and share early performance metrics.", platform: "News Page", status: "ready" },
+        { episodeId: ep1.id, type: "article", title: "Weekly Roundup: Top Stories in Independent Media This Week", description: "From record-breaking podcast downloads to new advertising partnerships, here is everything that happened this week across the network. Plus, a preview of upcoming episodes and guest announcements.", platform: "News Page", status: "ready" },
+        { episodeId: ep1.id, type: "blog", title: "Deep Dive: Future of Media", description: "An in-depth analysis of where media is heading over the next decade.", platform: "Substack", status: "ready" },
+        { episodeId: ep1.id, type: "blog", title: "Opinion: Why Legacy Media Lost", description: "A look at the structural failures that led to the decline of traditional media organizations.", platform: "Website", status: "review" },
         { episodeId: ep1.id, type: "social", title: "Key Quotes Thread", platform: "Twitter/X", status: "ready" },
         { episodeId: ep1.id, type: "social", title: "Behind the Scenes", platform: "Twitter/X", status: "ready" },
         { episodeId: ep1.id, type: "social", title: "Poll Question", platform: "Twitter/X", status: "scheduled" },
