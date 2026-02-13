@@ -110,6 +110,7 @@ export const contentPieces = pgTable("content_pieces", {
   summary: text("summary"),
   readingTime: integer("reading_time"),
   aiGenerated: boolean("ai_generated").default(false),
+  authorId: varchar("author_id"),
   moderatedBy: varchar("moderated_by"),
   moderatedAt: timestamp("moderated_at"),
   publishedAt: timestamp("published_at").defaultNow(),
