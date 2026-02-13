@@ -22,7 +22,7 @@ const navigation = [
   { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
   { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
   { name: "Podcast Network", href: "/network", icon: Radio, permission: "network.view" },
-  { name: "Audience Data", href: "/audience", icon: Users, permission: "audience.view" },
+  { name: "Subscriber CRM", href: "/audience", icon: Users, permission: "audience.view" },
   { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },
   { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
   { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },

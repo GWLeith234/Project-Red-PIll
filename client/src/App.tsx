@@ -7,6 +7,7 @@ import NewsPage from "@/pages/NewsPage";
 import ArticlePage from "@/pages/ArticlePage";
 import Login from "@/pages/Login";
 import UsersAdmin from "@/pages/UsersAdmin";
+import SubscriberCRM from "@/pages/SubscriberCRM";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -70,7 +71,7 @@ function ProtectedRoutes() {
         <Route path="/content">{() => <PermissionGate permission="content.view"><ContentFactory /></PermissionGate>}</Route>
         <Route path="/monetization">{() => <PermissionGate permission="monetization.view"><Monetization /></PermissionGate>}</Route>
         <Route path="/network">{() => <PermissionGate permission="network.view"><Network /></PermissionGate>}</Route>
-        <Route path="/audience">{() => <PermissionGate permission="audience.view"><div className="text-2xl font-display">Audience Intelligence (Coming Soon)</div></PermissionGate>}</Route>
+        <Route path="/audience">{() => <PermissionGate permission="audience.view"><SubscriberCRM /></PermissionGate>}</Route>
         <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><div className="text-2xl font-display">Analytics (Coming Soon)</div></PermissionGate>}</Route>
         <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
         <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>

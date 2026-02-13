@@ -180,7 +180,43 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const subscribers = pgTable("subscribers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name"),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  country: text("country"),
+  profilePhoto: text("profile_photo"),
+  linkedinUrl: text("linkedin_url"),
+  twitterUrl: text("twitter_url"),
+  facebookUrl: text("facebook_url"),
+  bio: text("bio"),
+  title: text("title"),
+  company: text("company"),
+  interests: text("interests").array().default(sql`ARRAY[]::text[]`),
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`),
+  notes: text("notes"),
+  source: text("source").default("manual"),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const subscriberPodcasts = pgTable("subscriber_podcasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberId: varchar("subscriber_id").notNull(),
+  podcastId: varchar("podcast_id").notNull(),
+  subscribedAt: timestamp("subscribed_at").defaultNow(),
+});
+
 // Insert schemas
+export const insertSubscriberSchema = createInsertSchema(subscribers).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSubscriberPodcastSchema = createInsertSchema(subscriberPodcasts).omit({ id: true, subscribedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLoginAt: true });
 export const insertPodcastSchema = createInsertSchema(podcasts).omit({ id: true });
 export const insertEpisodeSchema = createInsertSchema(episodes).omit({ id: true });
@@ -216,3 +252,7 @@ export type InsertPlatformSettings = z.infer<typeof insertPlatformSettingsSchema
 export type PlatformSettings = typeof platformSettings.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Comment = typeof comments.$inferSelect;
+export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
+export type Subscriber = typeof subscribers.$inferSelect;
+export type InsertSubscriberPodcast = z.infer<typeof insertSubscriberPodcastSchema>;
+export type SubscriberPodcast = typeof subscriberPodcasts.$inferSelect;

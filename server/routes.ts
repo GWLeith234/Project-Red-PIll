@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
-  insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema, DEFAULT_ROLE_PERMISSIONS,
+  insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
+  insertSubscriberSchema, insertSubscriberPodcastSchema, DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
 import { z } from "zod";
@@ -697,6 +698,239 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.upsertSettings(parsed.data);
     res.json(data);
+  });
+
+  // ── Subscribers CRM ──
+  app.get("/api/subscribers", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const podcastId = req.query.podcastId as string | undefined;
+    if (podcastId) {
+      const subs = await storage.getSubscribersByPodcast(podcastId);
+      return res.json(subs);
+    }
+    const subs = await storage.getSubscribers();
+    res.json(subs);
+  });
+
+  app.get("/api/subscribers/:id", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const sub = await storage.getSubscriber(req.params.id);
+    if (!sub) return res.status(404).json({ message: "Subscriber not found" });
+    const podcastLinks = await storage.getSubscriberPodcasts(sub.id);
+    const allPodcasts = await storage.getPodcasts();
+    const subscribedPodcasts = allPodcasts.filter(p => podcastLinks.some(l => l.podcastId === p.id));
+    const otherPodcasts = allPodcasts.filter(p => !podcastLinks.some(l => l.podcastId === p.id));
+    res.json({ ...sub, subscribedPodcasts, suggestedPodcasts: otherPodcasts });
+  });
+
+  app.post("/api/subscribers", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const { podcastIds, ...subscriberData } = req.body;
+    const parsed = insertSubscriberSchema.safeParse(subscriberData);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const sub = await storage.createSubscriber(parsed.data);
+    if (podcastIds && Array.isArray(podcastIds)) {
+      for (const pid of podcastIds) {
+        await storage.addSubscriberToPodcast({ subscriberId: sub.id, podcastId: pid });
+      }
+    }
+    res.status(201).json(sub);
+  });
+
+  app.patch("/api/subscribers/:id", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const { podcastIds, ...updateData } = req.body;
+    const parsed = insertSubscriberSchema.partial().safeParse(updateData);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const updated = await storage.updateSubscriber(req.params.id, parsed.data);
+    if (!updated) return res.status(404).json({ message: "Subscriber not found" });
+    if (podcastIds && Array.isArray(podcastIds)) {
+      const existing = await storage.getSubscriberPodcasts(req.params.id);
+      const existingIds = existing.map(e => e.podcastId);
+      for (const pid of podcastIds) {
+        if (!existingIds.includes(pid)) {
+          await storage.addSubscriberToPodcast({ subscriberId: req.params.id, podcastId: pid });
+        }
+      }
+      for (const eid of existingIds) {
+        if (!podcastIds.includes(eid)) {
+          await storage.removeSubscriberFromPodcast(req.params.id, eid);
+        }
+      }
+    }
+    res.json(updated);
+  });
+
+  app.delete("/api/subscribers/:id", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    await storage.deleteSubscriber(req.params.id);
+    res.status(204).send();
+  });
+
+  app.post("/api/subscribers/:id/podcasts", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const { podcastId } = req.body;
+    if (!podcastId) return res.status(400).json({ message: "podcastId required" });
+    const link = await storage.addSubscriberToPodcast({ subscriberId: req.params.id, podcastId });
+    res.status(201).json(link);
+  });
+
+  app.delete("/api/subscribers/:id/podcasts/:podcastId", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    await storage.removeSubscriberFromPodcast(req.params.id, req.params.podcastId);
+    res.status(204).send();
+  });
+
+  // ── Subscriber Social Profile Analyzer ──
+  app.post("/api/subscribers/analyze-social", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ message: "Social profile URL is required" });
+    }
+
+    let targetUrl = url.trim();
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = "https://" + targetUrl;
+    }
+
+    try {
+      const parsed = new URL(targetUrl);
+      const hostname = parsed.hostname.toLowerCase();
+      const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.google.internal", "169.254.169.254"];
+      if (blockedHosts.includes(hostname) || hostname.endsWith(".local") || hostname.endsWith(".internal") || /^10\./.test(hostname) || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || /^192\.168\./.test(hostname)) {
+        return res.status(400).json({ message: "Internal/private URLs are not allowed" });
+      }
+
+      let platform = "unknown";
+      if (hostname.includes("linkedin.com")) platform = "linkedin";
+      else if (hostname.includes("twitter.com") || hostname.includes("x.com")) platform = "twitter";
+      else if (hostname.includes("facebook.com") || hostname.includes("fb.com")) platform = "facebook";
+
+      if (platform === "unknown") {
+        return res.status(400).json({ message: "Please provide a LinkedIn, X/Twitter, or Facebook profile URL" });
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; MediaTech/1.0; +https://mediatech.com)",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return res.status(400).json({ message: `Could not reach profile (HTTP ${response.status})` });
+      }
+
+      const html = await response.text();
+
+      const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+      const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+      const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i);
+
+      const profilePhoto = ogImageMatch?.[1] || null;
+
+      const rawTitle = (ogTitleMatch?.[1] || "")
+        .replace(/\s*[-–|]\s*(LinkedIn|X|Twitter|Facebook).*$/i, "")
+        .replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+
+      let name = rawTitle;
+      let jobTitle = "";
+      const titleParts = rawTitle.split(" - ");
+      if (titleParts.length >= 2) {
+        name = titleParts[0].trim();
+        jobTitle = titleParts[1].trim();
+      }
+      const nameParts = name.split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      const bio = (ogDescMatch?.[1] || "")
+        .replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+        .replace(/View [^']*profile.*$/i, "").replace(/(LinkedIn|X|Twitter|Facebook).*$/i, "")
+        .trim().slice(0, 500);
+
+      const result: any = { profilePhoto, firstName, lastName, title: jobTitle, bio, platform };
+      if (platform === "linkedin") result.linkedinUrl = targetUrl;
+      else if (platform === "twitter") result.twitterUrl = targetUrl;
+      else if (platform === "facebook") result.facebookUrl = targetUrl;
+
+      res.json(result);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return res.status(408).json({ message: "Request timed out" });
+      }
+      return res.status(500).json({ message: "Failed to analyze social profile" });
+    }
+  });
+
+  // ── Smart Suggestions (Cross-Pollination) ──
+  app.get("/api/subscribers/:id/suggestions", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const sub = await storage.getSubscriber(req.params.id);
+    if (!sub) return res.status(404).json({ message: "Subscriber not found" });
+
+    const podcastLinks = await storage.getSubscriberPodcasts(sub.id);
+    const subscribedPodcastIds = podcastLinks.map(l => l.podcastId);
+    const allPodcasts = await storage.getPodcasts();
+    const subscribedPodcasts = allPodcasts.filter(p => subscribedPodcastIds.includes(p.id));
+    const otherPodcasts = allPodcasts.filter(p => !subscribedPodcastIds.includes(p.id) && p.status === "active");
+
+    const suggestions = otherPodcasts.map(podcast => {
+      let score = 50;
+      let reasons: string[] = [];
+
+      const subInterests = (sub.interests || []).map(i => i.toLowerCase());
+      const subTags = (sub.tags || []).map(t => t.toLowerCase());
+
+      const podcastKeywords = [
+        podcast.title.toLowerCase(),
+        (podcast.host || "").toLowerCase(),
+        (podcast.description || "").toLowerCase(),
+      ].join(" ");
+
+      for (const interest of subInterests) {
+        if (podcastKeywords.includes(interest)) {
+          score += 15;
+          reasons.push(`Matches interest: ${interest}`);
+        }
+      }
+      for (const tag of subTags) {
+        if (podcastKeywords.includes(tag)) {
+          score += 10;
+          reasons.push(`Related topic: ${tag}`);
+        }
+      }
+
+      if (podcast.subscribers && podcast.subscribers > 100000) {
+        score += 10;
+        reasons.push("Popular show (100K+ subscribers)");
+      }
+      if (podcast.growthPercent && podcast.growthPercent > 5) {
+        score += 10;
+        reasons.push(`Trending (${podcast.growthPercent}% growth)`);
+      }
+
+      for (const sp of subscribedPodcasts) {
+        const existingDesc = (sp.description || "").toLowerCase();
+        const candidateDesc = (podcast.description || "").toLowerCase();
+        const words = existingDesc.split(/\s+/).filter(w => w.length > 4);
+        const matches = words.filter(w => candidateDesc.includes(w)).length;
+        if (matches > 3) {
+          score += 15;
+          reasons.push(`Similar to "${sp.title}"`);
+        }
+      }
+
+      if (reasons.length === 0) {
+        reasons.push("Expand their network with new perspectives");
+      }
+
+      return { podcast, score: Math.min(score, 100), reasons };
+    });
+
+    suggestions.sort((a, b) => b.score - a.score);
+    res.json(suggestions.slice(0, 10));
   });
 
   // ── Object Storage (file uploads) ──

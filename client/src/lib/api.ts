@@ -115,6 +115,46 @@ export function useAnalyzeLinkedIn() {
   });
 }
 
+export function useSubscribers(podcastId?: string) {
+  const url = podcastId ? `/api/subscribers?podcastId=${podcastId}` : "/api/subscribers";
+  return useQuery({ queryKey: ["/api/subscribers", podcastId], queryFn: () => apiRequest(url) });
+}
+
+export function useSubscriber(id: string) {
+  return useQuery({ queryKey: ["/api/subscribers", id], queryFn: () => apiRequest(`/api/subscribers/${id}`), enabled: !!id });
+}
+
+export function useCreateSubscriber() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/subscribers", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] }),
+  });
+}
+
+export function useUpdateSubscriber() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/subscribers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] }),
+  });
+}
+
+export function useDeleteSubscriber() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/subscribers/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/subscribers"] }),
+  });
+}
+
+export function useSubscriberSuggestions(id: string) {
+  return useQuery({ queryKey: ["/api/subscribers", id, "suggestions"], queryFn: () => apiRequest(`/api/subscribers/${id}/suggestions`), enabled: !!id });
+}
+
+export function useAnalyzeSocial() {
+  return useMutation({
+    mutationFn: (data: { url: string }) => apiRequest("/api/subscribers/analyze-social", { method: "POST", body: JSON.stringify(data) }),
+  });
+}
+
 export function useSettings() {
   return useQuery({ queryKey: ["/api/settings"], queryFn: () => apiRequest("/api/settings") });
 }

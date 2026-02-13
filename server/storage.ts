@@ -1,8 +1,10 @@
 import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
+  subscribers, subscriberPodcasts,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -14,6 +16,8 @@ import {
   type Branding, type InsertBranding,
   type PlatformSettings, type InsertPlatformSettings,
   type Comment, type InsertComment,
+  type Subscriber, type InsertSubscriber,
+  type SubscriberPodcast, type InsertSubscriberPodcast,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -73,6 +77,16 @@ export interface IStorage {
   getCommentsByArticle(articleId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
   deleteComment(id: string): Promise<void>;
+
+  getSubscribers(): Promise<Subscriber[]>;
+  getSubscriber(id: string): Promise<Subscriber | undefined>;
+  createSubscriber(subscriber: InsertSubscriber): Promise<Subscriber>;
+  updateSubscriber(id: string, data: Partial<InsertSubscriber>): Promise<Subscriber | undefined>;
+  deleteSubscriber(id: string): Promise<void>;
+  getSubscriberPodcasts(subscriberId: string): Promise<SubscriberPodcast[]>;
+  getSubscribersByPodcast(podcastId: string): Promise<Subscriber[]>;
+  addSubscriberToPodcast(data: InsertSubscriberPodcast): Promise<SubscriberPodcast>;
+  removeSubscriberFromPodcast(subscriberId: string, podcastId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -267,6 +281,48 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteComment(id: string) {
     await db.delete(comments).where(eq(comments.id, id));
+  }
+
+  async getSubscribers() {
+    return db.select().from(subscribers).orderBy(desc(subscribers.createdAt));
+  }
+  async getSubscriber(id: string) {
+    const [s] = await db.select().from(subscribers).where(eq(subscribers.id, id));
+    return s;
+  }
+  async createSubscriber(subscriber: InsertSubscriber) {
+    const [created] = await db.insert(subscribers).values(subscriber).returning();
+    return created;
+  }
+  async updateSubscriber(id: string, data: Partial<InsertSubscriber>) {
+    const [updated] = await db.update(subscribers).set({ ...data, updatedAt: new Date() }).where(eq(subscribers.id, id)).returning();
+    return updated;
+  }
+  async deleteSubscriber(id: string) {
+    await db.delete(subscriberPodcasts).where(eq(subscriberPodcasts.subscriberId, id));
+    await db.delete(subscribers).where(eq(subscribers.id, id));
+  }
+  async getSubscriberPodcasts(subscriberId: string) {
+    return db.select().from(subscriberPodcasts).where(eq(subscriberPodcasts.subscriberId, subscriberId));
+  }
+  async getSubscribersByPodcast(podcastId: string) {
+    const links = await db.select().from(subscriberPodcasts).where(eq(subscriberPodcasts.podcastId, podcastId));
+    if (links.length === 0) return [];
+    const subIds = links.map(l => l.subscriberId);
+    const all = await db.select().from(subscribers).orderBy(desc(subscribers.createdAt));
+    return all.filter(s => subIds.includes(s.id));
+  }
+  async addSubscriberToPodcast(data: InsertSubscriberPodcast) {
+    const existing = await db.select().from(subscriberPodcasts)
+      .where(and(eq(subscriberPodcasts.subscriberId, data.subscriberId), eq(subscriberPodcasts.podcastId, data.podcastId)));
+    if (existing.length > 0) return existing[0];
+    const [created] = await db.insert(subscriberPodcasts).values(data).returning();
+    return created;
+  }
+  async removeSubscriberFromPodcast(subscriberId: string, podcastId: string) {
+    await db.delete(subscriberPodcasts).where(
+      and(eq(subscriberPodcasts.subscriberId, subscriberId), eq(subscriberPodcasts.podcastId, podcastId))
+    );
   }
 }
 

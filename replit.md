@@ -56,6 +56,10 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/check-setup`, `POST /api/auth/setup`
 - `GET/PATCH /api/profile` (auth-gated: user's own profile with photo, bio, title, LinkedIn URL, dashboard widgets)
 - `POST /api/profile/analyze-linkedin` (auth-gated: scrapes LinkedIn profile OG tags to extract photo, name, title, bio)
+- `GET/POST /api/subscribers`, `GET/PATCH/DELETE /api/subscribers/:id` (permission-gated: audience.view)
+- `POST/DELETE /api/subscribers/:id/podcasts/:podcastId` (manage podcast subscriptions)
+- `POST /api/subscribers/analyze-social` (auth-gated: scrapes LinkedIn/X/Facebook profiles for photo, name, title)
+- `GET /api/subscribers/:id/suggestions` (smart cross-pollination: ranks unsubscribed podcasts by interest match)
 - `GET/POST /api/users`, `PATCH/DELETE /api/users/:id` (permission-gated: users.view, users.edit)
 - `GET/POST /api/podcasts`, `GET/PATCH/DELETE /api/podcasts/:id`
 - `GET/POST /api/episodes`, `GET/PATCH /api/episodes/:id`
@@ -76,6 +80,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Models
 - **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), profilePhoto, bio, title, linkedinUrl, dashboardWidgets (text array - toggleable dashboard sections), createdAt, lastLoginAt
+- **subscribers**: id, firstName, lastName, email, phone, address, city, state, zip, country, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, title, company, interests (text array), tags (text array), notes, source, status, createdAt, updatedAt
+- **subscriberPodcasts**: id, subscriberId, podcastId, subscribedAt (join table for subscriber-podcast relationships)
 - **podcasts**: id, title, host, description, coverImage, subscribers, growthPercent, multiplicationFactor, status
 - **episodes**: id, podcastId, title, duration, publishedAt, processingStatus, processingProgress
 - **contentPieces**: id, episodeId, type, title, platform, status
