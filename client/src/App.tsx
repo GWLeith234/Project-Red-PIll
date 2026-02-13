@@ -4,6 +4,7 @@ import ContentFactory from "@/pages/ContentFactory";
 import Monetization from "@/pages/Monetization";
 import Network from "@/pages/Network";
 import NewsPage from "@/pages/NewsPage";
+import ArticlePage from "@/pages/ArticlePage";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -28,6 +29,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Switch>
+        <Route path="/news/:podcastId/article/:articleId" component={ArticlePage} />
         <Route path="/news/:id" component={NewsPage} />
         <Route>
           <AdminLayout>

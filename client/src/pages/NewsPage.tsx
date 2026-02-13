@@ -103,39 +103,44 @@ export default function NewsPage() {
         ) : (
           <div className="divide-y divide-gray-100" data-testid="articles-list">
             {publishedArticles.map((article: any, index: number) => (
-              <article
+              <Link
                 key={article.id}
-                className="group py-6 first:pt-0 cursor-pointer"
-                data-testid={`article-${article.id}`}
+                href={`/news/${params.id}/article/${article.id}`}
+                className="block"
               >
-                <div className="flex gap-5">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-blue-700 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
-                      {article.title}
-                    </h3>
-                    {article.description && (
-                      <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-3">
-                        {article.description}
-                      </p>
+                <article
+                  className="group py-6 first:pt-0 cursor-pointer"
+                  data-testid={`article-${article.id}`}
+                >
+                  <div className="flex gap-5">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-blue-700 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
+                        {article.title}
+                      </h3>
+                      {article.description && (
+                        <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-3">
+                          {article.description}
+                        </p>
+                      )}
+                      <div className="flex items-center text-xs text-gray-400">
+                        <Clock className="h-3 w-3 mr-1" />
+                        <time>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</time>
+                        <span className="mx-2">·</span>
+                        <span>Read more &gt;</span>
+                      </div>
+                    </div>
+                    {article.coverImage && (
+                      <div className="flex-shrink-0">
+                        <img
+                          src={article.coverImage}
+                          alt=""
+                          className="w-[120px] h-[80px] object-cover rounded-sm bg-gray-100"
+                        />
+                      </div>
                     )}
-                    <div className="flex items-center text-xs text-gray-400">
-                      <Clock className="h-3 w-3 mr-1" />
-                      <time>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</time>
-                      <span className="mx-2">·</span>
-                      <span>Read more &gt;</span>
-                    </div>
                   </div>
-                  {article.coverImage && (
-                    <div className="flex-shrink-0">
-                      <img
-                        src={article.coverImage}
-                        alt=""
-                        className="w-[120px] h-[80px] object-cover rounded-sm bg-gray-100"
-                      />
-                    </div>
-                  )}
-                </div>
-              </article>
+                </article>
+              </Link>
             ))}
           </div>
         )}

@@ -33,6 +33,7 @@ export interface IStorage {
   updateEpisode(id: string, data: Partial<InsertEpisode>): Promise<Episode | undefined>;
 
   getContentPieces(episodeId?: string): Promise<ContentPiece[]>;
+  getContentPiece(id: string): Promise<ContentPiece | undefined>;
   createContentPiece(piece: InsertContentPiece): Promise<ContentPiece>;
   updateContentPiece(id: string, data: Partial<InsertContentPiece>): Promise<ContentPiece | undefined>;
 
@@ -110,6 +111,10 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(contentPieces).where(eq(contentPieces.episodeId, episodeId));
     }
     return db.select().from(contentPieces);
+  }
+  async getContentPiece(id: string) {
+    const [cp] = await db.select().from(contentPieces).where(eq(contentPieces.id, id));
+    return cp;
   }
   async getArticlesForPodcast(podcastId: string) {
     const eps = await db.select().from(episodes).where(eq(episodes.podcastId, podcastId));
