@@ -95,6 +95,26 @@ export function useMarkAlertRead() {
   });
 }
 
+export function useProfile() {
+  return useQuery({ queryKey: ["/api/profile"], queryFn: () => apiRequest("/api/profile") });
+}
+
+export function useUpdateProfile() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/profile", { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+  });
+}
+
+export function useAnalyzeLinkedIn() {
+  return useMutation({
+    mutationFn: (data: { url: string }) => apiRequest("/api/profile/analyze-linkedin", { method: "POST", body: JSON.stringify(data) }),
+  });
+}
+
 export function useSettings() {
   return useQuery({ queryKey: ["/api/settings"], queryFn: () => apiRequest("/api/settings") });
 }

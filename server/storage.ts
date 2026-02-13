@@ -68,6 +68,8 @@ export interface IStorage {
   getSettings(): Promise<PlatformSettings | undefined>;
   upsertSettings(data: Partial<InsertPlatformSettings>): Promise<PlatformSettings>;
 
+  updateUserProfile(id: string, data: { profilePhoto?: string; bio?: string; title?: string; linkedinUrl?: string; dashboardWidgets?: string[]; displayName?: string }): Promise<User | undefined>;
+
   getCommentsByArticle(articleId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
   deleteComment(id: string): Promise<void>;
@@ -251,6 +253,11 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db.insert(platformSettings).values(data as InsertPlatformSettings).returning();
     return created;
   }
+  async updateUserProfile(id: string, data: { profilePhoto?: string; bio?: string; title?: string; linkedinUrl?: string; dashboardWidgets?: string[] }) {
+    const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
   async getCommentsByArticle(articleId: string) {
     return db.select().from(comments).where(eq(comments.articleId, articleId)).orderBy(desc(comments.createdAt));
   }

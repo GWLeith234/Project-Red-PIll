@@ -343,6 +343,121 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // ── User Profile ──
+  app.get("/api/profile", requireAuth, async (req: any, res) => {
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(sanitizeUser(user));
+  });
+
+  app.patch("/api/profile", requireAuth, async (req: any, res) => {
+    const { profilePhoto, bio, title, linkedinUrl, dashboardWidgets, displayName } = req.body;
+    const data: any = {};
+    if (profilePhoto !== undefined) data.profilePhoto = profilePhoto;
+    if (bio !== undefined) data.bio = bio;
+    if (title !== undefined) data.title = title;
+    if (linkedinUrl !== undefined) data.linkedinUrl = linkedinUrl;
+    if (dashboardWidgets !== undefined) data.dashboardWidgets = dashboardWidgets;
+    if (displayName !== undefined) data.displayName = displayName;
+    const updated = await storage.updateUserProfile(req.session.userId, data);
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    res.json(sanitizeUser(updated));
+  });
+
+  // ── LinkedIn Profile Analyzer ──
+  app.post("/api/profile/analyze-linkedin", requireAuth, async (req, res) => {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ message: "LinkedIn profile URL is required" });
+    }
+
+    let targetUrl = url.trim();
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = "https://" + targetUrl;
+    }
+
+    try {
+      const parsed = new URL(targetUrl);
+      if (!parsed.hostname.includes("linkedin.com")) {
+        return res.status(400).json({ message: "Please provide a valid LinkedIn URL" });
+      }
+    } catch {
+      return res.status(400).json({ message: "Invalid URL format" });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; MediaTech/1.0; +https://mediatech.com)",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return res.status(400).json({ message: `Could not reach LinkedIn profile (HTTP ${response.status})` });
+      }
+
+      const html = await response.text();
+
+      const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+      const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+      const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i);
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+
+      const profilePhoto = ogImageMatch?.[1] || null;
+
+      const rawTitle = ogTitleMatch?.[1] || titleMatch?.[1] || "";
+      const cleanTitle = rawTitle
+        .replace(/\s*[-–|]\s*LinkedIn.*$/i, "")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .trim();
+
+      let jobTitle = "";
+      let displayName = cleanTitle;
+      const titleParts = cleanTitle.split(" - ");
+      if (titleParts.length >= 2) {
+        displayName = titleParts[0].trim();
+        jobTitle = titleParts[1].trim();
+      }
+
+      const rawDesc = ogDescMatch?.[1] || "";
+      const bio = rawDesc
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/View [^']*'s professional profile.*$/i, "")
+        .replace(/LinkedIn.*$/i, "")
+        .trim()
+        .slice(0, 500);
+
+      res.json({
+        profilePhoto,
+        displayName,
+        title: jobTitle,
+        bio: bio || `${displayName} is a professional on LinkedIn.`,
+        linkedinUrl: targetUrl,
+      });
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return res.status(408).json({ message: "Request timed out" });
+      }
+      return res.status(500).json({ message: "Failed to analyze LinkedIn profile" });
+    }
+  });
+
   // ── Brand Analyzer ──
   app.post("/api/branding/analyze-website", requireAuth, requirePermission("customize.edit"), async (req, res) => {
     const { url } = req.body;
