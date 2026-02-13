@@ -14,6 +14,7 @@ import {
   useContacts, useCreateContact, useUpdateContact, useDeleteContact,
   useDeals, useDeal, useCreateDeal, useUpdateDeal, useDeleteDeal,
   useDealActivities, useCreateDealActivity, usePodcasts, useAnalyzeSocial,
+  useAnalyzeWebsite,
 } from "@/lib/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -26,7 +27,7 @@ import {
   Loader2, Zap, ChevronRight, Users, ArrowLeft, Building2,
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles,
   Plus, DollarSign, Calendar, Upload, Briefcase, TrendingUp,
-  Target, X, CheckCircle, XCircle, AlertCircle,
+  Target, X, CheckCircle, XCircle, AlertCircle, Clock,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -82,13 +83,60 @@ function CompanyForm({ onSubmit, initialData, onCancel }: {
     state: initialData?.state || "",
     zip: initialData?.zip || "",
     country: initialData?.country || "",
+    logo: initialData?.logo || "",
     description: initialData?.description || "",
+    slogan: initialData?.slogan || "",
+    timezone: initialData?.timezone || "",
+    brandColors: initialData?.brandColors || [],
     annualRevenue: initialData?.annualRevenue?.toString() || "",
     employeeCount: initialData?.employeeCount?.toString() || "",
     companyType: initialData?.companyType || "advertiser",
     notes: initialData?.notes || "",
   });
   const { toast } = useToast();
+  const analyzeWebsite = useAnalyzeWebsite();
+  const [populatedFields, setPopulatedFields] = useState<string[]>([]);
+
+  const handleSmartPopulate = () => {
+    if (!form.website.trim()) {
+      toast({ title: "Website Required", description: "Enter a website URL first, then click Smart Populate.", variant: "destructive" });
+      return;
+    }
+    setPopulatedFields([]);
+    analyzeWebsite.mutate({ url: form.website.trim() }, {
+      onSuccess: (data: any) => {
+        const filled: string[] = [];
+        setForm(f => {
+          const updated = { ...f };
+          if (data.name && !f.name) { updated.name = data.name; filled.push("name"); }
+          if (data.industry && !f.industry) { updated.industry = data.industry; filled.push("industry"); }
+          if (data.phone && !f.phone) { updated.phone = data.phone; filled.push("phone"); }
+          if (data.email && !f.email) { updated.email = data.email; filled.push("email"); }
+          if (data.address && !f.address) { updated.address = data.address; filled.push("address"); }
+          if (data.city && !f.city) { updated.city = data.city; filled.push("city"); }
+          if (data.state && !f.state) { updated.state = data.state; filled.push("state"); }
+          if (data.zip && !f.zip) { updated.zip = data.zip; filled.push("zip"); }
+          if (data.country && !f.country) { updated.country = data.country; filled.push("country"); }
+          if (data.logo) { updated.logo = data.logo; filled.push("logo"); }
+          if (data.description && !f.description) { updated.description = data.description; filled.push("description"); }
+          if (data.slogan) { updated.slogan = data.slogan; filled.push("slogan"); }
+          if (data.timezone) { updated.timezone = data.timezone; filled.push("timezone"); }
+          if (data.brandColors && data.brandColors.length > 0) { updated.brandColors = data.brandColors; filled.push("brand colors"); }
+          if (data.website) { updated.website = data.website; }
+          return updated;
+        });
+        setPopulatedFields(filled);
+        if (filled.length > 0) {
+          toast({ title: "Smart Populate Complete", description: `Found ${filled.length} field${filled.length > 1 ? "s" : ""}: ${filled.join(", ")}` });
+        } else {
+          toast({ title: "No New Data Found", description: "The website didn't return additional data, or all fields are already filled." });
+        }
+      },
+      onError: (err: any) => {
+        toast({ title: "Could not analyze website", description: err?.message || "Check the URL and try again.", variant: "destructive" });
+      },
+    });
+  };
 
   const handleSubmit = () => {
     if (!form.name.trim()) {
@@ -99,12 +147,55 @@ function CompanyForm({ onSubmit, initialData, onCancel }: {
       ...form,
       annualRevenue: form.annualRevenue ? parseFloat(form.annualRevenue) : null,
       employeeCount: form.employeeCount ? parseInt(form.employeeCount) : null,
+      brandColors: form.brandColors.length > 0 ? form.brandColors : null,
     });
   };
 
   return (
     <div className="space-y-6">
       <h3 className="font-display text-lg font-bold">{initialData ? "Edit Company" : "Add Company"}</h3>
+
+      <div className="border border-dashed border-primary/30 bg-primary/5 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Zap className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold mb-1">Smart Populate from Website</p>
+            <p className="text-xs text-muted-foreground mb-3">Enter a website URL below and click the button to automatically fill in company details like name, address, phone, logo, brand colors, timezone, and more.</p>
+            <div className="flex gap-2">
+              <Input
+                value={form.website}
+                onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
+                placeholder="https://example.com"
+                className="flex-1"
+                data-testid="input-company-website"
+              />
+              <Button
+                onClick={handleSmartPopulate}
+                disabled={analyzeWebsite.isPending || !form.website.trim()}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 whitespace-nowrap"
+                data-testid="button-smart-populate"
+              >
+                {analyzeWebsite.isPending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Scanning...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" /> Smart Populate</>
+                )}
+              </Button>
+            </div>
+            {populatedFields.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5" data-testid="smart-populate-results">
+                {populatedFields.map(f => (
+                  <span key={f} className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 text-xs rounded-full border border-green-500/20">
+                    <CheckCircle className="h-3 w-3" /> {f}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -119,10 +210,6 @@ function CompanyForm({ onSubmit, initialData, onCancel }: {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Website</label>
-          <Input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://example.com" data-testid="input-company-website" />
-        </div>
-        <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Type</label>
           <Select value={form.companyType} onValueChange={v => setForm(f => ({ ...f, companyType: v }))}>
             <SelectTrigger data-testid="select-company-type">
@@ -134,6 +221,10 @@ function CompanyForm({ onSubmit, initialData, onCancel }: {
               <SelectItem value="partner">Partner</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div>
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Slogan / Tagline</label>
+          <Input value={form.slogan} onChange={e => setForm(f => ({ ...f, slogan: e.target.value }))} placeholder="Innovation for everyone" data-testid="input-company-slogan" />
         </div>
       </div>
 
@@ -158,6 +249,44 @@ function CompanyForm({ onSubmit, initialData, onCancel }: {
         <Input value={form.zip} onChange={e => setForm(f => ({ ...f, zip: e.target.value }))} placeholder="ZIP" data-testid="input-company-zip" />
         <Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="Country" data-testid="input-company-country" />
       </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Timezone (HQ)</label>
+          <Input value={form.timezone} onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))} placeholder="America/New_York" data-testid="input-company-timezone" />
+        </div>
+        <div>
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Logo URL</label>
+          <div className="flex gap-2 items-center">
+            <Input value={form.logo} onChange={e => setForm(f => ({ ...f, logo: e.target.value }))} placeholder="https://..." className="flex-1" data-testid="input-company-logo" />
+            {form.logo && (
+              <img src={form.logo} alt="Logo" className="h-8 w-8 rounded object-contain bg-muted border border-border" data-testid="img-company-logo-preview" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {form.brandColors.length > 0 && (
+        <div>
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Brand Colors</label>
+          <div className="flex gap-2 items-center" data-testid="brand-colors-display">
+            {form.brandColors.map((color: string, i: number) => (
+              <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md border border-border">
+                <div className="h-5 w-5 rounded-sm border border-border" style={{ backgroundColor: color }} data-testid={`brand-color-swatch-${i}`} />
+                <span className="text-xs font-mono text-muted-foreground">{color}</span>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, brandColors: f.brandColors.filter((_: string, idx: number) => idx !== i) }))}
+                  className="text-muted-foreground hover:text-destructive ml-1"
+                  data-testid={`button-remove-color-${i}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -645,11 +774,16 @@ function CompanyDetail({ companyId, onBack }: { companyId: string; onBack: () =>
         <div className="h-16 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent" />
         <CardContent className="-mt-8 relative">
           <div className="flex items-end gap-4 mb-4">
-            <div className="h-16 w-16 rounded-lg bg-primary/10 border-4 border-background shadow-xl ring-2 ring-primary/20 flex items-center justify-center">
-              <Building2 className="h-8 w-8 text-primary" />
+            <div className="h-16 w-16 rounded-lg bg-primary/10 border-4 border-background shadow-xl ring-2 ring-primary/20 flex items-center justify-center overflow-hidden">
+              {company.logo ? (
+                <img src={company.logo} alt={company.name} className="h-full w-full object-contain" data-testid="img-company-logo" />
+              ) : (
+                <Building2 className="h-8 w-8 text-primary" />
+              )}
             </div>
             <div className="flex-1 pb-1">
               <h2 className="text-xl font-bold font-display" data-testid="text-company-name">{company.name}</h2>
+              {company.slogan && <p className="text-xs text-muted-foreground italic" data-testid="text-company-slogan">"{company.slogan}"</p>}
               <div className="flex items-center gap-2 mt-1">
                 {company.industry && <span className="text-sm text-muted-foreground font-mono">{company.industry}</span>}
                 <Badge variant="outline" className={cn("text-[10px] font-mono uppercase",
@@ -700,7 +834,24 @@ function CompanyDetail({ companyId, onBack }: { companyId: string; onBack: () =>
                 <Users className="h-4 w-4 text-primary/70" /> {company.employeeCount} employees
               </div>
             )}
+            {company.timezone && (
+              <div className="flex items-center gap-2 text-muted-foreground" data-testid="text-company-timezone">
+                <Clock className="h-4 w-4 text-primary/70" /> {company.timezone}
+              </div>
+            )}
           </div>
+
+          {company.brandColors && company.brandColors.length > 0 && (
+            <div className="mt-3 flex items-center gap-2" data-testid="company-brand-colors">
+              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Brand:</span>
+              {company.brandColors.map((color: string, i: number) => (
+                <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-card/30 border border-border/50 rounded">
+                  <div className="h-4 w-4 rounded-sm border border-border" style={{ backgroundColor: color }} />
+                  <span className="text-[10px] font-mono text-muted-foreground">{color}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {company.notes && (
             <div className="mt-4 p-3 bg-card/30 border border-border/50 rounded-sm">

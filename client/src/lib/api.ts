@@ -155,6 +155,12 @@ export function useAnalyzeSocial() {
   });
 }
 
+export function useAnalyzeWebsite() {
+  return useMutation({
+    mutationFn: (data: { url: string }) => apiRequest("/api/companies/analyze-website", { method: "POST", body: JSON.stringify(data) }),
+  });
+}
+
 export function useCompanies() {
   return useQuery({ queryKey: ["/api/companies"], queryFn: () => apiRequest("/api/companies") });
 }

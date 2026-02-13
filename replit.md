@@ -65,6 +65,7 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/public/subscribe` (no auth: visitor subscription from story/episode pages, deduplicates by email)
 - `GET /api/public/episodes/:id` (no auth: public episode detail with podcast and content pieces)
 - `GET /api/public/podcasts/:podcastId/episodes` (no auth: published episodes listing for a podcast)
+- `POST /api/companies/analyze-website` (permission-gated: sales.edit - scrapes company website for name, logo, phone, address, slogan, timezone, brand colors, etc.)
 - `GET/POST /api/companies`, `GET/PATCH/DELETE /api/companies/:id` (permission-gated: sales.view, sales.edit)
 - `GET/POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id` (permission-gated: sales.view, sales.edit)
 - `GET/POST /api/deals`, `GET/PATCH/DELETE /api/deals/:id` (permission-gated: sales.view, sales.edit)
@@ -91,7 +92,7 @@ Preferred communication style: Simple, everyday language.
 - **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), profilePhoto, bio, title, linkedinUrl, dashboardWidgets (text array - toggleable dashboard sections), createdAt, lastLoginAt
 - **subscribers**: id, firstName, lastName, email, phone, address, city, state, zip, country, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, title, company, interests (text array), tags (text array), notes, source, status, createdAt, updatedAt
 - **subscriberPodcasts**: id, subscriberId, podcastId, subscribedAt (join table for subscriber-podcast relationships)
-- **companies**: id, name, industry, website, phone, email, address, city, state, zip, country, logo, description, annualRevenue, employeeCount, companyType (advertiser/sponsor/partner), status, notes, createdAt, updatedAt
+- **companies**: id, name, industry, website, phone, email, address, city, state, zip, country, logo, description, slogan, timezone, brandColors (text array), annualRevenue, employeeCount, companyType (advertiser/sponsor/partner), status, notes, createdAt, updatedAt
 - **companyContacts**: id, companyId, firstName, lastName, email, phone, title, department, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, isPrimary, tags (text array), notes, status, createdAt, updatedAt
 - **deals**: id, companyId, contactId, title, description, value, stage (lead/qualified/proposal/negotiation/closed_won/closed_lost), dealType (ad_campaign/sponsorship/partnership), priority, probability, startDate, closeDate, podcastId, notes, status, createdAt, updatedAt
 - **dealActivities**: id, dealId, activityType (note/call/meeting/email/content_upload), title, description, fileUrl, fileType, contentStatus (draft/review/approved/live), createdBy, createdAt

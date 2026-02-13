@@ -997,6 +997,211 @@ export async function registerRoutes(
   });
 
   // ── Commercial CRM: Companies ──
+  app.post("/api/companies/analyze-website", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ message: "Website URL is required" });
+    }
+
+    let targetUrl = url.trim();
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = "https://" + targetUrl;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(targetUrl);
+    } catch {
+      return res.status(400).json({ message: "Invalid URL format" });
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0"
+      || hostname.startsWith("10.") || hostname.startsWith("192.168.") || hostname.startsWith("172.")
+      || hostname.endsWith(".local") || hostname.endsWith(".internal") || hostname === "[::1]") {
+      return res.status(400).json({ message: "Cannot analyze internal or private URLs" });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; MediaTech/1.0)",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        redirect: "follow",
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return res.status(400).json({ message: `Could not reach website (HTTP ${response.status})` });
+      }
+
+      const html = await response.text();
+      const decodeHtml = (s: string) =>
+        s.replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+          .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x27;/g, "'")
+          .replace(/&#(\d+);/g, (_m, c) => String.fromCharCode(parseInt(c))).trim();
+
+      const getMeta = (nameOrProp: string) => {
+        const r1 = html.match(new RegExp(`<meta[^>]*(?:property|name)=["']${nameOrProp}["'][^>]*content=["']([^"']+)["']`, "i"));
+        const r2 = html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${nameOrProp}["']`, "i"));
+        return r1?.[1] || r2?.[1] || null;
+      };
+
+      const ogTitle = getMeta("og:title");
+      const ogDesc = getMeta("og:description") || getMeta("description");
+      const ogImage = getMeta("og:image");
+      const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+
+      let companyName = ogTitle || titleTag || "";
+      companyName = decodeHtml(companyName.replace(/\s*[-–|].*/g, "").trim());
+
+      let description = ogDesc ? decodeHtml(ogDesc) : "";
+
+      let logo = ogImage || null;
+      if (!logo) {
+        const iconLink = html.match(/<link[^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["'][^>]*href=["']([^"']+)["']/i)
+          || html.match(/<link[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["']/i);
+        if (iconLink?.[1]) {
+          logo = iconLink[1];
+        }
+      }
+      if (logo && !logo.startsWith("http")) {
+        logo = `${parsedUrl.protocol}//${parsedUrl.host}${logo.startsWith("/") ? "" : "/"}${logo}`;
+      }
+
+      let phone: string | null = null;
+      const phonePatterns = [
+        html.match(/<a[^>]*href=["']tel:([^"']+)["']/i),
+        html.match(/(?:phone|tel|call)[:\s]*([+]?[\d\s().-]{7,20})/i),
+      ];
+      for (const m of phonePatterns) {
+        if (m?.[1]) { phone = decodeHtml(m[1].replace(/\s+/g, " ").trim()); break; }
+      }
+
+      let address: string | null = null;
+      let city: string | null = null;
+      let state: string | null = null;
+      let zip: string | null = null;
+      let country: string | null = null;
+
+      const jsonLdMatches = html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+      for (const jm of jsonLdMatches) {
+        try {
+          const ld = JSON.parse(jm[1]);
+          const items = Array.isArray(ld) ? ld : [ld];
+          for (const item of items) {
+            if (item.address || item?.["@type"] === "PostalAddress") {
+              const addr = item.address || item;
+              if (addr.streetAddress) address = decodeHtml(addr.streetAddress);
+              if (addr.addressLocality) city = decodeHtml(addr.addressLocality);
+              if (addr.addressRegion) state = decodeHtml(addr.addressRegion);
+              if (addr.postalCode) zip = decodeHtml(addr.postalCode);
+              if (addr.addressCountry) {
+                const c = addr.addressCountry;
+                country = typeof c === "string" ? c : c?.name || null;
+              }
+            }
+            if (!phone && item.telephone) phone = decodeHtml(item.telephone);
+            if (!companyName && item.name) companyName = decodeHtml(item.name);
+            if (!description && item.description) description = decodeHtml(item.description);
+            if (!logo && item.logo) {
+              logo = typeof item.logo === "string" ? item.logo : item.logo?.url || null;
+            }
+          }
+        } catch {}
+      }
+
+      let slogan: string | null = null;
+      const sloganMeta = getMeta("og:site_name") || getMeta("application-name");
+      if (sloganMeta && sloganMeta !== companyName) {
+        slogan = decodeHtml(sloganMeta);
+      }
+      if (!slogan && description && description.length < 80) {
+        slogan = description;
+      }
+
+      const brandColors: string[] = [];
+      const themeColor = getMeta("theme-color") || getMeta("msapplication-TileColor");
+      if (themeColor) brandColors.push(themeColor);
+
+      const cssColorMatches = html.matchAll(/--(?:primary|brand|main|accent)[-\w]*\s*:\s*(#[0-9A-Fa-f]{3,8}|rgb[a]?\([^)]+\))/gi);
+      for (const cm of cssColorMatches) {
+        if (cm[1] && !brandColors.includes(cm[1]) && brandColors.length < 5) {
+          brandColors.push(cm[1]);
+        }
+      }
+
+      let timezone: string | null = null;
+      const stateTimezones: Record<string, string> = {
+        "CA": "America/Los_Angeles", "WA": "America/Los_Angeles", "OR": "America/Los_Angeles", "NV": "America/Los_Angeles",
+        "NY": "America/New_York", "NJ": "America/New_York", "CT": "America/New_York", "MA": "America/New_York",
+        "PA": "America/New_York", "VA": "America/New_York", "FL": "America/New_York", "GA": "America/New_York",
+        "NC": "America/New_York", "MD": "America/New_York", "DC": "America/New_York", "DE": "America/New_York",
+        "TX": "America/Chicago", "IL": "America/Chicago", "OH": "America/New_York", "MI": "America/Detroit",
+        "MN": "America/Chicago", "WI": "America/Chicago", "MO": "America/Chicago", "TN": "America/Chicago",
+        "IN": "America/Indiana/Indianapolis", "IA": "America/Chicago", "KS": "America/Chicago",
+        "CO": "America/Denver", "AZ": "America/Phoenix", "UT": "America/Denver", "NM": "America/Denver",
+        "MT": "America/Denver", "ID": "America/Boise",
+        "HI": "Pacific/Honolulu", "AK": "America/Anchorage",
+      };
+      if (state && stateTimezones[state.toUpperCase()]) {
+        timezone = stateTimezones[state.toUpperCase()];
+      }
+
+      let email: string | null = null;
+      const emailMatch = html.match(/<a[^>]*href=["']mailto:([^"'?]+)/i)
+        || html.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+      if (emailMatch?.[1]) email = decodeHtml(emailMatch[1]);
+      else if (emailMatch?.[0]) email = emailMatch[0];
+
+      let industry: string | null = null;
+      for (const jm2 of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+        try {
+          const ld = JSON.parse(jm2[1]);
+          const items = Array.isArray(ld) ? ld : [ld];
+          for (const item of items) {
+            if (item.industry) industry = decodeHtml(item.industry);
+            if (!industry && item["@type"]) {
+              const t = item["@type"];
+              if (typeof t === "string" && !["Organization", "WebSite", "WebPage", "Corporation"].includes(t)) {
+                industry = t.replace(/([A-Z])/g, " $1").trim();
+              }
+            }
+          }
+        } catch {}
+      }
+
+      res.json({
+        name: companyName || null,
+        description: description || null,
+        logo,
+        phone,
+        email,
+        address,
+        city,
+        state,
+        zip,
+        country,
+        slogan,
+        timezone,
+        brandColors: brandColors.length > 0 ? brandColors : null,
+        industry,
+        website: targetUrl,
+      });
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return res.status(408).json({ message: "Website took too long to respond" });
+      }
+      return res.status(500).json({ message: "Failed to analyze website" });
+    }
+  });
+
   app.get("/api/companies", requireAuth, requirePermission("sales.view"), async (_req, res) => {
     const data = await storage.getCompanies();
     res.json(data);
