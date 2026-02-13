@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useBranding } from "@/lib/api";
 import { 
   LayoutDashboard, 
   Factory, 
@@ -10,7 +11,8 @@ import {
   Zap,
   Radio,
   Users,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Paintbrush
 } from "lucide-react";
 
 const navigation = [
@@ -20,19 +22,27 @@ const navigation = [
   { name: "Podcast Network", href: "/network", icon: Radio },
   { name: "Audience Data", href: "/audience", icon: Users },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Customize", href: "/customize", icon: Paintbrush },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const [location] = useLocation();
+  const { data: branding } = useBranding();
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-border text-sidebar-foreground font-sans fixed left-0 top-0 z-30">
       <div className="flex h-16 items-center border-b border-border px-6">
-        <div className="border border-dashed border-muted-foreground/50 rounded-md p-1 flex items-center justify-center w-full h-10 hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group">
-          <ImageIcon className="h-4 w-4 text-muted-foreground mr-2 group-hover:text-gold" />
-          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground group-hover:text-gold">Your Logo Here</span>
-        </div>
+        {branding?.logoUrl ? (
+          <Link href="/" className="flex items-center justify-center w-full h-10" data-testid="sidebar-logo">
+            <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-8 max-w-full object-contain" />
+          </Link>
+        ) : (
+          <Link href="/customize" className="border border-dashed border-muted-foreground/50 rounded-md p-1 flex items-center justify-center w-full h-10 hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group" data-testid="sidebar-logo-placeholder">
+            <ImageIcon className="h-4 w-4 text-muted-foreground mr-2 group-hover:text-gold" />
+            <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground group-hover:text-gold">Your Logo Here</span>
+          </Link>
+        )}
       </div>
       
       <div className="flex-1 overflow-y-auto py-4">

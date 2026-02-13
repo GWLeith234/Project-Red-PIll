@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBranding } from "@/lib/api";
 import { Mic, ChevronRight, Clock, ArrowLeft } from "lucide-react";
 
 function timeAgo(dateStr: string) {
@@ -15,6 +16,7 @@ function timeAgo(dateStr: string) {
 
 export default function NewsPage() {
   const params = useParams<{ id: string }>();
+  const { data: brandingData } = useBranding();
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/podcasts", params.id, "articles"],
     queryFn: async () => {
@@ -55,6 +57,7 @@ export default function NewsPage() {
 
   const { podcast, articles } = data;
   const publishedArticles = articles.filter((a: any) => a.status === "ready");
+  const platformName = brandingData?.companyName || "MediaTech Empire";
 
   return (
     <div className="min-h-screen bg-white" data-testid="news-page">
@@ -153,7 +156,7 @@ export default function NewsPage() {
               <Mic className="h-4 w-4" />
               <span>{podcast.title}</span>
             </div>
-            <p>Powered by MediaTech Empire</p>
+            <p>Powered by {platformName}</p>
           </div>
         </div>
       </footer>

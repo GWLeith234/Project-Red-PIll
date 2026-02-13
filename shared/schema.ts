@@ -84,6 +84,18 @@ export const alerts = pgTable("alerts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const branding = pgTable("branding", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").default("MediaTech Empire"),
+  tagline: text("tagline").default("AI-Powered Media Platform"),
+  logoUrl: text("logo_url"),
+  faviconUrl: text("favicon_url"),
+  bannerUrl: text("banner_url"),
+  primaryColor: text("primary_color").default("#E5C100"),
+  accentColor: text("accent_color").default("#22C55E"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
 export const insertPodcastSchema = createInsertSchema(podcasts).omit({ id: true });
@@ -93,6 +105,7 @@ export const insertAdvertiserSchema = createInsertSchema(advertisers).omit({ id:
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: true });
 export const insertMetricsSchema = createInsertSchema(metrics).omit({ id: true });
 export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true });
+export const insertBrandingSchema = createInsertSchema(branding).omit({ id: true, updatedAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -111,3 +124,5 @@ export type InsertMetrics = z.infer<typeof insertMetricsSchema>;
 export type Metrics = typeof metrics.$inferSelect;
 export type InsertAlert = z.infer<typeof insertAlertSchema>;
 export type Alert = typeof alerts.$inferSelect;
+export type InsertBranding = z.infer<typeof insertBrandingSchema>;
+export type Branding = typeof branding.$inferSelect;

@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
-  users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts,
+  users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -11,6 +11,7 @@ import {
   type Campaign, type InsertCampaign,
   type Metrics, type InsertMetrics,
   type Alert, type InsertAlert,
+  type Branding, type InsertBranding,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -54,6 +55,9 @@ export interface IStorage {
   getAlerts(): Promise<Alert[]>;
   createAlert(alert: InsertAlert): Promise<Alert>;
   markAlertRead(id: string): Promise<void>;
+
+  getBranding(): Promise<Branding | undefined>;
+  upsertBranding(data: Partial<InsertBranding>): Promise<Branding>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -190,6 +194,21 @@ export class DatabaseStorage implements IStorage {
   }
   async markAlertRead(id: string) {
     await db.update(alerts).set({ read: true }).where(eq(alerts.id, id));
+  }
+
+  async getBranding() {
+    const [b] = await db.select().from(branding).limit(1);
+    return b;
+  }
+
+  async upsertBranding(data: Partial<InsertBranding>) {
+    const existing = await this.getBranding();
+    if (existing) {
+      const [updated] = await db.update(branding).set({ ...data, updatedAt: new Date() }).where(eq(branding.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(branding).values(data as InsertBranding).returning();
+    return created;
   }
 }
 

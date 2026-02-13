@@ -77,6 +77,17 @@ export function useCreateCampaign() {
   });
 }
 
+export function useBranding() {
+  return useQuery({ queryKey: ["/api/branding"], queryFn: () => apiRequest("/api/branding") });
+}
+
+export function useUpdateBranding() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/branding", { method: "PUT", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/branding"] }),
+  });
+}
+
 export function useMarkAlertRead() {
   return useMutation({
     mutationFn: (id: string) => apiRequest(`/api/alerts/${id}/read`, { method: "PATCH" }),

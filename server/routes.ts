@@ -4,7 +4,9 @@ import { storage } from "./storage";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
+  insertBrandingSchema,
 } from "@shared/schema";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -191,6 +193,27 @@ export async function registerRoutes(
     await storage.markAlertRead(req.params.id);
     res.json({ success: true });
   });
+
+  // ── Branding ──
+  app.get("/api/branding", async (_req, res) => {
+    const data = await storage.getBranding();
+    res.json(data || {
+      companyName: "MediaTech Empire",
+      tagline: "AI-Powered Media Platform",
+      primaryColor: "#E5C100",
+      accentColor: "#22C55E",
+    });
+  });
+
+  app.put("/api/branding", async (req, res) => {
+    const parsed = insertBrandingSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const data = await storage.upsertBranding(parsed.data);
+    res.json(data);
+  });
+
+  // ── Object Storage (file uploads) ──
+  registerObjectStorageRoutes(app);
 
   // ── Seed endpoint (development only) ──
   app.post("/api/seed", async (_req, res) => {
