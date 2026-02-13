@@ -49,6 +49,8 @@ export interface IStorage {
   getLatestMetrics(): Promise<Metrics | undefined>;
   createMetrics(m: InsertMetrics): Promise<Metrics>;
 
+  getTrendingArticles(limit?: number): Promise<ContentPiece[]>;
+
   getAlerts(): Promise<Alert[]>;
   createAlert(alert: InsertAlert): Promise<Alert>;
   markAlertRead(id: string): Promise<void>;
@@ -170,6 +172,13 @@ export class DatabaseStorage implements IStorage {
   async createMetrics(m: InsertMetrics) {
     const [created] = await db.insert(metrics).values(m).returning();
     return created;
+  }
+
+  async getTrendingArticles(limit = 5) {
+    return db.select().from(contentPieces)
+      .where(eq(contentPieces.type, "article"))
+      .orderBy(desc(contentPieces.publishedAt))
+      .limit(limit);
   }
 
   async getAlerts() {

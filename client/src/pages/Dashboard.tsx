@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid } from "recharts";
-import { ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers, ExternalLink, Settings } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers, ExternalLink, Settings, TrendingUp, Clock, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useMetrics, useAlerts, useEpisodes, useContentPieces } from "@/lib/api";
+import { Link } from "wouter";
+import { useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const revenueData = [
@@ -24,6 +25,16 @@ const sourceData = [
   { name: "Lead Gen", value: 10 },
 ];
 
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 function formatNumber(n: number): string {
   if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
@@ -34,6 +45,7 @@ export default function Dashboard() {
   const { data: metrics, isLoading: metricsLoading } = useMetrics();
   const { data: alertsData, isLoading: alertsLoading } = useAlerts();
   const { data: episodes, isLoading: episodesLoading } = useEpisodes();
+  const { data: trendingArticles, isLoading: trendingLoading } = useTrendingArticles();
 
   const processingEpisodes = episodes?.filter((ep: any) => ep.processingStatus !== "complete")?.slice(0, 3) || [];
 
@@ -126,6 +138,79 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="glass-panel border-border/50">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Trending Articles
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">Top stories across the network</CardDescription>
+          </div>
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px]">
+            LIVE
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          {trendingLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-4 p-3">
+                  <Skeleton className="h-5 w-5 mt-0.5" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-3/4 mb-2" />
+                    <Skeleton className="h-3 w-full mb-1" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : trendingArticles?.length > 0 ? (
+            <div className="divide-y divide-border/30" data-testid="trending-articles">
+              {trendingArticles.map((article: any, index: number) => (
+                <Link
+                  key={article.id}
+                  href={article.podcastId ? `/news/${article.podcastId}/article/${article.id}` : "#"}
+                  className="block"
+                >
+                  <div
+                    className="flex items-start gap-4 p-3 hover:bg-card/40 transition-colors cursor-pointer group"
+                    data-testid={`trending-article-${article.id}`}
+                  >
+                    <span className="text-2xl font-bold font-display text-primary/40 leading-none mt-0.5 w-6 text-right shrink-0">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug mb-1 line-clamp-2" data-testid={`text-trending-title-${article.id}`}>
+                        {article.title}
+                      </h4>
+                      {article.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">
+                          {article.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+                        {article.podcast && (
+                          <>
+                            <span className="text-primary/70">{article.podcast.title}</span>
+                            <span className="text-border">|</span>
+                          </>
+                        )}
+                        <Clock className="h-3 w-3" />
+                        <span>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors mt-1 shrink-0" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm py-4 text-center">No trending articles yet.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass-panel border-border/50">

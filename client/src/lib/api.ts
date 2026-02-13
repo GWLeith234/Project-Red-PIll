@@ -45,6 +45,10 @@ export function useAlerts() {
   return useQuery({ queryKey: ["/api/alerts"], queryFn: () => apiRequest("/api/alerts") });
 }
 
+export function useTrendingArticles() {
+  return useQuery({ queryKey: ["/api/articles/trending"], queryFn: () => apiRequest("/api/articles/trending") });
+}
+
 export function useCreatePodcast() {
   return useMutation({
     mutationFn: (data: any) => apiRequest("/api/podcasts", { method: "POST", body: JSON.stringify(data) }),

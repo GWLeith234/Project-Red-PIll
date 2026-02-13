@@ -81,6 +81,22 @@ export async function registerRoutes(
     res.json({ podcast, articles });
   });
 
+  app.get("/api/articles/trending", async (_req, res) => {
+    const articles = await storage.getTrendingArticles(5);
+    const episodeIds = [...new Set(articles.map(a => a.episodeId))];
+    const episodeList = await Promise.all(episodeIds.map(id => storage.getEpisode(id)));
+    const podcastIds = [...new Set(episodeList.filter(Boolean).map(e => e!.podcastId))];
+    const podcastList = await Promise.all(podcastIds.map(id => storage.getPodcast(id)));
+    const podcastMap = Object.fromEntries(podcastList.filter(Boolean).map(p => [p!.id, p]));
+    const episodePodcastMap = Object.fromEntries(episodeList.filter(Boolean).map(e => [e!.id, e!.podcastId]));
+    const result = articles.map(a => ({
+      ...a,
+      podcastId: episodePodcastMap[a.episodeId] || null,
+      podcast: podcastMap[episodePodcastMap[a.episodeId]] || null,
+    }));
+    res.json(result);
+  });
+
   app.get("/api/content-pieces/:id", async (req, res) => {
     const data = await storage.getContentPiece(req.params.id);
     if (!data) return res.status(404).json({ message: "Not found" });
