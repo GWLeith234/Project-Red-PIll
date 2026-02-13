@@ -31,7 +31,8 @@ Preferred communication style: Simple, everyday language.
 - **Network** (`/network`): Podcast network management with show cards
 - **User Management** (`/users`): Admin user CRUD with role assignment and permission toggles
 - **Customize** (`/customize`): Branding management for logo, favicon, banner, colors, company name
-- **Audience** (`/audience`): Coming soon placeholder
+- **Commercial CRM** (`/sales`): B2B sales CRM with Companies, Contacts, and Deals pipeline management for ad campaigns and sponsorships
+- **Subscriber CRM** (`/audience`): Subscriber audience management with smart cross-pollination suggestions
 - **Analytics** (`/analytics`): Coming soon placeholder
 - **Settings** (`/settings`): Platform configuration with general, content pipeline, notifications, and security sections
 
@@ -60,6 +61,10 @@ Preferred communication style: Simple, everyday language.
 - `POST/DELETE /api/subscribers/:id/podcasts/:podcastId` (manage podcast subscriptions)
 - `POST /api/subscribers/analyze-social` (auth-gated: scrapes LinkedIn/X/Facebook profiles for photo, name, title)
 - `GET /api/subscribers/:id/suggestions` (smart cross-pollination: ranks unsubscribed podcasts by interest match)
+- `GET/POST /api/companies`, `GET/PATCH/DELETE /api/companies/:id` (permission-gated: sales.view, sales.edit)
+- `GET/POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id` (permission-gated: sales.view, sales.edit)
+- `GET/POST /api/deals`, `GET/PATCH/DELETE /api/deals/:id` (permission-gated: sales.view, sales.edit)
+- `GET/POST /api/deals/:dealId/activities`, `PATCH/DELETE /api/deal-activities/:id` (permission-gated: sales.view, sales.edit)
 - `GET/POST /api/users`, `PATCH/DELETE /api/users/:id` (permission-gated: users.view, users.edit)
 - `GET/POST /api/podcasts`, `GET/PATCH/DELETE /api/podcasts/:id`
 - `GET/POST /api/episodes`, `GET/PATCH /api/episodes/:id`
@@ -82,6 +87,10 @@ Preferred communication style: Simple, everyday language.
 - **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), profilePhoto, bio, title, linkedinUrl, dashboardWidgets (text array - toggleable dashboard sections), createdAt, lastLoginAt
 - **subscribers**: id, firstName, lastName, email, phone, address, city, state, zip, country, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, title, company, interests (text array), tags (text array), notes, source, status, createdAt, updatedAt
 - **subscriberPodcasts**: id, subscriberId, podcastId, subscribedAt (join table for subscriber-podcast relationships)
+- **companies**: id, name, industry, website, phone, email, address, city, state, zip, country, logo, description, annualRevenue, employeeCount, companyType (advertiser/sponsor/partner), status, notes, createdAt, updatedAt
+- **companyContacts**: id, companyId, firstName, lastName, email, phone, title, department, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, isPrimary, tags (text array), notes, status, createdAt, updatedAt
+- **deals**: id, companyId, contactId, title, description, value, stage (lead/qualified/proposal/negotiation/closed_won/closed_lost), dealType (ad_campaign/sponsorship/partnership), priority, probability, startDate, closeDate, podcastId, notes, status, createdAt, updatedAt
+- **dealActivities**: id, dealId, activityType (note/call/meeting/email/content_upload), title, description, fileUrl, fileType, contentStatus (draft/review/approved/live), createdBy, createdAt
 - **podcasts**: id, title, host, description, coverImage, subscribers, growthPercent, multiplicationFactor, status
 - **episodes**: id, podcastId, title, duration, publishedAt, processingStatus, processingProgress
 - **contentPieces**: id, episodeId, type, title, platform, status

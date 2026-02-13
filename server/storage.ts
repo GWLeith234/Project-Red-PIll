@@ -4,7 +4,7 @@ import pg from "pg";
 import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
-  subscribers, subscriberPodcasts,
+  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -18,6 +18,10 @@ import {
   type Comment, type InsertComment,
   type Subscriber, type InsertSubscriber,
   type SubscriberPodcast, type InsertSubscriberPodcast,
+  type Company, type InsertCompany,
+  type CompanyContact, type InsertCompanyContact,
+  type Deal, type InsertDeal,
+  type DealActivity, type InsertDealActivity,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -87,6 +91,29 @@ export interface IStorage {
   getSubscribersByPodcast(podcastId: string): Promise<Subscriber[]>;
   addSubscriberToPodcast(data: InsertSubscriberPodcast): Promise<SubscriberPodcast>;
   removeSubscriberFromPodcast(subscriberId: string, podcastId: string): Promise<void>;
+
+  getCompanies(): Promise<Company[]>;
+  getCompany(id: string): Promise<Company | undefined>;
+  createCompany(company: InsertCompany): Promise<Company>;
+  updateCompany(id: string, data: Partial<InsertCompany>): Promise<Company | undefined>;
+  deleteCompany(id: string): Promise<void>;
+
+  getCompanyContacts(companyId?: string): Promise<CompanyContact[]>;
+  getCompanyContact(id: string): Promise<CompanyContact | undefined>;
+  createCompanyContact(contact: InsertCompanyContact): Promise<CompanyContact>;
+  updateCompanyContact(id: string, data: Partial<InsertCompanyContact>): Promise<CompanyContact | undefined>;
+  deleteCompanyContact(id: string): Promise<void>;
+
+  getDeals(companyId?: string, stage?: string): Promise<Deal[]>;
+  getDeal(id: string): Promise<Deal | undefined>;
+  createDeal(deal: InsertDeal): Promise<Deal>;
+  updateDeal(id: string, data: Partial<InsertDeal>): Promise<Deal | undefined>;
+  deleteDeal(id: string): Promise<void>;
+
+  getDealActivities(dealId: string): Promise<DealActivity[]>;
+  createDealActivity(activity: InsertDealActivity): Promise<DealActivity>;
+  updateDealActivity(id: string, data: Partial<InsertDealActivity>): Promise<DealActivity | undefined>;
+  deleteDealActivity(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -323,6 +350,96 @@ export class DatabaseStorage implements IStorage {
     await db.delete(subscriberPodcasts).where(
       and(eq(subscriberPodcasts.subscriberId, subscriberId), eq(subscriberPodcasts.podcastId, podcastId))
     );
+  }
+
+  async getCompanies() {
+    return db.select().from(companies).orderBy(desc(companies.createdAt));
+  }
+  async getCompany(id: string) {
+    const [c] = await db.select().from(companies).where(eq(companies.id, id));
+    return c;
+  }
+  async createCompany(company: InsertCompany) {
+    const [created] = await db.insert(companies).values(company).returning();
+    return created;
+  }
+  async updateCompany(id: string, data: Partial<InsertCompany>) {
+    const [updated] = await db.update(companies).set({ ...data, updatedAt: new Date() }).where(eq(companies.id, id)).returning();
+    return updated;
+  }
+  async deleteCompany(id: string) {
+    await db.delete(dealActivities).where(
+      eq(dealActivities.dealId, db.select({ id: deals.id }).from(deals).where(eq(deals.companyId, id)).limit(1) as any)
+    ).catch(() => {});
+    await db.delete(deals).where(eq(deals.companyId, id));
+    await db.delete(companyContacts).where(eq(companyContacts.companyId, id));
+    await db.delete(companies).where(eq(companies.id, id));
+  }
+
+  async getCompanyContacts(companyId?: string) {
+    if (companyId) {
+      return db.select().from(companyContacts).where(eq(companyContacts.companyId, companyId)).orderBy(desc(companyContacts.createdAt));
+    }
+    return db.select().from(companyContacts).orderBy(desc(companyContacts.createdAt));
+  }
+  async getCompanyContact(id: string) {
+    const [c] = await db.select().from(companyContacts).where(eq(companyContacts.id, id));
+    return c;
+  }
+  async createCompanyContact(contact: InsertCompanyContact) {
+    const [created] = await db.insert(companyContacts).values(contact).returning();
+    return created;
+  }
+  async updateCompanyContact(id: string, data: Partial<InsertCompanyContact>) {
+    const [updated] = await db.update(companyContacts).set({ ...data, updatedAt: new Date() }).where(eq(companyContacts.id, id)).returning();
+    return updated;
+  }
+  async deleteCompanyContact(id: string) {
+    await db.delete(companyContacts).where(eq(companyContacts.id, id));
+  }
+
+  async getDeals(companyId?: string, stage?: string) {
+    if (companyId && stage) {
+      return db.select().from(deals).where(and(eq(deals.companyId, companyId), eq(deals.stage, stage))).orderBy(desc(deals.createdAt));
+    }
+    if (companyId) {
+      return db.select().from(deals).where(eq(deals.companyId, companyId)).orderBy(desc(deals.createdAt));
+    }
+    if (stage) {
+      return db.select().from(deals).where(eq(deals.stage, stage)).orderBy(desc(deals.createdAt));
+    }
+    return db.select().from(deals).orderBy(desc(deals.createdAt));
+  }
+  async getDeal(id: string) {
+    const [d] = await db.select().from(deals).where(eq(deals.id, id));
+    return d;
+  }
+  async createDeal(deal: InsertDeal) {
+    const [created] = await db.insert(deals).values(deal).returning();
+    return created;
+  }
+  async updateDeal(id: string, data: Partial<InsertDeal>) {
+    const [updated] = await db.update(deals).set({ ...data, updatedAt: new Date() }).where(eq(deals.id, id)).returning();
+    return updated;
+  }
+  async deleteDeal(id: string) {
+    await db.delete(dealActivities).where(eq(dealActivities.dealId, id));
+    await db.delete(deals).where(eq(deals.id, id));
+  }
+
+  async getDealActivities(dealId: string) {
+    return db.select().from(dealActivities).where(eq(dealActivities.dealId, dealId)).orderBy(desc(dealActivities.createdAt));
+  }
+  async createDealActivity(activity: InsertDealActivity) {
+    const [created] = await db.insert(dealActivities).values(activity).returning();
+    return created;
+  }
+  async updateDealActivity(id: string, data: Partial<InsertDealActivity>) {
+    const [updated] = await db.update(dealActivities).set(data).where(eq(dealActivities.id, id)).returning();
+    return updated;
+  }
+  async deleteDealActivity(id: string) {
+    await db.delete(dealActivities).where(eq(dealActivities.id, id));
   }
 }
 

@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   "settings.edit",
   "users.view",
   "users.edit",
+  "sales.view",
+  "sales.edit",
 ] as const;
 export type Permission = typeof PERMISSIONS[number];
 
@@ -35,6 +37,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "network.view",
     "audience.view",
     "analytics.view",
+    "sales.view",
   ],
   viewer: [
     "dashboard.view",
@@ -43,6 +46,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "network.view",
     "audience.view",
     "analytics.view",
+    "sales.view",
   ],
 };
 
@@ -214,7 +218,94 @@ export const subscriberPodcasts = pgTable("subscriber_podcasts", {
   subscribedAt: timestamp("subscribed_at").defaultNow(),
 });
 
+export const companies = pgTable("companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  industry: text("industry"),
+  website: text("website"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  country: text("country"),
+  logo: text("logo"),
+  description: text("description"),
+  annualRevenue: real("annual_revenue"),
+  employeeCount: integer("employee_count"),
+  companyType: text("company_type").default("advertiser"),
+  status: text("status").default("active").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const companyContacts = pgTable("company_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id"),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name"),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  title: text("title"),
+  department: text("department"),
+  profilePhoto: text("profile_photo"),
+  linkedinUrl: text("linkedin_url"),
+  twitterUrl: text("twitter_url"),
+  facebookUrl: text("facebook_url"),
+  bio: text("bio"),
+  isPrimary: boolean("is_primary").default(false),
+  tags: text("tags").array().default(sql`ARRAY[]::text[]`),
+  notes: text("notes"),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
+export type DealStage = typeof DEAL_STAGES[number];
+export const DEAL_TYPES = ["ad_campaign", "sponsorship", "partnership"] as const;
+export type DealType = typeof DEAL_TYPES[number];
+
+export const deals = pgTable("deals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull(),
+  contactId: varchar("contact_id"),
+  title: text("title").notNull(),
+  description: text("description"),
+  value: real("value").default(0),
+  stage: text("stage").default("lead").notNull(),
+  dealType: text("deal_type").default("ad_campaign").notNull(),
+  priority: text("priority").default("medium"),
+  probability: integer("probability").default(50),
+  startDate: timestamp("start_date"),
+  closeDate: timestamp("close_date"),
+  podcastId: varchar("podcast_id"),
+  notes: text("notes"),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const dealActivities = pgTable("deal_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealId: varchar("deal_id").notNull(),
+  activityType: text("activity_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  fileUrl: text("file_url"),
+  fileType: text("file_type"),
+  contentStatus: text("content_status"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
+export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDealSchema = createInsertSchema(deals).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDealActivitySchema = createInsertSchema(dealActivities).omit({ id: true, createdAt: true });
 export const insertSubscriberSchema = createInsertSchema(subscribers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSubscriberPodcastSchema = createInsertSchema(subscriberPodcasts).omit({ id: true, subscribedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLoginAt: true });
@@ -256,3 +347,11 @@ export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;
 export type Subscriber = typeof subscribers.$inferSelect;
 export type InsertSubscriberPodcast = z.infer<typeof insertSubscriberPodcastSchema>;
 export type SubscriberPodcast = typeof subscriberPodcasts.$inferSelect;
+export type InsertCompany = z.infer<typeof insertCompanySchema>;
+export type Company = typeof companies.$inferSelect;
+export type InsertCompanyContact = z.infer<typeof insertCompanyContactSchema>;
+export type CompanyContact = typeof companyContacts.$inferSelect;
+export type InsertDeal = z.infer<typeof insertDealSchema>;
+export type Deal = typeof deals.$inferSelect;
+export type InsertDealActivity = z.infer<typeof insertDealActivitySchema>;
+export type DealActivity = typeof dealActivities.$inferSelect;

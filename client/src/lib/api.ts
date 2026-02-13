@@ -155,6 +155,143 @@ export function useAnalyzeSocial() {
   });
 }
 
+export function useCompanies() {
+  return useQuery({ queryKey: ["/api/companies"], queryFn: () => apiRequest("/api/companies") });
+}
+
+export function useCompany(id: string) {
+  return useQuery({ queryKey: ["/api/companies", id], queryFn: () => apiRequest(`/api/companies/${id}`), enabled: !!id });
+}
+
+export function useCreateCompany() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/companies", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/companies"] }),
+  });
+}
+
+export function useUpdateCompany() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/companies/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/companies"] }),
+  });
+}
+
+export function useDeleteCompany() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/companies/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/companies"] }),
+  });
+}
+
+export function useContacts(companyId?: string) {
+  const url = companyId ? `/api/contacts?companyId=${companyId}` : "/api/contacts";
+  return useQuery({ queryKey: ["/api/contacts", companyId], queryFn: () => apiRequest(url) });
+}
+
+export function useContact(id: string) {
+  return useQuery({ queryKey: ["/api/contacts", id], queryFn: () => apiRequest(`/api/contacts/${id}`), enabled: !!id });
+}
+
+export function useCreateContact() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/contacts", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useUpdateContact() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/contacts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useDeleteContact() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/contacts/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useDeals(companyId?: string, stage?: string) {
+  const params = new URLSearchParams();
+  if (companyId) params.set("companyId", companyId);
+  if (stage) params.set("stage", stage);
+  const url = `/api/deals${params.toString() ? `?${params}` : ""}`;
+  return useQuery({ queryKey: ["/api/deals", companyId, stage], queryFn: () => apiRequest(url) });
+}
+
+export function useDeal(id: string) {
+  return useQuery({ queryKey: ["/api/deals", id], queryFn: () => apiRequest(`/api/deals/${id}`), enabled: !!id });
+}
+
+export function useCreateDeal() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/deals", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useUpdateDeal() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/deals/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useDeleteDeal() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/deals/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies"] });
+    },
+  });
+}
+
+export function useDealActivities(dealId: string) {
+  return useQuery({ queryKey: ["/api/deals", dealId, "activities"], queryFn: () => apiRequest(`/api/deals/${dealId}/activities`), enabled: !!dealId });
+}
+
+export function useCreateDealActivity() {
+  return useMutation({
+    mutationFn: ({ dealId, ...data }: any) => apiRequest(`/api/deals/${dealId}/activities`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+    },
+  });
+}
+
+export function useUpdateDealActivity() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/deal-activities/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/deals"] }),
+  });
+}
+
+export function useDeleteDealActivity() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/deal-activities/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/deals"] }),
+  });
+}
+
 export function useSettings() {
   return useQuery({ queryKey: ["/api/settings"], queryFn: () => apiRequest("/api/settings") });
 }

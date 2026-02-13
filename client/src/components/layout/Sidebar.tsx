@@ -15,12 +15,14 @@ import {
   Paintbrush,
   Shield,
   LogOut,
+  Briefcase,
 } from "lucide-react";
 
 const navigation = [
   { name: "Command Center", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
   { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
   { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
+  { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
   { name: "Podcast Network", href: "/network", icon: Radio, permission: "network.view" },
   { name: "Subscriber CRM", href: "/audience", icon: Users, permission: "audience.view" },
   { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },

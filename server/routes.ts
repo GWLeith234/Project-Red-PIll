@@ -5,7 +5,9 @@ import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
-  insertSubscriberSchema, insertSubscriberPodcastSchema, DEFAULT_ROLE_PERMISSIONS,
+  insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
+  insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema,
+  DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
 import { z } from "zod";
@@ -931,6 +933,140 @@ export async function registerRoutes(
 
     suggestions.sort((a, b) => b.score - a.score);
     res.json(suggestions.slice(0, 10));
+  });
+
+  // ── Commercial CRM: Companies ──
+  app.get("/api/companies", requireAuth, requirePermission("sales.view"), async (_req, res) => {
+    const data = await storage.getCompanies();
+    res.json(data);
+  });
+
+  app.get("/api/companies/:id", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const company = await storage.getCompany(req.params.id);
+    if (!company) return res.status(404).json({ message: "Company not found" });
+    const contacts = await storage.getCompanyContacts(req.params.id);
+    const companyDeals = await storage.getDeals(req.params.id);
+    res.json({ ...company, contacts, deals: companyDeals });
+  });
+
+  app.post("/api/companies", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertCompanySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createCompany(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/companies/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertCompanySchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateCompany(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Company not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/companies/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    await storage.deleteCompany(req.params.id);
+    res.status(204).send();
+  });
+
+  // ── Commercial CRM: Contacts ──
+  app.get("/api/contacts", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const companyId = req.query.companyId as string | undefined;
+    const data = await storage.getCompanyContacts(companyId);
+    res.json(data);
+  });
+
+  app.get("/api/contacts/:id", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const contact = await storage.getCompanyContact(req.params.id);
+    if (!contact) return res.status(404).json({ message: "Contact not found" });
+    res.json(contact);
+  });
+
+  app.post("/api/contacts", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertCompanyContactSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createCompanyContact(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/contacts/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertCompanyContactSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateCompanyContact(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Contact not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/contacts/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    await storage.deleteCompanyContact(req.params.id);
+    res.status(204).send();
+  });
+
+  // ── Commercial CRM: Deals ──
+  app.get("/api/deals", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const companyId = req.query.companyId as string | undefined;
+    const stage = req.query.stage as string | undefined;
+    const data = await storage.getDeals(companyId, stage);
+    res.json(data);
+  });
+
+  app.get("/api/deals/:id", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const deal = await storage.getDeal(req.params.id);
+    if (!deal) return res.status(404).json({ message: "Deal not found" });
+    const activities = await storage.getDealActivities(deal.id);
+    const company = deal.companyId ? await storage.getCompany(deal.companyId) : null;
+    const contact = deal.contactId ? await storage.getCompanyContact(deal.contactId) : null;
+    res.json({ ...deal, activities, company, contact });
+  });
+
+  app.post("/api/deals", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertDealSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createDeal(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/deals/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertDealSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateDeal(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Deal not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/deals/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    await storage.deleteDeal(req.params.id);
+    res.status(204).send();
+  });
+
+  // ── Commercial CRM: Deal Activities ──
+  app.get("/api/deals/:dealId/activities", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const data = await storage.getDealActivities(req.params.dealId);
+    res.json(data);
+  });
+
+  app.post("/api/deals/:dealId/activities", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
+    const parsed = insertDealActivitySchema.safeParse({
+      ...req.body,
+      dealId: req.params.dealId,
+      createdBy: req.session.userId,
+    });
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createDealActivity(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/deal-activities/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertDealActivitySchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateDealActivity(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Activity not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/deal-activities/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    await storage.deleteDealActivity(req.params.id);
+    res.status(204).send();
   });
 
   // ── Object Storage (file uploads) ──
