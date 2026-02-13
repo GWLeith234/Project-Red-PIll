@@ -4,14 +4,145 @@ import { storage } from "./storage";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
-  insertBrandingSchema,
+  insertBrandingSchema, insertUserSchema, DEFAULT_ROLE_PERMISSIONS,
+  type Role,
 } from "@shared/schema";
+import { z } from "zod";
+import { hashPassword, verifyPassword, sanitizeUser, requireAuth, requirePermission } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // ── Auth ──
+  app.post("/api/auth/login", async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ message: "Username and password required" });
+
+    const user = await storage.getUserByUsername(username);
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    if (user.status !== "active") return res.status(403).json({ message: "Account is disabled" });
+
+    const valid = await verifyPassword(password, user.password);
+    if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+
+    await storage.updateLastLogin(user.id);
+    req.session.userId = user.id;
+
+    res.json(sanitizeUser(user));
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(401).json({ message: "User not found" });
+    res.json(sanitizeUser(user));
+  });
+
+  app.get("/api/auth/check-setup", async (_req, res) => {
+    const existingUsers = await storage.getUsers();
+    res.json({ needsSetup: existingUsers.length === 0 });
+  });
+
+  app.post("/api/auth/setup", async (req, res) => {
+    const existingUsers = await storage.getUsers();
+    if (existingUsers.length > 0) return res.status(400).json({ message: "Admin account already exists" });
+
+    const parsed = z.object({
+      username: z.string().min(3),
+      password: z.string().min(6),
+      displayName: z.string().optional(),
+      email: z.string().email().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+
+    const hashed = await hashPassword(parsed.data.password);
+    const user = await storage.createUser({
+      username: parsed.data.username,
+      password: hashed,
+      displayName: parsed.data.displayName || parsed.data.username,
+      email: parsed.data.email || null,
+      role: "admin",
+      permissions: [...DEFAULT_ROLE_PERMISSIONS.admin],
+      status: "active",
+    });
+
+    req.session.userId = user.id;
+    res.status(201).json(sanitizeUser(user));
+  });
+
+  // ── Users (admin only) ──
+  app.get("/api/users", requirePermission("users.view"), async (_req, res) => {
+    const allUsers = await storage.getUsers();
+    res.json(allUsers.map(sanitizeUser));
+  });
+
+  app.post("/api/users", requirePermission("users.edit"), async (req, res) => {
+    const parsed = z.object({
+      username: z.string().min(3),
+      password: z.string().min(6),
+      displayName: z.string().optional(),
+      email: z.string().email().optional().nullable(),
+      role: z.enum(["admin", "editor", "viewer"]),
+      permissions: z.array(z.string()).optional(),
+      status: z.enum(["active", "inactive"]).default("active"),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+
+    const existing = await storage.getUserByUsername(parsed.data.username);
+    if (existing) return res.status(409).json({ message: "Username already taken" });
+
+    const hashed = await hashPassword(parsed.data.password);
+    const permissions = parsed.data.permissions || DEFAULT_ROLE_PERMISSIONS[parsed.data.role as Role] || [];
+
+    const user = await storage.createUser({
+      username: parsed.data.username,
+      password: hashed,
+      displayName: parsed.data.displayName || parsed.data.username,
+      email: parsed.data.email || null,
+      role: parsed.data.role,
+      permissions,
+      status: parsed.data.status,
+    });
+    res.status(201).json(sanitizeUser(user));
+  });
+
+  app.patch("/api/users/:id", requirePermission("users.edit"), async (req, res) => {
+    const parsed = z.object({
+      displayName: z.string().optional(),
+      email: z.string().email().optional().nullable(),
+      role: z.enum(["admin", "editor", "viewer"]).optional(),
+      permissions: z.array(z.string()).optional(),
+      status: z.enum(["active", "inactive"]).optional(),
+      password: z.string().min(6).optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+
+    const updateData: any = { ...parsed.data };
+    if (updateData.password) {
+      updateData.password = await hashPassword(updateData.password);
+    }
+
+    const user = await storage.updateUser(req.params.id, updateData);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(sanitizeUser(user));
+  });
+
+  app.delete("/api/users/:id", requirePermission("users.edit"), async (req, res) => {
+    if (req.session.userId === req.params.id) {
+      return res.status(400).json({ message: "Cannot delete your own account" });
+    }
+    await storage.deleteUser(req.params.id);
+    res.status(204).send();
+  });
 
   // ── Podcasts ──
   app.get("/api/podcasts", async (_req, res) => {

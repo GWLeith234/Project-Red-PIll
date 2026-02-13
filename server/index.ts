@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -21,6 +23,32 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+const PgStore = connectPgSimple(session);
+const isProduction = process.env.NODE_ENV === "production";
+const sessionSecret = process.env.SESSION_SECRET || (isProduction ? undefined : "dev-session-secret-mediatech");
+if (!sessionSecret) {
+  console.error("SESSION_SECRET environment variable is required in production");
+  process.exit(1);
+}
+app.set("trust proxy", 1);
+app.use(
+  session({
+    store: new PgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+    }),
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+    },
+  }),
+);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

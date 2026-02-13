@@ -3,10 +3,60 @@ import { pgTable, text, varchar, integer, timestamp, boolean, real, jsonb } from
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const ROLES = ["admin", "editor", "viewer"] as const;
+export type Role = typeof ROLES[number];
+
+export const PERMISSIONS = [
+  "dashboard.view",
+  "content.view",
+  "content.edit",
+  "monetization.view",
+  "monetization.edit",
+  "network.view",
+  "network.edit",
+  "audience.view",
+  "analytics.view",
+  "customize.view",
+  "customize.edit",
+  "settings.view",
+  "settings.edit",
+  "users.view",
+  "users.edit",
+] as const;
+export type Permission = typeof PERMISSIONS[number];
+
+export const DEFAULT_ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  admin: [...PERMISSIONS],
+  editor: [
+    "dashboard.view",
+    "content.view",
+    "content.edit",
+    "monetization.view",
+    "network.view",
+    "audience.view",
+    "analytics.view",
+  ],
+  viewer: [
+    "dashboard.view",
+    "content.view",
+    "monetization.view",
+    "network.view",
+    "audience.view",
+    "analytics.view",
+  ],
+};
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
+  displayName: text("display_name"),
+  role: text("role").default("viewer").notNull(),
+  permissions: text("permissions").array().default(sql`ARRAY[]::text[]`),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastLoginAt: timestamp("last_login_at"),
 });
 
 export const podcasts = pgTable("podcasts", {
@@ -97,7 +147,7 @@ export const branding = pgTable("branding", {
 });
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLoginAt: true });
 export const insertPodcastSchema = createInsertSchema(podcasts).omit({ id: true });
 export const insertEpisodeSchema = createInsertSchema(episodes).omit({ id: true });
 export const insertContentPieceSchema = createInsertSchema(contentPieces).omit({ id: true });

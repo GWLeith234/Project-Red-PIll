@@ -24,10 +24,13 @@ Preferred communication style: Simple, everyday language.
 - **Path Aliases**: `@/` maps to `client/src/`, `@shared/` maps to `shared/`, `@assets/` maps to `attached_assets/`
 
 ### Pages
+- **Login** (`/login`): Authentication page with first-time admin setup flow
 - **Dashboard** (`/`): Command Center with KPI cards, revenue charts, alerts, processing status
 - **Content Factory** (`/content`): AI content multiplication pipeline showing episode processing stages
 - **Monetization** (`/monetization`): Revenue engine with advertiser management, CPM tracking, revenue breakdown
 - **Network** (`/network`): Podcast network management with show cards
+- **User Management** (`/users`): Admin user CRUD with role assignment and permission toggles
+- **Customize** (`/customize`): Branding management for logo, favicon, banner, colors, company name
 - **Audience** (`/audience`): Coming soon placeholder
 - **Analytics** (`/analytics`): Coming soon placeholder
 - **Settings** (`/settings`): Coming soon placeholder
@@ -40,7 +43,18 @@ Preferred communication style: Simple, everyday language.
 - **Build**: Custom build script using esbuild for server bundling and Vite for client bundling; output is a single CJS file at `dist/index.cjs`
 - **Logging**: Custom request logger for API routes with timing information
 
+### Authentication & Authorization
+- **Auth**: Session-based authentication using express-session + connect-pg-simple (PostgreSQL session store)
+- **Password Hashing**: bcryptjs with 10 rounds
+- **Session Security**: Secure cookies in production, SESSION_SECRET required in production
+- **RBAC**: Three roles (admin, editor, viewer) with granular permissions (dashboard.view, content.view, content.edit, etc.)
+- **First-time Setup**: `/api/auth/setup` creates the first admin account when no users exist
+- **Auth Context**: React AuthProvider (client/src/lib/auth.tsx) manages login state, permission checks
+- **Route Protection**: Frontend PermissionGate component blocks unauthorized page access; backend requirePermission middleware blocks unauthorized API access
+
 ### API Endpoints
+- `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/check-setup`, `POST /api/auth/setup`
+- `GET/POST /api/users`, `PATCH/DELETE /api/users/:id` (permission-gated: users.view, users.edit)
 - `GET/POST /api/podcasts`, `GET/PATCH/DELETE /api/podcasts/:id`
 - `GET/POST /api/episodes`, `GET/PATCH /api/episodes/:id`
 - `GET/POST /api/content-pieces`, `PATCH /api/content-pieces/:id`
@@ -48,6 +62,7 @@ Preferred communication style: Simple, everyday language.
 - `GET/POST /api/campaigns`, `PATCH /api/campaigns/:id`
 - `GET /api/metrics/latest`, `POST /api/metrics`
 - `GET/POST /api/alerts`, `PATCH /api/alerts/:id`
+- `GET/PUT /api/branding`
 
 ### Database
 - **Database**: PostgreSQL (required, connection via `DATABASE_URL` environment variable)
@@ -57,7 +72,7 @@ Preferred communication style: Simple, everyday language.
 - **Connection**: `pg` (node-postgres) Pool
 
 ### Data Models
-- **users**: id, username, password
+- **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), createdAt, lastLoginAt
 - **podcasts**: id, title, host, description, coverImage, subscribers, growthPercent, multiplicationFactor, status
 - **episodes**: id, podcastId, title, duration, publishedAt, processingStatus, processingProgress
 - **contentPieces**: id, episodeId, type, title, platform, status

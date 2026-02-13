@@ -20,7 +20,11 @@ const db = drizzle(pool);
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
+  updateLastLogin(id: string): Promise<void>;
 
   getPodcasts(): Promise<Podcast[]>;
   getPodcast(id: string): Promise<Podcast | undefined>;
@@ -69,9 +73,22 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
+  async getUsers() {
+    return db.select().from(users).orderBy(desc(users.createdAt));
+  }
   async createUser(user: InsertUser) {
     const [created] = await db.insert(users).values(user).returning();
     return created;
+  }
+  async updateUser(id: string, data: Partial<InsertUser>) {
+    const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    return updated;
+  }
+  async deleteUser(id: string) {
+    await db.delete(users).where(eq(users.id, id));
+  }
+  async updateLastLogin(id: string) {
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
   }
 
   async getPodcasts() {
