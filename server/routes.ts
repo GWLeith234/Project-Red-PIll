@@ -1078,6 +1078,54 @@ export async function registerRoutes(
     res.json({ podcast, episodes: published });
   });
 
+  app.get("/api/public/shows/:podcastId", async (req, res) => {
+    const podcast = await storage.getPodcast(req.params.podcastId);
+    if (!podcast || podcast.status !== "active") return res.status(404).json({ message: "Show not found" });
+    const allEpisodes = await storage.getEpisodes(req.params.podcastId);
+    const publishedEpisodes = allEpisodes
+      .filter(e => e.processingStatus === "complete")
+      .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+    const allContent = await Promise.all(
+      allEpisodes.map(e => storage.getContentPieces(e.id))
+    );
+    const articles = allContent.flat()
+      .filter(c => c.type === "article" && c.status === "ready")
+      .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+    res.json({
+      podcast: {
+        id: podcast.id,
+        title: podcast.title,
+        host: podcast.host,
+        description: podcast.description,
+        coverImage: podcast.coverImage,
+        subscribers: podcast.subscribers,
+        growthPercent: podcast.growthPercent,
+      },
+      episodes: publishedEpisodes.map(e => ({
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        duration: e.duration,
+        audioUrl: e.audioUrl,
+        videoUrl: e.videoUrl,
+        thumbnailUrl: e.thumbnailUrl,
+        episodeType: e.episodeType || "audio",
+        publishedAt: e.publishedAt,
+      })),
+      articles: articles.map(a => ({
+        id: a.id,
+        episodeId: a.episodeId,
+        title: a.title,
+        description: a.description,
+        coverImage: a.coverImage,
+        slug: a.slug,
+        readingTime: a.readingTime,
+        authorId: a.authorId,
+        publishedAt: a.publishedAt,
+      })),
+    });
+  });
+
   // ── Public Author Profile (no auth) ──
   app.get("/api/public/authors/:id", async (req, res) => {
     const author = await storage.getAuthorPublicProfile(req.params.id);

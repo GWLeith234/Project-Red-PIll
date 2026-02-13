@@ -50,7 +50,8 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
   const firstPodcastId = podcasts?.[0]?.id;
 
   const isActivePath = (path: string) => {
-    if (path === "shows") return location.startsWith("/listen/") || location.startsWith("/news/");
+    if (path === "podcasts") return location === "/podcasts";
+    if (path === "shows") return location.startsWith("/show/") || location.startsWith("/listen/") || location.startsWith("/news/");
     if (path === "news") return location.startsWith("/news/");
     if (path === "episodes") return location.startsWith("/listen/");
     return false;
@@ -76,6 +77,16 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
               </Link>
 
               <nav className="hidden lg:flex items-center gap-1" data-testid="audience-nav-desktop">
+                <Link
+                  href="/podcasts"
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
+                    ${isActivePath("podcasts") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  data-testid="nav-podcasts"
+                >
+                  <Radio className="h-4 w-4" />
+                  Podcasts
+                </Link>
+
                 <div className="relative group">
                   <button
                     onClick={() => setShowsOpen(!showsOpen)}
@@ -83,7 +94,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                       ${isActivePath("shows") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
                     data-testid="nav-shows"
                   >
-                    <Radio className="h-4 w-4" />
+                    <Headphones className="h-4 w-4" />
                     Shows
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showsOpen ? "rotate-180" : ""}`} />
                   </button>
@@ -100,7 +111,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                         {podcasts.map((p: any) => (
                           <Link
                             key={p.id}
-                            href={`/news/${p.id}`}
+                            href={`/show/${p.id}`}
                             className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 transition-colors"
                             onClick={() => setShowsOpen(false)}
                             data-testid={`nav-show-${p.id}`}
@@ -118,6 +129,15 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                             </div>
                           </Link>
                         ))}
+                        <div className="border-t border-gray-800 mt-1 pt-1">
+                          <Link
+                            href="/podcasts"
+                            className="flex items-center gap-2 px-3 py-2 text-xs text-amber-500 hover:bg-gray-800 transition-colors font-medium"
+                            onClick={() => setShowsOpen(false)}
+                          >
+                            Browse all shows &rarr;
+                          </Link>
+                        </div>
                       </div>
                     )}
                 </div>
@@ -131,18 +151,6 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                   >
                     <Newspaper className="h-4 w-4" />
                     News
-                  </Link>
-                )}
-
-                {firstPodcastId && (
-                  <Link
-                    href={`/listen/${firstPodcastId}`}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                      ${isActivePath("episodes") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                    data-testid="nav-episodes"
-                  >
-                    <Headphones className="h-4 w-4" />
-                    Episodes
                   </Link>
                 )}
               </nav>
@@ -177,13 +185,22 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         {mobileMenuOpen && (
           <div className="lg:hidden bg-gray-900 border-b border-gray-800" data-testid="audience-nav-mobile">
             <div className="max-w-7xl mx-auto px-4 py-4 space-y-1">
+              <Link
+                href="/podcasts"
+                className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="mobile-nav-podcasts"
+              >
+                <Radio className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-white font-medium">Browse Podcasts</span>
+              </Link>
               {podcasts && podcasts.length > 0 && (
                 <div className="mb-3">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Shows</p>
                   {podcasts.map((p: any) => (
                     <Link
                       key={p.id}
-                      href={`/news/${p.id}`}
+                      href={`/show/${p.id}`}
                       className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
                       onClick={() => setMobileMenuOpen(false)}
                       data-testid={`mobile-nav-show-${p.id}`}
@@ -261,7 +278,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
               <ul className="space-y-2">
                 {podcasts?.slice(0, 6).map((p: any) => (
                   <li key={p.id}>
-                    <Link href={`/news/${p.id}`} className="text-sm text-gray-500 hover:text-white transition-colors" data-testid={`footer-show-${p.id}`}>
+                    <Link href={`/show/${p.id}`} className="text-sm text-gray-500 hover:text-white transition-colors" data-testid={`footer-show-${p.id}`}>
                       {p.title}
                     </Link>
                   </li>

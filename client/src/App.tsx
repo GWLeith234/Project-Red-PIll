@@ -6,6 +6,8 @@ import Network from "@/pages/Network";
 import NewsPage from "@/pages/NewsPage";
 import ArticlePage from "@/pages/ArticlePage";
 import EpisodePage from "@/pages/EpisodePage";
+import PodcastDirectory from "@/pages/PodcastDirectory";
+import ShowDetail from "@/pages/ShowDetail";
 import AudienceLayout from "@/components/layout/AudienceLayout";
 import Login from "@/pages/Login";
 import UsersAdmin from "@/pages/UsersAdmin";
@@ -94,6 +96,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Switch>
+          <Route path="/podcasts">{() => <AudienceLayout><PodcastDirectory /></AudienceLayout>}</Route>
+          <Route path="/show/:podcastId">{() => <AudienceLayout><ShowDetail /></AudienceLayout>}</Route>
           <Route path="/author/:authorId">{() => <AudienceLayout><AuthorProfile /></AudienceLayout>}</Route>
           <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
           <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>

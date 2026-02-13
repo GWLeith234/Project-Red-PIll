@@ -38,6 +38,28 @@ const contentTypeIcons: Record<string, typeof FileText> = {
   newsletter: Share2,
 };
 
+function VideoPlayerUI({ videoUrl, title, thumbnailUrl }: { videoUrl: string; title: string; thumbnailUrl?: string | null }) {
+  return (
+    <div className="mb-8 rounded-xl overflow-hidden bg-black shadow-2xl" data-testid="video-player">
+      <div className="relative aspect-video">
+        <video
+          controls
+          poster={thumbnailUrl || undefined}
+          className="w-full h-full object-contain bg-black"
+          preload="metadata"
+          data-testid="video-element"
+        >
+          <source src={videoUrl} />
+          Your browser does not support the video tag.
+        </video>
+      </div>
+      <div className="bg-gray-900 px-4 py-3">
+        <p className="text-white text-sm font-semibold truncate">{title}</p>
+      </div>
+    </div>
+  );
+}
+
 function AudioPlayerUI({ title, duration, podcastTitle }: { title: string; duration: string | null; podcastTitle: string }) {
   const [playing, setPlaying] = useState(false);
   const [progress] = useState(0);
@@ -69,6 +91,23 @@ function AudioPlayerUI({ title, duration, podcastTitle }: { title: string; durat
         </div>
       </div>
     </div>
+  );
+}
+
+function EpisodeTypeBadge({ type }: { type: string }) {
+  if (type === "video" || type === "both") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+        <Video className="h-3 w-3" />
+        {type === "both" ? "Video + Audio" : "Video"}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded">
+      <Headphones className="h-3 w-3" />
+      Audio
+    </span>
   );
 }
 
@@ -119,7 +158,7 @@ export default function EpisodePage() {
       <nav className="border-b border-gray-100 bg-gray-50/50">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
-            <Link href={`/news/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">{podcast?.title || "Show"}</Link>
+            <Link href={`/show/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">{podcast?.title || "Show"}</Link>
             <ChevronRight className="h-3 w-3" />
             <span className="text-gray-900 font-medium truncate max-w-[300px]">{episode.title}</span>
           </div>
@@ -131,10 +170,7 @@ export default function EpisodePage() {
           <div className="flex-1 min-w-0 max-w-[720px]">
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-700 text-xs font-semibold uppercase tracking-wider rounded">
-                  <Headphones className="h-3 w-3" />
-                  Episode
-                </span>
+                <EpisodeTypeBadge type={episode.episodeType || "audio"} />
                 {episode.duration && (
                   <span className="text-xs text-gray-400 flex items-center gap-1">
                     <Clock className="h-3 w-3" />
@@ -161,11 +197,21 @@ export default function EpisodePage() {
               </div>
             </div>
 
-            <AudioPlayerUI
-              title={episode.title}
-              duration={episode.duration}
-              podcastTitle={podcast?.title || "Podcast"}
-            />
+            {(episode.episodeType === "video" || episode.episodeType === "both") && episode.videoUrl && (
+              <VideoPlayerUI
+                videoUrl={episode.videoUrl}
+                title={episode.title}
+                thumbnailUrl={episode.thumbnailUrl}
+              />
+            )}
+
+            {(episode.episodeType !== "video") && (
+              <AudioPlayerUI
+                title={episode.title}
+                duration={episode.duration}
+                podcastTitle={podcast?.title || "Podcast"}
+              />
+            )}
 
             <InlineSubscribeWidget
               podcastId={podcast?.id}
@@ -242,7 +288,7 @@ export default function EpisodePage() {
                     <p className="text-gray-500 text-xs">{podcast?.title}</p>
                   </div>
                 </div>
-                <Link href={`/news/${params.podcastId}`}>
+                <Link href={`/show/${params.podcastId}`}>
                   <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-50" data-testid="button-more-episodes">
                     More from this Show
                   </Button>
@@ -281,9 +327,9 @@ export default function EpisodePage() {
                 <p className="text-xs text-gray-400">
                   {podcast?.subscribers ? `${(podcast.subscribers / 1000).toFixed(0)}K subscribers` : ""}
                 </p>
-                <Link href={`/news/${params.podcastId}`}>
+                <Link href={`/show/${params.podcastId}`}>
                   <Button variant="outline" size="sm" className="w-full mt-3 text-xs border-gray-300" data-testid="button-sidebar-stories">
-                    View Stories
+                    View All Content
                   </Button>
                 </Link>
               </div>
