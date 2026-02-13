@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
-  insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, DEFAULT_ROLE_PERMISSIONS,
+  insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema, DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
 import { z } from "zod";
@@ -247,6 +247,24 @@ export async function registerRoutes(
     const data = await storage.updateContentPiece(req.params.id, req.body);
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
+  });
+
+  // ── Comments ──
+  app.get("/api/articles/:id/comments", async (req, res) => {
+    const data = await storage.getCommentsByArticle(req.params.id);
+    res.json(data);
+  });
+
+  app.post("/api/articles/:id/comments", async (req, res) => {
+    const parsed = insertCommentSchema.safeParse({ ...req.body, articleId: req.params.id });
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const data = await storage.createComment(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.delete("/api/comments/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteComment(req.params.id);
+    res.status(204).end();
   });
 
   // ── Advertisers ──

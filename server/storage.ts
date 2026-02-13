@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
-  users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings,
+  users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -13,6 +13,7 @@ import {
   type Alert, type InsertAlert,
   type Branding, type InsertBranding,
   type PlatformSettings, type InsertPlatformSettings,
+  type Comment, type InsertComment,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -66,6 +67,10 @@ export interface IStorage {
 
   getSettings(): Promise<PlatformSettings | undefined>;
   upsertSettings(data: Partial<InsertPlatformSettings>): Promise<PlatformSettings>;
+
+  getCommentsByArticle(articleId: string): Promise<Comment[]>;
+  createComment(comment: InsertComment): Promise<Comment>;
+  deleteComment(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -245,6 +250,16 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(platformSettings).values(data as InsertPlatformSettings).returning();
     return created;
+  }
+  async getCommentsByArticle(articleId: string) {
+    return db.select().from(comments).where(eq(comments.articleId, articleId)).orderBy(desc(comments.createdAt));
+  }
+  async createComment(comment: InsertComment) {
+    const [created] = await db.insert(comments).values(comment).returning();
+    return created;
+  }
+  async deleteComment(id: string) {
+    await db.delete(comments).where(eq(comments.id, id));
   }
 }
 

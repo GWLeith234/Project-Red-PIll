@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, ChevronRight, Clock, ArrowLeft, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check } from "lucide-react";
+import { Mic, ChevronRight, Clock, ArrowLeft, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -121,6 +121,131 @@ function ShareBar({ title, shareUrl, compact }: { title: string; shareUrl: strin
       >
         <Printer className="h-4 w-4" />
       </button>
+    </div>
+  );
+}
+
+function CommentSection({ articleId }: { articleId: string }) {
+  const queryClient = useQueryClient();
+  const [authorName, setAuthorName] = useState("");
+  const [content, setContent] = useState("");
+
+  const { data: commentsData, isLoading } = useQuery({
+    queryKey: ["/api/articles", articleId, "comments"],
+    queryFn: async () => {
+      const res = await fetch(`/api/articles/${articleId}/comments`);
+      if (!res.ok) throw new Error("Failed to load comments");
+      return res.json();
+    },
+  });
+
+  const addComment = useMutation({
+    mutationFn: async (data: { authorName: string; content: string }) => {
+      const res = await fetch(`/api/articles/${articleId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to post comment");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/articles", articleId, "comments"] });
+      setAuthorName("");
+      setContent("");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authorName.trim() || !content.trim()) return;
+    addComment.mutate({ authorName: authorName.trim(), content: content.trim() });
+  };
+
+  const commentsList = commentsData || [];
+
+  return (
+    <div className="mt-10 pt-8 border-t border-gray-200" data-testid="comment-section">
+      <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2" data-testid="text-comments-heading">
+        <MessageSquare className="h-5 w-5" />
+        Comments {commentsList.length > 0 && <span className="text-sm font-normal text-gray-500">({commentsList.length})</span>}
+      </h3>
+
+      <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 border border-gray-200 p-4" data-testid="form-add-comment">
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="Your name"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            required
+            maxLength={100}
+            className="w-full px-3 py-2 bg-white border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
+            data-testid="input-comment-author"
+          />
+        </div>
+        <div className="mb-3">
+          <textarea
+            placeholder="Share your thoughts..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            required
+            maxLength={2000}
+            rows={3}
+            className="w-full px-3 py-2 bg-white border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors resize-none"
+            data-testid="input-comment-content"
+          />
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={addComment.isPending || !authorName.trim() || !content.trim()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            data-testid="button-submit-comment"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {addComment.isPending ? "Posting..." : "Post Comment"}
+          </button>
+        </div>
+      </form>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2].map(i => (
+            <div key={i} className="border-b border-gray-100 pb-4">
+              <Skeleton className="h-4 w-32 mb-2 bg-gray-200" />
+              <Skeleton className="h-4 w-full bg-gray-100" />
+              <Skeleton className="h-4 w-2/3 mt-1 bg-gray-100" />
+            </div>
+          ))}
+        </div>
+      ) : commentsList.length === 0 ? (
+        <div className="text-center py-8 text-gray-400" data-testid="text-no-comments">
+          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No comments yet. Be the first to share your thoughts!</p>
+        </div>
+      ) : (
+        <div className="space-y-0 divide-y divide-gray-100" data-testid="comments-list">
+          {commentsList.map((comment: any) => (
+            <div key={comment.id} className="py-4" data-testid={`comment-item-${comment.id}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-7 w-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  <User className="h-3.5 w-3.5 text-gray-500" />
+                </div>
+                <span className="text-sm font-semibold text-gray-900" data-testid={`text-comment-author-${comment.id}`}>
+                  {comment.authorName}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {comment.createdAt ? timeAgo(comment.createdAt) : "Just now"}
+                </span>
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed pl-9" data-testid={`text-comment-content-${comment.id}`}>
+                {comment.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -293,6 +418,8 @@ export default function ArticlePage() {
                 <p className="text-sm text-gray-500 mb-3">Share this story</p>
                 <ShareBar title={article.title} shareUrl={shareUrl} />
               </div>
+
+              <CommentSection articleId={article.id} />
 
               <div className="flex justify-center my-8 print:hidden">
                 <AdPlaceholder width={728} height={90} label="Bottom Leaderboard" className="hidden md:flex" />
