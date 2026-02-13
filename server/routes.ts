@@ -935,6 +935,20 @@ export async function registerRoutes(
     res.json(suggestions.slice(0, 10));
   });
 
+  // ── Public Podcasts (no auth - for audience navigation) ──
+  app.get("/api/public/podcasts", async (_req, res) => {
+    const all = await storage.getPodcasts();
+    const active = all.filter(p => p.status === "active").map(p => ({
+      id: p.id,
+      title: p.title,
+      host: p.host,
+      description: p.description,
+      coverImage: p.coverImage,
+      subscribers: p.subscribers,
+    }));
+    res.json(active);
+  });
+
   // ── Public Subscribe (no auth - for visitor widgets on story/episode pages) ──
   app.post("/api/public/subscribe", async (req, res) => {
     const { email, firstName, lastName, podcastId, source } = req.body;

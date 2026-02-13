@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Mic, ArrowLeft, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones } from "lucide-react";
+import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones } from "lucide-react";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar, EpisodeSubscribeWidget } from "@/components/SubscriberWidgets";
 
@@ -40,22 +40,22 @@ const contentTypeIcons: Record<string, typeof FileText> = {
 
 function AudioPlayerUI({ title, duration, podcastTitle }: { title: string; duration: string | null; podcastTitle: string }) {
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress] = useState(0);
 
   return (
-    <div className="bg-gray-900 p-5 mb-8" data-testid="audio-player">
+    <div className="bg-gray-900 rounded-lg p-5 mb-8" data-testid="audio-player">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => setPlaying(!playing)}
-          className="h-12 w-12 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center flex-shrink-0 transition-colors"
+          onClick={() => {}}
+          className="h-14 w-14 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center flex-shrink-0 transition-colors shadow-lg shadow-amber-500/20"
           data-testid="button-play-pause"
         >
-          {playing ? <Pause className="h-5 w-5 text-gray-900" /> : <Play className="h-5 w-5 text-gray-900 ml-0.5" />}
+          {playing ? <Pause className="h-6 w-6 text-gray-900" /> : <Play className="h-6 w-6 text-gray-900 ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-white text-sm font-semibold truncate" data-testid="text-player-title">{title}</p>
           <p className="text-gray-400 text-xs">{podcastTitle}</p>
-          <div className="mt-2 flex items-center gap-3">
+          <div className="mt-2.5 flex items-center gap-3">
             <div className="flex-1 bg-gray-800 rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-amber-500 h-full rounded-full transition-all"
@@ -86,7 +86,7 @@ export default function EpisodePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="bg-white">
         <div className="max-w-5xl mx-auto px-4 py-12">
           <Skeleton className="h-10 w-3/4 mb-4 bg-gray-200" />
           <Skeleton className="h-4 w-48 mb-8 bg-gray-100" />
@@ -100,7 +100,7 @@ export default function EpisodePage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="bg-white flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Episode not found</h1>
           <p className="text-gray-500 mb-4">This episode doesn't exist or hasn't been published yet.</p>
@@ -115,32 +115,11 @@ export default function EpisodePage() {
   const otherContent = contentPieces?.filter((cp: any) => cp.type !== "article" && cp.status === "ready") || [];
 
   return (
-    <div className="min-h-screen bg-white" data-testid="episode-page">
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center space-x-3">
-              {podcast?.coverImage ? (
-                <img src={podcast.coverImage} alt={podcast?.title} className="h-8 w-8 rounded-full object-cover" />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-gray-900 flex items-center justify-center">
-                  <Mic className="h-4 w-4 text-white" />
-                </div>
-              )}
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">{podcast?.title || "Podcast"}</h1>
-            </div>
-            <Link href={`/listen/${params.podcastId}`} className="flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors" data-testid="link-back-episodes">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              All Episodes
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <div className="bg-white" data-testid="episode-page">
       <nav className="border-b border-gray-100 bg-gray-50/50">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
-            <Link href={`/listen/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">Episodes</Link>
+            <Link href={`/news/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">{podcast?.title || "Show"}</Link>
             <ChevronRight className="h-3 w-3" />
             <span className="text-gray-900 font-medium truncate max-w-[300px]">{episode.title}</span>
           </div>
@@ -152,7 +131,7 @@ export default function EpisodePage() {
           <div className="flex-1 min-w-0 max-w-[720px]">
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-700 text-xs font-semibold uppercase tracking-wider">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-700 text-xs font-semibold uppercase tracking-wider rounded">
                   <Headphones className="h-3 w-3" />
                   Episode
                 </span>
@@ -207,7 +186,7 @@ export default function EpisodePage() {
                       href={`/news/${params.podcastId}/article/${article.id}`}
                       className="block"
                     >
-                      <div className="group border border-gray-100 hover:border-gray-300 p-4 transition-colors cursor-pointer" data-testid={`link-article-${article.id}`}>
+                      <div className="group border border-gray-100 hover:border-gray-300 rounded-lg p-4 transition-colors cursor-pointer" data-testid={`link-article-${article.id}`}>
                         <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors mb-1" data-testid={`text-article-title-${article.id}`}>
                           {article.title}
                         </h3>
@@ -228,7 +207,7 @@ export default function EpisodePage() {
                   {otherContent.map((piece: any) => {
                     const Icon = contentTypeIcons[piece.type] || FileText;
                     return (
-                      <div key={piece.id} className="border border-gray-100 p-3" data-testid={`content-piece-${piece.id}`}>
+                      <div key={piece.id} className="border border-gray-100 rounded-lg p-3" data-testid={`content-piece-${piece.id}`}>
                         <Icon className="h-4 w-4 text-gray-400 mb-2" />
                         <p className="text-xs font-semibold text-gray-900 line-clamp-2">{piece.title}</p>
                         <p className="text-[10px] text-gray-400 uppercase mt-1">{piece.type.replace("_", " ")}</p>
@@ -263,9 +242,9 @@ export default function EpisodePage() {
                     <p className="text-gray-500 text-xs">{podcast?.title}</p>
                   </div>
                 </div>
-                <Link href={`/listen/${params.podcastId}`}>
+                <Link href={`/news/${params.podcastId}`}>
                   <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-50" data-testid="button-more-episodes">
-                    More Episodes
+                    More from this Show
                   </Button>
                 </Link>
               </div>
@@ -281,13 +260,13 @@ export default function EpisodePage() {
                 source="episode_sidebar"
               />
 
-              <div className="border border-gray-100 bg-gray-50 p-4">
+              <div className="border border-gray-100 bg-gray-50 rounded-lg p-4">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About the Show</h3>
                 <div className="flex items-center space-x-3 mb-3">
                   {podcast?.coverImage ? (
-                    <img src={podcast.coverImage} alt="" className="h-12 w-12 rounded-full object-cover" />
+                    <img src={podcast.coverImage} alt="" className="h-12 w-12 rounded-lg object-cover" />
                   ) : (
-                    <div className="h-12 w-12 rounded-full bg-gray-900 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-lg bg-gray-900 flex items-center justify-center">
                       <Mic className="h-6 w-6 text-white" />
                     </div>
                   )}
@@ -310,7 +289,7 @@ export default function EpisodePage() {
               </div>
 
               {episode.publishedAt && (
-                <div className="border border-gray-100 bg-gray-50 p-4">
+                <div className="border border-gray-100 bg-gray-50 rounded-lg p-4">
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">Episode Details</h3>
                   <dl className="space-y-2 text-xs">
                     <div>
@@ -336,18 +315,6 @@ export default function EpisodePage() {
           </aside>
         </div>
       </main>
-
-      <footer className="border-t border-gray-200 mt-8 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="flex items-center justify-between text-sm text-gray-400">
-            <div className="flex items-center space-x-2">
-              <Mic className="h-4 w-4" />
-              <span>{podcast?.title || "MediaTech"}</span>
-            </div>
-            <p>Powered by MediaTech Empire</p>
-          </div>
-        </div>
-      </footer>
 
       <StickyBottomSubscribeBar
         podcastId={podcast?.id}

@@ -6,6 +6,7 @@ import Network from "@/pages/Network";
 import NewsPage from "@/pages/NewsPage";
 import ArticlePage from "@/pages/ArticlePage";
 import EpisodePage from "@/pages/EpisodePage";
+import AudienceLayout from "@/components/layout/AudienceLayout";
 import Login from "@/pages/Login";
 import UsersAdmin from "@/pages/UsersAdmin";
 import SubscriberCRM from "@/pages/SubscriberCRM";
@@ -90,9 +91,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Switch>
-          <Route path="/news/:podcastId/article/:articleId" component={ArticlePage} />
-          <Route path="/listen/:podcastId/episode/:episodeId" component={EpisodePage} />
-          <Route path="/news/:id" component={NewsPage} />
+          <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
+          <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
+          <Route path="/news/:id">{() => <AudienceLayout><NewsPage /></AudienceLayout>}</Route>
           <Route>
             <ProtectedRoutes />
           </Route>

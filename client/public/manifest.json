@@ -1,0 +1,19 @@
+{
+  "name": "MediaTech Empire",
+  "short_name": "MediaTech",
+  "description": "AI-Powered Media Platform - Listen, read, and subscribe to your favorite shows",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#E5C100",
+  "orientation": "any",
+  "categories": ["news", "entertainment", "education"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

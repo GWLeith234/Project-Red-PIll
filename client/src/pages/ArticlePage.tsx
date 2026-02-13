@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, ChevronRight, Clock, ArrowLeft, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User } from "lucide-react";
+import { Mic, ChevronRight, Clock, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
@@ -14,15 +14,6 @@ function timeAgo(dateStr: string) {
   if (hours < 24) return `${hours === 1 ? "about an hour" : hours + " hours"} ago`;
   const days = Math.floor(hours / 24);
   return `${days === 1 ? "yesterday" : days + " days ago"}`;
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 function XIcon({ className }: { className?: string }) {
@@ -274,7 +265,7 @@ export default function ArticlePage() {
 
   if (articleLoading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="bg-white">
         <div className="max-w-5xl mx-auto px-4 py-12">
           <Skeleton className="h-10 w-3/4 mb-4 bg-gray-200" />
           <Skeleton className="h-4 w-48 mb-8 bg-gray-100" />
@@ -288,7 +279,7 @@ export default function ArticlePage() {
 
   if (articleError || !article) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="bg-white flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Article not found</h1>
           <p className="text-gray-500 mb-4">This article doesn't exist or has been removed.</p>
@@ -303,42 +294,21 @@ export default function ArticlePage() {
   const paragraphs = article.body ? article.body.split("\n\n") : [];
 
   return (
-    <div className="min-h-screen bg-white" data-testid="article-page">
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            <div className="flex items-center space-x-3">
-              {podcast?.coverImage ? (
-                <img src={podcast.coverImage} alt={podcast?.title} className="h-8 w-8 rounded-full object-cover" />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-gray-900 flex items-center justify-center">
-                  <Mic className="h-4 w-4 text-white" />
-                </div>
-              )}
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">{podcast?.title || "News"}</h1>
-            </div>
-            <Link href={`/news/${params.podcastId}`} className="flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors" data-testid="link-back-news">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              All Stories
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-5xl mx-auto px-4 mt-4 flex justify-center print:hidden">
-        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
-        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
-      </div>
-
-      <nav className="border-b border-gray-100 bg-gray-50/50 mt-4">
+    <div className="bg-white" data-testid="article-page">
+      <nav className="border-b border-gray-100 bg-gray-50/50">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
-            <Link href={`/news/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">News</Link>
+            <Link href={`/news/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">{podcast?.title || "News"}</Link>
             <ChevronRight className="h-3 w-3" />
             <span className="text-gray-900 font-medium truncate max-w-[300px]">{article.title}</span>
           </div>
         </div>
       </nav>
+
+      <div className="max-w-5xl mx-auto px-4 mt-4 flex justify-center print:hidden">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
+      </div>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
@@ -502,18 +472,6 @@ export default function ArticlePage() {
           </aside>
         </div>
       </main>
-
-      <footer className="border-t border-gray-200 mt-8 print:hidden">
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="flex items-center justify-between text-sm text-gray-400">
-            <div className="flex items-center space-x-2">
-              <Mic className="h-4 w-4" />
-              <span>{podcast?.title || "MediaTech"}</span>
-            </div>
-            <p>Powered by MediaTech Empire</p>
-          </div>
-        </div>
-      </footer>
 
       <StickyBottomSubscribeBar
         podcastId={podcast?.id}
