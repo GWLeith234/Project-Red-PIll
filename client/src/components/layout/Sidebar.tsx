@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
@@ -6,10 +7,9 @@ import {
   LayoutDashboard, 
   Factory, 
   DollarSign, 
-  Network, 
+  Radio,
   BarChart3, 
   Settings, 
-  Radio,
   Users,
   Image as ImageIcon,
   Paintbrush,
@@ -17,28 +17,144 @@ import {
   LogOut,
   Briefcase,
   Bot,
+  ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
 
-const navigation = [
-  { name: "Command Center", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
-  { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
-  { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
-  { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
-  { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
-  { name: "Podcast Network", href: "/network", icon: Radio, permission: "network.view" },
-  { name: "Subscriber CRM", href: "/audience", icon: Users, permission: "audience.view" },
-  { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },
-  { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
-  { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },
-  { name: "Settings", href: "/settings", icon: Settings, permission: "settings.view" },
+type NavItem = {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  permission: string;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
+  {
+    label: "",
+    items: [
+      { name: "Command Center", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
+      { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
+    ],
+  },
+  {
+    label: "Revenue",
+    items: [
+      { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
+      { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
+    ],
+  },
+  {
+    label: "Audience",
+    items: [
+      { name: "Podcast Network", href: "/network", icon: Radio, permission: "network.view" },
+      { name: "Subscriber CRM", href: "/audience", icon: Users, permission: "audience.view" },
+      { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
+      { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },
+      { name: "Settings", href: "/settings", icon: Settings, permission: "settings.view" },
+    ],
+  },
 ];
+
+function NavGroupSection({ group, location, hasPermission, collapsed, onToggle }: {
+  group: NavGroup;
+  location: string;
+  hasPermission: (p: string) => boolean;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const visibleItems = group.items.filter(item => hasPermission(item.permission));
+  if (visibleItems.length === 0) return null;
+
+  const hasActiveChild = visibleItems.some(item => item.href === location);
+  const isUngrouped = !group.label;
+  const isCollapsed = collapsed && !hasActiveChild;
+  const groupId = `nav-group-${group.label.toLowerCase().replace(/\s+/g, "-")}`;
+
+  return (
+    <div className={isUngrouped ? "" : "mt-2"}>
+      {!isUngrouped && (
+        <button
+          onClick={onToggle}
+          aria-expanded={!isCollapsed}
+          aria-controls={groupId}
+          className={cn(
+            "w-full flex items-center justify-between px-3 py-1.5 mb-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] hover:text-muted-foreground transition-colors font-mono",
+            hasActiveChild ? "text-primary/70" : "text-muted-foreground/70"
+          )}
+          data-testid={`button-nav-group-${group.label.toLowerCase()}`}
+        >
+          <span>{group.label}</span>
+          <ChevronDown className={cn(
+            "h-3 w-3 transition-transform duration-200",
+            isCollapsed && "-rotate-90"
+          )} />
+        </button>
+      )}
+      <div
+        id={groupId}
+        role="region"
+        className={cn(
+          "space-y-0.5 overflow-hidden transition-all duration-200",
+          !isUngrouped && isCollapsed && "max-h-0 opacity-0",
+          !isUngrouped && !isCollapsed && "max-h-96 opacity-100",
+        )}
+      >
+        {visibleItems.map((item) => {
+          const isActive = location === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "group flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
+                isActive
+                  ? "bg-sidebar-primary/10 text-primary border-l-2 border-primary"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                !isUngrouped && "pl-5",
+              )}
+              data-testid={`link-nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+            >
+              <item.icon
+                className={cn(
+                  "mr-3 h-4 w-4 flex-shrink-0 transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                )}
+              />
+              <span className="truncate">{item.name}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function Sidebar() {
   const [location] = useLocation();
   const { data: branding } = useBranding();
   const { user, logout, hasPermission } = useAuth();
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const visibleNav = navigation.filter(item => hasPermission(item.permission));
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+  };
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-border text-sidebar-foreground font-sans fixed left-0 top-0 z-30">
@@ -55,54 +171,43 @@ export function Sidebar() {
         )}
       </div>
       
-      <div className="flex-1 overflow-y-auto py-4">
-        <nav className="space-y-1 px-3">
-          {visibleNav.map((item) => {
-            const isActive = location === item.href;
-            return (
-              <Link key={item.name} href={item.href}
-                  className={cn(
-                    "group flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
-                    isActive
-                      ? "bg-sidebar-primary/10 text-primary border-l-2 border-primary"
-                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-                  )}
-                >
-                  <item.icon
-                    className={cn(
-                      "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                    )}
-                  />
-                  {item.name}
-              </Link>
-            );
-          })}
+      <div className="flex-1 overflow-y-auto py-3">
+        <nav className="px-3 space-y-0.5">
+          {navGroups.map((group) => (
+            <NavGroupSection
+              key={group.label || "home"}
+              group={group}
+              location={location}
+              hasPermission={hasPermission}
+              collapsed={!!collapsedGroups[group.label]}
+              onToggle={() => toggleGroup(group.label)}
+            />
+          ))}
         </nav>
 
-        <div className="mt-8 px-6">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 font-mono">
+        <div className="mt-6 mx-3 pt-4 border-t border-border/50">
+          <h3 className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-[0.15em] mb-2 font-mono px-3">
             System Status
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2.5 px-3">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">AI Engine</span>
               <span className="text-accent flex items-center">
-                <span className="w-2 h-2 rounded-full bg-accent mr-1 animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 animate-pulse"></span>
                 ONLINE
               </span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Ad Server</span>
               <span className="text-accent flex items-center">
-                <span className="w-2 h-2 rounded-full bg-accent mr-1 animate-pulse"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent mr-1.5 animate-pulse"></span>
                 ONLINE
               </span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">CDN Link</span>
               <span className="text-primary flex items-center">
-                <span className="w-2 h-2 rounded-full bg-primary mr-1"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5"></span>
                 98% LOAD
               </span>
             </div>
