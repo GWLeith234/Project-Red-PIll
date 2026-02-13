@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
-  insertBrandingSchema, insertUserSchema, DEFAULT_ROLE_PERMISSIONS,
+  insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
 import { z } from "zod";
@@ -340,6 +340,36 @@ export async function registerRoutes(
     const parsed = insertBrandingSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.upsertBranding(parsed.data);
+    res.json(data);
+  });
+
+  // ── Platform Settings ──
+  app.get("/api/settings", requirePermission("settings.view"), async (_req, res) => {
+    const data = await storage.getSettings();
+    res.json(data || {
+      timezone: "America/New_York",
+      dateFormat: "MM/DD/YYYY",
+      defaultLanguage: "en",
+      autoPublishContent: false,
+      contentTypes: ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
+      defaultPlatforms: ["TikTok", "Reels", "Shorts", "Twitter", "LinkedIn"],
+      aiQuality: "balanced",
+      emailNotifications: true,
+      alertThreshold: "all",
+      weeklyDigest: true,
+      revenueAlerts: true,
+      processingAlerts: true,
+      sessionTimeoutMinutes: 10080,
+      maxLoginAttempts: 5,
+      requireStrongPasswords: true,
+      twoFactorEnabled: false,
+    });
+  });
+
+  app.put("/api/settings", requirePermission("settings.edit"), async (req, res) => {
+    const parsed = insertPlatformSettingsSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const data = await storage.upsertSettings(parsed.data);
     res.json(data);
   });
 

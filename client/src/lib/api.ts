@@ -94,3 +94,14 @@ export function useMarkAlertRead() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/alerts"] }),
   });
 }
+
+export function useSettings() {
+  return useQuery({ queryKey: ["/api/settings"], queryFn: () => apiRequest("/api/settings") });
+}
+
+export function useUpdateSettings() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/settings", { method: "PUT", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/settings"] }),
+  });
+}

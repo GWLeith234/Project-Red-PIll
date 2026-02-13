@@ -2,7 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
-  users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding,
+  users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -12,6 +12,7 @@ import {
   type Metrics, type InsertMetrics,
   type Alert, type InsertAlert,
   type Branding, type InsertBranding,
+  type PlatformSettings, type InsertPlatformSettings,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -62,6 +63,9 @@ export interface IStorage {
 
   getBranding(): Promise<Branding | undefined>;
   upsertBranding(data: Partial<InsertBranding>): Promise<Branding>;
+
+  getSettings(): Promise<PlatformSettings | undefined>;
+  upsertSettings(data: Partial<InsertPlatformSettings>): Promise<PlatformSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -225,6 +229,21 @@ export class DatabaseStorage implements IStorage {
       return updated;
     }
     const [created] = await db.insert(branding).values(data as InsertBranding).returning();
+    return created;
+  }
+
+  async getSettings() {
+    const [s] = await db.select().from(platformSettings).limit(1);
+    return s;
+  }
+
+  async upsertSettings(data: Partial<InsertPlatformSettings>) {
+    const existing = await this.getSettings();
+    if (existing) {
+      const [updated] = await db.update(platformSettings).set({ ...data, updatedAt: new Date() }).where(eq(platformSettings.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(platformSettings).values(data as InsertPlatformSettings).returning();
     return created;
   }
 }
