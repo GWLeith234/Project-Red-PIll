@@ -40,8 +40,7 @@ export function Sidebar() {
           {navigation.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link key={item.name} href={item.href}>
-                <a
+              <Link key={item.name} href={item.href}
                   className={cn(
                     "group flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
                     isActive
@@ -56,7 +55,6 @@ export function Sidebar() {
                     )}
                   />
                   {item.name}
-                </a>
               </Link>
             );
           })}
