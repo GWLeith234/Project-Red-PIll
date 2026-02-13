@@ -1,0 +1,406 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Bot, CheckCircle2, XCircle, Eye, Edit3, Clock, FileText, Sparkles,
+  Loader2, Wand2, ChevronDown, ChevronUp, Tag, Search, Newspaper
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  useModerationQueue, useApproveStory, useRejectStory,
+  useUpdateModerationPiece, useGenerateStory, useEpisodes, usePodcasts
+} from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+
+export default function ModerationQueue() {
+  const { data: queue, isLoading } = useModerationQueue();
+  const { data: episodes } = useEpisodes();
+  const { data: podcasts } = usePodcasts();
+  const approveStory = useApproveStory();
+  const rejectStory = useRejectStory();
+  const updatePiece = useUpdateModerationPiece();
+  const generateStory = useGenerateStory();
+  const { toast } = useToast();
+
+  const [previewItem, setPreviewItem] = useState<any | null>(null);
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [genForm, setGenForm] = useState({ episodeId: "", transcript: "" });
+
+  function handleApprove(id: string) {
+    approveStory.mutate(id, {
+      onSuccess: () => toast({ title: "Story Published", description: "The story is now live on the public site." }),
+      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
+  }
+
+  function handleReject(id: string) {
+    rejectStory.mutate(id, {
+      onSuccess: () => toast({ title: "Story Rejected", description: "The story has been removed from the queue." }),
+      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
+  }
+
+  function handleSaveEdit() {
+    if (!editItem) return;
+    updatePiece.mutate(
+      { id: editItem.id, data: { title: editItem.title, body: editItem.body, seoTitle: editItem.seoTitle, seoDescription: editItem.seoDescription, seoKeywords: editItem.seoKeywords, summary: editItem.summary } },
+      {
+        onSuccess: () => {
+          toast({ title: "Story Updated", description: "Your edits have been saved." });
+          setEditItem(null);
+        },
+        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+      }
+    );
+  }
+
+  function handleGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!genForm.episodeId) return;
+    generateStory.mutate(
+      { episodeId: genForm.episodeId, transcript: genForm.transcript || undefined },
+      {
+        onSuccess: () => {
+          toast({ title: "Story Generated", description: "AI has created a new story. It's now in the moderation queue." });
+          setGenerateOpen(false);
+          setGenForm({ episodeId: "", transcript: "" });
+        },
+        onError: (err: any) => toast({ title: "Generation Failed", description: err.message, variant: "destructive" }),
+      }
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-testid="moderation-queue-page">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-primary flex items-center gap-3" data-testid="text-page-title">
+            <Bot className="w-8 h-8" />
+            AI Content Agent
+          </h1>
+          <p className="text-muted-foreground mt-1">Review and moderate AI-generated stories before publishing</p>
+        </div>
+        <Button onClick={() => setGenerateOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90" data-testid="button-generate-story">
+          <Wand2 className="w-4 h-4 mr-2" />
+          Generate Story
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold" data-testid="text-queue-count">{queue?.length || 0}</p>
+                <p className="text-xs text-muted-foreground">Pending Review</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">AI Agent</p>
+                <p className="text-xs text-muted-foreground">GPT-5.2 Powered</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">SEO</p>
+                <p className="text-xs text-muted-foreground">Auto-Optimized</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+        </div>
+      ) : !queue?.length ? (
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="py-16 text-center">
+            <Bot className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">No Stories Pending Review</h3>
+            <p className="text-muted-foreground mb-4">Click "Generate Story" to have the AI agent create a new article from an episode.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {queue.map((item: any) => {
+            const isExpanded = expandedId === item.id;
+            return (
+              <Card key={item.id} className="bg-card/50 border-border/50 overflow-hidden" data-testid={`card-moderation-${item.id}`}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-500">
+                          <Clock className="w-3 h-3 mr-1" /> Pending Review
+                        </Badge>
+                        <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-500">
+                          <Bot className="w-3 h-3 mr-1" /> AI Generated
+                        </Badge>
+                        {item.readingTime && (
+                          <Badge variant="outline" className="text-xs">
+                            {item.readingTime} min read
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-lg leading-tight" data-testid={`text-story-title-${item.id}`}>{item.title}</CardTitle>
+                      {item.episode && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          From: <span className="text-foreground/80">{item.episode.title}</span>
+                          {item.episode.podcast && (
+                            <span> &bull; {item.episode.podcast.title}</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button variant="ghost" size="sm" onClick={() => setPreviewItem(item)} data-testid={`button-preview-${item.id}`}>
+                        <Eye className="w-4 h-4 mr-1" /> Preview
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditItem({ ...item })} data-testid={`button-edit-${item.id}`}>
+                        <Edit3 className="w-4 h-4 mr-1" /> Edit
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => handleApprove(item.id)}
+                        disabled={approveStory.isPending}
+                        data-testid={`button-approve-${item.id}`}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1" /> Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleReject(item.id)}
+                        disabled={rejectStory.isPending}
+                        data-testid={`button-reject-${item.id}`}
+                      >
+                        <XCircle className="w-4 h-4 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {item.summary && (
+                    <p className="text-sm text-muted-foreground mb-3">{item.summary}</p>
+                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {item.seoKeywords?.map((kw: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        <Tag className="w-3 h-3 mr-1" />{kw}
+                      </Badge>
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                  >
+                    {isExpanded ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
+                    {isExpanded ? "Hide SEO Details" : "Show SEO Details"}
+                  </Button>
+                  {isExpanded && (
+                    <div className="mt-3 p-3 rounded-lg bg-muted/30 space-y-2 text-sm">
+                      <div><span className="font-medium text-muted-foreground">SEO Title:</span> <span>{item.seoTitle}</span></div>
+                      <div><span className="font-medium text-muted-foreground">Meta Description:</span> <span>{item.seoDescription}</span></div>
+                      <div><span className="font-medium text-muted-foreground">Slug:</span> <code className="text-xs bg-muted px-1 rounded">{item.slug}</code></div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{previewItem?.title}</DialogTitle>
+            {previewItem?.episode && (
+              <p className="text-sm text-muted-foreground">
+                Source: {previewItem.episode.title}
+                {previewItem.episode.podcast && ` • ${previewItem.episode.podcast.title}`}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="prose prose-invert max-w-none mt-4">
+            {previewItem?.body?.split("\n").map((line: string, i: number) => {
+              if (line.startsWith("### ")) return <h3 key={i} className="text-lg font-semibold mt-4 mb-2">{line.replace("### ", "")}</h3>;
+              if (line.startsWith("## ")) return <h2 key={i} className="text-xl font-bold mt-6 mb-3">{line.replace("## ", "")}</h2>;
+              if (line.startsWith("> ")) return <blockquote key={i} className="border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-3">{line.replace("> ", "")}</blockquote>;
+              if (line.trim() === "") return <br key={i} />;
+              return <p key={i} className="mb-2 leading-relaxed">{line}</p>;
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editItem} onOpenChange={() => setEditItem(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Story</DialogTitle>
+          </DialogHeader>
+          {editItem && (
+            <div className="space-y-4">
+              <div>
+                <Label>Title</Label>
+                <Input
+                  value={editItem.title}
+                  onChange={(e) => setEditItem({ ...editItem, title: e.target.value })}
+                  data-testid="input-edit-title"
+                />
+              </div>
+              <div>
+                <Label>Summary</Label>
+                <Textarea
+                  value={editItem.summary || ""}
+                  onChange={(e) => setEditItem({ ...editItem, summary: e.target.value })}
+                  rows={2}
+                  data-testid="input-edit-summary"
+                />
+              </div>
+              <div>
+                <Label>Article Body (Markdown)</Label>
+                <Textarea
+                  value={editItem.body || ""}
+                  onChange={(e) => setEditItem({ ...editItem, body: e.target.value })}
+                  rows={12}
+                  className="font-mono text-sm"
+                  data-testid="input-edit-body"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>SEO Title</Label>
+                  <Input
+                    value={editItem.seoTitle || ""}
+                    onChange={(e) => setEditItem({ ...editItem, seoTitle: e.target.value })}
+                    data-testid="input-edit-seo-title"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{(editItem.seoTitle || "").length}/60 characters</p>
+                </div>
+                <div>
+                  <Label>SEO Description</Label>
+                  <Textarea
+                    value={editItem.seoDescription || ""}
+                    onChange={(e) => setEditItem({ ...editItem, seoDescription: e.target.value })}
+                    rows={2}
+                    data-testid="input-edit-seo-description"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{(editItem.seoDescription || "").length}/160 characters</p>
+                </div>
+              </div>
+              <div>
+                <Label>SEO Keywords (comma-separated)</Label>
+                <Input
+                  value={(editItem.seoKeywords || []).join(", ")}
+                  onChange={(e) => setEditItem({ ...editItem, seoKeywords: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) })}
+                  data-testid="input-edit-seo-keywords"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditItem(null)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={updatePiece.isPending} data-testid="button-save-edit">
+              {updatePiece.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-primary" /> Generate Story from Episode
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleGenerate} className="space-y-4">
+            <div>
+              <Label>Select Episode</Label>
+              <Select value={genForm.episodeId} onValueChange={(val) => setGenForm({ ...genForm, episodeId: val })}>
+                <SelectTrigger data-testid="select-episode">
+                  <SelectValue placeholder="Choose an episode..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {episodes?.map((ep: any) => {
+                    const podcast = podcasts?.find((p: any) => p.id === ep.podcastId);
+                    return (
+                      <SelectItem key={ep.id} value={ep.id}>
+                        {ep.title} {podcast ? `(${podcast.title})` : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Transcript (optional)</Label>
+              <Textarea
+                value={genForm.transcript}
+                onChange={(e) => setGenForm({ ...genForm, transcript: e.target.value })}
+                rows={6}
+                placeholder="Paste the episode transcript here, or leave empty to use auto-transcription from the audio file..."
+                className="text-sm"
+                data-testid="input-transcript"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If left empty, the AI will attempt to transcribe from the episode's audio file.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setGenerateOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={!genForm.episodeId || generateStory.isPending} data-testid="button-submit-generate">
+                {generateStory.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Story
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

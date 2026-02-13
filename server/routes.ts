@@ -252,6 +252,83 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  // ── AI Content Agent ──
+  app.post("/api/ai-agent/generate-story", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { episodeId, transcript } = req.body;
+    if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
+
+    try {
+      const { transcribeAndGenerateStory, generateStoryFromText } = await import("./ai-content-agent");
+
+      let result;
+      if (transcript) {
+        const story = await generateStoryFromText(episodeId, transcript);
+        result = { story };
+      } else {
+        result = await transcribeAndGenerateStory(episodeId);
+      }
+
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
+      res.json(result);
+    } catch (err: any) {
+      console.error("AI agent error:", err);
+      res.status(500).json({ message: err.message || "AI content generation failed" });
+    }
+  });
+
+  app.get("/api/moderation/queue", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    const items = await storage.getContentPiecesByStatus("review", "article");
+    const episodeIds = [...new Set(items.map(i => i.episodeId))];
+    const episodesMap: Record<string, any> = {};
+    for (const eid of episodeIds) {
+      const ep = await storage.getEpisode(eid);
+      if (ep) {
+        const podcast = await storage.getPodcast(ep.podcastId);
+        episodesMap[eid] = { ...ep, podcast };
+      }
+    }
+    res.json(items.map(item => ({
+      ...item,
+      episode: episodesMap[item.episodeId] || null,
+    })));
+  });
+
+  app.post("/api/moderation/:id/approve", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const user = (req as any).user;
+    const piece = await storage.getContentPiece(req.params.id);
+    if (!piece) return res.status(404).json({ message: "Content not found" });
+
+    const updated = await storage.updateContentPiece(req.params.id, {
+      status: "published",
+      moderatedBy: user?.id,
+      moderatedAt: new Date(),
+      publishedAt: new Date(),
+    } as any);
+    res.json(updated);
+  });
+
+  app.post("/api/moderation/:id/reject", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const user = (req as any).user;
+    const updated = await storage.updateContentPiece(req.params.id, {
+      status: "rejected",
+      moderatedBy: user?.id,
+      moderatedAt: new Date(),
+    } as any);
+    if (!updated) return res.status(404).json({ message: "Content not found" });
+    res.json(updated);
+  });
+
+  app.patch("/api/moderation/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { title, body, seoTitle, seoDescription, seoKeywords, summary } = req.body;
+    const updated = await storage.updateContentPiece(req.params.id, {
+      title, body, seoTitle, seoDescription, seoKeywords, summary,
+    });
+    if (!updated) return res.status(404).json({ message: "Content not found" });
+    res.json(updated);
+  });
+
   // ── Comments ──
   app.get("/api/articles/:id/comments", async (req, res) => {
     const data = await storage.getCommentsByArticle(req.params.id);

@@ -16,11 +16,13 @@ import {
   Shield,
   LogOut,
   Briefcase,
+  Bot,
 } from "lucide-react";
 
 const navigation = [
   { name: "Command Center", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
   { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
+  { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
   { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
   { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
   { name: "Podcast Network", href: "/network", icon: Radio, permission: "network.view" },

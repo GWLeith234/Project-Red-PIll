@@ -308,3 +308,47 @@ export function useUpdateSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/settings"] }),
   });
 }
+
+export function useModerationQueue() {
+  return useQuery({ queryKey: ["/api/moderation/queue"], queryFn: () => apiRequest("/api/moderation/queue") });
+}
+
+export function useGenerateStory() {
+  return useMutation({
+    mutationFn: (data: { episodeId: string; transcript?: string }) =>
+      apiRequest("/api/ai-agent/generate-story", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+    },
+  });
+}
+
+export function useApproveStory() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/moderation/${id}/approve`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+    },
+  });
+}
+
+export function useRejectStory() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/moderation/${id}/reject`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+    },
+  });
+}
+
+export function useUpdateModerationPiece() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest(`/api/moderation/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] }),
+  });
+}

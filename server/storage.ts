@@ -49,6 +49,8 @@ export interface IStorage {
 
   getContentPieces(episodeId?: string): Promise<ContentPiece[]>;
   getContentPiece(id: string): Promise<ContentPiece | undefined>;
+  getContentPieceBySlug(slug: string): Promise<ContentPiece | undefined>;
+  getContentPiecesByStatus(status: string, type?: string): Promise<ContentPiece[]>;
   createContentPiece(piece: InsertContentPiece): Promise<ContentPiece>;
   updateContentPiece(id: string, data: Partial<InsertContentPiece>): Promise<ContentPiece | undefined>;
 
@@ -191,6 +193,16 @@ export class DatabaseStorage implements IStorage {
   async getContentPiece(id: string) {
     const [cp] = await db.select().from(contentPieces).where(eq(contentPieces.id, id));
     return cp;
+  }
+  async getContentPieceBySlug(slug: string) {
+    const [cp] = await db.select().from(contentPieces).where(eq(contentPieces.slug, slug));
+    return cp;
+  }
+  async getContentPiecesByStatus(status: string, type?: string) {
+    if (type) {
+      return db.select().from(contentPieces).where(and(eq(contentPieces.status, status), eq(contentPieces.type, type))).orderBy(desc(contentPieces.publishedAt));
+    }
+    return db.select().from(contentPieces).where(eq(contentPieces.status, status)).orderBy(desc(contentPieces.publishedAt));
   }
   async getArticlesForPodcast(podcastId: string) {
     const eps = await db.select().from(episodes).where(eq(episodes.podcastId, podcastId));
