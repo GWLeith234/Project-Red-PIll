@@ -343,6 +343,199 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // ── Brand Analyzer ──
+  app.post("/api/branding/analyze-website", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ message: "URL is required" });
+    }
+
+    let targetUrl = url.trim();
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = "https://" + targetUrl;
+    }
+
+    // Validate URL and block SSRF
+    try {
+      const parsed = new URL(targetUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return res.status(400).json({ message: "Only HTTP/HTTPS URLs are allowed" });
+      }
+      const hostname = parsed.hostname.toLowerCase();
+      const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.google.internal", "169.254.169.254"];
+      if (blockedHosts.includes(hostname) || hostname.endsWith(".local") || hostname.endsWith(".internal") || /^10\./.test(hostname) || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || /^192\.168\./.test(hostname)) {
+        return res.status(400).json({ message: "Internal/private URLs are not allowed" });
+      }
+    } catch {
+      return res.status(400).json({ message: "Invalid URL format" });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; BrandAnalyzer/1.0)",
+          "Accept": "text/html,application/xhtml+xml",
+        },
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return res.status(400).json({ message: `Could not reach website (HTTP ${response.status})` });
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+        return res.status(400).json({ message: "URL did not return an HTML page" });
+      }
+
+      const html = await response.text();
+      if (html.length > 5_000_000) {
+        return res.status(400).json({ message: "Page too large to analyze" });
+      }
+      const baseUrl = new URL(targetUrl);
+      const origin = baseUrl.origin;
+
+      const resolveUrl = (href: string): string => {
+        if (!href) return "";
+        if (href.startsWith("data:")) return href;
+        if (href.startsWith("//")) return baseUrl.protocol + href;
+        if (href.startsWith("/")) return origin + href;
+        if (href.startsWith("http")) return href;
+        return origin + "/" + href;
+      };
+
+      // Extract title / company name
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+      const siteName = html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i);
+      let companyName = (siteName?.[1] || ogTitleMatch?.[1] || titleMatch?.[1] || "").trim();
+      if (companyName.includes(" | ")) companyName = companyName.split(" | ")[0].trim();
+      if (companyName.includes(" - ")) companyName = companyName.split(" - ")[0].trim();
+
+      // Extract description / tagline
+      const ogDesc = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+      const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+      let tagline = (ogDesc?.[1] || metaDesc?.[1] || "").trim();
+      if (tagline.length > 120) tagline = tagline.substring(0, 117) + "...";
+
+      // Extract logo
+      let logoUrl = "";
+      const logoPatterns = [
+        /<link[^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["'][^>]*href=["']([^"']+)["']/gi,
+        /<img[^>]*(?:class|id|alt)=["'][^"']*logo[^"']*["'][^>]*src=["']([^"']+)["']/gi,
+        /<img[^>]*src=["']([^"']+)["'][^>]*(?:class|id|alt)=["'][^"']*logo[^"']*["']/gi,
+        /<a[^>]*class=["'][^"']*logo[^"']*["'][^>]*>[\s\S]*?<img[^>]*src=["']([^"']+)["']/gi,
+      ];
+
+      const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+
+      for (const pattern of logoPatterns) {
+        const match = pattern.exec(html);
+        if (match?.[1]) {
+          const candidate = resolveUrl(match[1]);
+          if (candidate && !candidate.includes("favicon.ico") || !logoUrl) {
+            logoUrl = candidate;
+            if (!candidate.includes("favicon")) break;
+          }
+        }
+      }
+
+      if (!logoUrl && ogImage?.[1]) {
+        logoUrl = resolveUrl(ogImage[1]);
+      }
+
+      // Extract favicon
+      let faviconUrl = "";
+      const faviconMatch = html.match(/<link[^>]*rel=["'](?:icon|shortcut icon)["'][^>]*href=["']([^"']+)["']/i);
+      const appleIconMatch = html.match(/<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["']/i);
+      faviconUrl = resolveUrl(faviconMatch?.[1] || appleIconMatch?.[1] || "/favicon.ico");
+
+      // Extract colors from CSS and inline styles
+      const hexColors: Map<string, number> = new Map();
+      const colorPatterns = [
+        /#([0-9A-Fa-f]{6})\b/g,
+        /#([0-9A-Fa-f]{3})\b/g,
+      ];
+
+      // Check inline styles, CSS vars, and style blocks
+      const styleBlocks = html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
+      const inlineStyles = html.match(/style=["'][^"']*["']/gi) || [];
+      const cssVars = html.match(/--[^:]+:\s*#[0-9A-Fa-f]{3,6}/gi) || [];
+      const bgColors = html.match(/(?:background-color|background|color|border-color|fill|stroke)\s*:\s*#[0-9A-Fa-f]{3,8}/gi) || [];
+
+      const colorSource = [...styleBlocks, ...inlineStyles, ...cssVars, ...bgColors].join(" ");
+
+      // Also search meta theme-color
+      const themeColor = html.match(/<meta[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i);
+      const msColor = html.match(/<meta[^>]*name=["']msapplication-TileColor["'][^>]*content=["']([^"']+)["']/i);
+
+      for (const pattern of colorPatterns) {
+        let m;
+        while ((m = pattern.exec(colorSource)) !== null) {
+          let hex = m[1];
+          if (hex.length === 3) {
+            hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+          }
+          hex = "#" + hex.toUpperCase();
+          // Skip near-white, near-black, and pure grays
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          const isGray = Math.abs(r - g) < 15 && Math.abs(g - b) < 15;
+          const isTooLight = r > 240 && g > 240 && b > 240;
+          const isTooDark = r < 15 && g < 15 && b < 15;
+          if (!isGray && !isTooLight && !isTooDark) {
+            hexColors.set(hex, (hexColors.get(hex) || 0) + 1);
+          }
+        }
+      }
+
+      // Add theme-color and ms tile color with high priority
+      [themeColor?.[1], msColor?.[1]].forEach(c => {
+        if (c && c.startsWith("#")) {
+          let hex = c.length === 4
+            ? "#" + c[1]+c[1]+c[2]+c[2]+c[3]+c[3]
+            : c;
+          hex = hex.toUpperCase();
+          hexColors.set(hex, (hexColors.get(hex) || 0) + 100);
+        }
+      });
+
+      // Sort by frequency
+      const colorEntries: [string, number][] = [];
+      hexColors.forEach((count, color) => colorEntries.push([color, count]));
+      const sortedColors = colorEntries
+        .sort((a, b) => b[1] - a[1])
+        .map(([color]) => color)
+        .slice(0, 8);
+
+      // Pick primary and accent
+      const suggestedPrimary = sortedColors[0] || "#E5C100";
+      const suggestedAccent = sortedColors[1] || sortedColors[0] || "#22C55E";
+
+      res.json({
+        companyName: companyName || null,
+        tagline: tagline || null,
+        logoUrl: logoUrl || null,
+        faviconUrl: faviconUrl || null,
+        colors: sortedColors,
+        suggestedPrimary,
+        suggestedAccent,
+        sourceUrl: targetUrl,
+      });
+
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return res.status(408).json({ message: "Website took too long to respond" });
+      }
+      return res.status(400).json({ message: `Could not analyze website: ${err.message}` });
+    }
+  });
+
   // ── Branding ──
   app.get("/api/branding", async (_req, res) => {
     const data = await storage.getBranding();

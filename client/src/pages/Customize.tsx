@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useBranding, useUpdateBranding } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X } from "lucide-react";
+import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X, Globe, Wand2, Check, Sparkles, ArrowRight } from "lucide-react";
 import type { Branding } from "@shared/schema";
 
 function UploadZone({
@@ -136,6 +136,79 @@ function ColorInput({
   );
 }
 
+interface WebsiteAnalysis {
+  companyName: string | null;
+  tagline: string | null;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  colors: string[];
+  suggestedPrimary: string;
+  suggestedAccent: string;
+  sourceUrl: string;
+}
+
+function SuggestionChip({ label, value, onApply, applied, testId }: {
+  label: string;
+  value: string;
+  onApply: () => void;
+  applied?: boolean;
+  testId: string;
+}) {
+  return (
+    <button
+      onClick={onApply}
+      disabled={applied}
+      className={`flex items-center gap-2 px-3 py-2 border text-left text-sm transition-all ${
+        applied
+          ? "border-green-500/50 bg-green-500/10 text-green-400"
+          : "border-border hover:border-primary/50 hover:bg-primary/5 text-foreground"
+      }`}
+      data-testid={testId}
+    >
+      <div className="flex-1 min-w-0">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block">{label}</span>
+        <span className="block truncate">{value}</span>
+      </div>
+      {applied ? (
+        <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+      ) : (
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+      )}
+    </button>
+  );
+}
+
+function ColorSuggestion({ color, label, onApply, applied, testId }: {
+  color: string;
+  label: string;
+  onApply: () => void;
+  applied?: boolean;
+  testId: string;
+}) {
+  return (
+    <button
+      onClick={onApply}
+      className={`flex items-center gap-2.5 px-3 py-2 border transition-all ${
+        applied
+          ? "border-green-500/50 bg-green-500/10"
+          : "border-border hover:border-primary/50 hover:bg-primary/5"
+      }`}
+      data-testid={testId}
+    >
+      <div className="h-8 w-8 border border-white/20 flex-shrink-0" style={{ backgroundColor: color }} />
+      <div className="text-left min-w-0">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block">{label}</span>
+        <span className="text-sm font-mono text-foreground">{color}</span>
+      </div>
+      {applied ? (
+        <Check className="h-4 w-4 text-green-500 flex-shrink-0 ml-auto" />
+      ) : (
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 ml-auto" />
+      )}
+    </button>
+  );
+}
+
 export default function Customize() {
   const { data: branding, isLoading } = useBranding();
   const updateBranding = useUpdateBranding();
@@ -152,6 +225,10 @@ export default function Customize() {
   });
 
   const [showPreview, setShowPreview] = useState(false);
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState<WebsiteAnalysis | null>(null);
+  const [appliedFields, setAppliedFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (branding) {
@@ -166,6 +243,50 @@ export default function Customize() {
       });
     }
   }, [branding]);
+
+  const handleAnalyze = async () => {
+    if (!websiteUrl.trim()) return;
+    setAnalyzing(true);
+    setAnalysis(null);
+    setAppliedFields(new Set());
+    try {
+      const res = await fetch("/api/branding/analyze-website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: websiteUrl.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Analysis failed" }));
+        throw new Error(err.message);
+      }
+      const data = await res.json();
+      setAnalysis(data);
+      toast({ title: "Website Analyzed", description: "Smart suggestions are ready. Click any suggestion to apply it." });
+    } catch (err: any) {
+      toast({ title: "Analysis Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const applyField = (field: string, value: any) => {
+    setForm(f => ({ ...f, [field]: value }));
+    setAppliedFields(prev => new Set(prev).add(field));
+  };
+
+  const applyAll = () => {
+    if (!analysis) return;
+    const updates: any = {};
+    if (analysis.companyName) updates.companyName = analysis.companyName;
+    if (analysis.tagline) updates.tagline = analysis.tagline;
+    if (analysis.logoUrl) updates.logoUrl = analysis.logoUrl;
+    if (analysis.faviconUrl) updates.faviconUrl = analysis.faviconUrl;
+    updates.primaryColor = analysis.suggestedPrimary;
+    updates.accentColor = analysis.suggestedAccent;
+    setForm(f => ({ ...f, ...updates }));
+    setAppliedFields(new Set(["companyName", "tagline", "logoUrl", "faviconUrl", "primaryColor", "accentColor"]));
+    toast({ title: "All Suggestions Applied", description: "Review the changes and save when ready." });
+  };
 
   const handleSave = () => {
     updateBranding.mutate(form, {
@@ -220,6 +341,149 @@ export default function Customize() {
             Save Changes
           </button>
         </div>
+      </div>
+
+      <div className="border border-primary/30 bg-gradient-to-r from-primary/5 to-transparent p-5" data-testid="section-smart-analyzer">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-sm font-mono uppercase tracking-widest text-primary font-semibold">Smart Brand Analyzer</h2>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Enter your company website and we'll automatically extract your brand colors, logo, name, and tagline
+        </p>
+
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+              placeholder="e.g. apple.com or https://yourcompany.com"
+              className="w-full bg-background border border-border pl-10 pr-3 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary transition-colors"
+              data-testid="input-website-url"
+            />
+          </div>
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzing || !websiteUrl.trim()}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+            data-testid="button-analyze-website"
+          >
+            {analyzing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4" />
+                Analyze
+              </>
+            )}
+          </button>
+        </div>
+
+        {analysis && (
+          <div className="mt-5 space-y-4" data-testid="section-analysis-results">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                Suggestions from <span className="text-foreground">{analysis.sourceUrl}</span>
+              </p>
+              <button
+                onClick={applyAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/30 hover:bg-primary/10 transition-colors uppercase tracking-wider"
+                data-testid="button-apply-all"
+              >
+                <Wand2 className="h-3 w-3" />
+                Apply All
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {analysis.companyName && (
+                <SuggestionChip
+                  label="Company Name"
+                  value={analysis.companyName}
+                  onApply={() => applyField("companyName", analysis.companyName)}
+                  applied={appliedFields.has("companyName")}
+                  testId="suggestion-company-name"
+                />
+              )}
+              {analysis.tagline && (
+                <SuggestionChip
+                  label="Tagline"
+                  value={analysis.tagline}
+                  onApply={() => applyField("tagline", analysis.tagline)}
+                  applied={appliedFields.has("tagline")}
+                  testId="suggestion-tagline"
+                />
+              )}
+            </div>
+
+            {analysis.logoUrl && (
+              <div className="flex items-center gap-3 border border-border p-3" data-testid="suggestion-logo">
+                <div className="h-12 w-20 border border-border/50 bg-background flex items-center justify-center p-1 flex-shrink-0">
+                  <img src={analysis.logoUrl} alt="Detected logo" className="max-h-10 max-w-full object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block">Detected Logo</span>
+                  <span className="text-xs text-foreground truncate block">{analysis.logoUrl}</span>
+                </div>
+                <button
+                  onClick={() => applyField("logoUrl", analysis.logoUrl)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs border transition-all flex-shrink-0 ${
+                    appliedFields.has("logoUrl")
+                      ? "border-green-500/50 bg-green-500/10 text-green-400"
+                      : "border-border hover:border-primary/50 text-foreground"
+                  }`}
+                  data-testid="button-apply-logo"
+                >
+                  {appliedFields.has("logoUrl") ? <Check className="h-3 w-3" /> : <ArrowRight className="h-3 w-3" />}
+                  {appliedFields.has("logoUrl") ? "Applied" : "Use Logo"}
+                </button>
+              </div>
+            )}
+
+            {analysis.colors.length > 0 && (
+              <div data-testid="suggestion-colors">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block mb-2">Detected Brand Colors</span>
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {analysis.colors.map((color, i) => (
+                    <div
+                      key={i}
+                      className="h-10 w-10 border border-white/10 cursor-pointer hover:scale-110 transition-transform relative group"
+                      style={{ backgroundColor: color }}
+                      title={color}
+                      data-testid={`color-swatch-${i}`}
+                    >
+                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] font-mono text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        {color}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                  <ColorSuggestion
+                    color={analysis.suggestedPrimary}
+                    label="Suggested Primary"
+                    onApply={() => applyField("primaryColor", analysis.suggestedPrimary)}
+                    applied={appliedFields.has("primaryColor")}
+                    testId="suggestion-primary-color"
+                  />
+                  <ColorSuggestion
+                    color={analysis.suggestedAccent}
+                    label="Suggested Accent"
+                    onApply={() => applyField("accentColor", analysis.suggestedAccent)}
+                    applied={appliedFields.has("accentColor")}
+                    testId="suggestion-accent-color"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showPreview && (
