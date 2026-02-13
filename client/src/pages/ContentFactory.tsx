@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Mic, FileText, Video, Twitter, Linkedin, Mail,
-  ArrowRight, CheckCircle2, Loader2, Clock, Search, Upload
+  Mic, FileText, Video, Twitter, Linkedin, Mail, Newspaper,
+  ArrowRight, CheckCircle2, Loader2, Clock, Search, Upload, PenLine
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEpisodes, useContentPieces, usePodcasts, useCreateEpisode } from "@/lib/api";
@@ -45,13 +45,14 @@ export default function ContentFactory() {
     );
   }
 
-  const grouped: Record<string, { icon: any; title: string; color: string; items: any[] }> = {
-    video_clip: { icon: Video, title: "Viral Clips", color: "text-red-500", items: [] },
-    article: { icon: FileText, title: "Articles & Blogs", color: "text-blue-500", items: [] },
-    social: { icon: Twitter, title: "Social Threads", color: "text-sky-400", items: [] },
-    linkedin: { icon: Linkedin, title: "Professional Posts", color: "text-indigo-400", items: [] },
-    newsletter: { icon: Mail, title: "Newsletter", color: "text-amber-400", items: [] },
-    seo: { icon: Search, title: "SEO Assets", color: "text-emerald-400", items: [] },
+  const grouped: Record<string, { icon: any; title: string; subtitle: string; color: string; items: any[] }> = {
+    video_clip: { icon: Video, title: "Viral Clips", subtitle: "Short-form video content", color: "text-red-500", items: [] },
+    article: { icon: Newspaper, title: "News Articles", subtitle: "Podcaster news page stories", color: "text-blue-500", items: [] },
+    blog: { icon: PenLine, title: "Blog Posts", subtitle: "Long-form editorial content", color: "text-violet-500", items: [] },
+    social: { icon: Twitter, title: "Social Threads", subtitle: "Platform-native posts", color: "text-sky-400", items: [] },
+    linkedin: { icon: Linkedin, title: "Professional Posts", subtitle: "B2B network content", color: "text-indigo-400", items: [] },
+    newsletter: { icon: Mail, title: "Newsletter", subtitle: "Email subscriber content", color: "text-amber-400", items: [] },
+    seo: { icon: Search, title: "SEO Assets", subtitle: "Search optimization assets", color: "text-emerald-400", items: [] },
   };
 
   if (allContent) {
@@ -192,6 +193,7 @@ export default function ContentFactory() {
                   key={key}
                   icon={group.icon}
                   title={group.title}
+                  subtitle={group.subtitle}
                   color={group.color}
                   items={group.items}
                 />
@@ -217,7 +219,7 @@ function StepItem({ status, label }: { status: "complete" | "processing" | "pend
   );
 }
 
-function OutputCard({ icon: Icon, title, color, items }: any) {
+function OutputCard({ icon: Icon, title, subtitle, color, items }: any) {
   const readyCount = items.filter((i: any) => i.status === "ready").length;
   const total = Math.max(items.length, 1);
   return (
@@ -230,7 +232,7 @@ function OutputCard({ icon: Icon, title, color, items }: any) {
             </div>
             <div>
               <CardTitle className="text-base font-bold">{title}</CardTitle>
-              <CardDescription className="text-xs font-mono mt-0.5">{readyCount}/{items.length} Ready</CardDescription>
+              <CardDescription className="text-xs font-mono mt-0.5">{subtitle ? subtitle + " · " : ""}{readyCount}/{items.length} Ready</CardDescription>
             </div>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
