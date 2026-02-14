@@ -501,6 +501,17 @@ export function useGenerateNewsletter() {
   });
 }
 
+export function useUpdateContentPiece() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; [key: string]: any }) =>
+      apiRequest(`/api/content-pieces/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation-queue"] });
+    },
+  });
+}
+
 export function useClipAssets(episodeId?: string) {
   const url = episodeId ? `/api/clip-assets?episodeId=${episodeId}` : "/api/clip-assets";
   return useQuery({ queryKey: ["/api/clip-assets", episodeId], queryFn: () => apiRequest(url) });

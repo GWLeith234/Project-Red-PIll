@@ -26,7 +26,8 @@ import {
   useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
   useClipAssets, useUpdateClipAsset, useDeleteClipAsset,
   useScheduledPosts, useCreateScheduledPost, useUpdateScheduledPost, useDeleteScheduledPost,
-  useNewsletterRuns, useSendNewsletter, useDeleteNewsletterRun
+  useNewsletterRuns, useSendNewsletter, useDeleteNewsletterRun,
+  useUpdateContentPiece
 } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
@@ -415,6 +416,12 @@ function PipelineTab() {
   const { data: contentPieces, isLoading: contentLoading } = useContentPieces(selectedEpisodeId || undefined);
   const runPipeline = useRunFullPipeline();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [previewPiece, setPreviewPiece] = useState<any>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", body: "", summary: "", seoTitle: "", seoDescription: "" });
+  const updatePiece = useUpdateContentPiece();
 
   const [contentTypes, setContentTypes] = useState<string[]>(["article", "blog", "social", "clips", "newsletter", "seo"]);
 
@@ -434,10 +441,39 @@ function PipelineTab() {
 
   const progress = selectedEpisode?.processingProgress || 0;
 
+  const isProcessing = selectedEpisode?.processingStatus === "processing" || (runPipeline.isPending);
+
+  useEffect(() => {
+    if (!isProcessing || !selectedEpisodeId) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey[0] as string;
+        return key?.startsWith("/api/content-pieces") || key?.startsWith("/api/clip-assets");
+      }});
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isProcessing, selectedEpisodeId, queryClient]);
+
   function toggleContentType(type: string) {
     setContentTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
+  }
+
+  function handleStatusChange(id: string, status: string) {
+    updatePiece.mutate({ id, status }, {
+      onSuccess: () => { toast({ title: "Status Updated", description: `Content piece is now "${status}".` }); setPreviewPiece(null); },
+      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
+  }
+
+  function handleSaveEdit() {
+    if (!previewPiece) return;
+    updatePiece.mutate({ id: previewPiece.id, ...editForm }, {
+      onSuccess: () => { toast({ title: "Content Updated" }); setPreviewPiece(null); setEditMode(false); },
+      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
   }
 
   function handleRunPipeline() {
@@ -645,7 +681,7 @@ function PipelineTab() {
                                 item.status === "generating" ? "border-primary text-primary bg-primary/10 animate-pulse" :
                                 "border-muted text-muted-foreground"
                               )}>{item.status}</Badge>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-view-${item.id}`}>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPreviewPiece(item); setEditMode(false); }} data-testid={`button-view-${item.id}`}>
                                 <Eye className="h-3 w-3" />
                               </Button>
                             </div>
@@ -662,6 +698,186 @@ function PipelineTab() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!previewPiece} onOpenChange={(open) => { if (!open) { setPreviewPiece(null); setEditMode(false); } }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto glass-panel" data-testid="dialog-content-preview">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg flex items-center gap-2">
+              {previewPiece?.title}
+            </DialogTitle>
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <Badge variant="outline" className="font-mono text-[10px] uppercase">{previewPiece?.type}</Badge>
+              <Badge variant="outline" className={cn(
+                "font-mono text-[10px] uppercase",
+                previewPiece?.status === "ready" ? "border-emerald-500 text-emerald-500 bg-emerald-500/10" :
+                previewPiece?.status === "published" ? "border-blue-500 text-blue-500 bg-blue-500/10" :
+                previewPiece?.status === "generating" ? "border-primary text-primary bg-primary/10" :
+                "border-muted text-muted-foreground"
+              )}>{previewPiece?.status}</Badge>
+              {previewPiece?.platform && (
+                <Badge variant="outline" className="font-mono text-[10px] flex items-center gap-1">
+                  {getPlatformIcon(previewPiece.platform, "h-3 w-3")}
+                  {getPlatformLabel(previewPiece.platform)}
+                </Badge>
+              )}
+            </div>
+          </DialogHeader>
+
+          {editMode ? (
+            <div className="space-y-4 mt-4">
+              <div>
+                <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Title</Label>
+                <Input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                  className="font-mono text-sm mt-1"
+                  data-testid="input-edit-title"
+                />
+              </div>
+              <div>
+                <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Body</Label>
+                <Textarea
+                  value={editForm.body}
+                  onChange={(e) => setEditForm(f => ({ ...f, body: e.target.value }))}
+                  className="font-mono text-sm mt-1 min-h-[200px]"
+                  data-testid="input-edit-body"
+                />
+              </div>
+              <div>
+                <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Summary</Label>
+                <Textarea
+                  value={editForm.summary}
+                  onChange={(e) => setEditForm(f => ({ ...f, summary: e.target.value }))}
+                  className="font-mono text-sm mt-1 min-h-[80px]"
+                  data-testid="input-edit-summary"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">SEO Title</Label>
+                  <Input
+                    value={editForm.seoTitle}
+                    onChange={(e) => setEditForm(f => ({ ...f, seoTitle: e.target.value }))}
+                    className="font-mono text-sm mt-1"
+                    data-testid="input-edit-seo-title"
+                  />
+                </div>
+                <div>
+                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">SEO Description</Label>
+                  <Input
+                    value={editForm.seoDescription}
+                    onChange={(e) => setEditForm(f => ({ ...f, seoDescription: e.target.value }))}
+                    className="font-mono text-sm mt-1"
+                    data-testid="input-edit-seo-description"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" className="font-mono text-xs" onClick={() => setEditMode(false)} data-testid="button-cancel-edit">
+                  Cancel
+                </Button>
+                <Button size="sm" className="font-mono text-xs" onClick={handleSaveEdit} disabled={updatePiece.isPending} data-testid="button-save-edit">
+                  {updatePiece.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Save className="mr-2 h-3 w-3" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {previewPiece?.summary && (
+                <div className="p-3 bg-muted/30 rounded border border-border/50">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">Summary</span>
+                  <p className="text-sm text-foreground">{previewPiece.summary}</p>
+                </div>
+              )}
+
+              <div className="prose prose-sm max-w-none">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground block mb-2">Content</span>
+                <div className="bg-card/30 border border-border/50 rounded p-4 space-y-2">
+                  {(previewPiece?.body || "No content generated yet.").split("\n").map((line: string, i: number) => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return <div key={i} className="h-2" />;
+                    if (trimmed.startsWith("### ")) return <h3 key={i} className="text-sm font-display font-semibold text-foreground mt-3 mb-1">{trimmed.slice(4)}</h3>;
+                    if (trimmed.startsWith("## ")) return <h2 key={i} className="text-base font-display font-bold text-foreground mt-4 mb-1">{trimmed.slice(3)}</h2>;
+                    if (trimmed.startsWith("> ")) return <blockquote key={i} className="border-l-2 border-primary/50 pl-3 italic text-muted-foreground text-sm">{trimmed.slice(2)}</blockquote>;
+                    if (trimmed.startsWith("- ")) return <div key={i} className="flex items-start gap-2 text-sm text-foreground"><span className="text-primary mt-0.5">•</span><span>{trimmed.slice(2)}</span></div>;
+                    return <p key={i} className="text-sm text-foreground leading-relaxed" dangerouslySetInnerHTML={{ __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
+                  })}
+                </div>
+              </div>
+
+              {(previewPiece?.seoTitle || previewPiece?.seoDescription) && (
+                <div className="p-3 bg-emerald-500/5 rounded border border-emerald-500/20">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-emerald-500 block mb-1">SEO</span>
+                  {previewPiece.seoTitle && <p className="text-sm font-semibold text-foreground">{previewPiece.seoTitle}</p>}
+                  {previewPiece.seoDescription && <p className="text-xs text-muted-foreground mt-1">{previewPiece.seoDescription}</p>}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="font-mono text-xs"
+                    onClick={() => {
+                      setEditMode(true);
+                      setEditForm({
+                        title: previewPiece?.title || "",
+                        body: previewPiece?.body || "",
+                        summary: previewPiece?.summary || "",
+                        seoTitle: previewPiece?.seoTitle || "",
+                        seoDescription: previewPiece?.seoDescription || "",
+                      });
+                    }}
+                    data-testid="button-edit-content"
+                  >
+                    <Edit3 className="mr-1.5 h-3 w-3" /> Edit
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  {previewPiece?.status !== "ready" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-mono text-xs border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10"
+                      onClick={() => handleStatusChange(previewPiece.id, "ready")}
+                      disabled={updatePiece.isPending}
+                      data-testid="button-mark-ready"
+                    >
+                      <CheckCircle2 className="mr-1.5 h-3 w-3" /> Mark Ready
+                    </Button>
+                  )}
+                  {previewPiece?.status !== "published" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-mono text-xs border-blue-500/50 text-blue-500 hover:bg-blue-500/10"
+                      onClick={() => handleStatusChange(previewPiece.id, "published")}
+                      disabled={updatePiece.isPending}
+                      data-testid="button-publish"
+                    >
+                      <Send className="mr-1.5 h-3 w-3" /> Publish
+                    </Button>
+                  )}
+                  {previewPiece?.status !== "review" && previewPiece?.status !== "draft" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-mono text-xs"
+                      onClick={() => handleStatusChange(previewPiece.id, "review")}
+                      disabled={updatePiece.isPending}
+                      data-testid="button-back-to-review"
+                    >
+                      <RefreshCw className="mr-1.5 h-3 w-3" /> Back to Review
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1323,17 +1539,61 @@ function ScheduleTab() {
           </CardHeader>
           <CardContent>
             {suggestions ? (
-              <div className="space-y-3 text-sm">
-                {typeof suggestions === "object" && suggestions.suggestions ? (
-                  Array.isArray(suggestions.suggestions) ? suggestions.suggestions.map((s: any, i: number) => (
-                    <div key={i} className="p-3 rounded bg-card/50 border border-border/50 text-xs">
-                      <p className="text-foreground">{typeof s === "string" ? s : s.text || JSON.stringify(s)}</p>
+              <div className="space-y-3">
+                {suggestions.overallStrategy && (
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Lightbulb className="h-3 w-3 text-primary" />
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-primary font-semibold">Strategy</span>
                     </div>
-                  )) : (
-                    <p className="text-xs text-muted-foreground">{JSON.stringify(suggestions.suggestions)}</p>
-                  )
-                ) : (
-                  <p className="text-xs text-muted-foreground">Select a content piece and click "Get Suggestions" in the schedule dialog.</p>
+                    <p className="text-foreground/80 leading-relaxed">{suggestions.overallStrategy}</p>
+                  </div>
+                )}
+                {Array.isArray(suggestions.suggestions) && suggestions.suggestions.map((s: any, i: number) => (
+                  <div key={i} className="p-3 rounded-lg bg-card/50 border border-border/50 space-y-2" data-testid={`suggestion-${i}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {s.platform && getPlatformIcon(s.platform, "h-3.5 w-3.5")}
+                        <span className="font-mono text-xs font-semibold capitalize">{getPlatformLabel(s.platform || "general")}</span>
+                      </div>
+                      {s.priority && (
+                        <Badge variant="outline" className={cn(
+                          "font-mono text-[9px] uppercase",
+                          s.priority === "high" ? "border-emerald-500/50 text-emerald-400" :
+                          s.priority === "medium" ? "border-amber-500/50 text-amber-400" :
+                          "border-muted text-muted-foreground"
+                        )}>{s.priority}</Badge>
+                      )}
+                    </div>
+                    {s.bestTime && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{s.bestTime}</span>
+                      </div>
+                    )}
+                    {s.format && (
+                      <p className="text-[11px] text-foreground/70">{s.format}</p>
+                    )}
+                    {s.tip && (
+                      <p className="text-[11px] text-foreground/80 border-l-2 border-primary/30 pl-2">{s.tip}</p>
+                    )}
+                    {s.hashtags && s.hashtags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {s.hashtags.map((h: string, hi: number) => (
+                          <span key={hi} className="text-[9px] font-mono px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded text-primary">{h.startsWith("#") ? h : `#${h}`}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {suggestions.contentCalendarSuggestion && (
+                  <div className="p-3 rounded-lg bg-card/50 border border-border/50 text-xs">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Calendar className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Calendar</span>
+                    </div>
+                    <p className="text-foreground/70 leading-relaxed">{suggestions.contentCalendarSuggestion}</p>
+                  </div>
                 )}
               </div>
             ) : (
