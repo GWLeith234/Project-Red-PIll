@@ -19,10 +19,6 @@ const fmtCurrency = (n: number) => { if (n >= 1000000) return `$${(n / 1000000).
 export default function AdminScreen() {
   const { data: stats, isLoading } = useAdminDashboardStats();
 
-  if (isLoading) {
-    return <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(80px,1fr)] lg:grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full min-h-[80px] w-full rounded-lg" />)}</div>;
-  }
-
   const users = stats?.users || {};
   const content = stats?.content || {};
   const network = stats?.network || {};
@@ -38,6 +34,10 @@ export default function AdminScreen() {
       value: count as number,
     }));
   }, [byRole]);
+
+  if (isLoading) {
+    return <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(80px,1fr)] lg:grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full min-h-[80px] w-full rounded-lg" />)}</div>;
+  }
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-12 auto-rows-auto lg:grid-rows-3 gap-3 h-full" data-testid="screen-admin">
