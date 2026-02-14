@@ -1,34 +1,47 @@
+import { lazy, Suspense } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import Dashboard from "@/pages/Dashboard";
-import ContentFactory from "@/pages/ContentFactory";
-import Monetization from "@/pages/Monetization";
-import Network from "@/pages/Network";
-import ArticlePage from "@/pages/ArticlePage";
-import EpisodePage from "@/pages/EpisodePage";
-import PodcastDirectory from "@/pages/PodcastDirectory";
-import ShowDetail from "@/pages/ShowDetail";
-import AudienceHome from "@/pages/AudienceHome";
-import SearchPage from "@/pages/SearchPage";
-import ReadLater from "@/pages/ReadLater";
-import PublicNewsPage from "@/pages/PublicNewsPage";
-import AudienceLayout from "@/components/layout/AudienceLayout";
-import Login from "@/pages/Login";
-import UsersAdmin from "@/pages/UsersAdmin";
-import SubscriberCRM from "@/pages/SubscriberCRM";
-import CommercialCRM from "@/pages/CommercialCRM";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import Customize from "@/pages/Customize";
-import Settings from "@/pages/Settings";
-import ModerationQueue from "@/pages/ModerationQueue";
-import AuthorProfile from "@/pages/AuthorProfile";
-import Analytics from "@/pages/Analytics";
-import CampaignBuilderPage from "@/pages/CampaignBuilderPage";
-import SchedulerPage from "@/pages/SchedulerPage";
-import NotFound from "@/pages/not-found";
+import Login from "@/pages/Login";
+
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const ContentFactory = lazy(() => import("@/pages/ContentFactory"));
+const Monetization = lazy(() => import("@/pages/Monetization"));
+const Network = lazy(() => import("@/pages/Network"));
+const ArticlePage = lazy(() => import("@/pages/ArticlePage"));
+const EpisodePage = lazy(() => import("@/pages/EpisodePage"));
+const PodcastDirectory = lazy(() => import("@/pages/PodcastDirectory"));
+const ShowDetail = lazy(() => import("@/pages/ShowDetail"));
+const AudienceHome = lazy(() => import("@/pages/AudienceHome"));
+const SearchPage = lazy(() => import("@/pages/SearchPage"));
+const ReadLater = lazy(() => import("@/pages/ReadLater"));
+const PublicNewsPage = lazy(() => import("@/pages/PublicNewsPage"));
+const AudienceLayout = lazy(() => import("@/components/layout/AudienceLayout"));
+const UsersAdmin = lazy(() => import("@/pages/UsersAdmin"));
+const SubscriberCRM = lazy(() => import("@/pages/SubscriberCRM"));
+const CommercialCRM = lazy(() => import("@/pages/CommercialCRM"));
+const Customize = lazy(() => import("@/pages/Customize"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const ModerationQueue = lazy(() => import("@/pages/ModerationQueue"));
+const AuthorProfile = lazy(() => import("@/pages/AuthorProfile"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const CampaignBuilderPage = lazy(() => import("@/pages/CampaignBuilderPage"));
+const SchedulerPage = lazy(() => import("@/pages/SchedulerPage"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Loading...</p>
+      </div>
+    </div>
+  );
+}
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -79,22 +92,24 @@ function ProtectedRoutes() {
 
   return (
     <AdminLayout>
-      <Switch>
-        <Route path="/">{() => <PermissionGate permission="dashboard.view"><Dashboard /></PermissionGate>}</Route>
-        <Route path="/content">{() => <PermissionGate permission="content.view"><ContentFactory /></PermissionGate>}</Route>
-        <Route path="/scheduler">{() => <PermissionGate permission="content.view"><SchedulerPage /></PermissionGate>}</Route>
-        <Route path="/moderation">{() => <PermissionGate permission="content.edit"><ModerationQueue /></PermissionGate>}</Route>
-        <Route path="/campaigns">{() => <PermissionGate permission="content.view"><CampaignBuilderPage /></PermissionGate>}</Route>
-        <Route path="/monetization">{() => <PermissionGate permission="monetization.view"><Monetization /></PermissionGate>}</Route>
-        <Route path="/network">{() => <PermissionGate permission="network.view"><Network /></PermissionGate>}</Route>
-        <Route path="/sales">{() => <PermissionGate permission="sales.view"><CommercialCRM /></PermissionGate>}</Route>
-        <Route path="/audience">{() => <PermissionGate permission="audience.view"><SubscriberCRM /></PermissionGate>}</Route>
-        <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><Analytics /></PermissionGate>}</Route>
-        <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
-        <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>
-        <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
-        <Route component={NotFound} />
-      </Switch>
+      <Suspense fallback={<PageLoader />}>
+        <Switch>
+          <Route path="/">{() => <PermissionGate permission="dashboard.view"><Dashboard /></PermissionGate>}</Route>
+          <Route path="/content">{() => <PermissionGate permission="content.view"><ContentFactory /></PermissionGate>}</Route>
+          <Route path="/scheduler">{() => <PermissionGate permission="content.view"><SchedulerPage /></PermissionGate>}</Route>
+          <Route path="/moderation">{() => <PermissionGate permission="content.edit"><ModerationQueue /></PermissionGate>}</Route>
+          <Route path="/campaigns">{() => <PermissionGate permission="content.view"><CampaignBuilderPage /></PermissionGate>}</Route>
+          <Route path="/monetization">{() => <PermissionGate permission="monetization.view"><Monetization /></PermissionGate>}</Route>
+          <Route path="/network">{() => <PermissionGate permission="network.view"><Network /></PermissionGate>}</Route>
+          <Route path="/sales">{() => <PermissionGate permission="sales.view"><CommercialCRM /></PermissionGate>}</Route>
+          <Route path="/audience">{() => <PermissionGate permission="audience.view"><SubscriberCRM /></PermissionGate>}</Route>
+          <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><Analytics /></PermissionGate>}</Route>
+          <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
+          <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>
+          <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </AdminLayout>
   );
 }
@@ -103,20 +118,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Switch>
-          <Route path="/home">{() => <AudienceLayout><AudienceHome /></AudienceLayout>}</Route>
-          <Route path="/podcasts">{() => <AudienceLayout><PodcastDirectory /></AudienceLayout>}</Route>
-          <Route path="/search">{() => <AudienceLayout><SearchPage /></AudienceLayout>}</Route>
-          <Route path="/show/:podcastId">{() => <AudienceLayout><ShowDetail /></AudienceLayout>}</Route>
-          <Route path="/author/:authorId">{() => <AudienceLayout><AuthorProfile /></AudienceLayout>}</Route>
-          <Route path="/read-later">{() => <AudienceLayout><ReadLater /></AudienceLayout>}</Route>
-          <Route path="/news">{() => <AudienceLayout><PublicNewsPage /></AudienceLayout>}</Route>
-          <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
-          <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
-          <Route>
-            <ProtectedRoutes />
-          </Route>
-        </Switch>
+        <Suspense fallback={<PageLoader />}>
+          <Switch>
+            <Route path="/home">{() => <AudienceLayout><AudienceHome /></AudienceLayout>}</Route>
+            <Route path="/podcasts">{() => <AudienceLayout><PodcastDirectory /></AudienceLayout>}</Route>
+            <Route path="/search">{() => <AudienceLayout><SearchPage /></AudienceLayout>}</Route>
+            <Route path="/show/:podcastId">{() => <AudienceLayout><ShowDetail /></AudienceLayout>}</Route>
+            <Route path="/author/:authorId">{() => <AudienceLayout><AuthorProfile /></AudienceLayout>}</Route>
+            <Route path="/read-later">{() => <AudienceLayout><ReadLater /></AudienceLayout>}</Route>
+            <Route path="/news">{() => <AudienceLayout><PublicNewsPage /></AudienceLayout>}</Route>
+            <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
+            <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
+            <Route>
+              <ProtectedRoutes />
+            </Route>
+          </Switch>
+        </Suspense>
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>
