@@ -8,7 +8,7 @@ import {
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
-  insertApiKeySchema,
+  insertApiKeySchema, insertTaskSchema, insertTaskCommentSchema, insertTaskActivityLogSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -3555,6 +3555,131 @@ export async function registerRoutes(
         outboundCampaigns: outboundCampaigns.length,
       },
     });
+  });
+
+  // ── Tasks ──
+  app.get("/api/tasks", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const status = req.query.status as string | undefined;
+    const assigneeId = req.query.assigneeId as string | undefined;
+    const podcastId = req.query.podcastId as string | undefined;
+    const data = await storage.getTasks({ status, assigneeId, podcastId });
+    res.json(data);
+  });
+
+  app.get("/api/tasks/my", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getTasksByAssignee(req.session.userId!);
+    res.json(data);
+  });
+
+  app.get("/api/tasks/calendar", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const from = req.query.from as string;
+    const to = req.query.to as string;
+    if (!from || !to) return res.status(400).json({ message: "from and to query params are required" });
+    const allTasks = await storage.getTasksByDueDate(new Date(from), new Date(to));
+    const data = allTasks.filter((t: any) => t.assigneeId === req.session.userId);
+    res.json(data);
+  });
+
+  app.get("/api/tasks/:id", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getTaskById(req.params.id);
+    if (!data) return res.status(404).json({ message: "Task not found" });
+    res.json(data);
+  });
+
+  app.post("/api/tasks", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const parsed = insertTaskSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const user = await storage.getUser(req.session.userId!);
+    const data = await storage.createTask({ ...parsed.data, createdById: req.session.userId! });
+    await storage.createTaskActivityLog({
+      taskId: data.id,
+      actorId: req.session.userId!,
+      actorName: user?.displayName || user?.username || "Unknown",
+      action: "created",
+    });
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/tasks/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const existing = await storage.getTaskById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Task not found" });
+    const allowedStatuses = ["uploaded", "transcribed", "ai_processed", "in_review", "published"];
+    const allowedPriorities = ["low", "medium", "high", "urgent"];
+    const updates: Record<string, any> = {};
+    if (req.body.title !== undefined) updates.title = String(req.body.title);
+    if (req.body.description !== undefined) updates.description = req.body.description ? String(req.body.description) : null;
+    if (req.body.status !== undefined) {
+      if (!allowedStatuses.includes(req.body.status)) return res.status(400).json({ message: "Invalid status" });
+      updates.status = req.body.status;
+    }
+    if (req.body.priority !== undefined) {
+      if (!allowedPriorities.includes(req.body.priority)) return res.status(400).json({ message: "Invalid priority" });
+      updates.priority = req.body.priority;
+    }
+    if (req.body.assigneeId !== undefined) updates.assigneeId = req.body.assigneeId || null;
+    if (req.body.dueDate !== undefined) updates.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
+    if (req.body.tags !== undefined) updates.tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    if (req.body.episodeId !== undefined) updates.episodeId = req.body.episodeId || null;
+    const data = await storage.updateTask(req.params.id, updates);
+    if (!data) return res.status(404).json({ message: "Task not found" });
+    const user = await storage.getUser(req.session.userId!);
+    const actorName = user?.displayName || user?.username || "Unknown";
+    if (req.body.status && req.body.status !== existing.status) {
+      await storage.createTaskActivityLog({
+        taskId: data.id,
+        actorId: req.session.userId!,
+        actorName,
+        action: "status_change",
+        field: "status",
+        fromValue: existing.status,
+        toValue: req.body.status,
+      });
+    }
+    if (req.body.assigneeId !== undefined && req.body.assigneeId !== existing.assigneeId) {
+      await storage.createTaskActivityLog({
+        taskId: data.id,
+        actorId: req.session.userId!,
+        actorName,
+        action: "assignment",
+        field: "assigneeId",
+        fromValue: existing.assigneeId || undefined,
+        toValue: req.body.assigneeId || undefined,
+      });
+    }
+    res.json(data);
+  });
+
+  app.delete("/api/tasks/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteTask(req.params.id);
+    res.status(204).send();
+  });
+
+  app.get("/api/tasks/:id/comments", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getTaskComments(req.params.id);
+    res.json(data);
+  });
+
+  app.post("/api/tasks/:id/comments", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    const parsed = insertTaskCommentSchema.safeParse({
+      ...req.body,
+      taskId: req.params.id,
+      authorId: req.session.userId!,
+      authorName: user?.displayName || user?.username || "Unknown",
+    });
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const data = await storage.createTaskComment(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.delete("/api/task-comments/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteTaskComment(req.params.id);
+    res.status(204).send();
+  });
+
+  app.get("/api/tasks/:id/activity", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getTaskActivityLogs(req.params.id);
+    res.json(data);
   });
 
   // ── Object Storage (file uploads) ──

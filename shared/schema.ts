@@ -660,6 +660,55 @@ export const insertCommentSchema = createInsertSchema(comments).omit({ id: true,
 export const insertDealLineItemSchema = createInsertSchema(dealLineItems).omit({ id: true, createdAt: true });
 export const insertCampaignEmailSchema = createInsertSchema(campaignEmails).omit({ id: true, createdAt: true, updatedAt: true });
 
+// ── Project Management (Asana replacement) ──
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").default("uploaded").notNull(),
+  priority: text("priority").default("medium").notNull(),
+  assigneeId: varchar("assignee_id"),
+  reviewerId: varchar("reviewer_id"),
+  createdById: varchar("created_by_id"),
+  episodeId: varchar("episode_id"),
+  contentPieceId: varchar("content_piece_id"),
+  podcastId: varchar("podcast_id"),
+  dueDate: timestamp("due_date"),
+  publishDate: timestamp("publish_date"),
+  estimatedEffort: text("estimated_effort"),
+  tags: text("tags").array(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const taskComments = pgTable("task_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull(),
+  authorId: varchar("author_id").notNull(),
+  authorName: text("author_name").notNull(),
+  content: text("content").notNull(),
+  parentId: varchar("parent_id"),
+  resolved: boolean("resolved").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const taskActivityLogs = pgTable("task_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id").notNull(),
+  actorId: varchar("actor_id"),
+  actorName: text("actor_name"),
+  action: text("action").notNull(),
+  field: text("field"),
+  fromValue: text("from_value"),
+  toValue: text("to_value"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({ id: true, createdAt: true });
+export const insertTaskActivityLogSchema = createInsertSchema(taskActivityLogs).omit({ id: true, createdAt: true });
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -722,5 +771,11 @@ export type InsertNewsLayoutSection = z.infer<typeof insertNewsLayoutSectionSche
 export type NewsLayoutSection = typeof newsLayoutSections.$inferSelect;
 export type InsertCrmList = z.infer<typeof insertCrmListSchema>;
 export type CrmList = typeof crmLists.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;
+export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
+export type TaskComment = typeof taskComments.$inferSelect;
+export type InsertTaskActivityLog = z.infer<typeof insertTaskActivityLogSchema>;
+export type TaskActivityLog = typeof taskActivityLogs.$inferSelect;
 
 export * from "./models/chat";

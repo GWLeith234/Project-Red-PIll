@@ -24,6 +24,8 @@ import {
   Send,
   CalendarClock,
   Scaling,
+  Kanban,
+  ListTodo,
   type LucideIcon,
 } from "lucide-react";
 
@@ -54,6 +56,13 @@ const navGroups: NavGroup[] = [
       { name: "AI Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
       { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
+    ],
+  },
+  {
+    label: "Project Management",
+    items: [
+      { name: "Kanban Board", href: "/kanban", icon: Kanban, permission: "content.view" },
+      { name: "My Tasks", href: "/my-tasks", icon: ListTodo, permission: "content.view" },
     ],
   },
   {

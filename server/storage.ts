@@ -1,4 +1,4 @@
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { and } from "drizzle-orm";
@@ -6,6 +6,7 @@ import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, dealLineItems, products, adCreatives, outboundCampaigns, campaignEmails, heroSlides,
   socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists, auditLogs, apiKeys,
+  tasks, taskComments, taskActivityLogs,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -37,6 +38,9 @@ import {
   type ApiKey, type InsertApiKey,
   type NewsLayoutSection, type InsertNewsLayoutSection,
   type CrmList, type InsertCrmList,
+  type Task, type InsertTask,
+  type TaskComment, type InsertTaskComment,
+  type TaskActivityLog, type InsertTaskActivityLog,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -226,6 +230,19 @@ export interface IStorage {
   getCrmList(id: string): Promise<CrmList | undefined>;
   createCrmList(list: InsertCrmList): Promise<CrmList>;
   deleteCrmList(id: string): Promise<void>;
+
+  getTasks(filters?: { status?: string; assigneeId?: string; podcastId?: string }): Promise<Task[]>;
+  getTaskById(id: string): Promise<Task | undefined>;
+  getTasksByAssignee(userId: string): Promise<Task[]>;
+  getTasksByDueDate(from: Date, to: Date): Promise<Task[]>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: string, updates: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: string): Promise<void>;
+  getTaskComments(taskId: string): Promise<TaskComment[]>;
+  createTaskComment(comment: InsertTaskComment): Promise<TaskComment>;
+  deleteTaskComment(id: string): Promise<void>;
+  getTaskActivityLogs(taskId: string): Promise<TaskActivityLog[]>;
+  createTaskActivityLog(log: InsertTaskActivityLog): Promise<TaskActivityLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -927,6 +944,57 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteCrmList(id: string) {
     await db.delete(crmLists).where(eq(crmLists.id, id));
+  }
+
+  async getTasks(filters?: { status?: string; assigneeId?: string; podcastId?: string }) {
+    const conditions = [];
+    if (filters?.status) conditions.push(eq(tasks.status, filters.status));
+    if (filters?.assigneeId) conditions.push(eq(tasks.assigneeId, filters.assigneeId));
+    if (filters?.podcastId) conditions.push(eq(tasks.podcastId, filters.podcastId));
+    if (conditions.length > 0) {
+      return db.select().from(tasks).where(and(...conditions)).orderBy(tasks.sortOrder, desc(tasks.createdAt));
+    }
+    return db.select().from(tasks).orderBy(tasks.sortOrder, desc(tasks.createdAt));
+  }
+  async getTaskById(id: string) {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task;
+  }
+  async getTasksByAssignee(userId: string) {
+    return db.select().from(tasks).where(eq(tasks.assigneeId, userId)).orderBy(tasks.sortOrder, desc(tasks.createdAt));
+  }
+  async getTasksByDueDate(from: Date, to: Date) {
+    return db.select().from(tasks).where(and(gte(tasks.dueDate, from), lte(tasks.dueDate, to))).orderBy(tasks.sortOrder, desc(tasks.createdAt));
+  }
+  async createTask(task: InsertTask) {
+    const [created] = await db.insert(tasks).values(task).returning();
+    return created;
+  }
+  async updateTask(id: string, updates: Partial<InsertTask>) {
+    const [updated] = await db.update(tasks).set({ ...updates, updatedAt: new Date() }).where(eq(tasks.id, id)).returning();
+    return updated;
+  }
+  async deleteTask(id: string) {
+    await db.delete(taskActivityLogs).where(eq(taskActivityLogs.taskId, id));
+    await db.delete(taskComments).where(eq(taskComments.taskId, id));
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
+  async getTaskComments(taskId: string) {
+    return db.select().from(taskComments).where(eq(taskComments.taskId, taskId)).orderBy(desc(taskComments.createdAt));
+  }
+  async createTaskComment(comment: InsertTaskComment) {
+    const [created] = await db.insert(taskComments).values(comment).returning();
+    return created;
+  }
+  async deleteTaskComment(id: string) {
+    await db.delete(taskComments).where(eq(taskComments.id, id));
+  }
+  async getTaskActivityLogs(taskId: string) {
+    return db.select().from(taskActivityLogs).where(eq(taskActivityLogs.taskId, taskId)).orderBy(desc(taskActivityLogs.createdAt));
+  }
+  async createTaskActivityLog(log: InsertTaskActivityLog) {
+    const [created] = await db.insert(taskActivityLogs).values(log).returning();
+    return created;
   }
 }
 
