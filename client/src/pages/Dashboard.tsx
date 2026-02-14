@@ -22,7 +22,7 @@ import {
   useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles,
   useProfile, useUpdateProfile, useAnalyzeLinkedIn, usePodcasts, useSubscribers,
   useAdvertisers, useAdminDashboardStats, useScheduledPosts, useOutboundCampaigns,
-  useModerationCounts, useDeals
+  useModerationCounts, useDeals, useCompanies, useContacts, useCampaigns, useProducts
 } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -2183,6 +2183,663 @@ function ContentFactoryScreen() {
   );
 }
 
+function RevenueFactoryScreen() {
+  const { data: advertisers, isLoading: advLoading } = useAdvertisers();
+  const { data: campaigns, isLoading: campLoading } = useCampaigns();
+  const { data: deals, isLoading: dealsLoading } = useDeals();
+  const { data: products, isLoading: prodLoading } = useProducts();
+
+  const advs = advertisers || [];
+  const camps = campaigns || [];
+  const allDeals = deals || [];
+  const prods = products || [];
+
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+  const wonDeals = allDeals.filter((d: any) => d.stage === "closed_won");
+  const totalRevenue = wonDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0);
+  const activeAdvs = advs.filter((a: any) => a.status === "active");
+  const totalAdSpend = advs.reduce((sum: number, a: any) => sum + (Number(a.monthlySpend) || 0), 0);
+  const activeCamps = camps.filter((c: any) => c.status === "active");
+  const activeProducts = prods.filter((p: any) => p.status === "active");
+
+  const stageOrder = ["lead", "discovery", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"];
+  const stageLabels: Record<string, string> = { lead: "Lead", discovery: "Discovery", qualified: "Qualified", proposal: "Proposal", negotiation: "Negotiation", closed_won: "Won", closed_lost: "Lost" };
+  const stageColors: Record<string, string> = { lead: "hsl(var(--chart-1))", discovery: "hsl(var(--chart-2))", qualified: "hsl(var(--chart-3))", proposal: "hsl(var(--chart-4))", negotiation: "hsl(var(--primary))", closed_won: "hsl(var(--accent))", closed_lost: "hsl(var(--destructive))" };
+
+  const stageData = stageOrder.map(s => {
+    const stageDeals = allDeals.filter((d: any) => d.stage === s);
+    return { name: stageLabels[s] || s, value: stageDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0), count: stageDeals.length, color: stageColors[s] || COLORS[0] };
+  }).filter(s => s.count > 0);
+
+  const rateModels: Record<string, number> = {};
+  prods.forEach((p: any) => { rateModels[p.rateModel || "other"] = (rateModels[p.rateModel || "other"] || 0) + 1; });
+  const industries: Record<string, number> = {};
+  advs.forEach((a: any) => { industries[a.industry || "other"] = (industries[a.industry || "other"] || 0) + 1; });
+  const categories: Record<string, number> = {};
+  prods.forEach((p: any) => { categories[p.category || "other"] = (categories[p.category || "other"] || 0) + 1; });
+
+  const recentDeals = [...allDeals].sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 8);
+
+  const fmtCurrency = (n: number) => { if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`; if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`; return `$${n}`; };
+
+  const isLoading = advLoading || campLoading || dealsLoading || prodLoading;
+  if (isLoading) {
+    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+  }
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-revenue-factory">
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-revenue">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Revenue</span>
+          <DollarSign className="h-4 w-4 text-accent/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{fmtCurrency(totalRevenue)}</p>
+        <span className="text-[9px] font-mono uppercase text-accent">{wonDeals.length} deals closed</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-advertisers">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Advertisers</span>
+          <Megaphone className="h-4 w-4 text-primary/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{activeAdvs.length}</p>
+        <span className="text-[9px] font-mono uppercase text-primary">{fmtCurrency(totalAdSpend)} ad spend</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-campaigns">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Campaigns</span>
+          <Target className="h-4 w-4 text-chart-2/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{activeCamps.length}</p>
+        <span className="text-[9px] font-mono uppercase text-chart-2">{camps.length} total</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-products">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Products</span>
+          <Package className="h-4 w-4 text-chart-3/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{activeProducts.length}</p>
+        <span className="text-[9px] font-mono uppercase text-chart-3">{prods.length} total</span>
+      </div>
+
+      <div className="col-span-5 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-revenue-by-stage">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Revenue by Deal Stage
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground">{allDeals.length} deals</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          {stageData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stageData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} horizontal={false} />
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontFamily: "JetBrains Mono", fontSize: "11px" }} formatter={(val: number) => fmtCurrency(val)} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
+                  {stageData.map((s, i) => <Cell key={i} fill={s.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center"><p className="text-xs text-muted-foreground">No deal data</p></div>
+          )}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-deal-pipeline">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <Briefcase className="h-3.5 w-3.5" /> Deal Pipeline
+          </h3>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {recentDeals.length > 0 ? recentDeals.map((d: any) => (
+            <div key={d.id} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`deal-item-${d.id}`}>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate">{d.title || "Untitled Deal"}</p>
+                <p className="text-[9px] font-mono text-muted-foreground">{fmtCurrency(Number(d.totalValue) || 0)}</p>
+              </div>
+              <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0 ml-2",
+                d.stage === "closed_won" ? "bg-accent/10 text-accent border-accent/20" :
+                d.stage === "closed_lost" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                d.stage === "negotiation" ? "bg-primary/10 text-primary border-primary/20" :
+                "bg-muted/50 text-muted-foreground border-border/50"
+              )}>{stageLabels[d.stage] || d.stage}</Badge>
+            </div>
+          )) : <p className="text-xs text-muted-foreground text-center py-4">No deals yet</p>}
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-revenue-breakdown">
+        <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <TrendingUp className="h-3.5 w-3.5" /> Revenue Breakdown
+        </h3>
+        <div className="flex-1 overflow-y-auto space-y-4">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Rate Models</p>
+            {Object.entries(rateModels).map(([model, count], i) => (
+              <div key={model} className="flex items-center justify-between py-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground capitalize">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />{model.replace(/_/g, " ")}
+                </span>
+                <span className="text-[10px] font-mono font-semibold">{count}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Industries</p>
+            {Object.entries(industries).slice(0, 5).map(([ind, count], i) => (
+              <div key={ind} className="flex items-center justify-between py-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground capitalize">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: COLORS[(i + 2) % COLORS.length] }} />{ind}
+                </span>
+                <span className="text-[10px] font-mono font-semibold">{count}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Categories</p>
+            {Object.entries(categories).slice(0, 5).map(([cat, count], i) => (
+              <div key={cat} className="flex items-center justify-between py-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground capitalize">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: COLORS[(i + 4) % COLORS.length] }} />{cat}
+                </span>
+                <span className="text-[10px] font-mono font-semibold">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CRMScreen() {
+  const { data: companies, isLoading: compLoading } = useCompanies();
+  const { data: contacts, isLoading: contLoading } = useContacts();
+  const { data: deals, isLoading: dealsLoading } = useDeals();
+
+  const comps = companies || [];
+  const conts = contacts || [];
+  const allDeals = deals || [];
+
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+  const stageOrder = ["lead", "discovery", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"];
+  const stageLabels: Record<string, string> = { lead: "Lead", discovery: "Discovery", qualified: "Qualified", proposal: "Proposal", negotiation: "Negotiation", closed_won: "Won", closed_lost: "Lost" };
+  const stageColors: Record<string, string> = { lead: "hsl(var(--chart-1))", discovery: "hsl(var(--chart-2))", qualified: "hsl(var(--chart-3))", proposal: "hsl(var(--chart-4))", negotiation: "hsl(var(--primary))", closed_won: "hsl(var(--accent))", closed_lost: "hsl(var(--destructive))" };
+
+  const openStages = ["lead", "discovery", "qualified", "proposal", "negotiation"];
+  const openDeals = allDeals.filter((d: any) => openStages.includes(d.stage));
+  const openValue = openDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0);
+  const closedWon = allDeals.filter((d: any) => d.stage === "closed_won").length;
+  const closedLost = allDeals.filter((d: any) => d.stage === "closed_lost").length;
+  const winRate = (closedWon + closedLost) > 0 ? Math.round((closedWon / (closedWon + closedLost)) * 100) : 0;
+
+  const stageData = stageOrder.map(s => {
+    const stageDeals = allDeals.filter((d: any) => d.stage === s);
+    return { name: stageLabels[s] || s, count: stageDeals.length, value: stageDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0), color: stageColors[s] || COLORS[0] };
+  }).filter(s => s.count > 0);
+
+  const companyMap: Record<string, string> = {};
+  comps.forEach((c: any) => { companyMap[c.id] = c.name; });
+
+  const recentDeals = [...allDeals].sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).slice(0, 8);
+
+  const fmtCurrency = (n: number) => { if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`; if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`; return `$${n}`; };
+
+  const isLoading = compLoading || contLoading || dealsLoading;
+  if (isLoading) {
+    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+  }
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-crm">
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-companies">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Companies</span>
+          <Building2 className="h-4 w-4 text-primary/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{comps.length}</p>
+        <span className="text-[9px] font-mono uppercase text-primary">{comps.filter((c: any) => c.status === "active").length} active</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-contacts">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Contacts</span>
+          <Users className="h-4 w-4 text-accent/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{conts.length}</p>
+        <span className="text-[9px] font-mono uppercase text-accent">{comps.length} companies</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-deals">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Deals</span>
+          <Briefcase className="h-4 w-4 text-chart-2/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{openDeals.length}</p>
+        <span className="text-[9px] font-mono uppercase text-chart-2">{fmtCurrency(openValue)} pipeline</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-win-rate">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Win Rate</span>
+          <Trophy className="h-4 w-4 text-accent/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{winRate}%</p>
+        <span className="text-[9px] font-mono uppercase text-accent">{closedWon}W / {closedLost}L</span>
+      </div>
+
+      <div className="col-span-5 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-deal-funnel">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Deal Funnel
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground">{allDeals.length} total</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          {stageData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stageData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} horizontal={false} />
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontFamily: "JetBrains Mono", fontSize: "11px" }} />
+                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={14}>
+                  {stageData.map((s, i) => <Cell key={i} fill={s.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center"><p className="text-xs text-muted-foreground">No deal data</p></div>
+          )}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-recent-deals">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" /> Recent Deals
+          </h3>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {recentDeals.length > 0 ? recentDeals.map((d: any) => (
+            <div key={d.id} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`crm-deal-${d.id}`}>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate">{d.title || "Untitled"}</p>
+                <p className="text-[9px] font-mono text-muted-foreground">{companyMap[d.companyId] || "—"} · {fmtCurrency(Number(d.totalValue) || 0)}</p>
+              </div>
+              <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0 ml-2",
+                d.stage === "closed_won" ? "bg-accent/10 text-accent border-accent/20" :
+                d.stage === "closed_lost" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                d.stage === "negotiation" ? "bg-primary/10 text-primary border-primary/20" :
+                "bg-muted/50 text-muted-foreground border-border/50"
+              )}>{stageLabels[d.stage] || d.stage}</Badge>
+            </div>
+          )) : <p className="text-xs text-muted-foreground text-center py-4">No deals yet</p>}
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-pipeline-summary">
+        <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <Layers className="h-3.5 w-3.5" /> Pipeline Summary
+        </h3>
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {stageData.length > 0 ? stageData.map((s) => (
+            <div key={s.name} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
+              <span className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />{s.name}
+              </span>
+              <div className="text-right">
+                <span className="text-[10px] font-mono font-semibold">{s.count}</span>
+                <span className="text-[9px] font-mono text-muted-foreground ml-1.5">{fmtCurrency(s.value)}</span>
+              </div>
+            </div>
+          )) : <p className="text-xs text-muted-foreground text-center py-4">No data</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AudienceScreen() {
+  const { data: subscribers, isLoading: subLoading } = useSubscribers();
+  const { data: podcasts, isLoading: podLoading } = usePodcasts();
+  const { data: outboundCampaigns, isLoading: campLoading } = useOutboundCampaigns();
+
+  const subs = subscribers || [];
+  const pods = podcasts || [];
+  const camps = outboundCampaigns || [];
+
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+  const totalSubs = subs.length;
+  const totalListeners = pods.reduce((sum: number, p: any) => sum + (Number(p.subscribers) || 0), 0);
+  const totalCamps = camps.length;
+  const totalSent = camps.reduce((sum: number, c: any) => sum + (Number(c.sentCount) || 0), 0);
+  const totalOpens = camps.reduce((sum: number, c: any) => sum + (Number(c.openCount) || 0), 0);
+  const openRate = totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0;
+
+  const sourceMap: Record<string, number> = {};
+  subs.forEach((s: any) => { sourceMap[s.source || "unknown"] = (sourceMap[s.source || "unknown"] || 0) + 1; });
+  const sourceData = Object.entries(sourceMap).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })).sort((a, b) => b.value - a.value);
+
+  const isLoading = subLoading || podLoading || campLoading;
+  if (isLoading) {
+    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+  }
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-audience">
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-subscribers">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Subscribers</span>
+          <Mail className="h-4 w-4 text-primary/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{formatCount(totalSubs)}</p>
+        <span className="text-[9px] font-mono uppercase text-primary">{subs.filter((s: any) => s.status === "active").length} active</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-podcast-listeners">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Podcast Listeners</span>
+          <Headphones className="h-4 w-4 text-accent/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{formatCount(totalListeners)}</p>
+        <span className="text-[9px] font-mono uppercase text-accent">{pods.length} shows</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-email-campaigns">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email Campaigns</span>
+          <Send className="h-4 w-4 text-chart-2/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{totalCamps}</p>
+        <span className="text-[9px] font-mono uppercase text-chart-2">{formatCount(totalSent)} sent</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-engagement">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Engagement</span>
+          <Activity className="h-4 w-4 text-chart-3/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{openRate}%</p>
+        <span className="text-[9px] font-mono uppercase text-chart-3">open rate</span>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-subscriber-sources">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <PieChartIcon className="h-3.5 w-3.5" /> Subscriber Sources
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground">{totalSubs} total</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          {sourceData.length > 0 ? (
+            <div className="h-full flex flex-col">
+              <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={sourceData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" innerRadius="40%" paddingAngle={2}>
+                      {sourceData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontFamily: "JetBrains Mono", fontSize: "11px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {sourceData.slice(0, 5).map((s, i) => (
+                  <span key={s.name} className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground">
+                    <span className="h-2 w-2 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />{s.name}: {s.value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center"><p className="text-xs text-muted-foreground">No subscriber data</p></div>
+          )}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-network-shows">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <Radio className="h-3.5 w-3.5" /> Network Shows
+          </h3>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {pods.length > 0 ? pods.map((p: any) => (
+            <div key={p.id} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`podcast-item-${p.id}`}>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate">{p.title}</p>
+                <p className="text-[9px] font-mono text-muted-foreground">{formatCount(Number(p.subscribers) || 0)} listeners</p>
+              </div>
+              <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0 ml-2",
+                p.status === "active" ? "bg-accent/10 text-accent border-accent/20" : "bg-muted/50 text-muted-foreground border-border/50"
+              )}>{p.status || "draft"}</Badge>
+            </div>
+          )) : <p className="text-xs text-muted-foreground text-center py-4">No podcasts yet</p>}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-campaign-performance">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <Megaphone className="h-3.5 w-3.5" /> Campaign Performance
+          </h3>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {camps.length > 0 ? camps.slice(0, 8).map((c: any) => (
+            <div key={c.id} className="p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`outbound-campaign-${c.id}`}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-medium truncate flex-1 min-w-0">{c.name || "Campaign"}</p>
+                <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0 ml-2",
+                  c.status === "active" || c.status === "sending" ? "bg-accent/10 text-accent border-accent/20" :
+                  c.status === "completed" ? "bg-primary/10 text-primary border-primary/20" :
+                  "bg-muted/50 text-muted-foreground border-border/50"
+                )}>{c.status || "draft"}</Badge>
+              </div>
+              <div className="flex items-center gap-3 text-[9px] font-mono text-muted-foreground">
+                <span>{c.sentCount || 0} sent</span>
+                <span>{c.openCount || 0} opens</span>
+                <span>{c.clickCount || 0} clicks</span>
+              </div>
+            </div>
+          )) : <p className="text-xs text-muted-foreground text-center py-4">No campaigns yet</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminScreen() {
+  const { data: stats, isLoading } = useAdminDashboardStats();
+
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+  if (isLoading) {
+    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+  }
+
+  const users = stats?.users || {};
+  const content = stats?.content || {};
+  const network = stats?.network || {};
+  const commercial = stats?.commercial || {};
+  const deals = stats?.deals || {};
+  const subscribers = stats?.subscribers || {};
+  const byRole = users.byRole || {};
+  const recentUsers = users.recentUsers || [];
+
+  const roleData = Object.entries(byRole).map(([role, count]) => ({
+    name: role.charAt(0).toUpperCase() + role.slice(1),
+    value: count as number,
+  }));
+
+  const fmtCurrency = (n: number) => { if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`; if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`; return `$${n}`; };
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-admin">
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-users">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Users</span>
+          <Users className="h-4 w-4 text-primary/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{users.total || 0}</p>
+        <div className="flex items-center gap-2 text-[9px] font-mono">
+          {Object.entries(byRole).slice(0, 3).map(([role, count], i) => (
+            <span key={role} className={cn(i === 0 ? "text-primary" : i === 1 ? "text-accent" : "text-chart-2")}>{count as number} {role}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-content-library">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Content Library</span>
+          <Layers className="h-4 w-4 text-accent/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{content.total || 0}</p>
+        <span className="text-[9px] font-mono uppercase text-accent">{content.episodes || 0} episodes</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-network">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Network</span>
+          <Radio className="h-4 w-4 text-chart-2/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{network.totalPodcasts || 0}</p>
+        <span className="text-[9px] font-mono uppercase text-chart-2">{formatCount(network.totalListeners || 0)} listeners</span>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-commercial">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Commercial</span>
+          <Building2 className="h-4 w-4 text-chart-3/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{commercial.companies || 0}</p>
+        <span className="text-[9px] font-mono uppercase text-chart-3">{commercial.advertisers || 0} advertisers</span>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-users-by-role">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <PieChartIcon className="h-3.5 w-3.5" /> Users by Role
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground">{users.total || 0} total</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          {roleData.length > 0 ? (
+            <div className="h-full flex flex-col">
+              <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={roleData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" innerRadius="40%" paddingAngle={2}>
+                      {roleData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontFamily: "JetBrains Mono", fontSize: "11px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {roleData.map((r, i) => (
+                  <span key={r.name} className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground">
+                    <span className="h-2 w-2 rounded-sm" style={{ background: COLORS[i % COLORS.length] }} />{r.name}: {r.value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center"><p className="text-xs text-muted-foreground">No user data</p></div>
+          )}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-recent-signups">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <UserPlus className="h-3.5 w-3.5" /> Recent Signups
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground">{users.recentSignups || 0} (30d)</span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {recentUsers.length > 0 ? recentUsers.map((u: any) => (
+            <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`admin-user-${u.id}`}>
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <UserPlus className="h-3.5 w-3.5 text-primary/60" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{u.displayName || u.username}</p>
+                <p className="text-[9px] text-muted-foreground font-mono">@{u.username}</p>
+              </div>
+              <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0",
+                u.role === "admin" ? "bg-primary/10 text-primary border-primary/20" :
+                u.role === "editor" ? "bg-accent/10 text-accent border-accent/20" :
+                "bg-muted/50 text-muted-foreground"
+              )}>{u.role}</Badge>
+            </div>
+          )) : <p className="text-xs text-muted-foreground text-center py-4">No recent signups</p>}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-platform-health">
+        <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <Activity className="h-3.5 w-3.5" /> Platform Health
+        </h3>
+        <div className="flex-1 overflow-y-auto space-y-3">
+          <div className="p-2.5 rounded-lg border border-border/30 bg-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-3.5 w-3.5 text-primary/60" />
+              <span className="text-[10px] font-mono text-muted-foreground">Total Deals</span>
+            </div>
+            <span className="text-sm font-bold font-display">{deals.total || 0}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-border/30 bg-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-3.5 w-3.5 text-accent/60" />
+              <span className="text-[10px] font-mono text-muted-foreground">Won Value</span>
+            </div>
+            <span className="text-sm font-bold font-display text-accent">{fmtCurrency(deals.wonValue || 0)}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-border/30 bg-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mail className="h-3.5 w-3.5 text-primary/60" />
+              <span className="text-[10px] font-mono text-muted-foreground">Subscribers (30d)</span>
+            </div>
+            <span className="text-sm font-bold font-display text-primary">{subscribers.recentCount || 0}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-border/30 bg-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="h-3.5 w-3.5 text-chart-3/60" />
+              <span className="text-[10px] font-mono text-muted-foreground">Content (30d)</span>
+            </div>
+            <span className="text-sm font-bold font-display text-chart-3">{content.recentCount || 0}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-border/30 bg-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="h-3.5 w-3.5 text-chart-4/60" />
+              <span className="text-[10px] font-mono text-muted-foreground">Ad Campaigns</span>
+            </div>
+            <span className="text-sm font-bold font-display">{commercial.activeCampaigns || 0}</span>
+          </div>
+          <div className="p-2.5 rounded-lg border border-border/30 bg-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Headphones className="h-3.5 w-3.5 text-chart-2/60" />
+              <span className="text-[10px] font-mono text-muted-foreground">Listeners</span>
+            </div>
+            <span className="text-sm font-bold font-display text-chart-2">{formatCount(network.totalListeners || 0)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PlaceholderScreen({ label, icon: Icon }: { label: string; icon: any }) {
   return (
     <div className="h-full flex flex-col items-center justify-center" data-testid={`screen-${label.toLowerCase().replace(/\s+/g, "-")}-placeholder`}>
@@ -2278,10 +2935,10 @@ export default function Dashboard() {
 
         <div className="h-full w-full">
           {activeScreen === "content" && <ContentFactoryScreen />}
-          {activeScreen === "revenue" && <PlaceholderScreen label="Revenue Factory" icon={DollarSign} />}
-          {activeScreen === "crm" && <PlaceholderScreen label="CRM" icon={Briefcase} />}
-          {activeScreen === "audience" && <PlaceholderScreen label="Audience" icon={Headphones} />}
-          {activeScreen === "admin" && <PlaceholderScreen label="Admin" icon={Shield} />}
+          {activeScreen === "revenue" && <RevenueFactoryScreen />}
+          {activeScreen === "crm" && <CRMScreen />}
+          {activeScreen === "audience" && <AudienceScreen />}
+          {activeScreen === "admin" && <AdminScreen />}
         </div>
 
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
