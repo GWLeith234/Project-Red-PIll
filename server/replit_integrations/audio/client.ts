@@ -56,23 +56,21 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
   const outputPath = join(tmpdir(), `output-${randomUUID()}.wav`);
 
   try {
-    // Write input to temp file (required for video containers that need seeking)
     await writeFile(inputPath, audioBuffer);
 
-    // Run ffmpeg with file paths
     await new Promise<void>((resolve, reject) => {
       const ffmpeg = spawn("ffmpeg", [
         "-i", inputPath,
-        "-vn",              // Extract audio only (ignore video track)
+        "-vn",
         "-f", "wav",
-        "-ar", "16000",     // 16kHz sample rate (good for speech)
-        "-ac", "1",         // Mono
+        "-ar", "16000",
+        "-ac", "1",
         "-acodec", "pcm_s16le",
-        "-y",               // Overwrite output
+        "-y",
         outputPath,
       ]);
 
-      ffmpeg.stderr.on("data", () => {}); // Suppress logs
+      ffmpeg.stderr.on("data", () => {});
       ffmpeg.on("close", (code) => {
         if (code === 0) resolve();
         else reject(new Error(`ffmpeg exited with code ${code}`));
@@ -80,29 +78,151 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
       ffmpeg.on("error", reject);
     });
 
-    // Read converted audio
     return await readFile(outputPath);
   } finally {
-    // Clean up temp files
     await unlink(inputPath).catch(() => {});
     await unlink(outputPath).catch(() => {});
   }
 }
 
+const MAX_OPENAI_FILE_SIZE = 24 * 1024 * 1024;
+
+export async function convertToCompressedMp3(audioBuffer: Buffer): Promise<Buffer> {
+  const inputPath = join(tmpdir(), `input-${randomUUID()}`);
+  const outputPath = join(tmpdir(), `output-${randomUUID()}.mp3`);
+
+  try {
+    await writeFile(inputPath, audioBuffer);
+
+    await new Promise<void>((resolve, reject) => {
+      const ffmpeg = spawn("ffmpeg", [
+        "-i", inputPath,
+        "-vn",
+        "-f", "mp3",
+        "-ar", "16000",
+        "-ac", "1",
+        "-b:a", "48k",
+        "-y",
+        outputPath,
+      ]);
+
+      ffmpeg.stderr.on("data", () => {});
+      ffmpeg.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg exited with code ${code}`));
+      });
+      ffmpeg.on("error", reject);
+    });
+
+    return await readFile(outputPath);
+  } finally {
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
+}
+
+const MAX_CHUNK_DURATION_SECONDS = 1400;
+
+export async function splitAudioIntoChunks(audioBuffer: Buffer, maxChunkBytes: number = MAX_OPENAI_FILE_SIZE): Promise<Buffer[]> {
+  const inputPath = join(tmpdir(), `input-${randomUUID()}`);
+  await writeFile(inputPath, audioBuffer);
+
+  try {
+    const durationStr = await new Promise<string>((resolve, reject) => {
+      let output = "";
+      const probe = spawn("ffprobe", [
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        inputPath,
+      ]);
+      probe.stdout.on("data", (d) => output += d.toString());
+      probe.on("close", (code) => {
+        if (code === 0) resolve(output.trim());
+        else reject(new Error(`ffprobe failed with code ${code}`));
+      });
+      probe.on("error", reject);
+    });
+
+    const totalDuration = parseFloat(durationStr);
+    if (isNaN(totalDuration) || totalDuration <= 0) {
+      const mp3 = await convertToCompressedMp3(audioBuffer);
+      return [mp3];
+    }
+
+    const numChunksByDuration = Math.ceil(totalDuration / MAX_CHUNK_DURATION_SECONDS);
+    const mp3 = await convertToCompressedMp3(audioBuffer);
+    const numChunksBySize = Math.ceil(mp3.length / maxChunkBytes);
+    const numChunks = Math.max(numChunksByDuration, numChunksBySize);
+
+    if (numChunks <= 1 && mp3.length <= maxChunkBytes) {
+      return [mp3];
+    }
+
+    const chunkDuration = Math.floor(totalDuration / numChunks);
+    const chunks: Buffer[] = [];
+    console.log(`[Audio] Splitting ${totalDuration.toFixed(0)}s audio into ${numChunks} chunks of ~${chunkDuration}s each`);
+
+    for (let i = 0; i < numChunks; i++) {
+      const start = i * chunkDuration;
+      const isLast = i === numChunks - 1;
+      const chunkPath = join(tmpdir(), `chunk-${randomUUID()}.mp3`);
+      const args = [
+        "-i", inputPath,
+        "-vn",
+        "-ss", String(start),
+        ...(isLast ? [] : ["-t", String(chunkDuration + 2)]),
+        "-f", "mp3",
+        "-ar", "16000",
+        "-ac", "1",
+        "-b:a", "48k",
+        "-y",
+        chunkPath,
+      ];
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const ffmpeg = spawn("ffmpeg", args);
+          ffmpeg.stderr.on("data", () => {});
+          ffmpeg.on("close", (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`ffmpeg chunk ${i} failed`));
+          });
+          ffmpeg.on("error", reject);
+        });
+        chunks.push(await readFile(chunkPath));
+      } finally {
+        await unlink(chunkPath).catch(() => {});
+      }
+    }
+
+    return chunks;
+  } finally {
+    await unlink(inputPath).catch(() => {});
+  }
+}
+
 /**
  * Auto-detect and convert audio to OpenAI-compatible format.
- * - WAV/MP3: Pass through (already compatible)
- * - WebM/MP4/OGG: Convert to WAV via ffmpeg
+ * Handles large files by compressing to MP3 and splitting if needed.
  */
 export async function ensureCompatibleFormat(
   audioBuffer: Buffer
 ): Promise<{ buffer: Buffer; format: "wav" | "mp3" }> {
   const detected = detectAudioFormat(audioBuffer);
-  if (detected === "wav") return { buffer: audioBuffer, format: "wav" };
-  if (detected === "mp3") return { buffer: audioBuffer, format: "mp3" };
-  // Convert WebM, MP4, OGG, or unknown to WAV
-  const wavBuffer = await convertToWav(audioBuffer);
-  return { buffer: wavBuffer, format: "wav" };
+
+  if (detected === "mp3" && audioBuffer.length <= MAX_OPENAI_FILE_SIZE) {
+    return { buffer: audioBuffer, format: "mp3" };
+  }
+  if (detected === "wav" && audioBuffer.length <= MAX_OPENAI_FILE_SIZE) {
+    return { buffer: audioBuffer, format: "wav" };
+  }
+
+  const mp3Buffer = await convertToCompressedMp3(audioBuffer);
+  if (mp3Buffer.length <= MAX_OPENAI_FILE_SIZE) {
+    return { buffer: mp3Buffer, format: "mp3" };
+  }
+
+  return { buffer: mp3Buffer, format: "mp3" };
 }
 
 /**

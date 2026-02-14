@@ -638,6 +638,50 @@ Return JSON:
   };
 }
 
+async function resolveAudioUrl(url: string): Promise<string> {
+  if (url.startsWith("/objects/")) return url;
+  if (/\.(mp3|wav|m4a|aac|ogg|flac)(\?|$)/i.test(url)) return url;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("audio/") || contentType.includes("application/octet-stream")) {
+      return url;
+    }
+    if (!contentType.includes("text/html")) {
+      return url;
+    }
+    const html = await response.text();
+
+    const jsonDataMatch = html.match(/window\.__data\s*=\s*(\{[\s\S]*?\});/);
+    if (jsonDataMatch) {
+      try {
+        const data = JSON.parse(jsonDataMatch[1]);
+        const audioUrl = data?.clip?.audioUrl || data?.audioUrl || data?.episode?.audioUrl;
+        if (audioUrl) return audioUrl;
+      } catch {}
+    }
+
+    const mp3Match = html.match(/"(https?:\/\/[^"]*audio\.mp3[^"]*)"/);
+    if (mp3Match) return mp3Match[1].replace(/&amp;/g, "&");
+
+    const podtracMatch = html.match(/"(https?:\/\/[^"]*podtrac\.com[^"]*\.mp3[^"]*)"/);
+    if (podtracMatch) return podtracMatch[1].replace(/&amp;/g, "&");
+
+    const trafficOmnyMatch = html.match(/"(https?:\/\/traffic\.omny\.fm[^"]*\/audio[^"]*)"/);
+    if (trafficOmnyMatch) return trafficOmnyMatch[1].replace(/&amp;/g, "&");
+
+    const audioMatch = html.match(/"(https?:\/\/[^"]*\.(mp3|wav|m4a|aac)(\?[^"]*)?)"/);
+    if (audioMatch) return audioMatch[1].replace(/&amp;/g, "&");
+  } catch (err) {
+    console.warn(`[Pipeline] URL resolution failed for ${url}:`, (err as Error).message);
+  }
+  return url;
+}
+
 async function fetchAudioBuffer(audioUrl: string): Promise<Buffer> {
   if (audioUrl.startsWith("/objects/")) {
     const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
@@ -647,11 +691,18 @@ async function fetchAudioBuffer(audioUrl: string): Promise<Buffer> {
     return Buffer.from(contents);
   }
 
+  const resolvedUrl = await resolveAudioUrl(audioUrl);
+  console.log(`[Pipeline] Fetching audio from: ${resolvedUrl.substring(0, 80)}...`);
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
   try {
-    const response = await fetch(audioUrl, { signal: controller.signal });
+    const response = await fetch(resolvedUrl, { signal: controller.signal, redirect: "follow" });
     if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch audio file`);
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      throw new Error(`URL resolved to an HTML page instead of audio. The audio URL "${audioUrl}" could not be resolved to a direct audio file.`);
+    }
     return Buffer.from(await response.arrayBuffer());
   } finally {
     clearTimeout(timeout);
@@ -674,36 +725,56 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
 
   let transcript = episode.transcript;
 
-  if (!transcript && episode.audioUrl) {
-    try {
-      await storage.updateEpisode(episodeId, { transcriptStatus: "processing", processingStatus: "processing", processingProgress: 5 } as any);
+  const mediaUrl = episode.audioUrl || episode.videoUrl;
 
-      const audioBuffer = await fetchAudioBuffer(episode.audioUrl);
-      const { ensureCompatibleFormat } = await import("./replit_integrations/audio/client");
-      const { buffer, format } = await ensureCompatibleFormat(audioBuffer);
+  if (!transcript && mediaUrl) {
+    try {
+      await storage.updateEpisode(episodeId, { transcriptStatus: "processing", processingStatus: "processing", processingProgress: 2 } as any);
+
+      console.log(`[Pipeline] Fetching media for episode: ${episode.title}`);
+      const audioBuffer = await fetchAudioBuffer(mediaUrl);
+      console.log(`[Pipeline] Media fetched: ${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+
+      await storage.updateEpisode(episodeId, { processingProgress: 4 } as any);
+
+      const { splitAudioIntoChunks } = await import("./replit_integrations/audio/client");
+      const chunks = await splitAudioIntoChunks(audioBuffer);
+      console.log(`[Pipeline] Audio split into ${chunks.length} chunk(s) for transcription`);
+
+      await storage.updateEpisode(episodeId, { processingProgress: 5 } as any);
 
       const { toFile } = await import("openai");
-      const file = await toFile(buffer, `audio.${format}`);
-      const transcriptionResult = await openai.audio.transcriptions.create({
-        file,
-        model: "gpt-4o-mini-transcribe",
-        response_format: "json",
-      });
+      const transcriptParts: string[] = [];
 
-      transcript = transcriptionResult.text;
+      for (let i = 0; i < chunks.length; i++) {
+        console.log(`[Pipeline] Transcribing chunk ${i + 1}/${chunks.length} (${(chunks[i].length / 1024 / 1024).toFixed(1)}MB)`);
+        const file = await toFile(chunks[i], `audio_chunk_${i}.mp3`);
+        const transcriptionResult = await openai.audio.transcriptions.create({
+          file,
+          model: "gpt-4o-mini-transcribe",
+          response_format: "json",
+        });
+        transcriptParts.push(transcriptionResult.text);
+        const chunkProgress = 5 + Math.floor(((i + 1) / chunks.length) * 5);
+        await storage.updateEpisode(episodeId, { processingProgress: chunkProgress } as any);
+      }
+
+      transcript = transcriptParts.join("\n\n");
+      console.log(`[Pipeline] Transcription complete: ${transcript.length} chars`);
       await storage.updateEpisode(episodeId, {
         transcript,
         transcriptStatus: "ready",
         processingProgress: 10,
       } as any);
     } catch (err: any) {
+      console.error(`[Pipeline] Transcription error:`, err.message);
       await storage.updateEpisode(episodeId, { transcriptStatus: "failed", processingStatus: "failed" } as any);
       throw new Error(`Transcription failed: ${err.message}`);
     }
   }
 
   if (!transcript) {
-    throw new Error("No transcript or audio URL available for this episode");
+    throw new Error("No transcript or audio/video URL available for this episode");
   }
 
   let podcastTitle: string | undefined;
@@ -795,23 +866,30 @@ export async function transcribeAndGenerateStory(episodeId: string): Promise<{
 
   let transcript = episode.transcript;
 
-  if (!transcript && episode.audioUrl) {
+  const mediaUrl = episode.audioUrl || episode.videoUrl;
+
+  if (!transcript && mediaUrl) {
     try {
       await storage.updateEpisode(episodeId, { transcriptStatus: "processing" } as any);
 
-      const audioBuffer = await fetchAudioBuffer(episode.audioUrl);
-      const { ensureCompatibleFormat } = await import("./replit_integrations/audio/client");
-      const { buffer, format } = await ensureCompatibleFormat(audioBuffer);
+      const audioBuffer = await fetchAudioBuffer(mediaUrl);
+      const { splitAudioIntoChunks } = await import("./replit_integrations/audio/client");
+      const chunks = await splitAudioIntoChunks(audioBuffer);
 
       const { toFile } = await import("openai");
-      const file = await toFile(buffer, `audio.${format}`);
-      const transcriptionResult = await openai.audio.transcriptions.create({
-        file,
-        model: "gpt-4o-mini-transcribe",
-        response_format: "json",
-      });
+      const transcriptParts: string[] = [];
 
-      transcript = transcriptionResult.text;
+      for (let i = 0; i < chunks.length; i++) {
+        const file = await toFile(chunks[i], `audio_chunk_${i}.mp3`);
+        const transcriptionResult = await openai.audio.transcriptions.create({
+          file,
+          model: "gpt-4o-mini-transcribe",
+          response_format: "json",
+        });
+        transcriptParts.push(transcriptionResult.text);
+      }
+
+      transcript = transcriptParts.join("\n\n");
       await storage.updateEpisode(episodeId, {
         transcript,
         transcriptStatus: "ready",
