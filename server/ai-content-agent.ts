@@ -582,6 +582,86 @@ Return JSON:
   return JSON.parse(response.choices[0]?.message?.content || '{"suggestions":[]}');
 }
 
+export async function generateAutoSchedule(
+  contentPieceIds: string[],
+  existingPosts: any[],
+  startDate: string
+): Promise<any> {
+  const contentPieces = await storage.getContentPieces();
+  const piecesToSchedule = contentPieces.filter((p: ContentPiece) =>
+    contentPieceIds.includes(p.id) || (contentPieceIds.length === 0 && (p.status === "ready" || p.status === "published"))
+  );
+
+  if (piecesToSchedule.length === 0) {
+    return { scheduledItems: [], strategy: "No content pieces available to schedule." };
+  }
+
+  const existingSchedule = existingPosts.map((p: any) => ({
+    date: p.scheduledAt,
+    platform: p.platform,
+    status: p.status,
+  }));
+
+  const systemPrompt = `You are a content distribution calendar optimizer. Your job is to analyze existing scheduled posts and find GAPS in the content flow to ensure content is ALWAYS being shipped across all channels.
+
+Channels to consider (with color codes for reference):
+- "x" (X/Twitter) - short-form social
+- "facebook" - social media
+- "instagram" - visual social
+- "linkedin" - professional social
+- "tiktok" - short video
+- "blog" - long-form content
+- "newsletter" - email newsletter
+- "podcast" - podcast episode drops
+
+Rules:
+1. Never schedule more than 3 posts per day across all channels
+2. Space posts at least 2 hours apart on the same platform
+3. Prioritize filling gaps - days with no content should get priority
+4. Weekdays are better for professional content (LinkedIn, blog)
+5. Evenings and weekends work well for social media (X, Instagram, TikTok)
+6. Newsletter should be weekly or bi-weekly
+7. Spread content types across the week for variety
+
+Return JSON:
+{
+  "scheduledItems": [
+    {
+      "contentPieceId": "id_of_content_piece",
+      "platform": "x",
+      "scheduledAt": "2026-02-15T09:00:00Z",
+      "postText": "Suggested post text for this platform",
+      "reason": "Why this time slot was chosen"
+    }
+  ],
+  "strategy": "Overall scheduling strategy explanation",
+  "gapsIdentified": ["List of gap descriptions found in the current schedule"]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `Schedule the following content pieces starting from ${startDate}.
+
+CONTENT TO SCHEDULE:
+${piecesToSchedule.slice(0, 10).map((p: ContentPiece) => `- ID: ${p.id}, Type: ${p.type}, Title: "${p.title}"`).join("\n")}
+
+EXISTING SCHEDULE (avoid conflicts):
+${existingSchedule.length > 0 ? existingSchedule.map((s: any) => `- ${s.date} on ${s.platform} (${s.status})`).join("\n") : "No existing posts scheduled."}
+
+Find gaps and schedule content to ensure consistent delivery across all channels.`
+      },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 2048,
+  });
+
+  return JSON.parse(response.choices[0]?.message?.content || '{"scheduledItems":[],"strategy":"","gapsIdentified":[]}');
+}
+
 export async function generateMonthlyNewsletter(
   month: string,
   year: string

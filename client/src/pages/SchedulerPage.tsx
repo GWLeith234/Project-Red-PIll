@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Calendar, Plus, Trash2, Edit3, Clock, Sparkles, Lightbulb, Loader2,
-  Linkedin, Facebook, Building2
+  Linkedin, Facebook, Building2, ChevronLeft, ChevronRight, Zap,
+  Newspaper, PenLine, Mail, Mic, Video, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useContentPieces, useScheduledPosts, useCreateScheduledPost,
   useUpdateScheduledPost, useDeleteScheduledPost, useSmartSuggestions,
+  useAutoSchedule,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,29 +39,32 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-function getPlatformIcon(platform: string, className = "h-4 w-4") {
-  switch (platform) {
-    case "x": return <XIcon className={className} />;
-    case "facebook": return <Facebook className={className} />;
-    case "instagram": return <InstagramIcon className={className} />;
-    case "linkedin": return <Linkedin className={className} />;
-    case "tiktok": return <TikTokIcon className={className} />;
-    case "google_business": return <Building2 className={className} />;
-    default: return <Calendar className={className} />;
-  }
+const CHANNEL_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: any }> = {
+  x: { label: "X", color: "text-sky-400", bg: "bg-sky-500/15", border: "border-sky-500/40", icon: XIcon },
+  facebook: { label: "Facebook", color: "text-blue-500", bg: "bg-blue-500/15", border: "border-blue-500/40", icon: Facebook },
+  instagram: { label: "Instagram", color: "text-pink-500", bg: "bg-pink-500/15", border: "border-pink-500/40", icon: InstagramIcon },
+  linkedin: { label: "LinkedIn", color: "text-blue-600", bg: "bg-blue-600/15", border: "border-blue-600/40", icon: Linkedin },
+  tiktok: { label: "TikTok", color: "text-fuchsia-400", bg: "bg-fuchsia-500/15", border: "border-fuchsia-500/40", icon: TikTokIcon },
+  blog: { label: "Blog", color: "text-violet-400", bg: "bg-violet-500/15", border: "border-violet-500/40", icon: PenLine },
+  newsletter: { label: "Newsletter", color: "text-amber-400", bg: "bg-amber-500/15", border: "border-amber-500/40", icon: Mail },
+  podcast: { label: "Podcast", color: "text-emerald-400", bg: "bg-emerald-500/15", border: "border-emerald-500/40", icon: Mic },
+  google_business: { label: "Google Biz", color: "text-red-400", bg: "bg-red-500/15", border: "border-red-500/40", icon: Building2 },
+};
+
+function getChannelConfig(platform: string) {
+  return CHANNEL_CONFIG[platform] || { label: platform, color: "text-muted-foreground", bg: "bg-muted/20", border: "border-border/50", icon: Calendar };
 }
 
-function getPlatformLabel(platform: string) {
-  switch (platform) {
-    case "x": return "X";
-    case "facebook": return "Facebook";
-    case "instagram": return "Instagram";
-    case "linkedin": return "LinkedIn";
-    case "tiktok": return "TikTok";
-    case "google_business": return "Google Business";
-    default: return platform;
-  }
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
 }
+
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function SchedulerPage() {
   const { data: posts, isLoading } = useScheduledPosts();
@@ -68,10 +73,18 @@ export default function SchedulerPage() {
   const updatePost = useUpdateScheduledPost();
   const deletePost = useDeleteScheduledPost();
   const smartSuggestions = useSmartSuggestions();
+  const autoSchedule = useAutoSchedule();
   const { toast } = useToast();
 
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<any>(null);
+  const [draggedPost, setDraggedPost] = useState<any>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [autoScheduleResult, setAutoScheduleResult] = useState<any>(null);
   const [form, setForm] = useState({
     contentPieceId: "",
     platform: "",
@@ -80,10 +93,45 @@ export default function SchedulerPage() {
     hashtags: "",
   });
   const [suggestions, setSuggestions] = useState<any>(null);
+  const [filterChannel, setFilterChannel] = useState<string>("all");
 
-  function openNewDialog() {
+  function toLocalDateKey(dateVal: string | Date) {
+    const d = new Date(dateVal);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  const postsByDate = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    if (!posts) return map;
+    for (const post of posts) {
+      if (!post.scheduledAt) continue;
+      const dateKey = toLocalDateKey(post.scheduledAt);
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey].push(post);
+    }
+    return map;
+  }, [posts]);
+
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+
+  function prevMonth() {
+    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
+    else setCurrentMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
+    else setCurrentMonth(m => m + 1);
+  }
+  function goToToday() {
+    setCurrentMonth(today.getMonth());
+    setCurrentYear(today.getFullYear());
+  }
+
+  function openNewDialog(dateStr?: string) {
     setEditingPost(null);
-    setForm({ contentPieceId: "", platform: "", scheduledAt: "", postText: "", hashtags: "" });
+    const dt = dateStr ? `${dateStr}T09:00` : "";
+    setForm({ contentPieceId: "", platform: "", scheduledAt: dt, postText: "", hashtags: "" });
     setDialogOpen(true);
   }
 
@@ -139,6 +187,89 @@ export default function SchedulerPage() {
     });
   }
 
+  function handleAutoSchedule() {
+    autoSchedule.mutate(
+      { contentPieceIds: [], startDate: new Date(currentYear, currentMonth, 1).toISOString() },
+      {
+        onSuccess: (data: any) => {
+          setAutoScheduleResult(data);
+          if (data.scheduledItems?.length > 0) {
+            toast({ title: "AI Schedule Ready", description: `${data.scheduledItems.length} slots suggested. Review and confirm below.` });
+          } else {
+            toast({ title: "No Gaps Found", description: data.strategy || "Your schedule looks full!" });
+          }
+        },
+        onError: (err: any) => toast({ title: "Auto-Schedule Error", description: err.message, variant: "destructive" }),
+      }
+    );
+  }
+
+  function confirmAutoScheduleItem(item: any) {
+    createPost.mutate(
+      {
+        contentPieceId: item.contentPieceId,
+        platform: item.platform,
+        scheduledAt: item.scheduledAt,
+        postText: item.postText || "",
+        hashtags: [],
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Scheduled", description: `Post added to ${getChannelConfig(item.platform).label}` });
+          setAutoScheduleResult((prev: any) => ({
+            ...prev,
+            scheduledItems: prev.scheduledItems.filter((i: any) => i !== item),
+          }));
+        },
+        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+      }
+    );
+  }
+
+  function confirmAllAutoSchedule() {
+    if (!autoScheduleResult?.scheduledItems?.length) return;
+    for (const item of autoScheduleResult.scheduledItems) {
+      confirmAutoScheduleItem(item);
+    }
+  }
+
+  function handleDragStart(post: any) {
+    setDraggedPost(post);
+  }
+
+  function handleDragOver(e: React.DragEvent, dateStr: string) {
+    e.preventDefault();
+    setDragOverDate(dateStr);
+  }
+
+  function handleDragLeave() {
+    setDragOverDate(null);
+  }
+
+  function handleDrop(e: React.DragEvent, dateStr: string) {
+    e.preventDefault();
+    setDragOverDate(null);
+    if (!draggedPost) return;
+
+    const oldDate = new Date(draggedPost.scheduledAt);
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const newDate = new Date(year, month - 1, day, oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+
+    updatePost.mutate(
+      { id: draggedPost.id, scheduledAt: newDate.toISOString() },
+      {
+        onSuccess: () => {
+          toast({ title: "Rescheduled", description: `Moved to ${newDate.toLocaleDateString()}` });
+          setDraggedPost(null);
+        },
+        onError: (err: any) => {
+          toast({ title: "Error", description: err.message, variant: "destructive" });
+          setDraggedPost(null);
+        },
+      }
+    );
+  }
+
   const statusColor = (status: string) => {
     switch (status) {
       case "published": return "border-emerald-500 text-emerald-500 bg-emerald-500/10";
@@ -149,144 +280,384 @@ export default function SchedulerPage() {
     }
   };
 
+  const calendarCells = [];
+  for (let i = 0; i < firstDay; i++) {
+    calendarCells.push({ day: 0, dateStr: "" });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    calendarCells.push({ day: d, dateStr });
+  }
+
+  const todayStr = toLocalDateKey(today);
+
+  const channelStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    if (!posts) return stats;
+    for (const post of posts) {
+      const d = new Date(post.scheduledAt);
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        stats[post.platform] = (stats[post.platform] || 0) + 1;
+      }
+    }
+    return stats;
+  }, [posts, currentMonth, currentYear]);
+
+  const selectedDatePosts = selectedDate ? (postsByDate[selectedDate] || []) : [];
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
       <div className="flex items-center justify-between border-b border-border/50 pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Content Scheduler</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Schedule and manage social media posts</p>
+          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Content Calendar</h1>
+          <p className="text-muted-foreground mt-1 font-mono text-sm">Schedule, visualize, and optimize your content distribution</p>
         </div>
-        <Button onClick={openNewDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-schedule-post">
-          <Plus className="mr-1.5 h-3 w-3" /> Schedule Post
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleAutoSchedule}
+            disabled={autoSchedule.isPending}
+            variant="outline"
+            className="font-mono text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+            data-testid="button-ai-auto-schedule"
+          >
+            {autoSchedule.isPending ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+            AI Smart Fill
+          </Button>
+          <Button onClick={() => openNewDialog()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-schedule-post">
+            <Plus className="mr-1.5 h-3 w-3" /> Schedule Post
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-8 space-y-4">
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Channels:</span>
+        <Badge
+          variant="outline"
+          className={cn("font-mono text-[10px] cursor-pointer transition-all", filterChannel === "all" ? "bg-primary/20 border-primary/50 text-primary" : "hover:bg-card/60")}
+          onClick={() => setFilterChannel("all")}
+          data-testid="filter-all"
+        >
+          All
+        </Badge>
+        {Object.entries(CHANNEL_CONFIG).map(([key, cfg]) => {
+          const count = channelStats[key] || 0;
+          return (
+            <Badge
+              key={key}
+              variant="outline"
+              className={cn(
+                "font-mono text-[10px] cursor-pointer transition-all gap-1",
+                filterChannel === key ? `${cfg.bg} ${cfg.border} ${cfg.color}` : "hover:bg-card/60"
+              )}
+              onClick={() => setFilterChannel(filterChannel === key ? "all" : key)}
+              data-testid={`filter-${key}`}
+            >
+              <cfg.icon className="h-2.5 w-2.5" />
+              {cfg.label}
+              {count > 0 && <span className="ml-0.5 opacity-70">({count})</span>}
+            </Badge>
+          );
+        })}
+      </div>
+
+      {autoScheduleResult && autoScheduleResult.scheduledItems?.length > 0 && (
+        <Card className="glass-panel border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-display text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                AI Suggested Schedule
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="font-mono text-[10px] uppercase tracking-wider"
+                  onClick={() => setAutoScheduleResult(null)}
+                  data-testid="button-dismiss-suggestions"
+                >
+                  Dismiss
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-[10px] uppercase tracking-wider"
+                  onClick={confirmAllAutoSchedule}
+                  disabled={createPost.isPending}
+                  data-testid="button-confirm-all"
+                >
+                  <Zap className="mr-1 h-3 w-3" /> Accept All
+                </Button>
+              </div>
             </div>
-          ) : !posts?.length ? (
-            <Card className="glass-panel border-border/50 py-12 text-center">
-              <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-muted-foreground font-mono text-sm">No scheduled posts yet.</p>
-              <p className="text-muted-foreground/60 font-mono text-xs mt-1">Click "Schedule Post" to get started.</p>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {posts.map((post: any) => {
-                const piece = contentPieces?.find((p: any) => p.id === post.contentPieceId);
+            {autoScheduleResult.strategy && (
+              <CardDescription className="font-mono text-xs mt-1">{autoScheduleResult.strategy}</CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            {autoScheduleResult.gapsIdentified?.length > 0 && (
+              <div className="mb-3 space-y-1">
+                <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Gaps Found:</span>
+                {autoScheduleResult.gapsIdentified.map((gap: string, i: number) => (
+                  <p key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <ArrowRight className="h-2.5 w-2.5 text-primary shrink-0" /> {gap}
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {autoScheduleResult.scheduledItems.map((item: any, i: number) => {
+                const cfg = getChannelConfig(item.platform);
+                const piece = contentPieces?.find((p: any) => p.id === item.contentPieceId);
                 return (
-                  <Card key={post.id} className="glass-panel border-border/50" data-testid={`card-post-${post.id}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="p-2 rounded bg-card border border-border">
-                            {getPlatformIcon(post.platform)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate" data-testid={`text-post-title-${post.id}`}>
-                              {piece?.title || "Untitled"}
-                            </p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                              <span>{getPlatformLabel(post.platform)}</span>
-                              <span>•</span>
-                              <span>{post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : "No date"}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={cn("font-mono text-[9px] uppercase", statusColor(post.status))}>
-                            {post.status}
-                          </Badge>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(post)} data-testid={`button-edit-post-${post.id}`}>
-                            <Edit3 className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-400" onClick={() => handleDelete(post.id)} data-testid={`button-delete-post-${post.id}`}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                  <div key={i} className={cn("p-3 rounded-lg border", cfg.bg, cfg.border)} data-testid={`ai-suggestion-${i}`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <cfg.icon className={cn("h-3.5 w-3.5", cfg.color)} />
+                        <span className={cn("font-mono text-xs font-semibold", cfg.color)}>{cfg.label}</span>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 font-mono text-[9px] uppercase text-primary hover:bg-primary hover:text-primary-foreground"
+                        onClick={() => confirmAutoScheduleItem(item)}
+                        disabled={createPost.isPending}
+                        data-testid={`button-accept-${i}`}
+                      >
+                        Accept
+                      </Button>
+                    </div>
+                    <p className="text-xs font-medium truncate">{piece?.title || "Content"}</p>
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground font-mono">
+                      <Clock className="h-2.5 w-2.5" />
+                      {new Date(item.scheduledAt).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </div>
+                    {item.reason && <p className="text-[10px] text-muted-foreground/70 mt-1 italic">{item.reason}</p>}
+                  </div>
                 );
               })}
             </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
+      )}
 
-        <div className="col-span-12 lg:col-span-4">
-          <Card className="glass-panel border-primary/20">
-            <CardHeader>
-              <CardTitle className="font-display text-sm flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                SMART Suggestions
-              </CardTitle>
-              <CardDescription className="font-mono text-[10px]">AI-powered scheduling recommendations</CardDescription>
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 lg:col-span-9">
+          <Card className="glass-panel border-border/50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={prevMonth} data-testid="button-prev-month">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <h2 className="font-display text-lg font-bold min-w-[180px] text-center" data-testid="text-current-month">
+                    {MONTH_NAMES[currentMonth]} {currentYear}
+                  </h2>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={nextMonth} data-testid="button-next-month">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="font-mono text-[10px] uppercase tracking-wider" onClick={goToToday} data-testid="button-today">
+                    Today
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              {suggestions ? (
-                <div className="space-y-3">
-                  {suggestions.overallStrategy && (
-                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <Lightbulb className="h-3 w-3 text-primary" />
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-primary font-semibold">Strategy</span>
+            <CardContent className="p-2 sm:p-4">
+              <div className="grid grid-cols-7 gap-px bg-border/30 rounded-lg overflow-hidden">
+                {DAY_NAMES.map(day => (
+                  <div key={day} className="bg-card/50 p-2 text-center">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{day}</span>
+                  </div>
+                ))}
+
+                {calendarCells.map((cell, idx) => {
+                  if (cell.day === 0) {
+                    return <div key={`empty-${idx}`} className="bg-card/20 min-h-[100px]" />;
+                  }
+                  const dayPosts = postsByDate[cell.dateStr] || [];
+                  const filteredPosts = filterChannel === "all" ? dayPosts : dayPosts.filter(p => p.platform === filterChannel);
+                  const isToday = cell.dateStr === todayStr;
+                  const isSelected = cell.dateStr === selectedDate;
+                  const isDragOver = cell.dateStr === dragOverDate;
+
+                  return (
+                    <div
+                      key={cell.dateStr}
+                      className={cn(
+                        "bg-card/30 min-h-[100px] p-1.5 transition-all cursor-pointer relative group",
+                        isToday && "bg-primary/5 ring-1 ring-inset ring-primary/30",
+                        isSelected && "bg-primary/10 ring-1 ring-inset ring-primary/50",
+                        isDragOver && "bg-primary/20 ring-2 ring-inset ring-primary/60",
+                        "hover:bg-card/50"
+                      )}
+                      onClick={() => setSelectedDate(cell.dateStr === selectedDate ? null : cell.dateStr)}
+                      onDragOver={(e) => handleDragOver(e, cell.dateStr)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, cell.dateStr)}
+                      data-testid={`calendar-day-${cell.dateStr}`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={cn(
+                          "font-mono text-xs font-semibold",
+                          isToday ? "text-primary bg-primary/20 rounded-full w-6 h-6 flex items-center justify-center" : "text-muted-foreground"
+                        )}>
+                          {cell.day}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => { e.stopPropagation(); openNewDialog(cell.dateStr); }}
+                          data-testid={`button-add-${cell.dateStr}`}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
                       </div>
-                      <p className="text-foreground/80 leading-relaxed">{suggestions.overallStrategy}</p>
-                    </div>
-                  )}
-                  {Array.isArray(suggestions.suggestions) && suggestions.suggestions.map((s: any, i: number) => (
-                    <div key={i} className="p-3 rounded-lg bg-card/50 border border-border/50 space-y-2" data-testid={`suggestion-${i}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {s.platform && getPlatformIcon(s.platform, "h-3.5 w-3.5")}
-                          <span className="font-mono text-xs font-semibold capitalize">{getPlatformLabel(s.platform || "general")}</span>
-                        </div>
-                        {s.priority && (
-                          <Badge variant="outline" className={cn(
-                            "font-mono text-[9px] uppercase",
-                            s.priority === "high" ? "border-emerald-500/50 text-emerald-400" :
-                            s.priority === "medium" ? "border-amber-500/50 text-amber-400" :
-                            "border-muted text-muted-foreground"
-                          )}>{s.priority}</Badge>
+
+                      <div className="space-y-0.5">
+                        {filteredPosts.slice(0, 3).map((post: any) => {
+                          const cfg = getChannelConfig(post.platform);
+                          const piece = contentPieces?.find((p: any) => p.id === post.contentPieceId);
+                          return (
+                            <div
+                              key={post.id}
+                              className={cn(
+                                "rounded px-1.5 py-0.5 text-[9px] font-mono truncate border cursor-grab active:cursor-grabbing transition-all hover:opacity-80",
+                                cfg.bg, cfg.border, cfg.color
+                              )}
+                              draggable
+                              onDragStart={(e) => { e.stopPropagation(); handleDragStart(post); }}
+                              onClick={(e) => { e.stopPropagation(); openEditDialog(post); }}
+                              title={`${cfg.label}: ${piece?.title || "Post"} @ ${new Date(post.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+                              data-testid={`calendar-post-${post.id}`}
+                            >
+                              <span className="flex items-center gap-1">
+                                <cfg.icon className="h-2 w-2 shrink-0" />
+                                {piece?.title?.slice(0, 20) || "Post"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {filteredPosts.length > 3 && (
+                          <span className="text-[8px] font-mono text-muted-foreground px-1">+{filteredPosts.length - 3} more</span>
                         )}
                       </div>
-                      {s.bestTime && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>{s.bestTime}</span>
-                        </div>
-                      )}
-                      {s.format && (
-                        <p className="text-[11px] text-foreground/70">{s.format}</p>
-                      )}
-                      {s.tip && (
-                        <p className="text-[11px] text-foreground/80 border-l-2 border-primary/30 pl-2">{s.tip}</p>
-                      )}
-                      {s.hashtags && s.hashtags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {s.hashtags.map((h: string, hi: number) => (
-                            <span key={hi} className="text-[9px] font-mono px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded text-primary">{h.startsWith("#") ? h : `#${h}`}</span>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  ))}
-                  {suggestions.contentCalendarSuggestion && (
-                    <div className="p-3 rounded-lg bg-card/50 border border-border/50 text-xs">
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Calendar</span>
-                      </div>
-                      <p className="text-foreground/70 leading-relaxed">{suggestions.contentCalendarSuggestion}</p>
-                    </div>
-                  )}
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="col-span-12 lg:col-span-3 space-y-4">
+          <Card className="glass-panel border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-sm">
+                {selectedDate ? (
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    {new Date(selectedDate + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    Day Detail
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!selectedDate ? (
+                <p className="text-xs text-muted-foreground font-mono py-4 text-center">Click a day on the calendar to see details</p>
+              ) : selectedDatePosts.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-xs text-muted-foreground font-mono mb-2">No posts scheduled</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="font-mono text-[10px] uppercase tracking-wider"
+                    onClick={() => openNewDialog(selectedDate)}
+                    data-testid="button-add-from-detail"
+                  >
+                    <Plus className="mr-1 h-3 w-3" /> Add Post
+                  </Button>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Schedule a post to see AI recommendations for optimal posting times and content.</p>
+                <div className="space-y-2">
+                  {selectedDatePosts.map((post: any) => {
+                    const cfg = getChannelConfig(post.platform);
+                    const piece = contentPieces?.find((p: any) => p.id === post.contentPieceId);
+                    return (
+                      <div key={post.id} className={cn("p-2.5 rounded-lg border", cfg.bg, cfg.border)} data-testid={`detail-post-${post.id}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <cfg.icon className={cn("h-3 w-3", cfg.color)} />
+                            <span className={cn("font-mono text-[10px] font-semibold", cfg.color)}>{cfg.label}</span>
+                          </div>
+                          <div className="flex gap-0.5">
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => openEditDialog(post)} data-testid={`button-edit-detail-${post.id}`}>
+                              <Edit3 className="h-2.5 w-2.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 text-red-500 hover:text-red-400" onClick={() => handleDelete(post.id)} data-testid={`button-delete-detail-${post.id}`}>
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-xs font-medium truncate">{piece?.title || "Untitled"}</p>
+                        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground font-mono">
+                          <Clock className="h-2.5 w-2.5" />
+                          {new Date(post.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                        </div>
+                        {post.postText && (
+                          <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{post.postText}</p>
+                        )}
+                        <Badge variant="outline" className={cn("font-mono text-[8px] uppercase mt-1.5", statusColor(post.status))}>
+                          {post.status}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full font-mono text-[10px] uppercase tracking-wider mt-2"
+                    onClick={() => openNewDialog(selectedDate)}
+                    data-testid="button-add-more"
+                  >
+                    <Plus className="mr-1 h-3 w-3" /> Add More
+                  </Button>
+                </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="glass-panel border-border/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-display text-sm flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-amber-400" />
+                Monthly Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {Object.entries(CHANNEL_CONFIG).map(([key, cfg]) => {
+                const count = channelStats[key] || 0;
+                if (count === 0 && key !== "x" && key !== "blog" && key !== "newsletter" && key !== "podcast") return null;
+                return (
+                  <div key={key} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", cfg.bg, cfg.border, "border")} />
+                      <span className="font-mono text-xs">{cfg.label}</span>
+                    </div>
+                    <span className={cn("font-mono text-xs font-semibold", count > 0 ? cfg.color : "text-muted-foreground/40")}>{count}</span>
+                  </div>
+                );
+              })}
+              <div className="border-t border-border/30 pt-2 mt-2 flex items-center justify-between">
+                <span className="font-mono text-xs font-semibold">Total</span>
+                <span className="font-mono text-xs font-bold text-foreground">
+                  {Object.values(channelStats).reduce((a, b) => a + b, 0)}
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -317,18 +688,20 @@ export default function SchedulerPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Platform</Label>
+              <Label className="font-mono text-xs uppercase tracking-wider">Channel</Label>
               <Select value={form.platform} onValueChange={(v) => setForm({ ...form, platform: v })}>
                 <SelectTrigger data-testid="select-schedule-platform">
-                  <SelectValue placeholder="Select platform..." />
+                  <SelectValue placeholder="Select channel..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="x">X</SelectItem>
-                  <SelectItem value="facebook">Facebook</SelectItem>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="linkedin">LinkedIn</SelectItem>
-                  <SelectItem value="tiktok">TikTok</SelectItem>
-                  <SelectItem value="google_business">Google Business</SelectItem>
+                  {Object.entries(CHANNEL_CONFIG).map(([key, cfg]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex items-center gap-2">
+                        <cfg.icon className={cn("h-3 w-3", cfg.color)} />
+                        {cfg.label}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -374,6 +747,19 @@ export default function SchedulerPage() {
                 Get Suggestions
               </Button>
             </div>
+            {suggestions && (
+              <div className="space-y-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                {suggestions.overallStrategy && (
+                  <p className="text-xs text-foreground/80">{suggestions.overallStrategy}</p>
+                )}
+                {Array.isArray(suggestions.suggestions) && suggestions.suggestions.slice(0, 3).map((s: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <ArrowRight className="h-2.5 w-2.5 text-primary shrink-0" />
+                    <span><strong>{getChannelConfig(s.platform || "").label}</strong>: {s.bestTime} - {s.tip}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="font-mono text-xs" data-testid="button-cancel-schedule">Cancel</Button>
               <Button type="submit" disabled={createPost.isPending || updatePost.isPending || !form.contentPieceId || !form.platform} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-submit-schedule">

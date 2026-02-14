@@ -470,6 +470,21 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/ai-agent/auto-schedule", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { contentPieceIds = [], startDate } = req.body;
+    if (!Array.isArray(contentPieceIds)) return res.status(400).json({ message: "contentPieceIds must be an array" });
+    const resolvedStart = startDate && !isNaN(Date.parse(startDate)) ? startDate : new Date().toISOString();
+    try {
+      const existingPosts = await storage.getScheduledPosts();
+      const { generateAutoSchedule } = await import("./ai-content-agent");
+      const result = await generateAutoSchedule(contentPieceIds, existingPosts, resolvedStart);
+      res.json(result);
+    } catch (err: any) {
+      console.error("Auto-schedule error:", err);
+      res.status(500).json({ message: err.message || "Auto-scheduling failed" });
+    }
+  });
+
   app.post("/api/ai-agent/generate-newsletter", requireAuth, requirePermission("content.edit"), async (req, res) => {
     const { month, year } = req.body;
     if (!month || !year) return res.status(400).json({ message: "month and year are required" });

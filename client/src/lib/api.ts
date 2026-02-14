@@ -542,6 +542,14 @@ export function useSmartSuggestions() {
   });
 }
 
+export function useAutoSchedule() {
+  return useMutation({
+    mutationFn: (data: { contentPieceIds?: string[]; startDate?: string }) =>
+      apiRequest("/api/ai-agent/auto-schedule", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] }),
+  });
+}
+
 export function useGenerateNewsletter() {
   return useMutation({
     mutationFn: (data: { month: string; year: string }) =>
