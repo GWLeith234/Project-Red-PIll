@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -897,6 +897,7 @@ function CompanyDetail({ companyId, onBack }: { companyId: string; onBack: () =>
                 return (
                   <div key={c.id} className="flex items-center gap-3 p-3 border border-border/50 rounded-sm bg-card/30" data-testid={`company-contact-${c.id}`}>
                     <Avatar className="h-8 w-8">
+                      {c.profilePhoto ? <AvatarImage src={c.profilePhoto} alt={`${c.firstName} ${c.lastName}`} /> : null}
                       <AvatarFallback className="bg-primary/10 text-primary text-xs font-display">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
@@ -1002,6 +1003,7 @@ function ContactDetail({ contactId, companies, onBack }: { contactId: string; on
         <CardContent className="-mt-8 relative">
           <div className="flex items-end gap-4 mb-4">
             <Avatar className="h-16 w-16 border-4 border-background shadow-xl ring-2 ring-primary/20">
+              {contact.profilePhoto ? <AvatarImage src={contact.profilePhoto} alt={`${contact.firstName} ${contact.lastName}`} /> : null}
               <AvatarFallback className="bg-primary/20 text-primary text-lg font-display">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex-1 pb-1">
@@ -1934,6 +1936,7 @@ function ContactsTab() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-10 w-10 shrink-0" onClick={() => setSelectedContactId(ct.id)}>
+                      {ct.profilePhoto ? <AvatarImage src={ct.profilePhoto} alt={`${ct.firstName} ${ct.lastName}`} /> : null}
                       <AvatarFallback className="bg-primary/10 text-primary text-sm font-display">{initials}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedContactId(ct.id)}>
