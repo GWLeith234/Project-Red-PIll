@@ -693,6 +693,14 @@ export function useDeleteCrmList() {
   });
 }
 
+export function useEmailCampaignAnalytics() {
+  return useQuery({ queryKey: ["/api/analytics/email-campaigns"], queryFn: () => apiRequest("/api/analytics/email-campaigns") });
+}
+
+export function useWebsiteAnalytics() {
+  return useQuery({ queryKey: ["/api/analytics/website"], queryFn: () => apiRequest("/api/analytics/website") });
+}
+
 export function downloadCsvExport(entity: string, params: Record<string, string> = {}) {
   const query = new URLSearchParams(params).toString();
   const url = `/api/export/${entity}${query ? `?${query}` : ""}`;

@@ -25,6 +25,7 @@ import Customize from "@/pages/Customize";
 import Settings from "@/pages/Settings";
 import ModerationQueue from "@/pages/ModerationQueue";
 import AuthorProfile from "@/pages/AuthorProfile";
+import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/not-found";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -84,7 +85,7 @@ function ProtectedRoutes() {
         <Route path="/network">{() => <PermissionGate permission="network.view"><Network /></PermissionGate>}</Route>
         <Route path="/sales">{() => <PermissionGate permission="sales.view"><CommercialCRM /></PermissionGate>}</Route>
         <Route path="/audience">{() => <PermissionGate permission="audience.view"><SubscriberCRM /></PermissionGate>}</Route>
-        <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><div className="text-2xl font-display">Analytics (Coming Soon)</div></PermissionGate>}</Route>
+        <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><Analytics /></PermissionGate>}</Route>
         <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
         <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>
         <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
