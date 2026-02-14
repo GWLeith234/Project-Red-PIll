@@ -12,6 +12,7 @@ import {
   useSubscribers, useCreateSubscriber, useUpdateSubscriber, useDeleteSubscriber,
   useSubscriber, useSubscriberSuggestions, useAnalyzeSocial, usePodcasts,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
+  useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
 } from "@/lib/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -23,7 +24,7 @@ import {
   UserPlus, Search, Mail, Phone, MapPin, Linkedin, Twitter, Facebook,
   Loader2, Zap, X, ChevronRight, Star, TrendingUp, Users, ArrowLeft,
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles, Radio,
-  Send, FileText, MessageSquare, Plus, Calendar
+  Send, FileText, MessageSquare, Plus, Calendar, Download, ListFilter, Save, Filter
 } from "lucide-react";
 
 function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
@@ -522,9 +523,16 @@ export default function SubscriberCRM() {
   const [activeTab, setActiveTab] = useState<"subscribers" | "campaigns">("subscribers");
   const [filterPodcast, setFilterPodcast] = useState<string | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterSource, setFilterSource] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedSubscriberId, setSelectedSubscriberId] = useState<string | null>(null);
   const [showCampaignDialog, setShowCampaignDialog] = useState(false);
+  const [showSaveListDialog, setShowSaveListDialog] = useState(false);
+  const [showListsPanel, setShowListsPanel] = useState(false);
+  const [listName, setListName] = useState("");
   const [campaignForm, setCampaignForm] = useState({ name: "", type: "email" as "email" | "sms", subject: "", body: "", podcastFilter: "" });
   const { data: subscribers, isLoading } = useSubscribers(filterPodcast);
   const { data: podcasts } = usePodcasts();
@@ -534,19 +542,98 @@ export default function SubscriberCRM() {
   const createCampaign = useCreateOutboundCampaign();
   const deleteCampaign = useDeleteOutboundCampaign();
   const sendCampaign = useSendOutboundCampaign();
+  const { data: savedLists } = useCrmLists("subscriber");
+  const createCrmList = useCreateCrmList();
+  const deleteCrmList = useDeleteCrmList();
   const { toast } = useToast();
 
+  const allTags = [...new Set((subscribers || []).flatMap((s: any) => s.tags || []))].filter(Boolean).sort();
+  const allSources = [...new Set((subscribers || []).map((s: any) => s.source).filter(Boolean))].sort();
+
   const filteredSubscribers = (subscribers || []).filter((s: any) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      (s.firstName || "").toLowerCase().includes(term) ||
-      (s.lastName || "").toLowerCase().includes(term) ||
-      (s.email || "").toLowerCase().includes(term) ||
-      (s.company || "").toLowerCase().includes(term) ||
-      (s.phone || "").includes(term)
-    );
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      if (!(
+        (s.firstName || "").toLowerCase().includes(term) ||
+        (s.lastName || "").toLowerCase().includes(term) ||
+        (s.email || "").toLowerCase().includes(term) ||
+        (s.company || "").toLowerCase().includes(term) ||
+        (s.phone || "").includes(term)
+      )) return false;
+    }
+    if (filterSource !== "all" && s.source !== filterSource) return false;
+    if (filterStatus !== "all" && s.status !== filterStatus) return false;
+    if (filterTag !== "all" && !(s.tags || []).includes(filterTag)) return false;
+    return true;
   });
+
+  const activeFilterCount = [filterSource !== "all", filterStatus !== "all", filterTag !== "all", !!filterPodcast].filter(Boolean).length;
+
+  const handleSaveList = async () => {
+    if (!listName.trim()) {
+      toast({ title: "Name Required", variant: "destructive" });
+      return;
+    }
+    try {
+      await createCrmList.mutateAsync({
+        name: listName.trim(),
+        crmType: "subscriber",
+        entityType: "subscribers",
+        filters: JSON.stringify({ search: searchTerm, podcast: filterPodcast || "", source: filterSource, status: filterStatus, tag: filterTag }),
+        itemCount: filteredSubscribers.length,
+      });
+      toast({ title: "List Saved", description: `"${listName}" saved with ${filteredSubscribers.length} subscribers.` });
+      setShowSaveListDialog(false);
+      setListName("");
+    } catch (err: any) {
+      toast({ title: "Save Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleLoadList = (list: any) => {
+    try {
+      const f = JSON.parse(list.filters);
+      setSearchTerm(f.search || "");
+      setFilterPodcast(f.podcast || undefined);
+      setFilterSource(f.source || "all");
+      setFilterStatus(f.status || "all");
+      setFilterTag(f.tag || "all");
+      setShowFilters(true);
+      setShowListsPanel(false);
+      toast({ title: "List Loaded", description: `Applied filters from "${list.name}".` });
+    } catch {
+      toast({ title: "Load Failed", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteList = async (id: string, name: string) => {
+    if (!confirm(`Delete saved list "${name}"?`)) return;
+    try {
+      await deleteCrmList.mutateAsync(id);
+      toast({ title: "List Deleted" });
+    } catch {
+      toast({ title: "Delete Failed", variant: "destructive" });
+    }
+  };
+
+  const handleExportCsv = () => {
+    const params: Record<string, string> = {};
+    if (searchTerm) params.search = searchTerm;
+    if (filterPodcast) params.podcastId = filterPodcast;
+    if (filterSource !== "all") params.source = filterSource;
+    if (filterStatus !== "all") params.status = filterStatus;
+    if (filterTag !== "all") params.tags = filterTag;
+    downloadCsvExport("subscribers", params);
+    toast({ title: "Export Started", description: `Exporting ${filteredSubscribers.length} subscribers to CSV.` });
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm("");
+    setFilterPodcast(undefined);
+    setFilterSource("all");
+    setFilterStatus("all");
+    setFilterTag("all");
+  };
 
   const handleCreate = async (data: any) => {
     try {
@@ -809,7 +896,147 @@ export default function SubscriberCRM() {
                 ))}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-filters">
+              <Filter className="h-3 w-3 mr-1" />
+              Filters
+              {activeFilterCount > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowListsPanel(!showListsPanel)} className={cn("font-mono text-xs", showListsPanel && "bg-primary/10 border-primary/30")} data-testid="button-toggle-lists">
+              <ListFilter className="h-3 w-3 mr-1" />
+              Lists
+              {(savedLists || []).length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{(savedLists || []).length}</Badge>}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} className="font-mono text-xs" data-testid="button-export-subscribers">
+              <Download className="h-3 w-3 mr-1" />
+              CSV
+            </Button>
           </div>
+
+          {showFilters && (
+            <Card className="glass-panel border-border/50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Advanced Filters</p>
+                <div className="flex gap-2">
+                  {activeFilterCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-6 text-xs font-mono text-muted-foreground" data-testid="button-clear-filters">
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Source</label>
+                  <Select value={filterSource} onValueChange={setFilterSource}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-filter-source">
+                      <SelectValue placeholder="All Sources" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sources</SelectItem>
+                      {allSources.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Status</label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-filter-status">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Tag</label>
+                  <Select value={filterTag} onValueChange={setFilterTag}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="select-filter-tag">
+                      <SelectValue placeholder="All Tags" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tags</SelectItem>
+                      {allTags.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+                <p className="text-xs text-muted-foreground font-mono">
+                  {filteredSubscribers.length} subscriber{filteredSubscribers.length !== 1 ? "s" : ""} match
+                </p>
+                <Dialog open={showSaveListDialog} onOpenChange={setShowSaveListDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs font-mono" data-testid="button-save-list">
+                      <Save className="h-3 w-3 mr-1" /> Save as List
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle className="font-display">Save Subscriber List</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                      <Input
+                        placeholder="List name (e.g., VIP Subscribers)"
+                        value={listName}
+                        onChange={(e) => setListName(e.target.value)}
+                        data-testid="input-list-name"
+                      />
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {filteredSubscribers.length} subscribers will be captured in this list.
+                      </p>
+                      <Button
+                        onClick={handleSaveList}
+                        disabled={createCrmList.isPending}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                        data-testid="button-confirm-save-list"
+                      >
+                        {createCrmList.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                        Save List
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </Card>
+          )}
+
+          {showListsPanel && (
+            <Card className="glass-panel border-border/50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Saved Lists</p>
+              </div>
+              {(savedLists || []).length > 0 ? (
+                <div className="space-y-2">
+                  {(savedLists || []).map((list: any) => (
+                    <div key={list.id} className="flex items-center justify-between p-2 rounded-sm border border-border/30 hover:border-primary/30 transition-colors group" data-testid={`saved-list-${list.id}`}>
+                      <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => handleLoadList(list)}>
+                        <ListFilter className="h-4 w-4 text-primary" />
+                        <div>
+                          <p className="text-sm font-semibold">{list.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">
+                            {list.itemCount} subscribers &bull; {list.createdAt ? new Date(list.createdAt).toLocaleDateString() : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost" size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
+                        onClick={() => handleDeleteList(list.id, list.name)}
+                        data-testid={`button-delete-list-${list.id}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-4">No saved lists yet. Use filters and save them as a list.</p>
+              )}
+            </Card>
+          )}
 
           {isLoading ? (
             <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>

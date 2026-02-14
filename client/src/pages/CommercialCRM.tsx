@@ -16,6 +16,7 @@ import {
   useDealActivities, useCreateDealActivity, usePodcasts, useAnalyzeSocial,
   useAnalyzeWebsite,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
+  useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
 } from "@/lib/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -29,7 +30,7 @@ import {
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles,
   Plus, DollarSign, Calendar, Upload, Briefcase, TrendingUp,
   Target, X, CheckCircle, XCircle, AlertCircle, Clock,
-  Send, FileText, MessageSquare,
+  Send, FileText, MessageSquare, Download, ListFilter, Save, Filter,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -1405,6 +1406,12 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
 
 function CompaniesTab() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [showListsPanel, setShowListsPanel] = useState(false);
+  const [showSaveListDialog, setShowSaveListDialog] = useState(false);
+  const [listName, setListName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const { data: companies, isLoading } = useCompanies();
@@ -1412,17 +1419,61 @@ function CompaniesTab() {
   const { data: deals } = useDeals();
   const createCompany = useCreateCompany();
   const deleteCompany = useDeleteCompany();
+  const { data: savedLists } = useCrmLists("commercial_companies");
+  const createCrmList = useCreateCrmList();
+  const deleteCrmListMut = useDeleteCrmList();
   const { toast } = useToast();
 
   const filteredCompanies = (companies || []).filter((c: any) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      (c.name || "").toLowerCase().includes(term) ||
-      (c.industry || "").toLowerCase().includes(term) ||
-      (c.email || "").toLowerCase().includes(term)
-    );
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      if (!(
+        (c.name || "").toLowerCase().includes(term) ||
+        (c.industry || "").toLowerCase().includes(term) ||
+        (c.email || "").toLowerCase().includes(term)
+      )) return false;
+    }
+    if (filterType !== "all" && c.companyType !== filterType) return false;
+    if (filterStatus !== "all" && c.status !== filterStatus) return false;
+    return true;
   });
+
+  const activeFilterCount = [filterType !== "all", filterStatus !== "all"].filter(Boolean).length;
+
+  const handleExportCsv = () => {
+    const params: Record<string, string> = {};
+    if (searchTerm) params.search = searchTerm;
+    if (filterType !== "all") params.companyType = filterType;
+    if (filterStatus !== "all") params.status = filterStatus;
+    downloadCsvExport("companies", params);
+    toast({ title: "Export Started", description: `Exporting ${filteredCompanies.length} companies to CSV.` });
+  };
+
+  const handleSaveList = async () => {
+    if (!listName.trim()) return;
+    try {
+      await createCrmList.mutateAsync({
+        name: listName.trim(), crmType: "commercial_companies", entityType: "companies",
+        filters: JSON.stringify({ search: searchTerm, companyType: filterType, status: filterStatus }),
+        itemCount: filteredCompanies.length,
+      });
+      toast({ title: "List Saved" });
+      setShowSaveListDialog(false);
+      setListName("");
+    } catch (err: any) { toast({ title: "Save Failed", description: err.message, variant: "destructive" }); }
+  };
+
+  const handleLoadList = (list: any) => {
+    try {
+      const f = JSON.parse(list.filters);
+      setSearchTerm(f.search || "");
+      setFilterType(f.companyType || "all");
+      setFilterStatus(f.status || "all");
+      setShowFilters(true);
+      setShowListsPanel(false);
+      toast({ title: "List Loaded" });
+    } catch { toast({ title: "Load Failed", variant: "destructive" }); }
+  };
 
   const handleCreate = async (data: any) => {
     try {
@@ -1480,11 +1531,100 @@ function CompaniesTab() {
             data-testid="input-search-companies"
           />
         </div>
+        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-company-filters">
+          <Filter className="h-3 w-3 mr-1" /> Filters
+          {activeFilterCount > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowListsPanel(!showListsPanel)} className={cn("font-mono text-xs", showListsPanel && "bg-primary/10 border-primary/30")} data-testid="button-toggle-company-lists">
+          <ListFilter className="h-3 w-3 mr-1" /> Lists
+          {(savedLists || []).length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{(savedLists || []).length}</Badge>}
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleExportCsv} className="font-mono text-xs" data-testid="button-export-companies">
+          <Download className="h-3 w-3 mr-1" /> CSV
+        </Button>
         <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-add-company">
           <Plus className="mr-2 h-3 w-3" />
           Add Company
         </Button>
       </div>
+
+      {showFilters && (
+        <Card className="glass-panel border-border/50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Filters</p>
+            {activeFilterCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setFilterType("all"); setFilterStatus("all"); }} className="h-6 text-xs font-mono text-muted-foreground">Clear All</Button>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Company Type</label>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-filter-company-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="advertiser">Advertiser</SelectItem>
+                  <SelectItem value="sponsor">Sponsor</SelectItem>
+                  <SelectItem value="partner">Partner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Status</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-filter-company-status"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+            <p className="text-xs text-muted-foreground font-mono">{filteredCompanies.length} companies match</p>
+            <Dialog open={showSaveListDialog} onOpenChange={setShowSaveListDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs font-mono" data-testid="button-save-company-list"><Save className="h-3 w-3 mr-1" /> Save as List</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader><DialogTitle className="font-display">Save Company List</DialogTitle></DialogHeader>
+                <div className="space-y-3 py-2">
+                  <Input placeholder="List name" value={listName} onChange={(e) => setListName(e.target.value)} data-testid="input-company-list-name" />
+                  <p className="text-xs text-muted-foreground font-mono">{filteredCompanies.length} companies captured.</p>
+                  <Button onClick={handleSaveList} disabled={createCrmList.isPending} className="w-full bg-primary hover:bg-primary/90" data-testid="button-confirm-save-company-list">
+                    {createCrmList.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save List
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </Card>
+      )}
+
+      {showListsPanel && (
+        <Card className="glass-panel border-border/50 p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">Saved Company Lists</p>
+          {(savedLists || []).length > 0 ? (
+            <div className="space-y-2">
+              {(savedLists || []).map((list: any) => (
+                <div key={list.id} className="flex items-center justify-between p-2 rounded-sm border border-border/30 hover:border-primary/30 transition-colors group" data-testid={`company-list-${list.id}`}>
+                  <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => handleLoadList(list)}>
+                    <ListFilter className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-semibold">{list.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{list.itemCount} companies &bull; {list.createdAt ? new Date(list.createdAt).toLocaleDateString() : ""}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => { if (confirm(`Delete "${list.name}"?`)) deleteCrmListMut.mutate(list.id); }} data-testid={`button-delete-company-list-${list.id}`}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">No saved lists yet.</p>
+          )}
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
@@ -1563,24 +1703,72 @@ function CompaniesTab() {
 function ContactsTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCompany, setFilterCompany] = useState<string | undefined>(undefined);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [showListsPanel, setShowListsPanel] = useState(false);
+  const [showSaveListDialog, setShowSaveListDialog] = useState(false);
+  const [listName, setListName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const { data: contacts, isLoading } = useContacts(filterCompany);
   const { data: companies } = useCompanies();
   const createContact = useCreateContact();
   const deleteContact = useDeleteContact();
+  const { data: savedLists } = useCrmLists("commercial_contacts");
+  const createCrmList = useCreateCrmList();
+  const deleteCrmListMut = useDeleteCrmList();
   const { toast } = useToast();
 
   const filteredContacts = (contacts || []).filter((c: any) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      (c.firstName || "").toLowerCase().includes(term) ||
-      (c.lastName || "").toLowerCase().includes(term) ||
-      (c.email || "").toLowerCase().includes(term) ||
-      (c.title || "").toLowerCase().includes(term)
-    );
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      if (!(
+        (c.firstName || "").toLowerCase().includes(term) ||
+        (c.lastName || "").toLowerCase().includes(term) ||
+        (c.email || "").toLowerCase().includes(term) ||
+        (c.title || "").toLowerCase().includes(term)
+      )) return false;
+    }
+    if (filterStatus !== "all" && c.status !== filterStatus) return false;
+    return true;
   });
+
+  const activeFilterCount = [!!filterCompany, filterStatus !== "all"].filter(Boolean).length;
+
+  const handleExportCsv = () => {
+    const params: Record<string, string> = {};
+    if (searchTerm) params.search = searchTerm;
+    if (filterCompany) params.companyId = filterCompany;
+    if (filterStatus !== "all") params.status = filterStatus;
+    downloadCsvExport("contacts", params);
+    toast({ title: "Export Started", description: `Exporting ${filteredContacts.length} contacts to CSV.` });
+  };
+
+  const handleSaveList = async () => {
+    if (!listName.trim()) return;
+    try {
+      await createCrmList.mutateAsync({
+        name: listName.trim(), crmType: "commercial_contacts", entityType: "contacts",
+        filters: JSON.stringify({ search: searchTerm, companyId: filterCompany || "", status: filterStatus }),
+        itemCount: filteredContacts.length,
+      });
+      toast({ title: "List Saved" });
+      setShowSaveListDialog(false);
+      setListName("");
+    } catch (err: any) { toast({ title: "Save Failed", description: err.message, variant: "destructive" }); }
+  };
+
+  const handleLoadList = (list: any) => {
+    try {
+      const f = JSON.parse(list.filters);
+      setSearchTerm(f.search || "");
+      setFilterCompany(f.companyId || undefined);
+      setFilterStatus(f.status || "all");
+      setShowFilters(true);
+      setShowListsPanel(false);
+      toast({ title: "List Loaded" });
+    } catch { toast({ title: "Load Failed", variant: "destructive" }); }
+  };
 
   const handleCreate = async (data: any) => {
     try {
@@ -1649,11 +1837,86 @@ function ContactsTab() {
             ))}
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-contact-filters">
+          <Filter className="h-3 w-3 mr-1" /> Filters
+          {activeFilterCount > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowListsPanel(!showListsPanel)} className={cn("font-mono text-xs", showListsPanel && "bg-primary/10 border-primary/30")} data-testid="button-toggle-contact-lists">
+          <ListFilter className="h-3 w-3 mr-1" /> Lists
+          {(savedLists || []).length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{(savedLists || []).length}</Badge>}
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleExportCsv} className="font-mono text-xs" data-testid="button-export-contacts">
+          <Download className="h-3 w-3 mr-1" /> CSV
+        </Button>
         <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-add-contact">
           <Plus className="mr-2 h-3 w-3" />
           Add Contact
         </Button>
       </div>
+
+      {showFilters && (
+        <Card className="glass-panel border-border/50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Filters</p>
+            {activeFilterCount > 0 && <Button variant="ghost" size="sm" onClick={() => { setFilterCompany(undefined); setFilterStatus("all"); }} className="h-6 text-xs font-mono text-muted-foreground">Clear All</Button>}
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Status</label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="h-8 text-xs w-48" data-testid="select-filter-contact-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+            <p className="text-xs text-muted-foreground font-mono">{filteredContacts.length} contacts match</p>
+            <Dialog open={showSaveListDialog} onOpenChange={setShowSaveListDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs font-mono" data-testid="button-save-contact-list"><Save className="h-3 w-3 mr-1" /> Save as List</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader><DialogTitle className="font-display">Save Contact List</DialogTitle></DialogHeader>
+                <div className="space-y-3 py-2">
+                  <Input placeholder="List name" value={listName} onChange={(e) => setListName(e.target.value)} data-testid="input-contact-list-name" />
+                  <p className="text-xs text-muted-foreground font-mono">{filteredContacts.length} contacts captured.</p>
+                  <Button onClick={handleSaveList} disabled={createCrmList.isPending} className="w-full bg-primary hover:bg-primary/90" data-testid="button-confirm-save-contact-list">
+                    {createCrmList.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save List
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </Card>
+      )}
+
+      {showListsPanel && (
+        <Card className="glass-panel border-border/50 p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">Saved Contact Lists</p>
+          {(savedLists || []).length > 0 ? (
+            <div className="space-y-2">
+              {(savedLists || []).map((list: any) => (
+                <div key={list.id} className="flex items-center justify-between p-2 rounded-sm border border-border/30 hover:border-primary/30 transition-colors group" data-testid={`contact-list-${list.id}`}>
+                  <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => handleLoadList(list)}>
+                    <ListFilter className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-semibold">{list.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{list.itemCount} contacts &bull; {list.createdAt ? new Date(list.createdAt).toLocaleDateString() : ""}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => { if (confirm(`Delete "${list.name}"?`)) deleteCrmListMut.mutate(list.id); }} data-testid={`button-delete-contact-list-${list.id}`}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">No saved lists yet.</p>
+          )}
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
@@ -1729,13 +1992,55 @@ function ContactsTab() {
 function DealsTab() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [filterStage, setFilterStage] = useState("all");
+  const [filterDealType, setFilterDealType] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [showListsPanel, setShowListsPanel] = useState(false);
+  const [showSaveListDialog, setShowSaveListDialog] = useState(false);
+  const [listName, setListName] = useState("");
   const { data: deals, isLoading } = useDeals();
   const { data: companies } = useCompanies();
   const { data: contacts } = useContacts();
   const { data: podcasts } = usePodcasts();
   const createDeal = useCreateDeal();
   const deleteDeal = useDeleteDeal();
+  const { data: savedLists } = useCrmLists("commercial_deals");
+  const createCrmList = useCreateCrmList();
+  const deleteCrmListMut = useDeleteCrmList();
   const { toast } = useToast();
+
+  const handleExportCsv = () => {
+    const params: Record<string, string> = {};
+    if (filterStage !== "all") params.stage = filterStage;
+    if (filterDealType !== "all") params.dealType = filterDealType;
+    downloadCsvExport("deals", params);
+    toast({ title: "Export Started", description: "Exporting deals to CSV." });
+  };
+
+  const handleSaveList = async () => {
+    if (!listName.trim()) return;
+    try {
+      await createCrmList.mutateAsync({
+        name: listName.trim(), crmType: "commercial_deals", entityType: "deals",
+        filters: JSON.stringify({ stage: filterStage, dealType: filterDealType }),
+        itemCount: (deals || []).length,
+      });
+      toast({ title: "List Saved" });
+      setShowSaveListDialog(false);
+      setListName("");
+    } catch (err: any) { toast({ title: "Save Failed", description: err.message, variant: "destructive" }); }
+  };
+
+  const handleLoadList = (list: any) => {
+    try {
+      const f = JSON.parse(list.filters);
+      setFilterStage(f.stage || "all");
+      setFilterDealType(f.dealType || "all");
+      setShowFilters(true);
+      setShowListsPanel(false);
+      toast({ title: "List Loaded" });
+    } catch { toast({ title: "Load Failed", variant: "destructive" }); }
+  };
 
   const handleCreate = async (data: any) => {
     try {
@@ -1802,11 +2107,99 @@ function DealsTab() {
             <span className="text-foreground font-semibold">{(deals || []).length}</span> deals • Pipeline: <span className="text-primary font-semibold">{formatCurrency(totalValue)}</span> • Won: <span className="text-green-400 font-semibold">{formatCurrency(wonValue)}</span>
           </div>
         </div>
-        <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-add-deal">
-          <Plus className="mr-2 h-3 w-3" />
-          Add Deal
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-deal-filters">
+            <Filter className="h-3 w-3 mr-1" /> Filters
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowListsPanel(!showListsPanel)} className={cn("font-mono text-xs", showListsPanel && "bg-primary/10 border-primary/30")} data-testid="button-toggle-deal-lists">
+            <ListFilter className="h-3 w-3 mr-1" /> Lists
+            {(savedLists || []).length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{(savedLists || []).length}</Badge>}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCsv} className="font-mono text-xs" data-testid="button-export-deals">
+            <Download className="h-3 w-3 mr-1" /> CSV
+          </Button>
+          <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-add-deal">
+            <Plus className="mr-2 h-3 w-3" />
+            Add Deal
+          </Button>
+        </div>
       </div>
+
+      {showFilters && (
+        <Card className="glass-panel border-border/50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Deal Filters</p>
+            {(filterStage !== "all" || filterDealType !== "all") && <Button variant="ghost" size="sm" onClick={() => { setFilterStage("all"); setFilterDealType("all"); }} className="h-6 text-xs font-mono text-muted-foreground">Clear All</Button>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Stage</label>
+              <Select value={filterStage} onValueChange={setFilterStage}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-filter-deal-stage"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stages</SelectItem>
+                  {DEAL_STAGES.map(s => <SelectItem key={s} value={s}>{STAGE_CONFIG[s].label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Deal Type</label>
+              <Select value={filterDealType} onValueChange={setFilterDealType}>
+                <SelectTrigger className="h-8 text-xs" data-testid="select-filter-deal-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="ad_campaign">Ad Campaign</SelectItem>
+                  <SelectItem value="sponsorship">Sponsorship</SelectItem>
+                  <SelectItem value="partnership">Partnership</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/30">
+            <p className="text-xs text-muted-foreground font-mono">{(deals || []).length} deals total</p>
+            <Dialog open={showSaveListDialog} onOpenChange={setShowSaveListDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs font-mono" data-testid="button-save-deal-list"><Save className="h-3 w-3 mr-1" /> Save as List</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader><DialogTitle className="font-display">Save Deal List</DialogTitle></DialogHeader>
+                <div className="space-y-3 py-2">
+                  <Input placeholder="List name" value={listName} onChange={(e) => setListName(e.target.value)} data-testid="input-deal-list-name" />
+                  <Button onClick={handleSaveList} disabled={createCrmList.isPending} className="w-full bg-primary hover:bg-primary/90" data-testid="button-confirm-save-deal-list">
+                    {createCrmList.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Save List
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </Card>
+      )}
+
+      {showListsPanel && (
+        <Card className="glass-panel border-border/50 p-4">
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">Saved Deal Lists</p>
+          {(savedLists || []).length > 0 ? (
+            <div className="space-y-2">
+              {(savedLists || []).map((list: any) => (
+                <div key={list.id} className="flex items-center justify-between p-2 rounded-sm border border-border/30 hover:border-primary/30 transition-colors group" data-testid={`deal-list-${list.id}`}>
+                  <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => handleLoadList(list)}>
+                    <ListFilter className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-semibold">{list.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{list.itemCount} deals &bull; {list.createdAt ? new Date(list.createdAt).toLocaleDateString() : ""}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100" onClick={() => { if (confirm(`Delete "${list.name}"?`)) deleteCrmListMut.mutate(list.id); }} data-testid={`button-delete-deal-list-${list.id}`}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">No saved lists yet.</p>
+          )}
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-6 gap-3">

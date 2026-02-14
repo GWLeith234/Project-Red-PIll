@@ -5,7 +5,7 @@ import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns, heroSlides,
-  socialAccounts, scheduledPosts, clipAssets, newsletterRuns,
+  socialAccounts, scheduledPosts, clipAssets, newsletterRuns, crmLists,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -29,6 +29,7 @@ import {
   type ScheduledPost, type InsertScheduledPost,
   type ClipAsset, type InsertClipAsset,
   type NewsletterRun, type InsertNewsletterRun,
+  type CrmList, type InsertCrmList,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -167,6 +168,11 @@ export interface IStorage {
   createNewsletterRun(run: InsertNewsletterRun): Promise<NewsletterRun>;
   updateNewsletterRun(id: string, data: Partial<InsertNewsletterRun>): Promise<NewsletterRun | undefined>;
   deleteNewsletterRun(id: string): Promise<void>;
+
+  getCrmLists(crmType?: string): Promise<CrmList[]>;
+  getCrmList(id: string): Promise<CrmList | undefined>;
+  createCrmList(list: InsertCrmList): Promise<CrmList>;
+  deleteCrmList(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -674,6 +680,24 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteNewsletterRun(id: string) {
     await db.delete(newsletterRuns).where(eq(newsletterRuns.id, id));
+  }
+
+  async getCrmLists(crmType?: string) {
+    if (crmType) {
+      return db.select().from(crmLists).where(eq(crmLists.crmType, crmType)).orderBy(desc(crmLists.createdAt));
+    }
+    return db.select().from(crmLists).orderBy(desc(crmLists.createdAt));
+  }
+  async getCrmList(id: string) {
+    const [list] = await db.select().from(crmLists).where(eq(crmLists.id, id));
+    return list;
+  }
+  async createCrmList(list: InsertCrmList) {
+    const [created] = await db.insert(crmLists).values(list).returning();
+    return created;
+  }
+  async deleteCrmList(id: string) {
+    await db.delete(crmLists).where(eq(crmLists.id, id));
   }
 }
 

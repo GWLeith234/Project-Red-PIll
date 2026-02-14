@@ -494,3 +494,35 @@ export function useCampaignRecipients(campaignId: string) {
     enabled: !!campaignId,
   });
 }
+
+export function useCrmLists(crmType?: string) {
+  return useQuery({
+    queryKey: ["/api/crm-lists", crmType],
+    queryFn: () => apiRequest(`/api/crm-lists${crmType ? `?crmType=${crmType}` : ""}`),
+  });
+}
+
+export function useCreateCrmList() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/crm-lists", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/crm-lists"] }),
+  });
+}
+
+export function useDeleteCrmList() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/crm-lists/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/crm-lists"] }),
+  });
+}
+
+export function downloadCsvExport(entity: string, params: Record<string, string> = {}) {
+  const query = new URLSearchParams(params).toString();
+  const url = `/api/export/${entity}${query ? `?${query}` : ""}`;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${entity}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}

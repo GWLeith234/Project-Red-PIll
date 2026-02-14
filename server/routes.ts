@@ -449,6 +449,173 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  // CRM Lists
+  app.get("/api/crm-lists", requireAuth, async (req, res) => {
+    const lists = await storage.getCrmLists(req.query.crmType as string | undefined);
+    res.json(lists);
+  });
+
+  app.post("/api/crm-lists", requireAuth, async (req, res) => {
+    const list = await storage.createCrmList(req.body);
+    res.status(201).json(list);
+  });
+
+  app.delete("/api/crm-lists/:id", requireAuth, async (req, res) => {
+    await storage.deleteCrmList(req.params.id);
+    res.status(204).end();
+  });
+
+  // CSV Export endpoints
+  app.get("/api/export/subscribers", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const podcastId = req.query.podcastId as string | undefined;
+    let subs;
+    if (podcastId) {
+      subs = await storage.getSubscribersByPodcast(podcastId);
+    } else {
+      subs = await storage.getSubscribers();
+    }
+    const search = (req.query.search as string || "").toLowerCase();
+    const tags = req.query.tags ? (req.query.tags as string).split(",") : [];
+    const source = req.query.source as string | undefined;
+    const status = req.query.status as string | undefined;
+    let filtered = subs;
+    if (search) {
+      filtered = filtered.filter((s: any) =>
+        (s.firstName || "").toLowerCase().includes(search) ||
+        (s.lastName || "").toLowerCase().includes(search) ||
+        (s.email || "").toLowerCase().includes(search) ||
+        (s.company || "").toLowerCase().includes(search)
+      );
+    }
+    if (tags.length > 0) {
+      filtered = filtered.filter((s: any) => tags.some(t => (s.tags || []).includes(t)));
+    }
+    if (source && source !== "all") {
+      filtered = filtered.filter((s: any) => s.source === source);
+    }
+    if (status && status !== "all") {
+      filtered = filtered.filter((s: any) => s.status === status);
+    }
+    const headers = ["First Name","Last Name","Email","Phone","Company","Title","City","State","Country","Tags","Interests","Source","Status","Marketing Consent","SMS Consent","Created At"];
+    const rows = filtered.map((s: any) => [
+      s.firstName || "", s.lastName || "", s.email || "", s.phone || "",
+      s.company || "", s.title || "", s.city || "", s.state || "", s.country || "",
+      (s.tags || []).join(";"), (s.interests || []).join(";"),
+      s.source || "", s.status || "",
+      s.marketingConsent ? "Yes" : "No", s.smsConsent ? "Yes" : "No",
+      s.createdAt ? new Date(s.createdAt).toISOString().split("T")[0] : ""
+    ]);
+    const csv = [headers, ...rows].map(r => r.map((v: string) => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=subscribers.csv");
+    res.send(csv);
+  });
+
+  app.get("/api/export/companies", requireAuth, requirePermission("sales.view"), async (_req, res) => {
+    const companies = await storage.getCompanies();
+    const search = (_req.query.search as string || "").toLowerCase();
+    const companyType = _req.query.companyType as string | undefined;
+    const status = _req.query.status as string | undefined;
+    let filtered = companies;
+    if (search) {
+      filtered = filtered.filter((c: any) =>
+        (c.name || "").toLowerCase().includes(search) ||
+        (c.industry || "").toLowerCase().includes(search) ||
+        (c.email || "").toLowerCase().includes(search)
+      );
+    }
+    if (companyType && companyType !== "all") {
+      filtered = filtered.filter((c: any) => c.companyType === companyType);
+    }
+    if (status && status !== "all") {
+      filtered = filtered.filter((c: any) => c.status === status);
+    }
+    const headers = ["Name","Industry","Website","Phone","Email","City","State","Country","Company Type","Annual Revenue","Employee Count","Status","Created At"];
+    const rows = filtered.map((c: any) => [
+      c.name || "", c.industry || "", c.website || "", c.phone || "", c.email || "",
+      c.city || "", c.state || "", c.country || "", c.companyType || "",
+      c.annualRevenue?.toString() || "", c.employeeCount?.toString() || "",
+      c.status || "", c.createdAt ? new Date(c.createdAt).toISOString().split("T")[0] : ""
+    ]);
+    const csv = [headers, ...rows].map(r => r.map((v: string) => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=companies.csv");
+    res.send(csv);
+  });
+
+  app.get("/api/export/contacts", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const companyId = req.query.companyId as string | undefined;
+    const contacts = await storage.getCompanyContacts(companyId);
+    const companies = await storage.getCompanies();
+    const search = (req.query.search as string || "").toLowerCase();
+    const status = req.query.status as string | undefined;
+    let filtered = contacts;
+    if (search) {
+      filtered = filtered.filter((c: any) =>
+        (c.firstName || "").toLowerCase().includes(search) ||
+        (c.lastName || "").toLowerCase().includes(search) ||
+        (c.email || "").toLowerCase().includes(search) ||
+        (c.title || "").toLowerCase().includes(search)
+      );
+    }
+    if (status && status !== "all") {
+      filtered = filtered.filter((c: any) => c.status === status);
+    }
+    const headers = ["First Name","Last Name","Email","Phone","Title","Department","Company","Tags","Status","Marketing Consent","SMS Consent","Created At"];
+    const rows = filtered.map((c: any) => {
+      const companyName = companies.find((co: any) => co.id === c.companyId)?.name || "";
+      return [
+        c.firstName || "", c.lastName || "", c.email || "", c.phone || "",
+        c.title || "", c.department || "", companyName,
+        (c.tags || []).join(";"), c.status || "",
+        c.marketingConsent ? "Yes" : "No", c.smsConsent ? "Yes" : "No",
+        c.createdAt ? new Date(c.createdAt).toISOString().split("T")[0] : ""
+      ];
+    });
+    const csv = [headers, ...rows].map(r => r.map((v: string) => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=contacts.csv");
+    res.send(csv);
+  });
+
+  app.get("/api/export/deals", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const companyId = req.query.companyId as string | undefined;
+    const deals = await storage.getDeals(companyId);
+    const companies = await storage.getCompanies();
+    const search = (req.query.search as string || "").toLowerCase();
+    const stage = req.query.stage as string | undefined;
+    const dealType = req.query.dealType as string | undefined;
+    let filtered = deals;
+    if (search) {
+      filtered = filtered.filter((d: any) =>
+        (d.title || "").toLowerCase().includes(search) ||
+        (d.description || "").toLowerCase().includes(search)
+      );
+    }
+    if (stage && stage !== "all") {
+      filtered = filtered.filter((d: any) => d.stage === stage);
+    }
+    if (dealType && dealType !== "all") {
+      filtered = filtered.filter((d: any) => d.dealType === dealType);
+    }
+    const headers = ["Title","Company","Value","Stage","Deal Type","Priority","Probability","Start Date","Close Date","Status","Created At"];
+    const rows = filtered.map((d: any) => {
+      const companyName = companies.find((c: any) => c.id === d.companyId)?.name || "";
+      return [
+        d.title || "", companyName, d.value?.toString() || "0",
+        d.stage || "", d.dealType || "", d.priority || "",
+        d.probability?.toString() || "", 
+        d.startDate ? new Date(d.startDate).toISOString().split("T")[0] : "",
+        d.closeDate ? new Date(d.closeDate).toISOString().split("T")[0] : "",
+        d.status || "", d.createdAt ? new Date(d.createdAt).toISOString().split("T")[0] : ""
+      ];
+    });
+    const csv = [headers, ...rows].map(r => r.map((v: string) => `"${(v || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=deals.csv");
+    res.send(csv);
+  });
+
   app.get("/api/moderation/queue", requireAuth, requirePermission("content.edit"), async (_req, res) => {
     const items = await storage.getContentPiecesByStatus("review", "article");
     const episodeIds = [...new Set(items.map(i => i.episodeId))];

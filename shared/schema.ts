@@ -429,7 +429,19 @@ export const heroSlides = pgTable("hero_slides", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const crmLists = pgTable("crm_lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  crmType: text("crm_type").notNull(),
+  entityType: text("entity_type").notNull(),
+  filters: text("filters").notNull().default("{}"),
+  itemCount: integer("item_count").default(0),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
+export const insertCrmListSchema = createInsertSchema(crmLists).omit({ id: true, createdAt: true });
 export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true });
 export const insertScheduledPostSchema = createInsertSchema(scheduledPosts).omit({ id: true, createdAt: true });
 export const insertClipAssetSchema = createInsertSchema(clipAssets).omit({ id: true, createdAt: true });
@@ -502,5 +514,7 @@ export type InsertClipAsset = z.infer<typeof insertClipAssetSchema>;
 export type ClipAsset = typeof clipAssets.$inferSelect;
 export type InsertNewsletterRun = z.infer<typeof insertNewsletterRunSchema>;
 export type NewsletterRun = typeof newsletterRuns.$inferSelect;
+export type InsertCrmList = z.infer<typeof insertCrmListSchema>;
+export type CrmList = typeof crmLists.$inferSelect;
 
 export * from "./models/chat";
