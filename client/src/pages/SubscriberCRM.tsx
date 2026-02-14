@@ -29,8 +29,9 @@ import {
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles, Radio,
   Send, FileText, MessageSquare, Plus, Calendar, Download, ListFilter, Save, Filter,
   Headphones, Clock, Play, Mic, CheckCircle2,
-  ArrowUp, ArrowDown, BarChart2, Eye, MousePointerClick, AlertTriangle
+  BarChart2, Eye, MousePointerClick, AlertTriangle
 } from "lucide-react";
+import { SortableList } from "@/components/ui/sortable-list";
 
 function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
   onSubmit: (data: any) => void;
@@ -763,11 +764,8 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, status
     }
   };
 
-  const handleMoveEmail = async (index: number, direction: "up" | "down") => {
-    const ids = sortedEmails.map((e: any) => e.id);
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= ids.length) return;
-    [ids[index], ids[swapIndex]] = [ids[swapIndex], ids[index]];
+  const handleDragReorderEmails = async (reordered: any[]) => {
+    const ids = reordered.map((e: any) => e.id);
     try {
       await reorderEmails.mutateAsync({ campaignId, emailIds: ids });
     } catch (err: any) {
@@ -875,10 +873,13 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, status
           ) : sortedEmails.length > 0 ? (
             <div className="relative">
               <div className="absolute left-5 top-0 bottom-0 w-px bg-border/50" />
-              <div className="space-y-3">
-                {sortedEmails.map((email: any, index: number) => (
-                  <div key={email.id} className="relative pl-12" data-testid={`email-step-${email.id}`}>
-                    <div className="absolute left-3 top-4 h-5 w-5 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center z-10">
+              <SortableList
+                items={sortedEmails}
+                onReorder={handleDragReorderEmails}
+                className="space-y-3"
+                renderItem={(email: any, index: number) => (
+                  <div className="relative pl-8" data-testid={`email-step-${email.id}`}>
+                    <div className="absolute left-0 top-4 h-5 w-5 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center z-10">
                       <span className="text-[9px] font-mono font-bold text-primary">{index + 1}</span>
                     </div>
                     <Card className="glass-panel border-border/50 hover:border-primary/20 transition-colors group">
@@ -903,22 +904,6 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, status
                           <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-                              onClick={() => handleMoveEmail(index, "up")}
-                              disabled={index === 0}
-                              data-testid={`button-move-up-${email.id}`}
-                            >
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-                              onClick={() => handleMoveEmail(index, "down")}
-                              disabled={index === sortedEmails.length - 1}
-                              data-testid={`button-move-down-${email.id}`}
-                            >
-                              <ArrowDown className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
                               onClick={() => openEditDialog(email)}
                               data-testid={`button-edit-email-${email.id}`}
                             >
@@ -936,8 +921,8 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, status
                       </CardContent>
                     </Card>
                   </div>
-                ))}
-              </div>
+                )}
+              />
             </div>
           ) : (
             <Card className="glass-panel border-border/50">

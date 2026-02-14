@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Plus, Trash2, Save, Loader2, GripVertical, ChevronUp, ChevronDown,
+  Plus, Trash2, Save, Loader2,
   Power, Sparkles, Wand2, LayoutGrid, List, Hash, Play, Newspaper,
   Eye, EyeOff, X,
 } from "lucide-react";
+import { SortableList } from "@/components/ui/sortable-list";
 import type { NewsLayoutSection, Podcast } from "@shared/schema";
 
 async function apiRequest(url: string, options?: RequestInit) {
@@ -175,16 +176,12 @@ export default function NewsLayoutAdmin() {
     }
   };
 
-  const moveSection = (id: string, direction: "up" | "down") => {
-    const idx = sorted.findIndex((s) => s.id === id);
-    if (idx < 0) return;
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-
-    const current = sorted[idx];
-    const swap = sorted[swapIdx];
-    updateMutation.mutate({ id: current.id, displayOrder: swap.displayOrder });
-    updateMutation.mutate({ id: swap.id, displayOrder: current.displayOrder });
+  const handleDragReorder = (reordered: NewsLayoutSection[]) => {
+    reordered.forEach((section, idx) => {
+      if (section.displayOrder !== idx) {
+        updateMutation.mutate({ id: section.id, displayOrder: idx });
+      }
+    });
   };
 
   const toggleActive = (section: NewsLayoutSection) => {
@@ -472,35 +469,17 @@ export default function NewsLayoutAdmin() {
           <p className="text-xs text-muted-foreground mt-1">Add sections manually or use AI Smart Layout to get started.</p>
         </div>
       ) : (
-        <div className="space-y-2" data-testid="sections-list">
-          {sorted.map((section, idx) => (
+        <SortableList
+          items={sorted}
+          onReorder={handleDragReorder}
+          className="space-y-2"
+          renderItem={(section) => (
             <div
-              key={section.id}
               className={`flex items-center gap-3 p-4 border bg-card/50 transition-colors ${
                 section.active ? "border-border" : "border-border/50 opacity-60"
               }`}
               data-testid={`section-card-${section.id}`}
             >
-              <div className="flex flex-col gap-1" data-testid={`section-reorder-${section.id}`}>
-                <button
-                  onClick={() => moveSection(section.id, "up")}
-                  disabled={idx === 0}
-                  className="p-0.5 text-muted-foreground hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  data-testid={`btn-move-up-${section.id}`}
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-                <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-                <button
-                  onClick={() => moveSection(section.id, "down")}
-                  disabled={idx === sorted.length - 1}
-                  className="p-0.5 text-muted-foreground hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  data-testid={`btn-move-down-${section.id}`}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </div>
-
               <span className="text-primary">{SECTION_TYPE_ICONS[section.sectionType] || <LayoutGrid className="h-4 w-4" />}</span>
 
               <div className="flex-1 min-w-0">
@@ -580,8 +559,8 @@ export default function NewsLayoutAdmin() {
                 )}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        />
       )}
     </div>
   );

@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBranding, useUpdateBranding } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X, Globe, Wand2, Check, Sparkles, ArrowRight, Plus, GripVertical, ChevronUp, ChevronDown, Power, ExternalLink, Layers } from "lucide-react";
+import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X, Globe, Wand2, Check, Sparkles, ArrowRight, Plus, GripVertical, Power, ExternalLink, Layers } from "lucide-react";
+import { SortableList } from "@/components/ui/sortable-list";
 import type { Branding, HeroSlide } from "@shared/schema";
 import NewsLayoutAdmin from "@/components/NewsLayoutAdmin";
 
@@ -688,14 +689,12 @@ function HeroCarouselManager() {
     },
   });
 
-  const moveSlide = (slide: HeroSlide, direction: "up" | "down") => {
-    const sorted = [...slides].sort((a, b) => a.displayOrder - b.displayOrder);
-    const idx = sorted.findIndex((s) => s.id === slide.id);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const other = sorted[swapIdx];
-    updateMutation.mutate({ id: slide.id, data: { displayOrder: other.displayOrder } });
-    updateMutation.mutate({ id: other.id, data: { displayOrder: slide.displayOrder } });
+  const handleDragReorder = (reordered: HeroSlide[]) => {
+    reordered.forEach((slide, idx) => {
+      if (slide.displayOrder !== idx) {
+        updateMutation.mutate({ id: slide.id, data: { displayOrder: idx } });
+      }
+    });
   };
 
   return (
@@ -738,9 +737,11 @@ function HeroCarouselManager() {
           <p className="text-sm text-muted-foreground">No hero slides yet. Add your first slide to create a carousel on the public homepage.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {[...slides].sort((a, b) => a.displayOrder - b.displayOrder).map((slide, idx) => (
-            <div key={slide.id}>
+        <SortableList
+          items={[...slides].sort((a, b) => a.displayOrder - b.displayOrder)}
+          onReorder={handleDragReorder}
+          renderItem={(slide, idx) => (
+            <div>
               {editingId === slide.id ? (
                 <HeroSlideForm
                   slide={slide}
@@ -763,24 +764,6 @@ function HeroCarouselManager() {
                   }`}
                   data-testid={`hero-slide-${slide.id}`}
                 >
-                  <div className="flex flex-col gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => moveSlide(slide, "up")}
-                      disabled={idx === 0}
-                      className="p-1 text-muted-foreground hover:text-primary disabled:opacity-20 transition-colors"
-                      data-testid={`btn-move-up-${slide.id}`}
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => moveSlide(slide, "down")}
-                      disabled={idx === slides.length - 1}
-                      className="p-1 text-muted-foreground hover:text-primary disabled:opacity-20 transition-colors"
-                      data-testid={`btn-move-down-${slide.id}`}
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                  </div>
                   <div className="w-40 h-20 flex-shrink-0 border border-border/50 overflow-hidden bg-background">
                     <img src={slide.imageUrl} alt={slide.title || ""} className="w-full h-full object-cover" />
                   </div>
@@ -837,8 +820,8 @@ function HeroCarouselManager() {
                 </div>
               )}
             </div>
-          ))}
-        </div>
+          )}
+        />
       )}
     </div>
   );

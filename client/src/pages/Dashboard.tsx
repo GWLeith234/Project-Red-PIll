@@ -4,9 +4,9 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, 
 import {
   ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers,
   ExternalLink, Settings, TrendingUp, Clock, ChevronRight, Linkedin, Camera,
-  GripVertical, Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload,
+  Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload,
   Radio, Headphones, Newspaper, Bell, Target, BarChart3, PieChart as PieChartIcon,
-  Mic, Mail, Building2, Megaphone, ChevronDown, ChevronUp, LayoutGrid,
+  Mic, Mail, Building2, Megaphone, LayoutGrid,
   Shield, UserPlus, Briefcase, Package, Server, Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { SortableList } from "@/components/ui/sortable-list";
 
 const revenueData = [
   { name: "Jan", revenue: 24000, projected: 30000 },
@@ -1357,17 +1358,17 @@ function WidgetCustomizer({
   onReorder: (newOrder: string[]) => void;
   onClose: () => void;
 }) {
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-
   const orderedActive = widgetOrder.filter(id => activeWidgets.includes(id));
 
-  const moveWidget = (fromIdx: number, direction: "up" | "down") => {
+  const handleDragReorder = (reordered: Array<{ id: string }>) => {
     const newOrder = [...widgetOrder];
-    const item = orderedActive[fromIdx];
-    const actualIdx = newOrder.indexOf(item);
-    const targetIdx = direction === "up" ? actualIdx - 1 : actualIdx + 1;
-    if (targetIdx < 0 || targetIdx >= newOrder.length) return;
-    [newOrder[actualIdx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[actualIdx]];
+    const reorderedIds = reordered.map(r => r.id);
+    let reorderIdx = 0;
+    for (let i = 0; i < newOrder.length; i++) {
+      if (activeWidgets.includes(newOrder[i])) {
+        newOrder[i] = reorderedIds[reorderIdx++];
+      }
+    }
     onReorder(newOrder);
   };
 
@@ -1418,50 +1419,22 @@ function WidgetCustomizer({
         {orderedActive.length > 0 && (
           <div className="pt-3 border-t border-border/30">
             <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Widget Order (drag to rearrange)</p>
-            <div className="space-y-1">
-              {orderedActive.map((id, idx) => {
-                const w = ALL_WIDGETS.find(w => w.id === id);
+            <SortableList
+              items={orderedActive.map(id => ({ id }))}
+              onReorder={handleDragReorder}
+              className="space-y-1"
+              renderItem={(item) => {
+                const w = ALL_WIDGETS.find(w => w.id === item.id);
                 if (!w) return null;
                 const Ic = w.icon;
                 return (
-                  <div
-                    key={id}
-                    className={cn(
-                      "flex items-center gap-2 p-2 rounded-lg border border-border/30 bg-card/30 group transition-all",
-                      dragIdx === idx && "border-primary/50 bg-primary/5"
-                    )}
-                    draggable
-                    onDragStart={() => setDragIdx(idx)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => {
-                      if (dragIdx !== null && dragIdx !== idx) {
-                        const newOrd = [...widgetOrder];
-                        const fromItem = orderedActive[dragIdx];
-                        const toItem = orderedActive[idx];
-                        const fromActual = newOrd.indexOf(fromItem);
-                        const toActual = newOrd.indexOf(toItem);
-                        [newOrd[fromActual], newOrd[toActual]] = [newOrd[toActual], newOrd[fromActual]];
-                        onReorder(newOrd);
-                      }
-                      setDragIdx(null);
-                    }}
-                    onDragEnd={() => setDragIdx(null)}
-                  >
-                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 cursor-grab group-hover:text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-2 p-2 rounded-lg border border-border/30 bg-card/30">
                     <Ic className="h-3.5 w-3.5 text-primary/60 shrink-0" />
                     <span className="text-xs font-mono flex-1">{w.label}</span>
-                    <div className="flex gap-0.5 shrink-0">
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => moveWidget(idx, "up")} disabled={idx === 0}>
-                        <ChevronUp className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => moveWidget(idx, "down")} disabled={idx === orderedActive.length - 1}>
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </div>
                   </div>
                 );
-              })}
-            </div>
+              }}
+            />
           </div>
         )}
       </CardContent>
