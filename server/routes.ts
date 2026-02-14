@@ -702,6 +702,22 @@ export async function registerRoutes(
     const parsed = insertAdvertiserSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.createAdvertiser(parsed.data);
+
+    const existingCompanies = await storage.getCompanies();
+    const alreadyExists = existingCompanies.some(
+      (c: any) => c.name.toLowerCase() === data.name.toLowerCase()
+    );
+    if (!alreadyExists) {
+      const typeMap: Record<string, string> = { "Direct": "advertiser", "Programmatic": "advertiser", "Sponsor": "sponsor", "Partner": "partner" };
+      await storage.createCompany({
+        name: data.name,
+        companyType: typeMap[data.type || "Direct"] || "advertiser",
+        status: (data.status || "Active").toLowerCase(),
+        annualRevenue: (data.monthlySpend || 0) * 12,
+        notes: `Auto-created from advertiser. Type: ${data.type || "Direct"}, Monthly spend: $${data.monthlySpend || 0}`,
+      });
+    }
+
     res.status(201).json(data);
   });
 
