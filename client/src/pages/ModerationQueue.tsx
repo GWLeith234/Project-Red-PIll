@@ -12,10 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bot, CheckCircle2, XCircle, Eye, Edit3, Clock, FileText, Sparkles,
-  Loader2, Wand2, ChevronDown, ChevronUp, Tag, Newspaper, Send,
-  MessageSquare, Scissors, Mail, Search as SearchIcon, Globe, Filter,
-  LayoutGrid, List, ArrowUpRight, Mic, Film, Rocket, CalendarClock,
-  ExternalLink, User, Play
+  Loader2, Wand2, Tag, Newspaper, Send,
+  MessageSquare, Scissors, Mail, Search as SearchIcon, Globe,
+  LayoutGrid, Mic, Film, Rocket, CalendarClock,
+  ExternalLink, Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -287,7 +287,7 @@ export default function ModerationQueue() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1">
           {filteredQueue.map((item: any) => (
             <ContentCard
               key={item.id}
@@ -724,197 +724,79 @@ function ContentCard({ item, onPreview, onEdit, onApprove, onReject, approving, 
   approving: boolean;
   rejecting: boolean;
 }) {
-  const [showSeo, setShowSeo] = useState(false);
   const typeConf = getTypeConfig(item.type);
-  const statusConf = getStatusConfig(item.status);
   const TypeIcon = typeConf.icon;
-  const StatusIcon = statusConf.icon;
-
-  const isSocial = item.type === "social";
-  const isSeo = item.type === "seo";
   const isClip = item.type === "clip" || item._isClip;
 
+  const subtitle = isClip
+    ? `${item.startTime || ""}–${item.endTime || ""} · Score: ${item.viralScore || 0}/100`
+    : item.platform
+    ? item.platform
+    : item.episode
+    ? `${item.episode.title}${item.episode.podcast ? ` · ${item.episode.podcast.title}` : ""}`
+    : item.summary?.slice(0, 80) || item.description?.slice(0, 80) || "";
+
   return (
-    <Card className="bg-card/50 border-border/50 overflow-hidden hover:border-border transition-colors group" data-testid={`card-moderation-${item.id}`}>
-      <div className="flex">
-        <div className={cn("w-1 shrink-0", item.status === "review" ? "bg-amber-500" : item.status === "suggested" ? "bg-pink-500" : item.status === "draft" ? "bg-blue-500" : "bg-violet-500")} />
-        <div className="flex-1 min-w-0">
-          <CardHeader className="pb-2 pt-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <Badge variant="outline" className={cn("text-[10px] font-mono", typeConf.color)}>
-                    <TypeIcon className="w-3 h-3 mr-1" /> {typeConf.label}
-                  </Badge>
-                  <Badge variant="outline" className={cn("text-[10px] font-mono", statusConf.color)}>
-                    <StatusIcon className="w-3 h-3 mr-1" /> {statusConf.label}
-                  </Badge>
-                  {item.aiGenerated && (
-                    <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
-                      <Bot className="w-3 h-3 mr-1" /> AI Generated
-                    </Badge>
-                  )}
-                  {item.readingTime && (
-                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
-                      {item.readingTime} min read
-                    </Badge>
-                  )}
-                  {item.platform && (
-                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground capitalize">
-                      <Send className="w-3 h-3 mr-1" /> {item.platform}
-                    </Badge>
-                  )}
-                </div>
-                <CardTitle className="text-base leading-tight" data-testid={`text-story-title-${item.id}`}>{item.title}</CardTitle>
-                {item.episode && (
-                  <p className="text-xs text-muted-foreground mt-1 font-mono flex items-center gap-1">
-                    {item.episode.episodeType === "video" ? <Film className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
-                    {item.episode.title}
-                    {item.episode.podcast && <span className="text-muted-foreground/60"> · {item.episode.podcast.title}</span>}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="sm" onClick={onPreview} className="h-8 px-2" data-testid={`button-preview-${item.id}`}>
-                  <Eye className="w-3.5 h-3.5 mr-1" /> Preview
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 px-2" data-testid={`button-edit-${item.id}`}>
-                  <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={onApprove}
-                  disabled={approving}
-                  data-testid={`button-approve-${item.id}`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-8 px-2"
-                  onClick={onReject}
-                  disabled={rejecting}
-                  data-testid={`button-reject-${item.id}`}
-                >
-                  <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-4">
-            {isSocial && item.body && (
-              <div className="bg-muted/20 border border-border/30 rounded-lg p-3 mb-3">
-                <p className="text-sm whitespace-pre-wrap">{item.body.slice(0, 280)}{item.body.length > 280 ? "..." : ""}</p>
-              </div>
-            )}
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/40 bg-card/40 hover:border-border hover:bg-card/60 transition-all group"
+      data-testid={`card-moderation-${item.id}`}
+    >
+      <div className={cn(
+        "w-1 self-stretch rounded-full shrink-0",
+        item.status === "review" ? "bg-amber-500" : item.status === "suggested" ? "bg-pink-500" : item.status === "draft" ? "bg-blue-500" : "bg-violet-500"
+      )} />
 
-            {isClip && (
-              <div className="bg-pink-500/5 border border-pink-500/20 rounded-lg p-3 mb-3">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-muted-foreground">Start</p>
-                    <p className="text-sm font-mono font-semibold">{item.startTime || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-muted-foreground">End</p>
-                    <p className="text-sm font-mono font-semibold">{item.endTime || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-muted-foreground">Duration</p>
-                    <p className="text-sm font-mono font-semibold">{item.duration || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-muted-foreground">Viral Score</p>
-                    <div className="flex items-center gap-1">
-                      <p className="text-sm font-mono font-bold text-pink-400">{item.viralScore || 0}</p>
-                      <span className="text-[9px] text-muted-foreground">/100</span>
-                    </div>
-                  </div>
-                </div>
-                {item.hookText && (
-                  <div className="mt-2 pt-2 border-t border-pink-500/10">
-                    <p className="text-[9px] font-mono uppercase text-muted-foreground mb-1">Hook</p>
-                    <p className="text-sm italic text-pink-300/80">"{item.hookText}"</p>
-                  </div>
-                )}
-                {item.transcriptExcerpt && (
-                  <div className="mt-2 pt-2 border-t border-pink-500/10">
-                    <p className="text-[9px] font-mono uppercase text-muted-foreground mb-1">Transcript Excerpt</p>
-                    <p className="text-xs text-muted-foreground line-clamp-3">{item.transcriptExcerpt}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {isSeo && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                {item.seoTitle && (
-                  <div className="bg-muted/20 border border-border/30 rounded-lg p-3">
-                    <p className="text-[10px] font-mono uppercase text-muted-foreground mb-1">SEO Title</p>
-                    <p className="text-sm font-medium">{item.seoTitle}</p>
-                  </div>
-                )}
-                {item.seoDescription && (
-                  <div className="bg-muted/20 border border-border/30 rounded-lg p-3">
-                    <p className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Meta Description</p>
-                    <p className="text-sm text-muted-foreground">{item.seoDescription}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!isSocial && !isSeo && !isClip && item.summary && (
-              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.summary}</p>
-            )}
-
-            {!isSocial && !isSeo && !isClip && item.description && !item.summary && (
-              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
-            )}
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {item.seoKeywords?.slice(0, 5).map((kw: string, i: number) => (
-                <Badge key={i} variant="secondary" className="text-[10px] font-mono">
-                  <Tag className="w-2.5 h-2.5 mr-1" />{kw}
-                </Badge>
-              ))}
-              {item.seoKeywords?.length > 5 && (
-                <Badge variant="secondary" className="text-[10px] font-mono">+{item.seoKeywords.length - 5} more</Badge>
-              )}
-            </div>
-
-            {(item.seoTitle || item.seoDescription || item.slug) && !isSeo && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 text-[10px] font-mono h-7 px-2"
-                  onClick={() => setShowSeo(!showSeo)}
-                >
-                  {showSeo ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
-                  {showSeo ? "Hide SEO" : "Show SEO"}
-                </Button>
-                {showSeo && (
-                  <div className="mt-2 p-3 rounded-lg bg-muted/20 border border-border/30 space-y-2 text-sm">
-                    {item.seoTitle && <div><span className="font-mono text-[10px] text-muted-foreground uppercase">Title:</span> <span className="text-sm">{item.seoTitle}</span></div>}
-                    {item.seoDescription && <div><span className="font-mono text-[10px] text-muted-foreground uppercase">Description:</span> <span className="text-sm">{item.seoDescription}</span></div>}
-                    {item.slug && <div><span className="font-mono text-[10px] text-muted-foreground uppercase">Slug:</span> <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{item.slug}</code></div>}
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </div>
-
-        {!isSocial && item.coverImage && (
-          <div className="w-40 shrink-0 relative hidden lg:block">
-            <img src={item.coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-l from-transparent to-card/80" />
-          </div>
-        )}
+      <div className={cn("h-7 w-7 rounded-md flex items-center justify-center shrink-0 border", typeConf.color)}>
+        <TypeIcon className="h-3.5 w-3.5" />
       </div>
-    </Card>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate leading-tight" data-testid={`text-story-title-${item.id}`}>{item.title}</p>
+        <p className="text-[11px] text-muted-foreground font-mono truncate">{subtitle}</p>
+      </div>
+
+      {item.seoKeywords?.length > 0 && (
+        <div className="hidden xl:flex items-center gap-1 shrink-0">
+          {item.seoKeywords.slice(0, 2).map((kw: string, i: number) => (
+            <span key={i} className="text-[9px] font-mono text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">{kw}</span>
+          ))}
+          {item.seoKeywords.length > 2 && <span className="text-[9px] font-mono text-muted-foreground">+{item.seoKeywords.length - 2}</span>}
+        </div>
+      )}
+
+      {item.aiGenerated && (
+        <Bot className="h-3.5 w-3.5 text-primary/50 shrink-0 hidden md:block" title="AI Generated" />
+      )}
+
+      <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+        <Button variant="ghost" size="sm" onClick={onPreview} className="h-7 w-7 p-0" title="Preview" data-testid={`button-preview-${item.id}`}>
+          <Eye className="w-3.5 h-3.5" />
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 w-7 p-0" title="Edit" data-testid={`button-edit-${item.id}`}>
+          <Edit3 className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-mono"
+          onClick={onApprove}
+          disabled={approving}
+          data-testid={`button-approve-${item.id}`}
+        >
+          <CheckCircle2 className="w-3 h-3 mr-1" /> Ship
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+          onClick={onReject}
+          disabled={rejecting}
+          title="Reject"
+          data-testid={`button-reject-${item.id}`}
+        >
+          <XCircle className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

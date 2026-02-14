@@ -8,8 +8,10 @@ import {
   Radio, Headphones, Newspaper, Bell, Target, BarChart3, PieChart as PieChartIcon,
   Mic, Mail, Building2, Megaphone, LayoutGrid,
   Shield, UserPlus, Briefcase, Package, Server, Send,
-  Bot, CalendarClock, FileText, Scissors, CheckCircle2, CircleDot, CircleDashed, Film
+  Bot, CalendarClock, FileText, Scissors, CheckCircle2, CircleDot, CircleDashed, Film,
+  Inbox, Rocket
 } from "lucide-react";
+import { CelebrationOverlay, useCelebration, useActivityMonitor } from "@/components/CelebrationOverlay";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,8 @@ import { Link } from "wouter";
 import {
   useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles,
   useProfile, useUpdateProfile, useAnalyzeLinkedIn, usePodcasts, useSubscribers,
-  useAdvertisers, useAdminDashboardStats, useScheduledPosts, useOutboundCampaigns
+  useAdvertisers, useAdminDashboardStats, useScheduledPosts, useOutboundCampaigns,
+  useModerationCounts, useDeals
 } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +73,7 @@ const WIDGET_CATEGORIES = [
     label: "Content",
     widgets: [
       { id: "agent_activity", label: "Agent Activity Hub", icon: Bot, size: "lg" },
+      { id: "queue_rollup", label: "Processing Queue", icon: Inbox, size: "md" },
       { id: "trending", label: "Trending Articles", icon: Newspaper, size: "lg" },
       { id: "processing", label: "AI Content Engine", icon: Zap, size: "md" },
       { id: "content_stats", label: "Content Breakdown", icon: BarChart3, size: "md" },
@@ -103,7 +107,7 @@ const ALL_WIDGETS = WIDGET_CATEGORIES.flatMap(c => c.widgets);
 
 const DEFAULT_WIDGETS = [
   "kpi_revenue", "kpi_listeners", "kpi_content", "kpi_adFill",
-  "agent_activity",
+  "agent_activity", "queue_rollup",
   "revenue_chart", "revenue_composition",
   "trending", "processing", "podcasts", "alerts",
 ];
@@ -1349,6 +1353,122 @@ function SystemOverviewWidget() {
   );
 }
 
+function QueueRollupWidget() {
+  const { data: episodes } = useEpisodes();
+  const { data: contentPieces } = useContentPieces();
+  const { data: counts } = useModerationCounts();
+  const { data: scheduledPosts } = useScheduledPosts();
+
+  const eps = episodes || [];
+  const pieces = contentPieces || [];
+  const posts = scheduledPosts || [];
+
+  const processing = eps.filter((ep: any) => ep.processingStatus === "processing").length;
+  const transcribing = eps.filter((ep: any) => ep.transcriptStatus === "processing").length;
+  const queued = eps.filter((ep: any) => ep.processingStatus === "pending" || ep.processingStatus === "queued").length;
+  const completed = eps.filter((ep: any) => ep.processingStatus === "complete" || ep.transcriptStatus === "complete").length;
+  const pendingReview = counts?._total || 0;
+  const published = pieces.filter((p: any) => p.status === "approved" || p.status === "published").length;
+  const scheduled = posts.filter((p: any) => p.status === "scheduled").length;
+  const totalPipeline = processing + transcribing + queued + pendingReview + scheduled;
+
+  return (
+    <Card className={cn("glass-panel border-border/50 relative overflow-hidden", (processing > 0 || transcribing > 0) && "border-primary/30")} data-testid="widget-queue-rollup">
+      {(processing > 0 || transcribing > 0) && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-blue-500 to-primary animate-pulse" />
+      )}
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+              <Inbox className="h-5 w-5 text-primary" />
+              Processing Queue
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">{totalPipeline} items in pipeline</CardDescription>
+          </div>
+          {(processing > 0 || transcribing > 0) && (
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 animate-pulse font-mono text-[10px]">
+              LIVE
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-500/5 border border-blue-500/15">
+            <Loader2 className={cn("h-3.5 w-3.5 text-blue-400", (processing + transcribing) > 0 && "animate-spin")} />
+            <div className="min-w-0">
+              <p className="text-lg font-bold font-display text-blue-400 leading-none">{processing + transcribing}</p>
+              <p className="text-[9px] font-mono text-blue-400/70 uppercase">Processing</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/15">
+            <CircleDashed className="h-3.5 w-3.5 text-amber-400" />
+            <div className="min-w-0">
+              <p className="text-lg font-bold font-display text-amber-400 leading-none">{queued}</p>
+              <p className="text-[9px] font-mono text-amber-400/70 uppercase">Queued</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-violet-500/5 border border-violet-500/15">
+            <Eye className="h-3.5 w-3.5 text-violet-400" />
+            <div className="min-w-0">
+              <p className="text-lg font-bold font-display text-violet-400 leading-none">{pendingReview}</p>
+              <p className="text-[9px] font-mono text-violet-400/70 uppercase">Review</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            <div className="min-w-0">
+              <p className="text-lg font-bold font-display text-emerald-400 leading-none">{published}</p>
+              <p className="text-[9px] font-mono text-emerald-400/70 uppercase">Shipped</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+            <span>Pipeline Flow</span>
+            <span>{completed} episodes complete</span>
+          </div>
+          <div className="flex h-2 w-full rounded-full overflow-hidden bg-muted/20">
+            {processing + transcribing > 0 && (
+              <div className="h-full bg-blue-500 animate-pulse" style={{ width: `${((processing + transcribing) / Math.max(totalPipeline + completed, 1)) * 100}%` }} />
+            )}
+            {queued > 0 && (
+              <div className="h-full bg-amber-500" style={{ width: `${(queued / Math.max(totalPipeline + completed, 1)) * 100}%` }} />
+            )}
+            {pendingReview > 0 && (
+              <div className="h-full bg-violet-500" style={{ width: `${(pendingReview / Math.max(totalPipeline + completed, 1)) * 100}%` }} />
+            )}
+            {scheduled > 0 && (
+              <div className="h-full bg-cyan-500" style={{ width: `${(scheduled / Math.max(totalPipeline + completed, 1)) * 100}%` }} />
+            )}
+            {published > 0 && (
+              <div className="h-full bg-emerald-500" style={{ width: `${(published / Math.max(totalPipeline + completed, 1)) * 100}%` }} />
+            )}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />Processing</span>
+            <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Queued</span>
+            <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-violet-500" />Review</span>
+            <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />Scheduled</span>
+            <span className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Shipped</span>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border/30 flex items-center justify-between">
+          <Link href="/moderation" className="text-[10px] text-primary font-mono hover:underline flex items-center gap-1" data-testid="link-view-queue">
+            Review Queue <ChevronRight className="h-3 w-3" />
+          </Link>
+          <Link href="/content" className="text-[10px] text-primary font-mono hover:underline flex items-center gap-1" data-testid="link-view-pipeline">
+            Pipeline <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AgentActivityWidget() {
   const { data: episodes } = useEpisodes();
   const { data: scheduledPosts } = useScheduledPosts();
@@ -1691,6 +1811,8 @@ function renderWidget(id: string, metrics: any, metricsLoading: boolean) {
       return <TrendingWidget key={id} />;
     case "agent_activity":
       return <AgentActivityWidget key={id} />;
+    case "queue_rollup":
+      return <QueueRollupWidget key={id} />;
     case "processing":
       return <ProcessingWidget key={id} />;
     case "content_stats":
@@ -1721,6 +1843,22 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [showCustomizer, setShowCustomizer] = useState(false);
+
+  const { events: celebrationEvents, celebrate, dismiss: dismissCelebration } = useCelebration();
+  const activityCheck = useActivityMonitor(celebrate);
+  const { data: monitorEpisodes } = useEpisodes();
+  const { data: monitorContent } = useContentPieces();
+  const { data: monitorSubscribers } = useSubscribers();
+  const { data: monitorDeals } = useDeals();
+
+  useEffect(() => {
+    activityCheck({
+      episodes: monitorEpisodes || [],
+      contentPieces: monitorContent || [],
+      subscribers: monitorSubscribers || [],
+      deals: monitorDeals || [],
+    });
+  }, [monitorEpisodes, monitorContent, monitorSubscribers, monitorDeals, activityCheck]);
 
   const savedWidgets = profile?.dashboardWidgets || user?.dashboardWidgets || [];
 
@@ -1839,6 +1977,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      <CelebrationOverlay events={celebrationEvents} onDismiss={dismissCelebration} />
     </div>
   );
 }

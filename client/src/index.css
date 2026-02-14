@@ -158,6 +158,23 @@
     100% { transform: translateX(100%); }
   }
 
+  @keyframes celebBounce {
+    0% { transform: scale(0.3) rotate(-15deg); }
+    50% { transform: scale(1.3) rotate(5deg); }
+    70% { transform: scale(0.9) rotate(-2deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  @keyframes celebFlash {
+    0% { opacity: 0.4; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes celebParticle {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(0.3); }
+  }
+
   .scanline {
     background: linear-gradient(
       to bottom,
