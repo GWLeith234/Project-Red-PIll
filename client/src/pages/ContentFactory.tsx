@@ -1928,18 +1928,34 @@ function NewsletterTab() {
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [previewRun, setPreviewRun] = useState<any>(null);
+  const [confirmSendId, setConfirmSendId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const sentCount = runs?.filter((r: any) => r.status === "sent").length || 0;
+  const draftCount = runs?.filter((r: any) => r.status === "draft").length || 0;
+  const totalCount = runs?.length || 0;
+
+  const monthNames = Array.from({ length: 12 }, (_, i) =>
+    new Date(2024, i).toLocaleString("default", { month: "long" })
+  );
 
   function handleGenerate() {
     generateNewsletter.mutate({ month, year }, {
-      onSuccess: () => toast({ title: "Newsletter Generated", description: `Newsletter for ${month}/${year} has been created.` }),
+      onSuccess: () => toast({ title: "Newsletter Generated", description: `Newsletter for ${monthNames[parseInt(month) - 1]} ${year} has been created.` }),
       onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
     });
   }
 
   function handleSend(id: string) {
     sendNewsletter.mutate(id, {
-      onSuccess: () => toast({ title: "Newsletter Sent", description: "Newsletter has been sent to subscribers." }),
-      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+      onSuccess: () => {
+        toast({ title: "Newsletter Sent", description: "Newsletter has been sent to all subscribers." });
+        setConfirmSendId(null);
+      },
+      onError: (err: any) => {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+        setConfirmSendId(null);
+      },
     });
   }
 
@@ -1948,162 +1964,347 @@ function NewsletterTab() {
       onSuccess: () => {
         toast({ title: "Newsletter Deleted" });
         if (previewRun?.id === id) setPreviewRun(null);
+        setConfirmDeleteId(null);
       },
-      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+      onError: (err: any) => {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+        setConfirmDeleteId(null);
+      },
     });
   }
 
-  return (
-    <div className="grid grid-cols-12 gap-6">
-      <div className="col-span-12 lg:col-span-7 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold font-display flex items-center gap-2">
-            <Mail className="h-5 w-5 text-primary" />
-            Newsletter Runs
-          </h2>
-        </div>
+  function getStatusConfig(status: string) {
+    switch (status) {
+      case "sent": return { color: "border-l-emerald-500", badgeCls: "border-emerald-500/40 text-emerald-400 bg-emerald-500/10", icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />, label: "Sent" };
+      case "draft": return { color: "border-l-amber-500", badgeCls: "border-amber-500/40 text-amber-400 bg-amber-500/10", icon: <Edit3 className="h-3.5 w-3.5 text-amber-400" />, label: "Draft" };
+      default: return { color: "border-l-primary", badgeCls: "border-primary/40 text-primary bg-primary/10", icon: <Mail className="h-3.5 w-3.5 text-primary" />, label: status };
+    }
+  }
 
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-3 gap-4">
         <Card className="glass-panel border-border/50">
-          <CardContent className="p-4">
-            <div className="flex items-end gap-3">
-              <div className="space-y-1">
-                <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Month</Label>
-                <Select value={month} onValueChange={setMonth}>
-                  <SelectTrigger className="w-[120px]" data-testid="select-newsletter-month">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <SelectItem key={i + 1} value={String(i + 1)}>
-                        {new Date(2024, i).toLocaleString("default", { month: "long" })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Year</Label>
-                <Select value={year} onValueChange={setYear}>
-                  <SelectTrigger className="w-[100px]" data-testid="select-newsletter-year">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[2024, 2025, 2026].map(y => (
-                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={handleGenerate}
-                disabled={generateNewsletter.isPending}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider"
-                data-testid="button-generate-newsletter"
-              >
-                {generateNewsletter.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Sparkles className="mr-2 h-3 w-3" />}
-                Generate Monthly Newsletter
-              </Button>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Mail className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-display font-bold" data-testid="text-total-newsletters">{totalCount}</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Runs</p>
             </div>
           </CardContent>
         </Card>
-
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}
-          </div>
-        ) : !runs?.length ? (
-          <Card className="glass-panel border-border/50 py-12 text-center">
-            <Mail className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-mono text-sm">No newsletter runs yet. Generate one above.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {runs.map((run: any) => (
-              <Card key={run.id} className={cn("glass-panel border-border/50 cursor-pointer transition-all", previewRun?.id === run.id && "border-primary/50")} onClick={() => setPreviewRun(run)} data-testid={`card-newsletter-${run.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-display font-bold text-sm truncate" data-testid={`text-newsletter-title-${run.id}`}>{run.title}</h3>
-                        <Badge variant="outline" className={cn(
-                          "font-mono text-[9px] uppercase",
-                          run.status === "sent" ? "border-emerald-500 text-emerald-500 bg-emerald-500/10" :
-                          run.status === "draft" ? "border-muted text-muted-foreground" :
-                          "border-primary text-primary bg-primary/10"
-                        )}>{run.status}</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground font-mono">{run.period}</p>
-                      {run.body && (
-                        <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{run.body}</p>
-                      )}
-                      {run.createdAt && (
-                        <p className="text-[10px] text-muted-foreground/60 font-mono mt-1">
-                          Created: {new Date(run.createdAt).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-1.5 flex-shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSend(run.id)}
-                        disabled={sendNewsletter.isPending || run.status === "sent"}
-                        className="font-mono text-xs border-primary/30 text-primary hover:bg-primary/10"
-                        data-testid={`button-send-newsletter-${run.id}`}
-                      >
-                        <Send className="h-3 w-3 mr-1" /> Send
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-red-500 hover:text-red-400"
-                        onClick={() => handleDelete(run.id)}
-                        data-testid={`button-delete-newsletter-${run.id}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="col-span-12 lg:col-span-5">
-        <Card className="glass-panel border-border/50 sticky top-4">
-          <CardHeader>
-            <CardTitle className="font-display text-sm flex items-center gap-2">
-              <Eye className="h-4 w-4 text-primary" />
-              Newsletter Preview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {previewRun ? (
-              <div className="space-y-3">
-                <h3 className="font-display font-bold text-lg" data-testid="text-preview-title">{previewRun.title}</h3>
-                <p className="text-xs font-mono text-muted-foreground">{previewRun.period}</p>
-                <div className="prose prose-invert prose-sm max-w-none border-t border-border/50 pt-3">
-                  {previewRun.body?.split("\n").map((line: string, i: number) => {
-                    if (line.startsWith("### ")) return <h3 key={i} className="text-sm font-semibold mt-3 mb-1">{line.replace("### ", "")}</h3>;
-                    if (line.startsWith("## ")) return <h2 key={i} className="text-base font-bold mt-4 mb-2">{line.replace("## ", "")}</h2>;
-                    if (line.startsWith("# ")) return <h1 key={i} className="text-lg font-bold mt-4 mb-2">{line.replace("# ", "")}</h1>;
-                    if (line.startsWith("> ")) return <blockquote key={i} className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground my-2">{line.replace("> ", "")}</blockquote>;
-                    if (line.trim() === "") return <br key={i} />;
-                    return <p key={i} className="mb-1.5 text-sm leading-relaxed">{line}</p>;
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                <Eye className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="font-mono text-xs">Select a newsletter to preview</p>
-              </div>
-            )}
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <Send className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-display font-bold text-emerald-400" data-testid="text-sent-newsletters">{sentCount}</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Sent</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <Edit3 className="h-5 w-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-display font-bold text-amber-400" data-testid="text-draft-newsletters">{draftCount}</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Drafts</p>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="glass-panel border-border/50 overflow-hidden">
+        <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-transparent p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-sm">Generate Newsletter</h3>
+              <p className="text-[10px] font-mono text-muted-foreground">AI will compile highlights from your published content</p>
+            </div>
+          </div>
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Month</Label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="w-[160px] bg-background/80 backdrop-blur" data-testid="select-newsletter-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthNames.map((name, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Year</Label>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="w-[110px] bg-background/80 backdrop-blur" data-testid="select-newsletter-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2024, 2025, 2026].map(y => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              disabled={generateNewsletter.isPending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider h-9 px-5"
+              data-testid="button-generate-newsletter"
+            >
+              {generateNewsletter.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-2 h-3.5 w-3.5" />}
+              Generate for {monthNames[parseInt(month) - 1]}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 lg:col-span-7 space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-display font-bold flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+              <Calendar className="h-4 w-4" />
+              Newsletter History
+            </h2>
+            {totalCount > 0 && (
+              <span className="text-[10px] font-mono text-muted-foreground">{totalCount} {totalCount === 1 ? "run" : "runs"}</span>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+            </div>
+          ) : !runs?.length ? (
+            <Card className="glass-panel border-border/50 border-dashed">
+              <CardContent className="py-16 text-center">
+                <div className="h-16 w-16 rounded-2xl bg-primary/5 flex items-center justify-center mx-auto mb-4">
+                  <Mail className="h-8 w-8 text-primary/30" />
+                </div>
+                <h3 className="font-display font-bold mb-1">No newsletters yet</h3>
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                  Select a month and year above to generate your first AI-powered newsletter from your published content.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {runs.map((run: any) => {
+                const sc = getStatusConfig(run.status);
+                const isSelected = previewRun?.id === run.id;
+                return (
+                  <Card
+                    key={run.id}
+                    className={cn(
+                      "glass-panel border-border/50 cursor-pointer transition-all border-l-[3px] hover:bg-accent/30",
+                      sc.color,
+                      isSelected && "ring-1 ring-primary/30 bg-primary/5"
+                    )}
+                    onClick={() => setPreviewRun(run)}
+                    data-testid={`card-newsletter-${run.id}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">{sc.icon}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h3 className="font-display font-bold text-sm truncate" data-testid={`text-newsletter-title-${run.id}`}>{run.title}</h3>
+                            <Badge variant="outline" className={cn("font-mono text-[9px] uppercase shrink-0", sc.badgeCls)}>
+                              {sc.label}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground font-mono mb-1">{run.period}</p>
+                          {run.body && (
+                            <p className="text-xs text-muted-foreground/70 line-clamp-2 leading-relaxed">{run.body.replace(/[#>*_]/g, "").substring(0, 150)}...</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-2">
+                            {run.createdAt && (
+                              <span className="text-[10px] text-muted-foreground/50 font-mono flex items-center gap-1">
+                                <Clock className="h-2.5 w-2.5" />
+                                {new Date(run.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </span>
+                            )}
+                            {run.sentAt && (
+                              <span className="text-[10px] text-emerald-400/70 font-mono flex items-center gap-1">
+                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                Sent {new Date(run.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
+                          {run.status !== "sent" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setConfirmSendId(run.id)}
+                              disabled={sendNewsletter.isPending}
+                              className="font-mono text-[10px] h-7 px-2.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                              data-testid={`button-send-newsletter-${run.id}`}
+                            >
+                              <Send className="h-3 w-3 mr-1" /> Send
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-red-400"
+                            onClick={() => setConfirmDeleteId(run.id)}
+                            data-testid={`button-delete-newsletter-${run.id}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="col-span-12 lg:col-span-5">
+          <div className="sticky top-4 space-y-4">
+            <Card className="glass-panel border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-sm flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-primary" />
+                  Preview
+                  {previewRun && (
+                    <Badge variant="outline" className={cn("ml-auto font-mono text-[9px] uppercase", getStatusConfig(previewRun.status).badgeCls)}>
+                      {previewRun.status}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {previewRun ? (
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-lg p-4">
+                      <h3 className="font-display font-bold text-base leading-snug mb-1" data-testid="text-preview-title">{previewRun.title}</h3>
+                      <p className="text-xs font-mono text-muted-foreground">{previewRun.period}</p>
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
+                      <div className="prose prose-invert prose-sm max-w-none">
+                        {previewRun.body?.split("\n").map((line: string, i: number) => {
+                          if (line.startsWith("### ")) return <h3 key={i} className="text-sm font-display font-semibold mt-4 mb-1.5 text-foreground">{line.replace("### ", "")}</h3>;
+                          if (line.startsWith("## ")) return <h2 key={i} className="text-base font-display font-bold mt-5 mb-2 text-foreground border-b border-border/30 pb-1">{line.replace("## ", "")}</h2>;
+                          if (line.startsWith("# ")) return <h1 key={i} className="text-lg font-display font-bold mt-5 mb-2 text-foreground">{line.replace("# ", "")}</h1>;
+                          if (line.startsWith("- ")) return <li key={i} className="text-sm text-muted-foreground ml-4 mb-1 list-disc">{line.replace("- ", "")}</li>;
+                          if (line.startsWith("> ")) return <blockquote key={i} className="border-l-2 border-primary/40 pl-3 italic text-muted-foreground my-2 text-sm">{line.replace("> ", "")}</blockquote>;
+                          if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="font-semibold text-sm text-foreground mb-1">{line.replace(/\*\*/g, "")}</p>;
+                          if (line.trim() === "---") return <hr key={i} className="border-border/30 my-4" />;
+                          if (line.trim() === "") return <div key={i} className="h-2" />;
+                          return <p key={i} className="mb-2 text-sm leading-relaxed text-muted-foreground">{line}</p>;
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-3 border-t border-border/30" onClick={(e) => e.stopPropagation()}>
+                      {previewRun.status !== "sent" ? (
+                        <Button
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs uppercase tracking-wider"
+                          onClick={() => setConfirmSendId(previewRun.id)}
+                          disabled={sendNewsletter.isPending}
+                          data-testid="button-preview-send"
+                        >
+                          <Send className="h-3.5 w-3.5 mr-2" /> Send to Subscribers
+                        </Button>
+                      ) : (
+                        <div className="flex-1 text-center py-2">
+                          <span className="text-xs font-mono text-emerald-400 flex items-center justify-center gap-1.5">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Already sent
+                          </span>
+                        </div>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                        onClick={() => setConfirmDeleteId(previewRun.id)}
+                        data-testid="button-preview-delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-12 text-center">
+                    <div className="h-14 w-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                      <Eye className="h-7 w-7 text-muted-foreground/20" />
+                    </div>
+                    <p className="font-mono text-xs text-muted-foreground">Click a newsletter to preview it here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={!!confirmSendId} onOpenChange={() => setConfirmSendId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Send className="h-5 w-5 text-emerald-400" />
+              Confirm Send
+            </DialogTitle>
+            <DialogDescription>
+              This will send the newsletter to all your subscribers. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setConfirmSendId(null)} className="font-mono text-xs">Cancel</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs uppercase tracking-wider"
+              onClick={() => confirmSendId && handleSend(confirmSendId)}
+              disabled={sendNewsletter.isPending}
+              data-testid="button-confirm-send"
+            >
+              {sendNewsletter.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Send className="mr-2 h-3 w-3" />}
+              Send Newsletter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-400" />
+              Delete Newsletter
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this newsletter? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)} className="font-mono text-xs">Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+              disabled={deleteRun.isPending}
+              className="font-mono text-xs uppercase tracking-wider"
+              data-testid="button-confirm-delete"
+            >
+              {deleteRun.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Trash2 className="mr-2 h-3 w-3" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
