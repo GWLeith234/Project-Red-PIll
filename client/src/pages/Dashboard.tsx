@@ -9,7 +9,7 @@ import {
   Mic, Mail, Building2, Megaphone, LayoutGrid,
   Shield, UserPlus, Briefcase, Package, Server, Send,
   Bot, CalendarClock, FileText, Scissors, CheckCircle2, CircleDot, CircleDashed, Film,
-  Inbox, Rocket, Trophy
+  Inbox, Rocket, Trophy, Factory
 } from "lucide-react";
 import { CelebrationOverlay, useCelebration, useActivityMonitor, EVENT_CONFIG, type CelebrationEvent } from "@/components/CelebrationOverlay";
 import { Badge } from "@/components/ui/badge";
@@ -1922,13 +1922,279 @@ function renderWidget(id: string, metrics: any, metricsLoading: boolean, winLog:
   }
 }
 
+const SCREENS = [
+  { key: "content", label: "Content Factory", icon: Factory },
+  { key: "revenue", label: "Revenue Factory", icon: DollarSign },
+  { key: "crm", label: "CRM", icon: Briefcase },
+  { key: "audience", label: "Audience", icon: Headphones },
+  { key: "admin", label: "Admin", icon: Shield },
+] as const;
+
+type ScreenKey = (typeof SCREENS)[number]["key"];
+
+function ContentFactoryScreen() {
+  const { data: episodes, isLoading: epsLoading } = useEpisodes();
+  const { data: contentPieces, isLoading: cpLoading } = useContentPieces();
+  const { data: counts } = useModerationCounts();
+  const { data: scheduledPosts } = useScheduledPosts();
+  const { data: podcasts } = usePodcasts();
+  const { data: campaigns } = useOutboundCampaigns();
+
+  const eps = episodes || [];
+  const pieces = contentPieces || [];
+  const posts = scheduledPosts || [];
+  const shows = podcasts || [];
+  const camps = campaigns || [];
+
+  const totalEpisodes = eps.length;
+  const transcribed = eps.filter((e: any) => e.transcriptStatus === "complete").length;
+  const processing = eps.filter((e: any) => e.processingStatus === "processing" || e.transcriptStatus === "processing").length;
+  const queued = eps.filter((e: any) => e.processingStatus === "pending" || e.processingStatus === "queued").length;
+  const completed = eps.filter((e: any) => e.processingStatus === "complete").length;
+
+  const totalContent = pieces.length;
+  const byType: Record<string, number> = {};
+  const byStatus: Record<string, number> = {};
+  pieces.forEach((p: any) => {
+    byType[p.type || "other"] = (byType[p.type || "other"] || 0) + 1;
+    byStatus[p.status || "draft"] = (byStatus[p.status || "draft"] || 0) + 1;
+  });
+  const typeData = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+  const published = (byStatus["approved"] || 0) + (byStatus["published"] || 0);
+  const drafts = byStatus["draft"] || 0;
+  const pendingReview = counts?._total || 0;
+  const scheduled = posts.filter((p: any) => p.status === "scheduled").length;
+  const activeCampaigns = camps.filter((c: any) => c.status === "active" || c.status === "sending").length;
+
+  const processingEps = eps.filter((e: any) => e.processingStatus === "processing" || e.transcriptStatus === "processing").slice(0, 4);
+  const allSteps = ["transcription", "keywords", "article", "blog", "social", "clips", "newsletter", "seo"];
+  const stepLabels: Record<string, string> = {
+    transcription: "Transcribe", keywords: "Keywords", article: "Article",
+    blog: "Blog", social: "Social", clips: "Clips", newsletter: "Newsletter", seo: "SEO",
+  };
+
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+  const isLoading = epsLoading || cpLoading;
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">
+        {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-content-factory">
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-episodes">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Episodes</span>
+          <Mic className="h-4 w-4 text-primary/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{totalEpisodes}</p>
+        <div className="flex items-center gap-2 text-[10px] font-mono">
+          <span className="text-accent">{transcribed} transcribed</span>
+          <span className="text-muted-foreground">|</span>
+          <span className="text-primary">{completed} processed</span>
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-content">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Content Pieces</span>
+          <Layers className="h-4 w-4 text-accent/60" />
+        </div>
+        <p className="text-4xl font-display font-bold text-foreground">{totalContent}</p>
+        <div className="flex items-center gap-2 text-[10px] font-mono">
+          <span className="text-accent">{published} shipped</span>
+          <span className="text-muted-foreground">|</span>
+          <span className="text-primary">{drafts} drafts</span>
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-pipeline-status">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Pipeline</span>
+          {processing > 0 ? (
+            <Badge variant="outline" className="text-[9px] font-mono bg-blue-500/10 text-blue-400 border-blue-500/30 animate-pulse">LIVE</Badge>
+          ) : (
+            <Zap className="h-4 w-4 text-chart-3/60" />
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <p className="text-2xl font-display font-bold text-blue-400">{processing}</p>
+            <p className="text-[9px] font-mono text-blue-400/70 uppercase">Processing</p>
+          </div>
+          <div>
+            <p className="text-2xl font-display font-bold text-amber-400">{queued}</p>
+            <p className="text-[9px] font-mono text-amber-400/70 uppercase">Queued</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-distribution">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Distribution</span>
+          <Send className="h-4 w-4 text-violet-400/60" />
+        </div>
+        <div className="grid grid-cols-3 gap-1">
+          <div className="text-center">
+            <p className="text-xl font-display font-bold text-violet-400">{pendingReview}</p>
+            <p className="text-[8px] font-mono text-violet-400/70 uppercase">Review</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-display font-bold text-cyan-400">{scheduled}</p>
+            <p className="text-[8px] font-mono text-cyan-400/70 uppercase">Scheduled</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-display font-bold text-emerald-400">{activeCampaigns}</p>
+            <p className="text-[8px] font-mono text-emerald-400/70 uppercase">Campaigns</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="col-span-5 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-content-breakdown">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Content Breakdown
+          </h3>
+          <span className="text-[10px] font-mono text-muted-foreground">{totalContent} total</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          {typeData.length > 0 ? (
+            <div className="h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={typeData.slice(0, 8).map(([name, count]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, " "), count }))} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} horizontal={false} />
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", borderColor: "hsl(var(--border))", fontFamily: "JetBrains Mono", fontSize: "11px" }} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={14}>
+                    {typeData.slice(0, 8).map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">No content yet</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-active-jobs">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Bot className="h-3.5 w-3.5" /> AI Agent Jobs
+          </h3>
+          {processing > 0 && (
+            <Badge variant="outline" className="text-[9px] font-mono bg-blue-500/10 text-blue-400 border-blue-500/30 animate-pulse">
+              {processing} active
+            </Badge>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {processingEps.length > 0 ? processingEps.map((ep: any) => {
+            const podcast = shows.find((p: any) => p.id === ep.podcastId);
+            const currentStep = ep.processingStep || "transcription";
+            const currentStepIdx = Math.max(0, allSteps.indexOf(currentStep));
+            return (
+              <div key={ep.id} className="p-2.5 border border-blue-500/15 bg-blue-500/5 rounded-lg space-y-2" data-testid={`job-${ep.id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold truncate">{ep.title}</p>
+                    <p className="text-[9px] text-muted-foreground font-mono truncate">{podcast?.title || ""}</p>
+                  </div>
+                  <span className="text-[10px] font-mono text-blue-400 font-bold ml-2">{ep.processingProgress || 0}%</span>
+                </div>
+                <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${ep.processingProgress || 0}%`, background: "linear-gradient(90deg, hsl(217 91% 60%), hsl(199 89% 48%))" }} />
+                </div>
+                <div className="flex items-center gap-0.5 flex-wrap">
+                  {allSteps.map((step, i) => {
+                    const isDone = i < currentStepIdx;
+                    const isActive = step === currentStep;
+                    return (
+                      <span key={step} className={cn(
+                        "text-[7px] font-mono px-0.5 py-0.5 rounded",
+                        isDone && "text-emerald-400",
+                        isActive && "text-blue-400 font-semibold animate-pulse",
+                        !isDone && !isActive && "text-muted-foreground/30"
+                      )}>
+                        {isDone && <CheckCircle2 className="inline h-2 w-2 mr-0.5" />}
+                        {isActive && <Loader2 className="inline h-2 w-2 mr-0.5 animate-spin" />}
+                        {stepLabels[step]}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="h-full flex flex-col items-center justify-center text-center">
+              <Bot className="h-8 w-8 text-muted-foreground/20 mb-2" />
+              <p className="text-xs text-muted-foreground">All agents idle</p>
+              <p className="text-[9px] text-muted-foreground/50 font-mono mt-0.5">Queue episodes to start processing</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="col-span-3 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-content-status">
+        <h3 className="text-xs font-mono font-semibold text-accent uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <Target className="h-3.5 w-3.5" /> Status Breakdown
+        </h3>
+        <div className="flex-1 space-y-2.5 overflow-y-auto">
+          {[
+            { label: "Published", count: published, color: "bg-emerald-500", textColor: "text-emerald-400" },
+            { label: "Approved", count: byStatus["approved"] || 0, color: "bg-accent", textColor: "text-accent" },
+            { label: "Pending Review", count: pendingReview, color: "bg-violet-500", textColor: "text-violet-400" },
+            { label: "Drafts", count: drafts, color: "bg-muted-foreground", textColor: "text-muted-foreground" },
+            { label: "Scheduled Posts", count: scheduled, color: "bg-cyan-500", textColor: "text-cyan-400" },
+            { label: "Active Campaigns", count: activeCampaigns, color: "bg-primary", textColor: "text-primary" },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <span className={cn("h-2.5 w-2.5 rounded-sm flex-shrink-0", item.color)} />
+              <span className="text-[10px] font-mono text-muted-foreground flex-1 truncate">{item.label}</span>
+              <span className={cn("text-sm font-display font-bold tabular-nums", item.textColor)}>{item.count}</span>
+            </div>
+          ))}
+
+          <div className="pt-2 mt-2 border-t border-border/30">
+            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60 mb-2">Shows</p>
+            {shows.slice(0, 4).map((p: any) => (
+              <div key={p.id} className="flex items-center gap-2 py-1">
+                <div className="h-5 w-5 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Radio className="h-2.5 w-2.5 text-primary/60" />
+                </div>
+                <span className="text-[10px] font-mono text-foreground truncate flex-1">{p.title}</span>
+                <span className="text-[9px] font-mono text-muted-foreground">{eps.filter((e: any) => e.podcastId === p.id).length} ep</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlaceholderScreen({ label, icon: Icon }: { label: string; icon: any }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center" data-testid={`screen-${label.toLowerCase().replace(/\s+/g, "-")}-placeholder`}>
+      <Icon className="h-16 w-16 text-muted-foreground/15 mb-4" />
+      <p className="text-xl font-display font-bold text-muted-foreground/40 uppercase tracking-wider">{label}</p>
+      <p className="text-xs font-mono text-muted-foreground/30 mt-1">Coming Soon</p>
+    </div>
+  );
+}
+
 export default function Dashboard() {
-  const { data: metrics, isLoading: metricsLoading } = useMetrics();
-  const { data: profile } = useProfile();
-  const updateProfile = useUpdateProfile();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [activeScreen, setActiveScreen] = useState<ScreenKey>("content");
 
   const { events: celebrationEvents, celebrate, dismiss: dismissCelebration, winLog } = useCelebration();
   const activityCheck = useActivityMonitor(celebrate);
@@ -1946,121 +2212,101 @@ export default function Dashboard() {
     });
   }, [monitorEpisodes, monitorContent, monitorSubscribers, monitorDeals, activityCheck]);
 
-  const savedWidgets = profile?.dashboardWidgets || user?.dashboardWidgets || [];
+  const currentIdx = SCREENS.findIndex(s => s.key === activeScreen);
+  const goPrev = () => {
+    const prev = (currentIdx - 1 + SCREENS.length) % SCREENS.length;
+    setActiveScreen(SCREENS[prev].key);
+  };
+  const goNext = () => {
+    const next = (currentIdx + 1) % SCREENS.length;
+    setActiveScreen(SCREENS[next].key);
+  };
 
-  const migrateOldWidgets = (widgets: string[]): string[] => {
-    const map: Record<string, string> = {
-      revenue: "revenue_chart",
-      composition: "revenue_composition",
-      listeners: "kpi_listeners",
-      content: "kpi_content",
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowRight") goNext();
     };
-    return widgets.map(w => map[w] || w);
-  };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [activeScreen]);
 
-  const rawWidgets = migrateOldWidgets(savedWidgets);
-  const activeWidgets = rawWidgets.length > 0 ? rawWidgets : DEFAULT_WIDGETS;
-
-  const allWidgetIds = ALL_WIDGETS.map(w => w.id);
-  const widgetOrder = Array.from(new Set([...activeWidgets, ...allWidgetIds]));
-
-  const toggleWidget = async (id: string) => {
-    const current = [...activeWidgets];
-    const idx = current.indexOf(id);
-    if (idx >= 0) {
-      current.splice(idx, 1);
-    } else {
-      current.push(id);
-    }
-    try {
-      await updateProfile.mutateAsync({ dashboardWidgets: current });
-    } catch {
-      toast({ title: "Failed to update widgets", variant: "destructive" });
-    }
-  };
-
-  const handleReorder = async (newOrder: string[]) => {
-    const reordered = newOrder.filter(id => activeWidgets.includes(id));
-    try {
-      await updateProfile.mutateAsync({ dashboardWidgets: reordered });
-    } catch {
-      toast({ title: "Failed to reorder", variant: "destructive" });
-    }
-  };
-
-  const kpiWidgets = activeWidgets.filter(id => id.startsWith("kpi_"));
-  const otherWidgets = activeWidgets.filter(id => !id.startsWith("kpi_"));
-
-  const getWidgetSize = (id: string) => ALL_WIDGETS.find(w => w.id === id)?.size || "md";
+  const activeScreenData = SCREENS[currentIdx];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Command Center</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">System Status: OPERATIONAL | v2.4.0</p>
+    <div className="flex flex-col h-[calc(100vh-2rem)] animate-in fade-in duration-500" data-testid="command-center">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold font-display tracking-tight text-foreground flex items-center gap-2">
+              Command Center
+              <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/30 px-1.5 py-0.5 rounded-sm uppercase tracking-widest">Live</span>
+            </h1>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            className={cn(
-              "font-mono text-xs uppercase tracking-wider border-primary/20 hover:border-primary/50 hover:bg-primary/10 hover:text-primary",
-              showCustomizer && "bg-primary/10 border-primary/50 text-primary"
-            )}
-            onClick={() => setShowCustomizer(!showCustomizer)}
-            data-testid="button-customize-dashboard"
-          >
-            <LayoutGrid className="mr-2 h-3 w-3" />
-            Customize
-          </Button>
-          <Button variant="outline" className="font-mono text-xs uppercase tracking-wider border-primary/20 hover:border-primary/50 hover:bg-primary/10 hover:text-primary" data-testid="button-export">
-            <ExternalLink className="mr-2 h-3 w-3" />
-            Export Report
-          </Button>
+        <div className="flex items-center gap-2">
+          <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" data-testid="button-prev-screen">
+            <ChevronRight className="h-4 w-4 rotate-180" />
+          </button>
+          <div className="flex items-center gap-1">
+            {SCREENS.map((screen) => (
+              <button
+                key={screen.key}
+                onClick={() => setActiveScreen(screen.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all",
+                  activeScreen === screen.key
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                )}
+                data-testid={`button-screen-${screen.key}`}
+              >
+                <screen.icon className="h-3 w-3" />
+                {screen.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={goNext} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" data-testid="button-next-screen">
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
-      {showCustomizer && (
-        <WidgetCustomizer
-          activeWidgets={activeWidgets}
-          widgetOrder={widgetOrder}
-          onToggle={toggleWidget}
-          onReorder={handleReorder}
-          onClose={() => setShowCustomizer(false)}
-        />
-      )}
+      <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-4 relative overflow-hidden" style={{ aspectRatio: "16/9" }} data-testid="screen-viewport">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
-      {kpiWidgets.length > 0 && (
-        <div className={cn("grid gap-4", kpiWidgets.length === 1 ? "grid-cols-1" : kpiWidgets.length === 2 ? "grid-cols-2" : kpiWidgets.length === 3 ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-4")}>
-          {kpiWidgets.map(id => renderWidget(id, metrics, metricsLoading, winLog))}
+        <div className="h-full w-full">
+          {activeScreen === "content" && <ContentFactoryScreen />}
+          {activeScreen === "revenue" && <PlaceholderScreen label="Revenue Factory" icon={DollarSign} />}
+          {activeScreen === "crm" && <PlaceholderScreen label="CRM" icon={Briefcase} />}
+          {activeScreen === "audience" && <PlaceholderScreen label="Audience" icon={Headphones} />}
+          {activeScreen === "admin" && <PlaceholderScreen label="Admin" icon={Shield} />}
         </div>
-      )}
 
-      {otherWidgets.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {otherWidgets.map(id => {
-            const size = getWidgetSize(id);
-            return (
-              <div key={id} className={cn(size === "lg" ? "md:col-span-2" : "col-span-1")}>
-                {renderWidget(id, metrics, metricsLoading, winLog)}
-              </div>
-            );
-          })}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+          {SCREENS.map((screen) => (
+            <button
+              key={screen.key}
+              onClick={() => setActiveScreen(screen.key)}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                activeScreen === screen.key ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+              )}
+              data-testid={`dot-screen-${screen.key}`}
+            />
+          ))}
         </div>
-      )}
+      </div>
 
-      {activeWidgets.length === 0 && !showCustomizer && (
-        <Card className="glass-panel border-dashed border-2 border-border/50">
-          <CardContent className="py-12 text-center">
-            <LayoutGrid className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground text-sm mb-3">Your dashboard is empty. Add widgets to get started.</p>
-            <Button variant="outline" onClick={() => setShowCustomizer(true)} className="font-mono text-xs" data-testid="button-add-widgets">
-              <LayoutGrid className="h-3 w-3 mr-2" />
-              Add Widgets
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <div className="flex items-center justify-between mt-2 flex-shrink-0">
+        <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider">
+          {activeScreenData.label} &middot; Screen {currentIdx + 1} of {SCREENS.length}
+        </p>
+        <p className="text-[10px] font-mono text-muted-foreground/50">
+          Use arrow keys or click to navigate
+        </p>
+      </div>
 
       <CelebrationOverlay events={celebrationEvents} onDismiss={dismissCelebration} />
     </div>
