@@ -434,6 +434,7 @@ export const outboundCampaigns = pgTable("outbound_campaigns", {
   name: text("name").notNull(),
   type: text("type").notNull(),
   audience: text("audience").notNull(),
+  companyId: varchar("company_id"),
   status: text("status").default("draft").notNull(),
   subject: text("subject"),
   body: text("body").notNull(),

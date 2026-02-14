@@ -19,6 +19,8 @@ import {
   Bot,
   ChevronDown,
   ExternalLink,
+  ContactRound,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +33,7 @@ type NavItem = {
 
 type NavGroup = {
   label: string;
+  icon?: LucideIcon;
   items: NavItem[];
 };
 
@@ -52,14 +55,20 @@ const navGroups: NavGroup[] = [
     label: "Revenue",
     items: [
       { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
-      { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
     ],
   },
   {
-    label: "Audience",
+    label: "CRM",
+    icon: ContactRound,
     items: [
-      { name: "Podcast Network", href: "/network", icon: Radio, permission: "network.view" },
+      { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
       { name: "Subscriber CRM", href: "/audience", icon: Users, permission: "audience.view" },
+    ],
+  },
+  {
+    label: "Network",
+    items: [
+      { name: "Network Management", href: "/network", icon: Network, permission: "network.view" },
       { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },
       { name: "View Live Site", href: "/home", icon: ExternalLink, permission: "dashboard.view" },
     ],
@@ -102,7 +111,10 @@ function NavGroupSection({ group, location, hasPermission, collapsed, onToggle }
           )}
           data-testid={`button-nav-group-${group.label.toLowerCase()}`}
         >
-          <span>{group.label}</span>
+          <span className="flex items-center gap-1.5">
+            {group.icon && <group.icon className="h-3 w-3" />}
+            {group.label}
+          </span>
           <ChevronDown className={cn(
             "h-3 w-3 transition-transform duration-200",
             isCollapsed && "-rotate-90"

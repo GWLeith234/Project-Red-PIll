@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts } from "@/lib/api";
+import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -18,9 +18,9 @@ import {
 import { cn } from "@/lib/utils";
 import {
   Globe, Zap, FileText, Bell, Shield, Wifi, WifiOff,
-  Save, Loader2, AlertTriangle, Sparkles, MapPin,
+  Save, Loader2, AlertTriangle, Sparkles, MapPin, Upload, X,
   CheckCircle2, ArrowRight, Lightbulb, Facebook, Linkedin,
-  Building2, Eye, Edit3, RefreshCw, Trash2, Radio,
+  Building2, Eye, Edit3, RefreshCw, Trash2, Radio, Image as ImageIcon,
 } from "lucide-react";
 
 const TIMEZONES = [
@@ -245,12 +245,17 @@ function RadioGroup({ label, options, value, onChange, testId, disabled }: {
 export default function Settings() {
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
+  const { data: branding, isLoading: brandingLoading } = useBranding();
+  const updateBranding = useUpdateBranding();
   const { hasPermission } = useAuth();
   const { toast } = useToast();
   const canEdit = hasPermission("settings.edit");
   const [smartLoading, setSmartLoading] = useState(false);
   const [smartReasons, setSmartReasons] = useState<Record<string, string>>({});
   const [smartApplied, setSmartApplied] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const [form, setForm] = useState({
     companyLocation: "",
@@ -271,6 +276,13 @@ export default function Settings() {
     requireStrongPasswords: true,
     twoFactorEnabled: false,
   });
+
+  useEffect(() => {
+    if (branding) {
+      setCompanyName(branding.companyName || "");
+      setLogoUrl(branding.logoUrl || "");
+    }
+  }, [branding]);
 
   useEffect(() => {
     if (settings) {
@@ -295,6 +307,49 @@ export default function Settings() {
       });
     }
   }, [settings]);
+
+  const handleSaveBranding = () => {
+    if (!canEdit) return;
+    updateBranding.mutate({ companyName, logoUrl }, {
+      onSuccess: () => {
+        toast({ title: "Branding Saved", description: "Company name and logo have been updated." });
+      },
+      onError: (err: any) => {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      },
+    });
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const newLogoUrl = objectPath;
+      setLogoUrl(newLogoUrl);
+      updateBranding.mutate({ companyName, logoUrl: newLogoUrl }, {
+        onSuccess: () => toast({ title: "Logo Updated", description: "Your logo has been uploaded and saved." }),
+      });
+    } catch (err: any) {
+      toast({ title: "Upload Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
 
   const handleSave = () => {
     if (!canEdit) return;
@@ -420,7 +475,83 @@ export default function Settings() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-general">
-          <SectionHeader icon={Globe} title="General" description="Regional and display preferences" />
+          <SectionHeader icon={Globe} title="General" description="Company identity and regional preferences" />
+
+          <div data-testid="company-name">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <Building2 className="h-3 w-3" />
+                Company Name
+              </span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="e.g. MediaTech Empire"
+                disabled={!canEdit}
+                className="flex-1 bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50"
+                data-testid="input-company-name"
+              />
+              {canEdit && companyName !== (branding?.companyName || "") && (
+                <button
+                  onClick={handleSaveBranding}
+                  disabled={updateBranding.isPending}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  data-testid="button-save-company-name"
+                >
+                  {updateBranding.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Displayed in the sidebar, emails, and public pages</p>
+          </div>
+
+          <div data-testid="company-logo">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <ImageIcon className="h-3 w-3" />
+                Company Logo
+              </span>
+            </label>
+            <div className="flex items-center gap-4">
+              {logoUrl ? (
+                <div className="relative group">
+                  <div className="h-16 w-40 border border-border bg-background flex items-center justify-center p-2">
+                    <img src={logoUrl} alt="Company logo" className="max-h-full max-w-full object-contain" />
+                  </div>
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        setLogoUrl("");
+                        updateBranding.mutate({ companyName, logoUrl: "" }, {
+                          onSuccess: () => toast({ title: "Logo Removed" }),
+                        });
+                      }}
+                      className="absolute -top-2 -right-2 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      data-testid="button-remove-logo"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="h-16 w-40 border border-dashed border-muted-foreground/30 bg-background/50 flex items-center justify-center text-muted-foreground/50">
+                  <ImageIcon className="h-6 w-6" />
+                </div>
+              )}
+              {canEdit && (
+                <label className="flex items-center gap-1.5 px-3 py-2 bg-card border border-border text-muted-foreground text-xs font-mono uppercase tracking-wider hover:border-primary/30 hover:text-foreground transition-colors cursor-pointer">
+                  {logoUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  {logoUploading ? "Uploading..." : "Upload Logo"}
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="sr-only" data-testid="input-logo-upload" />
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Recommended: PNG or SVG, at least 200px wide</p>
+          </div>
 
           <div data-testid="company-location">
             <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">

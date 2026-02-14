@@ -2851,7 +2851,7 @@ export async function registerRoutes(
           dealId: data.id,
           name: `${data.title} — ${company?.name || "Campaign"}`,
           budget: data.value || 0,
-          status: "scheduled",
+          status: "active",
           startDate: data.startDate || new Date(),
           endDate: data.closeDate || undefined,
         });

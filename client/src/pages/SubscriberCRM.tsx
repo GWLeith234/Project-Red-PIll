@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   useSubscribers, useCreateSubscriber, useUpdateSubscriber, useDeleteSubscriber,
   useSubscriber, useSubscriberSuggestions, useSubscriberRecentEpisodes, useAddSubscriberPodcast,
-  useAnalyzeSocial, usePodcasts,
+  useAnalyzeSocial, usePodcasts, useCompanies,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
   useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
   useCampaignEmails, useCreateCampaignEmail, useUpdateCampaignEmail, useDeleteCampaignEmail,
@@ -669,13 +669,14 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
   );
 }
 
-function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, statusColor }: {
+function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, statusColor, companies }: {
   campaignId: string;
   campaign: any;
   onBack: () => void;
   onSend: (id: string) => void;
   onDelete: (id: string, name: string) => void;
   statusColor: (status: string) => string;
+  companies?: any[];
 }) {
   const { data: emails, isLoading: emailsLoading } = useCampaignEmails(campaignId);
   const createEmail = useCreateCampaignEmail();
@@ -958,6 +959,7 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, status
           <Card className="glass-panel border-border/50">
             <CardContent className="p-4 space-y-3">
               {[
+                { label: "Customer", value: c.companyId ? (companies || []).find((co: any) => co.id === c.companyId)?.name || "—" : "—" },
                 { label: "Cadence Type", value: c.cadenceType || "single" },
                 { label: "Audience", value: c.audience || "—" },
                 { label: "Podcast Filter", value: c.podcastFilter || "All" },
@@ -1081,9 +1083,10 @@ export default function SubscriberCRM() {
   const [showSaveListDialog, setShowSaveListDialog] = useState(false);
   const [showListsPanel, setShowListsPanel] = useState(false);
   const [listName, setListName] = useState("");
-  const [campaignForm, setCampaignForm] = useState({ name: "", type: "email" as "email" | "sms", subject: "", body: "", podcastFilter: "" });
+  const [campaignForm, setCampaignForm] = useState({ name: "", type: "email" as "email" | "sms", subject: "", body: "", podcastFilter: "", companyId: "" });
   const { data: subscribers, isLoading } = useSubscribers(filterPodcast);
   const { data: podcasts } = usePodcasts();
+  const { data: companies } = useCompanies();
   const createSubscriber = useCreateSubscriber();
   const deleteSubscriber = useDeleteSubscriber();
   const { data: campaignsList, isLoading: campaignsLoading } = useOutboundCampaigns("subscribers");
@@ -1217,10 +1220,11 @@ export default function SubscriberCRM() {
         ...campaignForm,
         audience: "subscribers",
         podcastFilter: campaignForm.podcastFilter || null,
+        companyId: campaignForm.companyId || null,
       });
       toast({ title: "Campaign Created" });
       setShowCampaignDialog(false);
-      setCampaignForm({ name: "", type: "email", subject: "", body: "", podcastFilter: "" });
+      setCampaignForm({ name: "", type: "email", subject: "", body: "", podcastFilter: "", companyId: "" });
     } catch (err: any) {
       toast({ title: "Failed", description: err.message, variant: "destructive" });
     }
@@ -1315,14 +1319,35 @@ export default function SubscriberCRM() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
-                <div>
-                  <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Campaign Name *</label>
-                  <Input
-                    value={campaignForm.name}
-                    onChange={(e) => setCampaignForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Q1 Newsletter Blast"
-                    data-testid="input-campaign-name"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Campaign Name *</label>
+                    <Input
+                      value={campaignForm.name}
+                      onChange={(e) => setCampaignForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Q1 Newsletter Blast"
+                      data-testid="input-campaign-name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Customer</label>
+                    <Select value={campaignForm.companyId || "none"} onValueChange={(v) => setCampaignForm(f => ({ ...f, companyId: v === "none" ? "" : v }))}>
+                      <SelectTrigger data-testid="select-campaign-company">
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Customer</SelectItem>
+                        {(companies || []).map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <span className="flex items-center gap-2">
+                              <Building className="h-3 w-3 text-muted-foreground" />
+                              {c.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1669,6 +1694,7 @@ export default function SubscriberCRM() {
               onSend={handleSendCampaign}
               onDelete={(id, name) => { handleDeleteCampaign(id, name); setSelectedCampaignId(null); }}
               statusColor={statusColor}
+              companies={companies || []}
             />
           ) : campaignsLoading ? (
             <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
@@ -1694,6 +1720,12 @@ export default function SubscriberCRM() {
                             {c.type}
                           </Badge>
                         </div>
+                        {c.companyId && (
+                          <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1">
+                            <Building className="h-3 w-3" />
+                            {(companies || []).find((co: any) => co.id === c.companyId)?.name || "Unknown Customer"}
+                          </p>
+                        )}
                         {c.subject && (
                           <p className="text-xs text-muted-foreground mb-1 truncate" data-testid={`text-campaign-subject-${c.id}`}>
                             <span className="font-mono text-muted-foreground/60">Subject:</span> {c.subject}
