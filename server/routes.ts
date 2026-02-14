@@ -236,6 +236,54 @@ export async function registerRoutes(
     res.json(result);
   });
 
+  async function enrichArticlesWithPodcast(articles: any[], st: typeof storage) {
+    const episodeIds = [...new Set(articles.map(a => a.episodeId))];
+    const episodes = await Promise.all(episodeIds.map(id => st.getEpisode(id)));
+    const epMap = Object.fromEntries(episodes.filter(Boolean).map(e => [e!.id, e!]));
+    const podcastIds = [...new Set(episodes.filter(Boolean).map(e => e!.podcastId))];
+    const podcasts = await Promise.all(podcastIds.map(id => st.getPodcast(id)));
+    const podMap = Object.fromEntries(podcasts.filter(Boolean).map(p => [p!.id, p!]));
+    return articles.map(a => {
+      const ep = epMap[a.episodeId];
+      const pod = ep ? podMap[ep.podcastId] : null;
+      return { ...a, podcastId: ep?.podcastId || null, podcastTitle: pod?.title || null, podcastImage: pod?.coverImage || null };
+    });
+  }
+
+  app.post("/api/content-pieces/recommendations", async (req, res) => {
+    const { readArticleIds = [], limit = 6 } = req.body;
+    const allPieces = await storage.getContentPieces();
+    const articles = allPieces.filter((c: any) => c.type === "article" && c.status === "published");
+
+    if (!readArticleIds.length) {
+      const shuffled = articles.sort(() => Math.random() - 0.5).slice(0, limit);
+      const enriched = await enrichArticlesWithPodcast(shuffled, storage);
+      return res.json(enriched);
+    }
+
+    const readSet = new Set(readArticleIds);
+    const readArticles = articles.filter((a: any) => readSet.has(a.id));
+    const unread = articles.filter((a: any) => !readSet.has(a.id));
+
+    const readEpisodeIds = new Set(readArticles.map((a: any) => a.episodeId));
+    const readKeywords = new Set(readArticles.flatMap((a: any) => a.seoKeywords || []));
+
+    const scored = unread.map((a: any) => {
+      let score = 0;
+      if (readEpisodeIds.has(a.episodeId)) score += 5;
+      const keywords = a.seoKeywords || [];
+      keywords.forEach((kw: string) => { if (readKeywords.has(kw)) score += 2; });
+      const age = Date.now() - new Date(a.publishedAt || a.createdAt || 0).getTime();
+      score += Math.max(0, 3 - age / (1000 * 60 * 60 * 24 * 7));
+      return { ...a, _score: score };
+    });
+
+    scored.sort((a: any, b: any) => b._score - a._score);
+    const topPicks = scored.slice(0, limit).map(({ _score, ...rest }: any) => rest);
+    const enriched = await enrichArticlesWithPodcast(topPicks, storage);
+    res.json(enriched);
+  });
+
   app.get("/api/content-pieces/:id", async (req, res) => {
     const data = await storage.getContentPiece(req.params.id);
     if (!data) return res.status(404).json({ message: "Not found" });

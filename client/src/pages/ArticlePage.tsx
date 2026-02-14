@@ -1,13 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, ChevronRight, Clock, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User, Bookmark } from "lucide-react";
+import { Mic, ChevronRight, Clock, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User, Bookmark, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
 import { useReadLater } from "@/hooks/use-read-later";
+import { useReadingProgress } from "@/hooks/use-reading-progress";
+import { useReadingHistory } from "@/hooks/use-reading-history";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -232,10 +234,171 @@ function CommentSection({ articleId }: { articleId: string }) {
   );
 }
 
+function ReadingProgressBar({ progress }: { progress: number }) {
+  if (progress <= 0) return null;
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-gray-200/50 print:hidden" data-testid="reading-progress-bar">
+      <div
+        className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 transition-all duration-150 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+      {progress > 5 && (
+        <div className="absolute right-3 -bottom-6 bg-gray-900 text-white text-[10px] font-mono px-1.5 py-0.5 rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none" style={{ opacity: progress > 0 && progress < 100 ? 0.7 : 0 }}>
+          {progress}%
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecommendedArticles({ currentArticleId, podcastId }: { currentArticleId: string; podcastId?: string }) {
+  const { getReadArticleIds } = useReadingHistory();
+  const readIds = getReadArticleIds();
+
+  const { data: recommendations, isLoading } = useQuery({
+    queryKey: ["/api/content-pieces/recommendations", readIds.slice(0, 20)],
+    queryFn: async () => {
+      const res = await fetch("/api/content-pieces/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ readArticleIds: readIds.slice(0, 20), limit: 6 }),
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filtered = (recommendations || []).filter((r: any) => r.id !== currentArticleId);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3" data-testid="recommendations-loading">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="flex gap-3">
+            <Skeleton className="h-16 w-16 rounded-lg bg-gray-200 shrink-0" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-full mb-2 bg-gray-200" />
+              <Skeleton className="h-3 w-2/3 bg-gray-100" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!filtered.length) return null;
+
+  return (
+    <div data-testid="recommended-articles">
+      {filtered.slice(0, 4).map((rec: any) => (
+        <Link
+          key={rec.id}
+          href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
+          className="flex gap-3 py-3 border-b border-gray-100 last:border-0 group cursor-pointer"
+          data-testid={`recommended-article-${rec.id}`}
+        >
+          {rec.coverImage ? (
+            <img src={rec.coverImage} alt="" className="h-16 w-16 rounded-lg object-cover bg-gray-100 shrink-0 group-hover:opacity-80 transition-opacity" />
+          ) : (
+            <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+              <Mic className="h-5 w-5 text-gray-400" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+              {rec.title}
+            </h4>
+            <div className="flex items-center gap-2 mt-1">
+              {rec.podcastTitle && (
+                <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
+              )}
+              {rec.readingTime && (
+                <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                  <Clock className="h-3 w-3" /> {rec.readingTime} min
+                </span>
+              )}
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function RecommendedArticlesBottom({ currentArticleId, podcastId }: { currentArticleId: string; podcastId?: string }) {
+  const { getReadArticleIds } = useReadingHistory();
+  const readIds = getReadArticleIds();
+
+  const { data: recommendations, isLoading } = useQuery({
+    queryKey: ["/api/content-pieces/recommendations", readIds.slice(0, 20)],
+    queryFn: async () => {
+      const res = await fetch("/api/content-pieces/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ readArticleIds: readIds.slice(0, 20), limit: 6 }),
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const filtered = (recommendations || []).filter((r: any) => r.id !== currentArticleId);
+  if (isLoading || !filtered.length) return null;
+
+  return (
+    <div className="mt-10 pt-8 border-t border-gray-200" data-testid="recommended-articles-bottom">
+      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-blue-500" />
+        Recommended For You
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.slice(0, 6).map((rec: any) => (
+          <Link
+            key={rec.id}
+            href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
+            className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer"
+            data-testid={`recommended-bottom-${rec.id}`}
+          >
+            {rec.coverImage ? (
+              <div className="h-32 overflow-hidden">
+                <img src={rec.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              </div>
+            ) : (
+              <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
+                <Mic className="h-8 w-8 text-gray-300" />
+              </div>
+            )}
+            <div className="p-3">
+              <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+                {rec.title}
+              </h4>
+              <div className="flex items-center gap-2 mt-2">
+                {rec.podcastTitle && (
+                  <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
+                )}
+                {rec.readingTime && (
+                  <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                    <Clock className="h-3 w-3" /> {rec.readingTime} min
+                  </span>
+                )}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ArticlePage() {
   const params = useParams<{ podcastId: string; articleId: string }>();
   const { isSubscribed, recommendations, subscriberName } = useSubscription(params.podcastId);
   const { isSaved, toggleArticle } = useReadLater();
+  const articleContentRef = useRef<HTMLElement>(null);
+  const progress = useReadingProgress(articleContentRef);
+  const { recordRead } = useReadingHistory();
 
   const { data: article, isLoading: articleLoading, error: articleError } = useQuery({
     queryKey: ["/api/content-pieces", params.articleId],
@@ -254,6 +417,19 @@ export default function ArticlePage() {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (article && params.podcastId) {
+      recordRead({
+        id: article.id,
+        title: article.title,
+        type: article.type || "article",
+        episodeId: article.episodeId,
+        podcastId: params.podcastId,
+        coverImage: article.coverImage,
+      });
+    }
+  }, [article?.id]);
 
   if (articleLoading) {
     return (
@@ -289,6 +465,7 @@ export default function ArticlePage() {
 
   return (
     <div className="bg-gray-50 min-h-screen" data-testid="article-page">
+      <ReadingProgressBar progress={progress} />
       <nav className="bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
@@ -308,7 +485,7 @@ export default function ArticlePage() {
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 max-w-[720px]">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
-              <article data-testid={`article-detail-${article.id}`}>
+              <article ref={articleContentRef} data-testid={`article-detail-${article.id}`}>
                 <header className="mb-6">
                   <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-4" data-testid="text-article-headline">
                     {article.title}
@@ -437,6 +614,8 @@ export default function ArticlePage() {
                   <ShareBar title={article.title} shareUrl={shareUrl} />
                 </div>
 
+                <RecommendedArticlesBottom currentArticleId={article.id} podcastId={params.podcastId} />
+
                 <CommentSection articleId={article.id} />
 
                 <div className="flex justify-center my-8 print:hidden">
@@ -481,6 +660,14 @@ export default function ArticlePage() {
                 recommendations={recommendations}
                 subscriberName={subscriberName}
               />
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-500" />
+                  Recommended For You
+                </h3>
+                <RecommendedArticles currentArticleId={article.id} podcastId={params.podcastId} />
+              </div>
 
               <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
 
