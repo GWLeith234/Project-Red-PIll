@@ -1069,6 +1069,89 @@ export async function registerRoutes(
     res.json({ episode, podcast, contentPieces });
   });
 
+  // ── Suggested Episodes Algorithm (no auth - for public episode pages) ──
+  app.get("/api/public/episodes/:id/suggested", async (req, res) => {
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit as string) || 8, 20));
+    const currentEpisode = await storage.getEpisode(req.params.id);
+    if (!currentEpisode) return res.status(404).json({ message: "Episode not found" });
+
+    const allPodcasts = await storage.getPodcasts();
+    const activePodcasts = allPodcasts.filter(p => p.status === "active");
+    const podcastMap = new Map(activePodcasts.map(p => [p.id, p]));
+
+    const allEpisodeLists = await Promise.all(
+      activePodcasts.map(p => storage.getEpisodes(p.id))
+    );
+    const allEpisodes = allEpisodeLists.flat()
+      .filter(e => e.processingStatus === "complete" && e.id !== currentEpisode.id);
+
+    const now = Date.now();
+    const scored = allEpisodes.map(ep => {
+      let score = 0;
+      const podcast = podcastMap.get(ep.podcastId);
+
+      const sameShow = ep.podcastId === currentEpisode.podcastId;
+      if (sameShow) score += 50;
+
+      const epType = ep.episodeType || "audio";
+      const curType = currentEpisode.episodeType || "audio";
+      if (epType === curType) score += 15;
+      if ((epType === "both" || curType === "both") && epType !== curType) score += 8;
+
+      const ageMs = now - new Date(ep.publishedAt || 0).getTime();
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      const recencyScore = Math.max(0, 25 - ageDays * 0.5);
+      score += recencyScore;
+
+      if (podcast?.subscribers) {
+        score += Math.min(10, Math.log10(podcast.subscribers) * 2);
+      }
+
+      if (!sameShow) {
+        score += 5;
+      }
+
+      return {
+        episode: {
+          id: ep.id,
+          title: ep.title,
+          description: ep.description,
+          duration: ep.duration,
+          videoUrl: ep.videoUrl,
+          thumbnailUrl: ep.thumbnailUrl,
+          episodeType: ep.episodeType || "audio",
+          publishedAt: ep.publishedAt,
+        },
+        podcast: podcast ? {
+          id: podcast.id,
+          title: podcast.title,
+          host: podcast.host,
+          coverImage: podcast.coverImage,
+        } : null,
+        score,
+        sameShow,
+      };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    const sameShowEps = scored.filter(s => s.sameShow);
+    const crossShowEps = scored.filter(s => !s.sameShow);
+    const sameShowSlots = Math.min(Math.ceil(limit * 0.6), sameShowEps.length);
+    const crossShowSlots = limit - sameShowSlots;
+
+    const result = [
+      ...sameShowEps.slice(0, sameShowSlots),
+      ...crossShowEps.slice(0, crossShowSlots),
+    ].sort((a, b) => b.score - a.score).slice(0, limit);
+
+    res.json(result.map(({ episode, podcast, sameShow }) => ({
+      episode,
+      podcast,
+      sameShow,
+    })));
+  });
+
   // ── Public Episodes by Podcast (no auth) ──
   app.get("/api/public/podcasts/:podcastId/episodes", async (req, res) => {
     const podcast = await storage.getPodcast(req.params.podcastId);

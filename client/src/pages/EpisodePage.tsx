@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones } from "lucide-react";
+import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar, EpisodeSubscribeWidget } from "@/components/SubscriberWidgets";
 
@@ -108,6 +108,102 @@ function EpisodeTypeBadge({ type }: { type: string }) {
       <Headphones className="h-3 w-3" />
       Audio
     </span>
+  );
+}
+
+function SuggestedEpisodes({ episodeId, currentPodcastId }: { episodeId: string; currentPodcastId: string }) {
+  const { data: suggestions, isLoading } = useQuery({
+    queryKey: ["/api/public/episodes", episodeId, "suggested"],
+    queryFn: async () => {
+      const res = await fetch(`/api/public/episodes/${episodeId}/suggested?limit=6`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="mt-10 pt-8 border-t border-gray-200" data-testid="suggested-episodes-loading">
+        <Skeleton className="h-6 w-48 mb-4 bg-gray-200" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="flex gap-3">
+              <Skeleton className="h-16 w-16 rounded-lg bg-gray-100 flex-shrink-0" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-full mb-2 bg-gray-100" />
+                <Skeleton className="h-3 w-24 bg-gray-50" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!suggestions || suggestions.length === 0) return null;
+
+  return (
+    <div className="mt-10 pt-8 border-t border-gray-200" data-testid="suggested-episodes">
+      <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-amber-500" />
+        Suggested Episodes
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {suggestions.map((item: any) => {
+          const ep = item.episode;
+          const pod = item.podcast;
+          const podcastId = pod?.id || currentPodcastId;
+          return (
+            <Link
+              key={ep.id}
+              href={`/listen/${podcastId}/episode/${ep.id}`}
+              className="block"
+            >
+              <div className="group flex gap-3 p-3 rounded-lg border border-gray-100 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer" data-testid={`suggested-episode-${ep.id}`}>
+                <div className="h-16 w-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                  {ep.thumbnailUrl ? (
+                    <img src={ep.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                  ) : pod?.coverImage ? (
+                    <img src={pod.coverImage} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                      <Mic className="h-5 w-5 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 group-hover:text-blue-700 transition-colors line-clamp-2 leading-snug" data-testid={`text-suggested-title-${ep.id}`}>
+                    {ep.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {pod && !item.sameShow && (
+                      <span className="text-xs text-gray-500 truncate">{pod.title}</span>
+                    )}
+                    {ep.duration && (
+                      <span className="text-xs text-gray-400 flex items-center gap-0.5 flex-shrink-0">
+                        <Clock className="h-2.5 w-2.5" />
+                        {ep.duration}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {(ep.episodeType === "video" || ep.episodeType === "both") && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-purple-600 font-medium">
+                        <Video className="h-2.5 w-2.5" />
+                        Video
+                      </span>
+                    )}
+                    {item.sameShow && (
+                      <span className="text-[10px] text-amber-600 font-medium">From this show</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -263,6 +359,8 @@ export default function EpisodePage() {
                 </div>
               </div>
             )}
+
+            <SuggestedEpisodes episodeId={episode.id} currentPodcastId={params.podcastId} />
 
             <div className="mt-10">
               <EpisodeSubscribeWidget
