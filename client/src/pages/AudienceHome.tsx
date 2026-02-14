@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, Play, Clock, Users, Headphones, Video, FileText, ChevronRight, ArrowRight, Zap, ChevronLeft } from "lucide-react";
+import { Mic, Play, Clock, Users, Headphones, Video, FileText, ChevronRight, ArrowRight, Zap, ChevronLeft, Bookmark } from "lucide-react";
+import { useReadLater } from "@/hooks/use-read-later";
 import type { HeroSlide } from "@shared/schema";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
 
@@ -225,6 +226,72 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
   );
 }
 
+function ArticleCardWithBookmark({ article }: { article: any }) {
+  const { isSaved, toggleArticle } = useReadLater();
+  const saved = isSaved(article.id);
+
+  return (
+    <div className="relative group" data-testid={`card-article-${article.id}`}>
+      <Link
+        href={`/news/${article.podcastId}/article/${article.id}`}
+        className="block"
+      >
+        <div className="flex gap-4 p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all bg-white">
+          {article.coverImage && (
+            <img src={article.coverImage} alt="" className="w-24 h-24 sm:w-28 sm:h-20 rounded-lg object-cover flex-shrink-0 bg-gray-100" />
+          )}
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <h3 className="font-bold text-gray-900 text-sm leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 pr-8" data-testid={`text-art-title-${article.id}`}>
+              {article.title}
+            </h3>
+            <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+              <span>{article.podcastTitle}</span>
+              {article.readingTime && (
+                <>
+                  <span className="text-gray-200">|</span>
+                  <span>{article.readingTime} min read</span>
+                </>
+              )}
+              {article.publishedAt && (
+                <>
+                  <span className="text-gray-200">|</span>
+                  <span>{timeAgo(article.publishedAt)}</span>
+                </>
+              )}
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-300 self-center flex-shrink-0 group-hover:text-amber-500 transition-colors" />
+        </div>
+      </Link>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleArticle({
+            id: article.id,
+            title: article.title,
+            description: article.description,
+            coverImage: article.coverImage,
+            podcastId: article.podcastId,
+            podcastTitle: article.podcastTitle,
+            readingTime: article.readingTime,
+            publishedAt: article.publishedAt,
+          });
+        }}
+        className={`absolute top-5 right-5 p-1.5 rounded-lg transition-all ${
+          saved
+            ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
+            : "text-gray-300 hover:text-amber-500 hover:bg-gray-100 opacity-0 group-hover:opacity-100"
+        }`}
+        title={saved ? "Remove from Read Later" : "Save for later"}
+        data-testid={`button-bookmark-${article.id}`}
+      >
+        <Bookmark className={`h-4 w-4 ${saved ? "fill-amber-600" : ""}`} />
+      </button>
+    </div>
+  );
+}
+
 export default function AudienceHome() {
   const { data: branding } = usePublicBranding();
   const { data: feed, isLoading } = useQuery({
@@ -436,39 +503,7 @@ export default function AudienceHome() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {latestArticles.map((article: any) => (
-                <Link
-                  key={article.id}
-                  href={`/news/${article.podcastId}/article/${article.id}`}
-                  className="block group"
-                  data-testid={`card-article-${article.id}`}
-                >
-                  <div className="flex gap-4 p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all bg-white">
-                    {article.coverImage && (
-                      <img src={article.coverImage} alt="" className="w-24 h-24 sm:w-28 sm:h-20 rounded-lg object-cover flex-shrink-0 bg-gray-100" />
-                    )}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      <h3 className="font-bold text-gray-900 text-sm leading-snug group-hover:text-amber-600 transition-colors line-clamp-2" data-testid={`text-art-title-${article.id}`}>
-                        {article.title}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                        <span>{article.podcastTitle}</span>
-                        {article.readingTime && (
-                          <>
-                            <span className="text-gray-200">|</span>
-                            <span>{article.readingTime} min read</span>
-                          </>
-                        )}
-                        {article.publishedAt && (
-                          <>
-                            <span className="text-gray-200">|</span>
-                            <span>{timeAgo(article.publishedAt)}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-300 self-center flex-shrink-0 group-hover:text-amber-500 transition-colors" />
-                  </div>
-                </Link>
+                <ArticleCardWithBookmark key={article.id} article={article} />
               ))}
             </div>
           </section>

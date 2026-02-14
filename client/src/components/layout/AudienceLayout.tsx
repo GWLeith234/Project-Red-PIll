@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark } from "lucide-react";
+import { useReadLater } from "@/hooks/use-read-later";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 function usePublicPodcasts() {
@@ -41,6 +42,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
   const [showsOpen, setShowsOpen] = useState(false);
   const { data: podcasts } = usePublicPodcasts();
   const { data: branding } = usePublicBranding();
+  const { savedCount } = useReadLater();
   const [location] = useLocation();
 
   const platformName = branding?.companyName || "MediaTech Empire";
@@ -177,6 +179,19 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                 >
                   <Search className="h-4 w-4" />
                 </Link>
+                <Link
+                  href="/read-later"
+                  className={`hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors rounded-lg relative
+                    ${location === "/read-later" ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  data-testid="nav-read-later"
+                >
+                  <Bookmark className="h-4 w-4" />
+                  {savedCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full bg-amber-500 text-[10px] font-bold text-gray-900 flex items-center justify-center" data-testid="badge-read-later-count">
+                      {savedCount > 99 ? "99+" : savedCount}
+                    </span>
+                  )}
+                </Link>
                 <a
                   href="#subscribe"
                   onClick={(e) => {
@@ -238,6 +253,18 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                   ))}
                 </div>
               )}
+              <Link
+                href="/read-later"
+                className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="mobile-nav-read-later"
+              >
+                <Bookmark className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-white font-medium">Read Later</span>
+                {savedCount > 0 && (
+                  <span className="ml-auto text-xs bg-amber-500 text-gray-900 px-1.5 py-0.5 rounded-full font-bold">{savedCount}</span>
+                )}
+              </Link>
               <a
                 href="#subscribe"
                 onClick={(e) => {

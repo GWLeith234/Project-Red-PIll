@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, ChevronRight, Clock, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User } from "lucide-react";
+import { Mic, ChevronRight, Clock, Mail, Facebook, Linkedin, Link2, Printer, MessageSquare, Check, Send, User, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
+import { useReadLater } from "@/hooks/use-read-later";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -234,6 +235,7 @@ function CommentSection({ articleId }: { articleId: string }) {
 export default function ArticlePage() {
   const params = useParams<{ podcastId: string; articleId: string }>();
   const { isSubscribed, recommendations, subscriberName } = useSubscription(params.podcastId);
+  const { isSaved, toggleArticle } = useReadLater();
 
   const { data: article, isLoading: articleLoading, error: articleError } = useQuery({
     queryKey: ["/api/content-pieces", params.articleId],
@@ -350,6 +352,29 @@ export default function ArticlePage() {
 
                 <div className="border-t border-b border-gray-100 py-3 flex items-center justify-between">
                   <ShareBar title={article.title} shareUrl={shareUrl} />
+                  <button
+                    onClick={() =>
+                      toggleArticle({
+                        id: article.id,
+                        title: article.title,
+                        description: article.description,
+                        coverImage: article.coverImage,
+                        podcastId: params.podcastId!,
+                        podcastTitle: podcast?.title,
+                        readingTime: article.readingTime,
+                        publishedAt: article.publishedAt,
+                      })
+                    }
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      isSaved(article.id)
+                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                    data-testid="button-read-later"
+                  >
+                    <Bookmark className={`h-4 w-4 ${isSaved(article.id) ? "fill-amber-600" : ""}`} />
+                    {isSaved(article.id) ? "Saved" : "Read Later"}
+                  </button>
                 </div>
               </header>
 

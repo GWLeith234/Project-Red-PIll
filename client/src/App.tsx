@@ -10,6 +10,7 @@ import PodcastDirectory from "@/pages/PodcastDirectory";
 import ShowDetail from "@/pages/ShowDetail";
 import AudienceHome from "@/pages/AudienceHome";
 import SearchPage from "@/pages/SearchPage";
+import ReadLater from "@/pages/ReadLater";
 import AudienceLayout from "@/components/layout/AudienceLayout";
 import Login from "@/pages/Login";
 import UsersAdmin from "@/pages/UsersAdmin";
@@ -103,6 +104,7 @@ function App() {
           <Route path="/search">{() => <AudienceLayout><SearchPage /></AudienceLayout>}</Route>
           <Route path="/show/:podcastId">{() => <AudienceLayout><ShowDetail /></AudienceLayout>}</Route>
           <Route path="/author/:authorId">{() => <AudienceLayout><AuthorProfile /></AudienceLayout>}</Route>
+          <Route path="/read-later">{() => <AudienceLayout><ReadLater /></AudienceLayout>}</Route>
           <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
           <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
           <Route path="/news/:id">{() => <AudienceLayout><NewsPage /></AudienceLayout>}</Route>
