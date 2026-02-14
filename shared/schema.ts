@@ -172,6 +172,15 @@ export const branding = pgTable("branding", {
   bannerUrl: text("banner_url"),
   primaryColor: text("primary_color").default("#E5C100"),
   accentColor: text("accent_color").default("#22C55E"),
+  twitterUrl: text("twitter_url"),
+  facebookUrl: text("facebook_url"),
+  instagramUrl: text("instagram_url"),
+  youtubeUrl: text("youtube_url"),
+  linkedinUrl: text("linkedin_url"),
+  tiktokUrl: text("tiktok_url"),
+  websiteUrl: text("website_url"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
