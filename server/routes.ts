@@ -16,6 +16,9 @@ import crypto from "crypto";
 import { z } from "zod";
 import { hashPassword, verifyPassword, sanitizeUser, requireAuth, requirePermission } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import multer from "multer";
+import { adSizes } from "./ad-sizes";
+import { fetchImageFromUrl, processImageForSizes, getImageMetadata, validateFit } from "./image-resizer";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -3556,6 +3559,88 @@ export async function registerRoutes(
 
   // ── Object Storage (file uploads) ──
   registerObjectStorageRoutes(app);
+
+  // ── Ad Resizer ──
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+  });
+
+  app.get("/api/ad-resizer/sizes", requireAuth, (req, res) => {
+    const platform = req.query.platform as string | undefined;
+    if (platform) {
+      if (!adSizes[platform]) {
+        return res.status(404).json({ error: `Platform '${platform}' not found`, availablePlatforms: Object.keys(adSizes) });
+      }
+      return res.json({ platform, sizes: adSizes[platform] });
+    }
+    const totalSizes = Object.values(adSizes).reduce((sum, p) => sum + p.length, 0);
+    res.json({ platforms: Object.keys(adSizes), totalSizes, sizes: adSizes });
+  });
+
+  app.post("/api/ad-resizer/resize-url", requireAuth, async (req, res) => {
+    try {
+      const { url, platforms, fit = 'cover' } = req.body;
+      if (!url || typeof url !== 'string') return res.status(400).json({ error: 'URL is required' });
+
+      const validatedFit = validateFit(fit);
+      const imageBuffer = await fetchImageFromUrl(url);
+      const metadata = await getImageMetadata(imageBuffer);
+
+      let selectedSizes: any[] = [];
+      if (platforms && Array.isArray(platforms)) {
+        platforms.forEach((p: string) => { if (adSizes[p]) selectedSizes.push(...adSizes[p]); });
+      } else {
+        Object.values(adSizes).forEach(s => selectedSizes.push(...s));
+      }
+
+      if (selectedSizes.length === 0) return res.status(400).json({ error: 'No valid platforms specified' });
+
+      const results = await processImageForSizes(imageBuffer, selectedSizes, validatedFit);
+      res.json({
+        success: true,
+        original: { url, metadata },
+        processed: { count: results.length, successCount: results.filter(r => !r.error).length, errorCount: results.filter(r => r.error).length },
+        results,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to process image', message: error.message });
+    }
+  });
+
+  app.post("/api/ad-resizer/resize-upload", requireAuth, upload.single('image'), async (req: any, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+
+      const imageBuffer = req.file.buffer;
+      const metadata = await getImageMetadata(imageBuffer);
+
+      let selectedSizes: any[] = [];
+      let platforms: string[] | null = null;
+      try {
+        platforms = req.body.platforms ? JSON.parse(req.body.platforms) : null;
+      } catch { platforms = null; }
+      const validatedFit = validateFit(req.body.fit || 'cover');
+
+      if (platforms && Array.isArray(platforms)) {
+        platforms.forEach((p: string) => { if (adSizes[p]) selectedSizes.push(...adSizes[p]); });
+      } else {
+        Object.values(adSizes).forEach(s => selectedSizes.push(...s));
+      }
+
+      if (selectedSizes.length === 0) return res.status(400).json({ error: 'No valid platforms specified' });
+
+      const results = await processImageForSizes(imageBuffer, selectedSizes, validatedFit);
+      res.json({
+        success: true,
+        original: { filename: req.file.originalname, metadata },
+        processed: { count: results.length, successCount: results.filter(r => !r.error).length, errorCount: results.filter(r => r.error).length },
+        results,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to process image', message: error.message });
+    }
+  });
 
   // ── Seed endpoint (development only) ──
   app.post("/api/seed", async (_req, res) => {

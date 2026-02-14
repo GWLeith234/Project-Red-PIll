@@ -30,6 +30,7 @@ const AuthorProfile = lazy(() => import("@/pages/AuthorProfile"));
 const Analytics = lazy(() => import("@/pages/Analytics"));
 const CampaignBuilderPage = lazy(() => import("@/pages/CampaignBuilderPage"));
 const SchedulerPage = lazy(() => import("@/pages/SchedulerPage"));
+const AdResizer = lazy(() => import("@/pages/AdResizer"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function PageLoader() {
@@ -100,6 +101,7 @@ function ProtectedRoutes() {
           <Route path="/moderation">{() => <PermissionGate permission="content.edit"><ModerationQueue /></PermissionGate>}</Route>
           <Route path="/campaigns">{() => <PermissionGate permission="content.view"><CampaignBuilderPage /></PermissionGate>}</Route>
           <Route path="/monetization">{() => <PermissionGate permission="monetization.view"><Monetization /></PermissionGate>}</Route>
+          <Route path="/ad-resizer">{() => <PermissionGate permission="monetization.view"><AdResizer /></PermissionGate>}</Route>
           <Route path="/network">{() => <PermissionGate permission="network.view"><Network /></PermissionGate>}</Route>
           <Route path="/sales">{() => <PermissionGate permission="sales.view"><CommercialCRM /></PermissionGate>}</Route>
           <Route path="/audience">{() => <PermissionGate permission="audience.view"><SubscriberCRM /></PermissionGate>}</Route>

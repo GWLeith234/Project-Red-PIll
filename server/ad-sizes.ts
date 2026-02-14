@@ -1,0 +1,97 @@
+export interface AdSize {
+  name: string;
+  width: number;
+  height: number;
+  aspectRatio: string;
+}
+
+export const adSizes: Record<string, AdSize[]> = {
+  facebook: [
+    { name: 'Facebook Feed', width: 1200, height: 630, aspectRatio: '1.91:1' },
+    { name: 'Facebook Story', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'Facebook Square', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'Facebook Right Column', width: 254, height: 133, aspectRatio: '1.91:1' },
+    { name: 'Facebook Marketplace', width: 1200, height: 628, aspectRatio: '1.91:1' },
+    { name: 'Facebook Cover Photo', width: 820, height: 312, aspectRatio: '2.63:1' },
+    { name: 'Facebook Event Cover', width: 1920, height: 1005, aspectRatio: '1.91:1' },
+    { name: 'Facebook Group Cover', width: 1640, height: 856, aspectRatio: '1.91:1' },
+    { name: 'Facebook Ad Carousel', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'Facebook Video Feed', width: 1280, height: 720, aspectRatio: '16:9' },
+  ],
+  instagram: [
+    { name: 'Instagram Square', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'Instagram Story', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'Instagram Portrait', width: 1080, height: 1350, aspectRatio: '4:5' },
+    { name: 'Instagram Landscape', width: 1080, height: 566, aspectRatio: '1.91:1' },
+    { name: 'Instagram Reels', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'Instagram Carousel', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'Instagram Profile Photo', width: 320, height: 320, aspectRatio: '1:1' },
+    { name: 'Instagram Shop', width: 1080, height: 1080, aspectRatio: '1:1' },
+  ],
+  linkedin: [
+    { name: 'LinkedIn Feed', width: 1200, height: 627, aspectRatio: '1.91:1' },
+    { name: 'LinkedIn Square', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'LinkedIn Vertical', width: 1080, height: 1350, aspectRatio: '4:5' },
+    { name: 'LinkedIn Story', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'LinkedIn Sponsored Content', width: 1200, height: 627, aspectRatio: '1.91:1' },
+    { name: 'LinkedIn Banner', width: 1584, height: 396, aspectRatio: '4:1' },
+    { name: 'LinkedIn Company Cover', width: 1128, height: 191, aspectRatio: '5.91:1' },
+    { name: 'LinkedIn Carousel Ad', width: 1080, height: 1080, aspectRatio: '1:1' },
+  ],
+  twitter: [
+    { name: 'Twitter Feed', width: 1200, height: 675, aspectRatio: '16:9' },
+    { name: 'Twitter Square', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'Twitter Card', width: 800, height: 418, aspectRatio: '1.91:1' },
+    { name: 'Twitter Header', width: 1500, height: 500, aspectRatio: '3:1' },
+    { name: 'Twitter Profile', width: 400, height: 400, aspectRatio: '1:1' },
+    { name: 'Twitter In-Stream Video', width: 1920, height: 1080, aspectRatio: '16:9' },
+    { name: 'Twitter Carousel', width: 800, height: 800, aspectRatio: '1:1' },
+  ],
+  tiktok: [
+    { name: 'TikTok Video', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'TikTok Square', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'TikTok Feed Landscape', width: 1920, height: 1080, aspectRatio: '16:9' },
+    { name: 'TikTok Spark Ad', width: 1080, height: 1920, aspectRatio: '9:16' },
+  ],
+  youtube: [
+    { name: 'YouTube Thumbnail', width: 1280, height: 720, aspectRatio: '16:9' },
+    { name: 'YouTube Display', width: 300, height: 250, aspectRatio: '6:5' },
+    { name: 'YouTube Video', width: 1920, height: 1080, aspectRatio: '16:9' },
+    { name: 'YouTube Shorts', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'YouTube Channel Art', width: 2560, height: 1440, aspectRatio: '16:9' },
+    { name: 'YouTube Companion Banner', width: 300, height: 60, aspectRatio: '5:1' },
+    { name: 'YouTube Bumper Ad', width: 1920, height: 1080, aspectRatio: '16:9' },
+  ],
+  pinterest: [
+    { name: 'Pinterest Standard', width: 1000, height: 1500, aspectRatio: '2:3' },
+    { name: 'Pinterest Square', width: 1000, height: 1000, aspectRatio: '1:1' },
+    { name: 'Pinterest Long', width: 1000, height: 2100, aspectRatio: '10:21' },
+    { name: 'Pinterest Video', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'Pinterest Carousel', width: 1000, height: 1500, aspectRatio: '2:3' },
+    { name: 'Pinterest Shopping', width: 1000, height: 1000, aspectRatio: '1:1' },
+  ],
+  googleDisplay: [
+    { name: 'Medium Rectangle', width: 300, height: 250, aspectRatio: '6:5' },
+    { name: 'Large Rectangle', width: 336, height: 280, aspectRatio: '6:5' },
+    { name: 'Leaderboard', width: 728, height: 90, aspectRatio: '8.09:1' },
+    { name: 'Wide Skyscraper', width: 160, height: 600, aspectRatio: '4:15' },
+    { name: 'Half Page', width: 300, height: 600, aspectRatio: '1:2' },
+    { name: 'Large Leaderboard', width: 970, height: 90, aspectRatio: '10.78:1' },
+    { name: 'Billboard', width: 970, height: 250, aspectRatio: '3.88:1' },
+    { name: 'Mobile Banner', width: 320, height: 50, aspectRatio: '6.4:1' },
+    { name: 'Mobile Leaderboard', width: 320, height: 100, aspectRatio: '3.2:1' },
+    { name: 'Skyscraper', width: 120, height: 600, aspectRatio: '1:5' },
+    { name: 'Square', width: 250, height: 250, aspectRatio: '1:1' },
+    { name: 'Small Square', width: 200, height: 200, aspectRatio: '1:1' },
+    { name: 'Small Rectangle', width: 180, height: 150, aspectRatio: '6:5' },
+    { name: 'Banner', width: 468, height: 60, aspectRatio: '7.8:1' },
+    { name: 'Portrait', width: 300, height: 1050, aspectRatio: '2:7' },
+    { name: 'Large Mobile Banner', width: 320, height: 100, aspectRatio: '3.2:1' },
+  ],
+  snapchat: [
+    { name: 'Snapchat Story', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'Snapchat Square', width: 1080, height: 1080, aspectRatio: '1:1' },
+    { name: 'Snapchat Collection Ad', width: 1080, height: 1920, aspectRatio: '9:16' },
+    { name: 'Snapchat Filter', width: 1080, height: 2340, aspectRatio: '9:19.5' },
+  ],
+};

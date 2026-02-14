@@ -23,6 +23,7 @@ import {
   Network,
   Send,
   CalendarClock,
+  Scaling,
   type LucideIcon,
 } from "lucide-react";
 
@@ -59,6 +60,7 @@ const navGroups: NavGroup[] = [
     label: "Revenue Factory",
     items: [
       { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
+      { name: "Ad Resizer", href: "/ad-resizer", icon: Scaling, permission: "monetization.view" },
     ],
   },
   {

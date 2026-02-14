@@ -34,7 +34,7 @@ Preferred communication style: Simple, everyday language.
 ### Core Features
 - **Command Center Dashboard**: KPIs, revenue charts, alerts, processing status.
 - **Content Factory**: AI content production pipeline including episode processing, multimedia content generation, viral clip factory, content scheduling, social account management, and automated newsletter generation.
-- **Monetization Engine**: Advertiser management, CPM tracking, revenue breakdown. Products catalog with wholesale/retail rates, override thresholds (permission-based), fulfillment requirements, rate models (CPM/CPC/CPA/flat/per-episode/per-month), and category management.
+- **Monetization Engine**: Advertiser management, CPM tracking, revenue breakdown. Products catalog with wholesale/retail rates, override thresholds (permission-based), fulfillment requirements, rate models (CPM/CPC/CPA/flat/per-episode/per-month), and category management. **Ad Resizer Studio** for automated image resizing to 71 ad formats across 10 platforms (Facebook, Instagram, LinkedIn, Twitter/X, TikTok, YouTube, Pinterest, Google Display, Snapchat) using Sharp image processing with SSRF-protected URL fetching.
 - **Network Management**: Podcast network and show management.
 - **User Management**: Admin CRUD for users with role and permission assignment.
 - **Customization**: Branding management (logo, favicon, colors), company name, and hero carousel slide management.
