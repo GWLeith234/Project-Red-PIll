@@ -197,7 +197,7 @@ export default function ContentFactory() {
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
       <div className="flex items-center justify-between border-b border-border/50 pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Content Factory</h1>
+          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Pipeline Generator</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">AI-Powered Content Production Pipeline</p>
         </div>
       </div>

@@ -46,9 +46,9 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Content",
+    label: "Content Factory",
     items: [
-      { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
+      { name: "Pipeline Generator", href: "/content", icon: Factory, permission: "content.view" },
       { name: "Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
     ],
