@@ -74,6 +74,124 @@ function getPlatformLabel(platform: string) {
   }
 }
 
+function ProcessingQueue() {
+  const { data: episodes } = useEpisodes();
+  const { data: podcasts } = usePodcasts();
+  const queryClient = useQueryClient();
+
+  const activeEpisodes = (episodes || []).filter((ep: any) =>
+    ep.processingStatus === "processing" || ep.transcriptStatus === "processing"
+  );
+
+  useEffect(() => {
+    if (activeEpisodes.length === 0) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeEpisodes.length, queryClient]);
+
+  if (activeEpisodes.length === 0) return null;
+
+  const stepLabels: Record<string, string> = {
+    transcription: "Transcribing audio",
+    keywords: "Analyzing keywords",
+    article: "Writing article",
+    blog: "Writing blog post",
+    social: "Creating social posts",
+    clips: "Finding viral clips",
+    newsletter: "Drafting newsletter",
+    seo: "Building SEO assets",
+  };
+
+  const allSteps = ["transcription", "keywords", "article", "blog", "social", "clips", "newsletter", "seo"];
+
+  return (
+    <Card className="border-blue-500/30 bg-blue-500/5 shadow-lg shadow-blue-500/5" data-testid="processing-queue">
+      <CardContent className="py-4 px-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="relative">
+            <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
+            <div className="absolute inset-0 h-4 w-4 rounded-full bg-blue-400/20 animate-ping" />
+          </div>
+          <span className="font-mono text-xs uppercase tracking-wider text-blue-400 font-semibold">
+            Processing Queue
+          </span>
+          <Badge variant="outline" className="ml-auto font-mono text-[10px] border-blue-500/30 text-blue-400">
+            {activeEpisodes.length} active
+          </Badge>
+        </div>
+        <div className="space-y-3">
+          {activeEpisodes.map((ep: any) => {
+            const podcast = (podcasts || []).find((p: any) => p.id === ep.podcastId);
+            const currentStep = ep.processingStep || "transcription";
+            const currentStepIdx = Math.max(0, allSteps.indexOf(currentStep));
+            return (
+              <div key={ep.id} className="rounded-lg border border-border/40 bg-card/40 p-3 space-y-2.5" data-testid={`queue-item-${ep.id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {ep.episodeType === "video" ? (
+                      <Film className="h-4 w-4 text-blue-400 shrink-0" />
+                    ) : (
+                      <Mic className="h-4 w-4 text-blue-400 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{ep.title}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{podcast?.title || "Unknown"}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono text-blue-400 tabular-nums shrink-0 ml-2">{ep.processingProgress || 0}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${ep.processingProgress || 0}%`,
+                      background: "linear-gradient(90deg, hsl(217 91% 60%) 0%, hsl(199 89% 48%) 100%)",
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {allSteps.map((step, i) => {
+                    const isDone = i < currentStepIdx;
+                    const isActive = step === currentStep;
+                    const isPending = i > currentStepIdx;
+                    return (
+                      <div key={step} className="flex items-center gap-1">
+                        {i > 0 && <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/30" />}
+                        <span className={cn(
+                          "text-[9px] font-mono px-1.5 py-0.5 rounded",
+                          isDone && "bg-emerald-500/10 text-emerald-400",
+                          isActive && "bg-blue-500/15 text-blue-400 font-semibold animate-pulse",
+                          isPending && "text-muted-foreground/40"
+                        )}>
+                          {isDone && <CheckCircle2 className="inline h-2.5 w-2.5 mr-0.5 -mt-px" />}
+                          {isActive && <Loader2 className="inline h-2.5 w-2.5 mr-0.5 -mt-px animate-spin" />}
+                          {step === "transcription" ? "Transcribe" :
+                           step === "keywords" ? "Keywords" :
+                           step === "article" ? "Article" :
+                           step === "blog" ? "Blog" :
+                           step === "social" ? "Social" :
+                           step === "clips" ? "Clips" :
+                           step === "newsletter" ? "Newsletter" :
+                           step === "seo" ? "SEO" : step}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-blue-400/80 font-mono">
+                  {stepLabels[currentStep] || "Processing"}...
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ContentFactory() {
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
@@ -83,6 +201,8 @@ export default function ContentFactory() {
           <p className="text-muted-foreground mt-1 font-mono text-sm">AI-Powered Content Production Pipeline</p>
         </div>
       </div>
+
+      <ProcessingQueue />
 
       <Tabs defaultValue="pipeline" className="w-full">
         <TabsList className="bg-card/50 border border-border/50 p-1 h-auto flex-wrap" data-testid="tabs-content-factory">

@@ -98,6 +98,7 @@ export const episodes = pgTable("episodes", {
   publishedAt: timestamp("published_at").defaultNow(),
   processingStatus: text("processing_status").default("pending"),
   processingProgress: integer("processing_progress").default(0),
+  processingStep: text("processing_step"),
 });
 
 export const contentPieces = pgTable("content_pieces", {

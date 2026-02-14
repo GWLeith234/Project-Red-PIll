@@ -729,7 +729,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
 
   if (!transcript && mediaUrl) {
     try {
-      await storage.updateEpisode(episodeId, { transcriptStatus: "processing", processingStatus: "processing", processingProgress: 2 } as any);
+      await storage.updateEpisode(episodeId, { transcriptStatus: "processing", processingStatus: "processing", processingProgress: 2, processingStep: "transcription" } as any);
 
       console.log(`[Pipeline] Fetching media for episode: ${episode.title}`);
       const audioBuffer = await fetchAudioBuffer(mediaUrl);
@@ -785,7 +785,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
 
   let trendingKeywords: string[] = [];
   try {
-    await storage.updateEpisode(episodeId, { processingProgress: 12 } as any);
+    await storage.updateEpisode(episodeId, { processingProgress: 12, processingStep: "keywords" } as any);
     const kwAnalysis = await analyzeTranscriptKeywords(transcript, episode.title, podcastTitle);
     result.keywordAnalysis = kwAnalysis;
 
@@ -813,6 +813,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
 
   for (const contentType of contentTypes) {
     try {
+      await storage.updateEpisode(episodeId, { processingStep: contentType } as any);
       switch (contentType) {
         case "article":
           result.article = await generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
@@ -849,6 +850,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
   await storage.updateEpisode(episodeId, {
     processingStatus: result.errors.length > 0 ? "partial" : "complete",
     processingProgress: 100,
+    processingStep: null,
   } as any);
 
   return result;
@@ -997,6 +999,7 @@ export async function backgroundTranscribe(episodeId: string): Promise<void> {
       transcriptStatus: "processing",
       processingStatus: "processing",
       processingProgress: 5,
+      processingStep: "transcription",
     } as any);
 
     const audioBuffer = await fetchAudioBuffer(mediaUrl);
@@ -1032,6 +1035,7 @@ export async function backgroundTranscribe(episodeId: string): Promise<void> {
     console.log(`[BG Transcribe] Transcription complete for episode ${episodeId} (${transcript.length} chars)`);
 
     try {
+      await storage.updateEpisode(episodeId, { processingStep: "keywords" } as any);
       let podcastTitle: string | undefined;
       const podcast = await storage.getPodcast(episode.podcastId);
       if (podcast) podcastTitle = podcast.title;
@@ -1045,11 +1049,12 @@ export async function backgroundTranscribe(episodeId: string): Promise<void> {
         keywordAnalysis: JSON.stringify(kwAnalysis),
         processingProgress: 100,
         processingStatus: "transcribed",
+        processingStep: null,
       } as any);
       console.log(`[BG Transcribe] Keyword analysis complete for episode ${episodeId}`);
     } catch (kwErr: any) {
       console.warn(`[BG Transcribe] Keyword analysis failed (non-fatal): ${kwErr.message}`);
-      await storage.updateEpisode(episodeId, { processingProgress: 100 } as any);
+      await storage.updateEpisode(episodeId, { processingProgress: 100, processingStep: null } as any);
     }
   } catch (err: any) {
     console.error(`[BG Transcribe] Failed for episode ${episodeId}: ${err.message}`);
