@@ -156,7 +156,8 @@ export default function NewsPage() {
       </div>
 
       <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
-        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={970} height={250} label="Billboard Takeover" className="hidden lg:flex" />
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex lg:hidden" />
         <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
 

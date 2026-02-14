@@ -5,6 +5,7 @@ import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X, Globe, Wand2, Check, Sparkles, ArrowRight, Plus, GripVertical, ChevronUp, ChevronDown, Power, ExternalLink, Layers } from "lucide-react";
 import type { Branding, HeroSlide } from "@shared/schema";
+import NewsLayoutAdmin from "@/components/NewsLayoutAdmin";
 
 function UploadZone({
   label,
@@ -617,6 +618,8 @@ export default function Customize() {
       </div>
 
       <HeroCarouselManager />
+
+      <NewsLayoutAdmin />
     </div>
   );
 }

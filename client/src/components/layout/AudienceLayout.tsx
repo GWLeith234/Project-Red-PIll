@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark, FileText } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
@@ -100,6 +100,16 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                 >
                   <Radio className="h-4 w-4" />
                   Podcasts
+                </Link>
+
+                <Link
+                  href="/news"
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
+                    ${location === "/news" ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  data-testid="nav-news"
+                >
+                  <FileText className="h-4 w-4" />
+                  News
                 </Link>
 
                 <div className="relative group">
@@ -229,6 +239,15 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
               >
                 <Radio className="h-4 w-4 text-gray-400" />
                 <span className="text-sm text-white font-medium">Browse Podcasts</span>
+              </Link>
+              <Link
+                href="/news"
+                className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="mobile-nav-news"
+              >
+                <FileText className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-white font-medium">News</span>
               </Link>
               {podcasts && podcasts.length > 0 && (
                 <div className="mb-3">
