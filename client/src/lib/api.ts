@@ -474,6 +474,45 @@ export function useUpdateSettings() {
   });
 }
 
+export function useAuditLogs(limit = 50, offset = 0) {
+  return useQuery({ queryKey: ["/api/audit-logs", limit, offset], queryFn: () => apiRequest(`/api/audit-logs?limit=${limit}&offset=${offset}`) });
+}
+
+export function useApiKeys() {
+  return useQuery({ queryKey: ["/api/api-keys"], queryFn: () => apiRequest("/api/api-keys") });
+}
+
+export function useCreateApiKey() {
+  return useMutation({
+    mutationFn: (data: { name: string; permissions?: string[]; expiresAt?: string }) =>
+      apiRequest("/api/api-keys", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audit-logs"] });
+    },
+  });
+}
+
+export function useRevokeApiKey() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/api-keys/${id}/revoke`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audit-logs"] });
+    },
+  });
+}
+
+export function useDeleteApiKey() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/api-keys/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audit-logs"] });
+    },
+  });
+}
+
 export function useRunFullPipeline() {
   return useMutation({
     mutationFn: (data: { episodeId: string; contentTypes?: string[] }) =>

@@ -197,16 +197,61 @@ export const platformSettings = pgTable("platform_settings", {
   contentTypes: text("content_types").array().default(sql`ARRAY['video_clip','article','social_post','newsletter','seo_asset']::text[]`),
   defaultPlatforms: text("default_platforms").array().default(sql`ARRAY['TikTok','Reels','Shorts','X','LinkedIn']::text[]`),
   aiQuality: text("ai_quality").default("balanced"),
+  contentTone: text("content_tone").default("professional"),
+  articleWordCount: integer("article_word_count").default(800),
+  socialPostLength: text("social_post_length").default("medium"),
+  maxClipDuration: integer("max_clip_duration").default(60),
+  transcriptionLanguage: text("transcription_language").default("auto"),
+  seoKeywordDensity: text("seo_keyword_density").default("moderate"),
+  newsletterFrequency: text("newsletter_frequency").default("weekly"),
+  contentApprovalRequired: boolean("content_approval_required").default(true),
   emailNotifications: boolean("email_notifications").default(true),
   alertThreshold: text("alert_threshold").default("all"),
   weeklyDigest: boolean("weekly_digest").default(true),
   revenueAlerts: boolean("revenue_alerts").default(true),
   processingAlerts: boolean("processing_alerts").default(true),
+  crmAlerts: boolean("crm_alerts").default(true),
+  systemAlerts: boolean("system_alerts").default(true),
+  pushNotifications: boolean("push_notifications").default(false),
+  quietHoursEnabled: boolean("quiet_hours_enabled").default(false),
+  quietHoursStart: text("quiet_hours_start").default("22:00"),
+  quietHoursEnd: text("quiet_hours_end").default("07:00"),
+  notificationDigestTime: text("notification_digest_time").default("09:00"),
   sessionTimeoutMinutes: integer("session_timeout_minutes").default(10080),
   maxLoginAttempts: integer("max_login_attempts").default(5),
   requireStrongPasswords: boolean("require_strong_passwords").default(true),
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  passwordExpiryDays: integer("password_expiry_days").default(0),
+  ipAllowlist: text("ip_allowlist"),
+  auditLogEnabled: boolean("audit_log_enabled").default(true),
+  dataRetentionDays: integer("data_retention_days").default(365),
+  apiKeysEnabled: boolean("api_keys_enabled").default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  userName: text("user_name"),
+  action: text("action").notNull(),
+  resource: text("resource").notNull(),
+  resourceId: varchar("resource_id"),
+  details: text("details"),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  keyHash: text("key_hash").notNull(),
+  permissions: text("permissions").array().default(sql`ARRAY[]::text[]`),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  createdById: varchar("created_by_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  revokedAt: timestamp("revoked_at"),
 });
 
 export const comments = pgTable("comments", {
@@ -607,6 +652,8 @@ export const insertMetricsSchema = createInsertSchema(metrics).omit({ id: true }
 export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true });
 export const insertBrandingSchema = createInsertSchema(branding).omit({ id: true, updatedAt: true });
 export const insertPlatformSettingsSchema = createInsertSchema(platformSettings).omit({ id: true, updatedAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, lastUsedAt: true, revokedAt: true });
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, createdAt: true });
 export const insertDealLineItemSchema = createInsertSchema(dealLineItems).omit({ id: true, createdAt: true });
 export const insertCampaignEmailSchema = createInsertSchema(campaignEmails).omit({ id: true, createdAt: true, updatedAt: true });
@@ -632,6 +679,10 @@ export type InsertBranding = z.infer<typeof insertBrandingSchema>;
 export type Branding = typeof branding.$inferSelect;
 export type InsertPlatformSettings = z.infer<typeof insertPlatformSettingsSchema>;
 export type PlatformSettings = typeof platformSettings.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Comment = typeof comments.$inferSelect;
 export type InsertSubscriber = z.infer<typeof insertSubscriberSchema>;

@@ -44,7 +44,7 @@ Preferred communication style: Simple, everyday language.
 - **Show/Episode Pages**: Unified show hubs and public episode detail pages with media players and related content.
 - **AI Content Agent**: Moderation queue for AI-generated stories with editing and approval workflows.
 - **Author Profiles**: Public profiles for authors with published articles.
-- **Settings**: Platform configuration for general, content pipeline, notifications, and security.
+- **Settings**: Comprehensive platform configuration with general (company info, timezone, language), content pipeline (AI quality, tone/style, word counts, clip duration, transcription, SEO density, newsletter frequency, approval requirements), notifications (per-category toggles for email/revenue/processing/CRM/system, push notifications, quiet hours, digest scheduling), security (session timeout, login attempts, password policy with expiry, 2FA, IP allowlist, data retention), audit log viewer with pagination, and API key management (create/revoke/delete with one-time key reveal).
 
 ### Database
 - **Database**: PostgreSQL (required)

@@ -5,7 +5,7 @@ import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, dealLineItems, products, adCreatives, outboundCampaigns, campaignEmails, heroSlides,
-  socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists,
+  socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists, auditLogs, apiKeys,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -33,6 +33,8 @@ import {
   type ScheduledPost, type InsertScheduledPost,
   type ClipAsset, type InsertClipAsset,
   type NewsletterRun, type InsertNewsletterRun,
+  type AuditLog, type InsertAuditLog,
+  type ApiKey, type InsertApiKey,
   type NewsLayoutSection, type InsertNewsLayoutSection,
   type CrmList, type InsertCrmList,
 } from "@shared/schema";
@@ -92,6 +94,15 @@ export interface IStorage {
 
   getSettings(): Promise<PlatformSettings | undefined>;
   upsertSettings(data: Partial<InsertPlatformSettings>): Promise<PlatformSettings>;
+
+  getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
+  createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogCount(): Promise<number>;
+
+  getApiKeys(): Promise<ApiKey[]>;
+  createApiKey(data: InsertApiKey): Promise<ApiKey>;
+  revokeApiKey(id: string): Promise<ApiKey | undefined>;
+  deleteApiKey(id: string): Promise<void>;
 
   updateUserProfile(id: string, data: { profilePhoto?: string; bio?: string; title?: string; linkedinUrl?: string; dashboardWidgets?: string[]; displayName?: string }): Promise<User | undefined>;
 
@@ -413,6 +424,38 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(platformSettings).values(data as InsertPlatformSettings).returning();
     return created;
+  }
+
+  async getAuditLogs(limit = 50, offset = 0) {
+    return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit).offset(offset);
+  }
+
+  async createAuditLog(data: InsertAuditLog) {
+    const [log] = await db.insert(auditLogs).values(data).returning();
+    return log;
+  }
+
+  async getAuditLogCount() {
+    const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(auditLogs);
+    return result?.count || 0;
+  }
+
+  async getApiKeys() {
+    return db.select().from(apiKeys).orderBy(desc(apiKeys.createdAt));
+  }
+
+  async createApiKey(data: InsertApiKey) {
+    const [key] = await db.insert(apiKeys).values(data).returning();
+    return key;
+  }
+
+  async revokeApiKey(id: string) {
+    const [key] = await db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.id, id)).returning();
+    return key;
+  }
+
+  async deleteApiKey(id: string) {
+    await db.delete(apiKeys).where(eq(apiKeys.id, id));
   }
   async updateUserProfile(id: string, data: { profilePhoto?: string; bio?: string; title?: string; linkedinUrl?: string; dashboardWidgets?: string[] }) {
     const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();

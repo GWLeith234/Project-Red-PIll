@@ -8,9 +8,11 @@ import {
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
+  insertApiKeySchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
+import crypto from "crypto";
 import { z } from "zod";
 import { hashPassword, verifyPassword, sanitizeUser, requireAuth, requirePermission } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -1506,15 +1508,35 @@ export async function registerRoutes(
       contentTypes: ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
       defaultPlatforms: ["TikTok", "Reels", "Shorts", "X", "LinkedIn"],
       aiQuality: "balanced",
+      contentTone: "professional",
+      articleWordCount: 800,
+      socialPostLength: "medium",
+      maxClipDuration: 60,
+      transcriptionLanguage: "auto",
+      seoKeywordDensity: "moderate",
+      newsletterFrequency: "weekly",
+      contentApprovalRequired: true,
       emailNotifications: true,
       alertThreshold: "all",
       weeklyDigest: true,
       revenueAlerts: true,
       processingAlerts: true,
+      crmAlerts: true,
+      systemAlerts: true,
+      pushNotifications: false,
+      quietHoursEnabled: false,
+      quietHoursStart: "22:00",
+      quietHoursEnd: "07:00",
+      notificationDigestTime: "09:00",
       sessionTimeoutMinutes: 10080,
       maxLoginAttempts: 5,
       requireStrongPasswords: true,
       twoFactorEnabled: false,
+      passwordExpiryDays: 0,
+      ipAllowlist: null,
+      auditLogEnabled: true,
+      dataRetentionDays: 365,
+      apiKeysEnabled: false,
     });
   });
 
@@ -1640,6 +1662,73 @@ export async function registerRoutes(
     };
 
     res.json({ settings: smartSettings, reasons });
+  });
+
+  // ── Audit Logs ──
+  app.get("/api/audit-logs", requirePermission("settings.view"), async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const [logs, count] = await Promise.all([
+      storage.getAuditLogs(limit, offset),
+      storage.getAuditLogCount(),
+    ]);
+    res.json({ logs, total: count });
+  });
+
+  // ── API Keys ──
+  app.get("/api/api-keys", requirePermission("settings.view"), async (_req, res) => {
+    const keys = await storage.getApiKeys();
+    const safe = keys.map(k => ({ ...k, keyHash: undefined }));
+    res.json(safe);
+  });
+
+  app.post("/api/api-keys", requirePermission("settings.edit"), async (req, res) => {
+    const { name, permissions, expiresAt } = req.body;
+    if (!name || typeof name !== "string") return res.status(400).json({ message: "Name is required" });
+    const rawKey = `mte_${crypto.randomBytes(24).toString("hex")}`;
+    const keyPrefix = rawKey.slice(0, 12) + "...";
+    const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
+    const user = (req as any).user;
+    const key = await storage.createApiKey({
+      name,
+      keyPrefix,
+      keyHash,
+      permissions: permissions || [],
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      createdById: user?.id || null,
+    });
+    await storage.createAuditLog({
+      userId: user?.id, userName: user?.displayName || user?.username,
+      action: "create", resource: "api_key", resourceId: key.id,
+      details: `Created API key "${name}"`,
+      ipAddress: req.ip || null,
+    });
+    res.json({ ...key, keyHash: undefined, rawKey });
+  });
+
+  app.post("/api/api-keys/:id/revoke", requirePermission("settings.edit"), async (req, res) => {
+    const key = await storage.revokeApiKey(req.params.id);
+    if (!key) return res.status(404).json({ message: "API key not found" });
+    const user = (req as any).user;
+    await storage.createAuditLog({
+      userId: user?.id, userName: user?.displayName || user?.username,
+      action: "revoke", resource: "api_key", resourceId: key.id,
+      details: `Revoked API key "${key.name}"`,
+      ipAddress: req.ip || null,
+    });
+    res.json({ ...key, keyHash: undefined });
+  });
+
+  app.delete("/api/api-keys/:id", requirePermission("settings.edit"), async (req, res) => {
+    const user = (req as any).user;
+    await storage.deleteApiKey(req.params.id);
+    await storage.createAuditLog({
+      userId: user?.id, userName: user?.displayName || user?.username,
+      action: "delete", resource: "api_key", resourceId: req.params.id,
+      details: "Deleted API key",
+      ipAddress: req.ip || null,
+    });
+    res.json({ success: true });
   });
 
   // ── Subscribers CRM ──

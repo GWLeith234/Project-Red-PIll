@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding } from "@/lib/api";
+import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding, useAuditLogs, useApiKeys, useCreateApiKey, useRevokeApiKey, useDeleteApiKey } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,8 @@ import {
   Save, Loader2, AlertTriangle, Sparkles, MapPin, Upload, X,
   CheckCircle2, ArrowRight, Lightbulb, Facebook, Linkedin,
   Building2, Eye, Edit3, RefreshCw, Trash2, Radio, Image as ImageIcon,
+  Key, Clock, Database, ScrollText, Copy, Plus, Ban, Mic,
+  Search as SearchIcon, Hash, Mail, Volume2, VolumeX,
 } from "lucide-react";
 
 const TIMEZONES = [
@@ -63,6 +65,61 @@ const AI_QUALITY_OPTIONS = [
   { value: "fast", label: "Fast", desc: "Lower quality, faster processing" },
   { value: "balanced", label: "Balanced", desc: "Good quality with reasonable speed" },
   { value: "premium", label: "Premium", desc: "Highest quality, slower processing" },
+];
+
+const CONTENT_TONE_OPTIONS = [
+  { value: "professional", label: "Professional", desc: "Formal, authoritative tone for business audiences" },
+  { value: "conversational", label: "Conversational", desc: "Friendly, approachable tone for general audiences" },
+  { value: "academic", label: "Academic", desc: "Research-focused, data-driven tone" },
+  { value: "edgy", label: "Edgy / Bold", desc: "Provocative, attention-grabbing tone" },
+];
+
+const SOCIAL_POST_LENGTH_OPTIONS = [
+  { value: "short", label: "Short (< 100 chars)" },
+  { value: "medium", label: "Medium (100-200 chars)" },
+  { value: "long", label: "Long (200-300 chars)" },
+];
+
+const TRANSCRIPTION_LANG_OPTIONS = [
+  { value: "auto", label: "Auto-detect" },
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "pt", label: "Portuguese" },
+  { value: "ja", label: "Japanese" },
+  { value: "zh", label: "Chinese" },
+];
+
+const SEO_DENSITY_OPTIONS = [
+  { value: "light", label: "Light", desc: "Natural language, minimal keyword focus" },
+  { value: "moderate", label: "Moderate", desc: "Balanced keyword placement for good ranking" },
+  { value: "aggressive", label: "Aggressive", desc: "Heavy keyword optimization for maximum SEO" },
+];
+
+const NEWSLETTER_FREQUENCY_OPTIONS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Bi-weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const PASSWORD_EXPIRY_OPTIONS = [
+  { value: 0, label: "Never" },
+  { value: 30, label: "30 Days" },
+  { value: 60, label: "60 Days" },
+  { value: 90, label: "90 Days" },
+  { value: 180, label: "180 Days" },
+  { value: 365, label: "1 Year" },
+];
+
+const DATA_RETENTION_OPTIONS = [
+  { value: 90, label: "90 Days" },
+  { value: 180, label: "180 Days" },
+  { value: 365, label: "1 Year" },
+  { value: 730, label: "2 Years" },
+  { value: 1825, label: "5 Years" },
+  { value: 0, label: "Indefinite" },
 ];
 
 const ALERT_THRESHOLD_OPTIONS = [
@@ -266,15 +323,35 @@ export default function Settings() {
     contentTypes: ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
     defaultPlatforms: ["TikTok", "Reels", "Shorts", "X", "LinkedIn"],
     aiQuality: "balanced",
+    contentTone: "professional",
+    articleWordCount: 800,
+    socialPostLength: "medium",
+    maxClipDuration: 60,
+    transcriptionLanguage: "auto",
+    seoKeywordDensity: "moderate",
+    newsletterFrequency: "weekly",
+    contentApprovalRequired: true,
     emailNotifications: true,
     alertThreshold: "all",
     weeklyDigest: true,
     revenueAlerts: true,
     processingAlerts: true,
+    crmAlerts: true,
+    systemAlerts: true,
+    pushNotifications: false,
+    quietHoursEnabled: false,
+    quietHoursStart: "22:00",
+    quietHoursEnd: "07:00",
+    notificationDigestTime: "09:00",
     sessionTimeoutMinutes: 10080,
     maxLoginAttempts: 5,
     requireStrongPasswords: true,
     twoFactorEnabled: false,
+    passwordExpiryDays: 0,
+    ipAllowlist: "",
+    auditLogEnabled: true,
+    dataRetentionDays: 365,
+    apiKeysEnabled: false,
   });
 
   useEffect(() => {
@@ -295,15 +372,35 @@ export default function Settings() {
         contentTypes: settings.contentTypes || ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
         defaultPlatforms: (settings.defaultPlatforms || ["TikTok", "Reels", "Shorts", "X", "LinkedIn"]).map((p: string) => p === "Twitter" ? "X" : p === "Twitter/X" ? "X" : p),
         aiQuality: settings.aiQuality || "balanced",
+        contentTone: settings.contentTone || "professional",
+        articleWordCount: settings.articleWordCount ?? 800,
+        socialPostLength: settings.socialPostLength || "medium",
+        maxClipDuration: settings.maxClipDuration ?? 60,
+        transcriptionLanguage: settings.transcriptionLanguage || "auto",
+        seoKeywordDensity: settings.seoKeywordDensity || "moderate",
+        newsletterFrequency: settings.newsletterFrequency || "weekly",
+        contentApprovalRequired: settings.contentApprovalRequired ?? true,
         emailNotifications: settings.emailNotifications ?? true,
         alertThreshold: settings.alertThreshold || "all",
         weeklyDigest: settings.weeklyDigest ?? true,
         revenueAlerts: settings.revenueAlerts ?? true,
         processingAlerts: settings.processingAlerts ?? true,
+        crmAlerts: settings.crmAlerts ?? true,
+        systemAlerts: settings.systemAlerts ?? true,
+        pushNotifications: settings.pushNotifications ?? false,
+        quietHoursEnabled: settings.quietHoursEnabled ?? false,
+        quietHoursStart: settings.quietHoursStart || "22:00",
+        quietHoursEnd: settings.quietHoursEnd || "07:00",
+        notificationDigestTime: settings.notificationDigestTime || "09:00",
         sessionTimeoutMinutes: settings.sessionTimeoutMinutes ?? 10080,
         maxLoginAttempts: settings.maxLoginAttempts ?? 5,
         requireStrongPasswords: settings.requireStrongPasswords ?? true,
         twoFactorEnabled: settings.twoFactorEnabled ?? false,
+        passwordExpiryDays: settings.passwordExpiryDays ?? 0,
+        ipAllowlist: settings.ipAllowlist || "",
+        auditLogEnabled: settings.auditLogEnabled ?? true,
+        dataRetentionDays: settings.dataRetentionDays ?? 365,
+        apiKeysEnabled: settings.apiKeysEnabled ?? false,
       });
     }
   }, [settings]);
@@ -621,7 +718,7 @@ export default function Settings() {
         </div>
 
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-content-pipeline">
-          <SectionHeader icon={Zap} title="Content Pipeline" description="AI content generation defaults" />
+          <SectionHeader icon={Zap} title="Content Pipeline" description="AI content generation and processing defaults" />
 
           <div>
             <RadioGroup
@@ -635,18 +732,93 @@ export default function Settings() {
             <SmartBadge field="aiQuality" />
           </div>
 
-          <ToggleField
-            label="Auto-Publish Content"
-            description="Automatically publish generated content when processing completes"
-            checked={form.autoPublishContent}
-            onChange={(v) => setForm(f => ({ ...f, autoPublishContent: v }))}
-            testId="auto-publish"
+          <div>
+            <RadioGroup
+              label="Content Tone & Style"
+              options={CONTENT_TONE_OPTIONS}
+              value={form.contentTone}
+              onChange={(v) => setForm(f => ({ ...f, contentTone: v }))}
+              testId="content-tone"
+              disabled={!canEdit}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div data-testid="article-word-count">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+                <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" />Article Word Count</span>
+              </label>
+              <select
+                value={form.articleWordCount}
+                onChange={(e) => setForm(f => ({ ...f, articleWordCount: parseInt(e.target.value) }))}
+                disabled={!canEdit}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="select-article-word-count"
+              >
+                {[400, 600, 800, 1000, 1200, 1500, 2000].map(n => (
+                  <option key={n} value={n}>{n} words</option>
+                ))}
+              </select>
+            </div>
+
+            <div data-testid="max-clip-duration">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+                <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" />Max Clip Duration</span>
+              </label>
+              <select
+                value={form.maxClipDuration}
+                onChange={(e) => setForm(f => ({ ...f, maxClipDuration: parseInt(e.target.value) }))}
+                disabled={!canEdit}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="select-max-clip-duration"
+              >
+                {[15, 30, 45, 60, 90, 120, 180].map(n => (
+                  <option key={n} value={n}>{n < 60 ? `${n}s` : `${Math.floor(n/60)}m${n%60 ? ` ${n%60}s` : ""}`}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <SelectField
+            label="Social Post Length"
+            value={form.socialPostLength}
+            options={SOCIAL_POST_LENGTH_OPTIONS}
+            onChange={(v) => setForm(f => ({ ...f, socialPostLength: v }))}
+            testId="social-post-length"
             disabled={!canEdit}
           />
+
+          <SelectField
+            label="Transcription Language"
+            value={form.transcriptionLanguage}
+            options={TRANSCRIPTION_LANG_OPTIONS}
+            onChange={(v) => setForm(f => ({ ...f, transcriptionLanguage: v }))}
+            testId="transcription-language"
+            disabled={!canEdit}
+          />
+
+          <div className="space-y-0">
+            <ToggleField
+              label="Auto-Publish Content"
+              description="Automatically publish generated content when processing completes"
+              checked={form.autoPublishContent}
+              onChange={(v) => setForm(f => ({ ...f, autoPublishContent: v }))}
+              testId="auto-publish"
+              disabled={!canEdit}
+            />
+            <ToggleField
+              label="Require Content Approval"
+              description="Route all AI-generated content through moderation queue before publishing"
+              checked={form.contentApprovalRequired}
+              onChange={(v) => setForm(f => ({ ...f, contentApprovalRequired: v }))}
+              testId="content-approval"
+              disabled={!canEdit}
+            />
+          </div>
         </div>
 
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-content-types">
-          <SectionHeader icon={FileText} title="Content Types" description="Types of content to generate from episodes" />
+          <SectionHeader icon={FileText} title="Content & SEO" description="Content types, SEO, and distribution" />
 
           <div>
             <CheckboxGroup
@@ -671,10 +843,30 @@ export default function Settings() {
             />
             <SmartBadge field="defaultPlatforms" />
           </div>
+
+          <div>
+            <RadioGroup
+              label="SEO Keyword Density"
+              options={SEO_DENSITY_OPTIONS}
+              value={form.seoKeywordDensity}
+              onChange={(v) => setForm(f => ({ ...f, seoKeywordDensity: v }))}
+              testId="seo-density"
+              disabled={!canEdit}
+            />
+          </div>
+
+          <SelectField
+            label="Newsletter Frequency"
+            value={form.newsletterFrequency}
+            options={NEWSLETTER_FREQUENCY_OPTIONS}
+            onChange={(v) => setForm(f => ({ ...f, newsletterFrequency: v }))}
+            testId="newsletter-frequency"
+            disabled={!canEdit}
+          />
         </div>
 
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-notifications">
-          <SectionHeader icon={Bell} title="Notifications" description="Alert and notification preferences" />
+          <SectionHeader icon={Bell} title="Notifications" description="Alert preferences and delivery settings" />
 
           <div>
             <SelectField
@@ -689,6 +881,7 @@ export default function Settings() {
           </div>
 
           <div className="space-y-0">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Alert Categories</label>
             <ToggleField
               label="Email Notifications"
               description="Receive email alerts for important platform events"
@@ -698,6 +891,42 @@ export default function Settings() {
               disabled={!canEdit}
             />
             <ToggleField
+              label="Revenue Alerts"
+              description="Revenue thresholds reached or anomalies detected"
+              checked={form.revenueAlerts}
+              onChange={(v) => setForm(f => ({ ...f, revenueAlerts: v }))}
+              testId="revenue-alerts"
+              disabled={!canEdit}
+            />
+            <ToggleField
+              label="Processing Alerts"
+              description="Content processing completion or error notifications"
+              checked={form.processingAlerts}
+              onChange={(v) => setForm(f => ({ ...f, processingAlerts: v }))}
+              testId="processing-alerts"
+              disabled={!canEdit}
+            />
+            <ToggleField
+              label="CRM Alerts"
+              description="Deal updates, new contacts, and campaign status changes"
+              checked={form.crmAlerts}
+              onChange={(v) => setForm(f => ({ ...f, crmAlerts: v }))}
+              testId="crm-alerts"
+              disabled={!canEdit}
+            />
+            <ToggleField
+              label="System Alerts"
+              description="Security events, login failures, and system health warnings"
+              checked={form.systemAlerts}
+              onChange={(v) => setForm(f => ({ ...f, systemAlerts: v }))}
+              testId="system-alerts"
+              disabled={!canEdit}
+            />
+          </div>
+
+          <div className="border-t border-border/50 pt-4 space-y-3">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block">Delivery Preferences</label>
+            <ToggleField
               label="Weekly Digest"
               description="Receive a weekly summary of platform activity and metrics"
               checked={form.weeklyDigest}
@@ -706,28 +935,78 @@ export default function Settings() {
               disabled={!canEdit}
             />
             <ToggleField
-              label="Revenue Alerts"
-              description="Get notified when revenue thresholds are reached or anomalies detected"
-              checked={form.revenueAlerts}
-              onChange={(v) => setForm(f => ({ ...f, revenueAlerts: v }))}
-              testId="revenue-alerts"
+              label="Push Notifications"
+              description="Receive browser push notifications for urgent alerts"
+              checked={form.pushNotifications}
+              onChange={(v) => setForm(f => ({ ...f, pushNotifications: v }))}
+              testId="push-notifications"
               disabled={!canEdit}
             />
-            <ToggleField
-              label="Processing Alerts"
-              description="Get notified when content processing completes or encounters errors"
-              checked={form.processingAlerts}
-              onChange={(v) => setForm(f => ({ ...f, processingAlerts: v }))}
-              testId="processing-alerts"
-              disabled={!canEdit}
-            />
+
+            <div className="flex items-center gap-3 py-3 border-b border-border/50">
+              <div className="flex-1">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  {form.quietHoursEnabled ? <VolumeX className="h-4 w-4 text-primary" /> : <Volume2 className="h-4 w-4 text-muted-foreground" />}
+                  Quiet Hours
+                </span>
+                <p className="text-xs text-muted-foreground mt-0.5">Pause non-critical notifications during set hours</p>
+              </div>
+              <button
+                onClick={() => !canEdit ? null : setForm(f => ({ ...f, quietHoursEnabled: !f.quietHoursEnabled }))}
+                disabled={!canEdit}
+                className={`relative w-11 h-6 rounded-sm transition-colors flex-shrink-0 ${form.quietHoursEnabled ? 'bg-primary' : 'bg-muted'} ${!canEdit ? 'opacity-50 cursor-not-allowed' : ''}`}
+                data-testid="toggle-quiet-hours"
+              >
+                <span className={`absolute top-0.5 h-5 w-5 bg-background border border-border transition-transform ${form.quietHoursEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            {form.quietHoursEnabled && (
+              <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div>
+                  <label className="text-xs text-muted-foreground font-mono block mb-1">Start</label>
+                  <input
+                    type="time"
+                    value={form.quietHoursStart}
+                    onChange={(e) => setForm(f => ({ ...f, quietHoursStart: e.target.value }))}
+                    disabled={!canEdit}
+                    className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+                    data-testid="input-quiet-start"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground font-mono block mb-1">End</label>
+                  <input
+                    type="time"
+                    value={form.quietHoursEnd}
+                    onChange={(e) => setForm(f => ({ ...f, quietHoursEnd: e.target.value }))}
+                    disabled={!canEdit}
+                    className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+                    data-testid="input-quiet-end"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs text-muted-foreground font-mono block mb-1">Digest Delivery Time</label>
+              <input
+                type="time"
+                value={form.notificationDigestTime}
+                onChange={(e) => setForm(f => ({ ...f, notificationDigestTime: e.target.value }))}
+                disabled={!canEdit}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+                data-testid="input-digest-time"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">When to send daily/weekly digest emails</p>
+            </div>
           </div>
         </div>
 
         <SocialConnectionsSection canEdit={canEdit} />
 
         <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-security">
-          <SectionHeader icon={Shield} title="Security" description="Authentication and access control policies" />
+          <SectionHeader icon={Shield} title="Security" description="Authentication, access control, and data policies" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -754,6 +1033,24 @@ export default function Settings() {
                   ))}
                 </select>
               </div>
+
+              <SelectField
+                label="Password Expiry"
+                value={String(form.passwordExpiryDays)}
+                options={PASSWORD_EXPIRY_OPTIONS.map(o => ({ value: String(o.value), label: o.label }))}
+                onChange={(v) => setForm(f => ({ ...f, passwordExpiryDays: parseInt(v) }))}
+                testId="password-expiry"
+                disabled={!canEdit}
+              />
+
+              <SelectField
+                label="Data Retention Period"
+                value={String(form.dataRetentionDays)}
+                options={DATA_RETENTION_OPTIONS.map(o => ({ value: String(o.value), label: o.label }))}
+                onChange={(v) => setForm(f => ({ ...f, dataRetentionDays: parseInt(v) }))}
+                testId="data-retention"
+                disabled={!canEdit}
+              />
             </div>
 
             <div className="space-y-0">
@@ -767,15 +1064,51 @@ export default function Settings() {
               />
               <ToggleField
                 label="Two-Factor Authentication"
-                description="Require 2FA for all user accounts (not yet implemented)"
+                description="Require 2FA for all user accounts"
                 checked={form.twoFactorEnabled}
                 onChange={(v) => setForm(f => ({ ...f, twoFactorEnabled: v }))}
                 testId="two-factor"
                 disabled={!canEdit}
               />
+              <ToggleField
+                label="Audit Logging"
+                description="Track all user actions and system events for compliance"
+                checked={form.auditLogEnabled}
+                onChange={(v) => setForm(f => ({ ...f, auditLogEnabled: v }))}
+                testId="audit-log-enabled"
+                disabled={!canEdit}
+              />
+              <ToggleField
+                label="API Key Access"
+                description="Allow programmatic access via API keys"
+                checked={form.apiKeysEnabled}
+                onChange={(v) => setForm(f => ({ ...f, apiKeysEnabled: v }))}
+                testId="api-keys-enabled"
+                disabled={!canEdit}
+              />
+
+              <div className="pt-3">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+                  <span className="flex items-center gap-1.5"><Shield className="h-3 w-3" />IP Allowlist</span>
+                </label>
+                <textarea
+                  value={form.ipAllowlist}
+                  onChange={(e) => setForm(f => ({ ...f, ipAllowlist: e.target.value }))}
+                  placeholder="Enter IP addresses, one per line (leave empty to allow all)"
+                  disabled={!canEdit}
+                  rows={3}
+                  className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground font-mono focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50 resize-none"
+                  data-testid="input-ip-allowlist"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Restrict admin access to specific IP addresses</p>
+              </div>
             </div>
           </div>
         </div>
+
+        {form.apiKeysEnabled && <ApiKeyManagement canEdit={canEdit} />}
+
+        <AuditLogViewer />
       </div>
     </div>
   );
@@ -1414,6 +1747,294 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
           })()}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ApiKeyManagement({ canEdit }: { canEdit: boolean }) {
+  const { data: keys, isLoading } = useApiKeys();
+  const createKey = useCreateApiKey();
+  const revokeKey = useRevokeApiKey();
+  const deleteKey = useDeleteApiKey();
+  const { toast } = useToast();
+  const [createDialog, setCreateDialog] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyRevealed, setNewKeyRevealed] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+
+  const handleCreate = () => {
+    if (!newKeyName.trim()) return;
+    createKey.mutate({ name: newKeyName }, {
+      onSuccess: (data: any) => {
+        setNewKeyRevealed(data.rawKey);
+        setNewKeyName("");
+        toast({ title: "API Key Created", description: "Copy the key now - it won't be shown again." });
+      },
+      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    });
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+    toast({ title: "Copied to clipboard" });
+  };
+
+  const activeKeys = keys?.filter((k: any) => !k.revokedAt) || [];
+  const revokedKeys = keys?.filter((k: any) => k.revokedAt) || [];
+
+  return (
+    <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-api-keys">
+      <div className="flex items-start justify-between">
+        <SectionHeader icon={Key} title="API Keys" description="Manage programmatic access to the platform" />
+        {canEdit && (
+          <Button
+            onClick={() => { setCreateDialog(true); setNewKeyRevealed(null); setNewKeyName(""); }}
+            className="bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider"
+            size="sm"
+            data-testid="button-create-api-key"
+          >
+            <Plus className="h-3 w-3 mr-1" /> New Key
+          </Button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+        </div>
+      ) : activeKeys.length === 0 && revokedKeys.length === 0 ? (
+        <div className="text-center py-8 border border-dashed border-border/50 rounded-sm">
+          <Key className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No API keys yet</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Create a key to enable programmatic access</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {activeKeys.map((k: any) => (
+            <div key={k.id} className="flex items-center gap-3 p-3 border border-border/50 bg-card/30 rounded-sm" data-testid={`api-key-${k.id}`}>
+              <div className="h-8 w-8 border border-emerald-500/30 bg-emerald-500/5 flex items-center justify-center flex-shrink-0">
+                <Key className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{k.name}</p>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
+                  <span>{k.keyPrefix}</span>
+                  <span>Created {new Date(k.createdAt).toLocaleDateString()}</span>
+                  {k.lastUsedAt && <span>Last used {new Date(k.lastUsedAt).toLocaleDateString()}</span>}
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[9px] font-mono border-emerald-500/30 text-emerald-400">Active</Badge>
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => revokeKey.mutate(k.id, {
+                    onSuccess: () => toast({ title: "Key Revoked" }),
+                    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+                  })}
+                  className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10 font-mono text-[10px] h-7"
+                  data-testid={`button-revoke-${k.id}`}
+                >
+                  <Ban className="h-3 w-3 mr-1" /> Revoke
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {revokedKeys.length > 0 && (
+            <div className="pt-2">
+              <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider mb-2">Revoked Keys</p>
+              {revokedKeys.map((k: any) => (
+                <div key={k.id} className="flex items-center gap-3 p-3 border border-border/30 bg-card/20 rounded-sm opacity-60" data-testid={`api-key-revoked-${k.id}`}>
+                  <Key className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground truncate">{k.name}</p>
+                    <span className="text-[10px] text-muted-foreground font-mono">{k.keyPrefix} - Revoked {new Date(k.revokedAt).toLocaleDateString()}</span>
+                  </div>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteKey.mutate(k.id, {
+                        onSuccess: () => toast({ title: "Key Deleted" }),
+                      })}
+                      className="text-red-500/50 hover:text-red-500 font-mono text-[10px] h-7"
+                      data-testid={`button-delete-${k.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
+        <DialogContent className="glass-panel border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Create API Key</DialogTitle>
+            <DialogDescription className="font-mono text-xs">Generate a new key for programmatic access</DialogDescription>
+          </DialogHeader>
+
+          {newKeyRevealed ? (
+            <div className="space-y-4">
+              <div className="p-3 border border-amber-500/30 bg-amber-500/5 rounded-sm">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-mono mb-2">
+                  <AlertTriangle className="h-3 w-3" />
+                  Copy this key now - it won't be shown again
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-background border border-border px-3 py-2 text-xs font-mono break-all select-all">{newKeyRevealed}</code>
+                  <Button variant="outline" size="sm" onClick={() => handleCopy(newKeyRevealed)} className="h-8 w-8 p-0 shrink-0" data-testid="button-copy-key">
+                    {copiedKey ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setCreateDialog(false)} className="font-mono text-xs">Done</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="font-mono text-xs uppercase tracking-wider">Key Name</Label>
+                <Input
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="e.g. Production API, CI/CD Pipeline"
+                  data-testid="input-api-key-name"
+                />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setCreateDialog(false)} className="font-mono text-xs">Cancel</Button>
+                <Button onClick={handleCreate} disabled={createKey.isPending || !newKeyName.trim()} className="bg-primary hover:bg-primary/90 font-mono text-xs">
+                  {createKey.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Key className="h-3 w-3 mr-1" />}
+                  Generate Key
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function AuditLogViewer() {
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const { data, isLoading } = useAuditLogs(pageSize, page * pageSize);
+  const logs = data?.logs || [];
+  const total = data?.total || 0;
+  const totalPages = Math.ceil(total / pageSize);
+
+  function getActionBadge(action: string) {
+    switch (action) {
+      case "create": return { color: "border-emerald-500/30 text-emerald-400", label: "CREATE" };
+      case "update": return { color: "border-blue-500/30 text-blue-400", label: "UPDATE" };
+      case "delete": return { color: "border-red-500/30 text-red-400", label: "DELETE" };
+      case "revoke": return { color: "border-amber-500/30 text-amber-400", label: "REVOKE" };
+      case "login": return { color: "border-primary/30 text-primary", label: "LOGIN" };
+      default: return { color: "border-border text-muted-foreground", label: action.toUpperCase() };
+    }
+  }
+
+  function getResourceIcon(resource: string) {
+    switch (resource) {
+      case "api_key": return <Key className="h-3 w-3" />;
+      case "user": return <Shield className="h-3 w-3" />;
+      case "settings": return <Globe className="h-3 w-3" />;
+      case "content": return <FileText className="h-3 w-3" />;
+      default: return <Database className="h-3 w-3" />;
+    }
+  }
+
+  return (
+    <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-audit-log">
+      <div className="flex items-start justify-between">
+        <SectionHeader icon={ScrollText} title="Audit Log" description="Track all user actions and system events" />
+        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+          <Database className="h-3 w-3" />
+          {total} total entries
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10" />)}
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="text-center py-8 border border-dashed border-border/50 rounded-sm">
+          <ScrollText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No audit log entries yet</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Actions will be recorded here as they occur</p>
+        </div>
+      ) : (
+        <>
+          <div className="border border-border/50 rounded-sm overflow-hidden">
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 bg-card/30 border-b border-border/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              <span>Time</span>
+              <span>Details</span>
+              <span>User</span>
+              <span>Action</span>
+              <span>Resource</span>
+            </div>
+            <div className="divide-y divide-border/30">
+              {logs.map((log: any) => {
+                const badge = getActionBadge(log.action);
+                return (
+                  <div key={log.id} className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2.5 items-center text-sm" data-testid={`audit-log-${log.id}`}>
+                    <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="text-xs truncate text-foreground/80">{log.details || "—"}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[100px]">{log.userName || "System"}</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-mono", badge.color)}>{badge.label}</Badge>
+                    <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
+                      {getResourceIcon(log.resource)}
+                      <span>{log.resource}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono text-muted-foreground">
+                Page {page + 1} of {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 0}
+                  onClick={() => setPage(p => p - 1)}
+                  className="font-mono text-xs h-7"
+                  data-testid="button-audit-prev"
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage(p => p + 1)}
+                  className="font-mono text-xs h-7"
+                  data-testid="button-audit-next"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
