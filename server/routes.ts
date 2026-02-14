@@ -1380,6 +1380,35 @@ export async function registerRoutes(
     res.json(slides);
   });
 
+  app.get("/api/public/ads", async (req, res) => {
+    const { width, height } = req.query;
+    const w = parseInt(width as string) || 300;
+    const h = parseInt(height as string) || 250;
+
+    let format = "banner_300x250";
+    if (w >= 970) format = "banner_970x250";
+    else if (w >= 728) format = "banner_728x90";
+    else if (w >= 336 && h <= 280) format = "banner_300x250";
+    else if (w >= 300 && h >= 500) format = "custom";
+    else if (w >= 300 && h >= 200) format = "banner_300x250";
+    else if (w <= 320) format = "banner_320x50";
+
+    const allAds = await storage.getAdCreativesByFormat(format);
+    const liveAds = allAds.filter(a => a.status === "live" && a.fileUrl);
+    if (liveAds.length === 0) {
+      return res.json(null);
+    }
+    const ad = liveAds[Math.floor(Math.random() * liveAds.length)];
+    res.json({
+      id: ad.id,
+      imageUrl: ad.fileUrl,
+      clickUrl: ad.clickUrl,
+      altText: ad.altText,
+      headline: ad.headline,
+      ctaText: ad.ctaText,
+    });
+  });
+
   // ── News Layout Sections ──
   app.get("/api/news-layout-sections", requirePermission("customize.view"), async (_req, res) => {
     const sections = await storage.getNewsLayoutSections();

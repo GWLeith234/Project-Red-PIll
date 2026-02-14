@@ -163,6 +163,7 @@ export interface IStorage {
   reorderDealLineItems(dealId: string, itemIds: string[]): Promise<void>;
 
   getAdCreatives(dealId: string): Promise<AdCreative[]>;
+  getAdCreativesByFormat(format: string): Promise<AdCreative[]>;
   getAdCreative(id: string): Promise<AdCreative | undefined>;
   createAdCreative(creative: InsertAdCreative): Promise<AdCreative>;
   updateAdCreative(id: string, data: Partial<InsertAdCreative>): Promise<AdCreative | undefined>;
@@ -696,6 +697,9 @@ export class DatabaseStorage implements IStorage {
 
   async getAdCreatives(dealId: string) {
     return db.select().from(adCreatives).where(eq(adCreatives.dealId, dealId)).orderBy(desc(adCreatives.createdAt));
+  }
+  async getAdCreativesByFormat(format: string) {
+    return db.select().from(adCreatives).where(eq(adCreatives.format, format));
   }
   async getAdCreative(id: string) {
     const [c] = await db.select().from(adCreatives).where(eq(adCreatives.id, id));
