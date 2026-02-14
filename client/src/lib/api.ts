@@ -430,8 +430,13 @@ export function useDeleteScheduledPost() {
   });
 }
 
-export function useSocialAccounts() {
-  return useQuery({ queryKey: ["/api/social-accounts"], queryFn: () => apiRequest("/api/social-accounts") });
+export function useSocialAccounts(filter?: { ownerType?: string; podcastId?: string }) {
+  const params = new URLSearchParams();
+  if (filter?.ownerType) params.set("ownerType", filter.ownerType);
+  if (filter?.podcastId) params.set("podcastId", filter.podcastId);
+  const qs = params.toString();
+  const url = `/api/social-accounts${qs ? `?${qs}` : ""}`;
+  return useQuery({ queryKey: ["/api/social-accounts", filter], queryFn: () => apiRequest(url) });
 }
 
 export function useCreateSocialAccount() {

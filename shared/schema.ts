@@ -399,6 +399,9 @@ export const outboundCampaigns = pgTable("outbound_campaigns", {
 export const SOCIAL_PLATFORMS = ["x", "facebook", "linkedin", "google_business", "instagram", "tiktok"] as const;
 export type SocialPlatform = typeof SOCIAL_PLATFORMS[number];
 
+export const SOCIAL_OWNER_TYPES = ["company", "podcast"] as const;
+export type SocialOwnerType = typeof SOCIAL_OWNER_TYPES[number];
+
 export const socialAccounts = pgTable("social_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   platform: text("platform").notNull(),
@@ -409,6 +412,8 @@ export const socialAccounts = pgTable("social_accounts", {
   tokenExpiresAt: timestamp("token_expires_at"),
   status: text("status").default("disconnected").notNull(),
   lastPostedAt: timestamp("last_posted_at"),
+  ownerType: text("owner_type").default("company").notNull(),
+  podcastId: varchar("podcast_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

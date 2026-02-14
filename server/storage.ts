@@ -153,7 +153,7 @@ export interface IStorage {
   updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined>;
   deleteHeroSlide(id: string): Promise<void>;
 
-  getSocialAccounts(): Promise<SocialAccount[]>;
+  getSocialAccounts(filter?: { ownerType?: string; podcastId?: string }): Promise<SocialAccount[]>;
   getSocialAccount(id: string): Promise<SocialAccount | undefined>;
   createSocialAccount(account: InsertSocialAccount): Promise<SocialAccount>;
   updateSocialAccount(id: string, data: Partial<InsertSocialAccount>): Promise<SocialAccount | undefined>;
@@ -634,7 +634,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(heroSlides).where(eq(heroSlides.id, id));
   }
 
-  async getSocialAccounts() {
+  async getSocialAccounts(filter?: { ownerType?: string; podcastId?: string }) {
+    const conditions = [];
+    if (filter?.ownerType) conditions.push(eq(socialAccounts.ownerType, filter.ownerType));
+    if (filter?.podcastId) conditions.push(eq(socialAccounts.podcastId, filter.podcastId));
+    if (conditions.length > 0) {
+      return db.select().from(socialAccounts).where(and(...conditions)).orderBy(desc(socialAccounts.createdAt));
+    }
     return db.select().from(socialAccounts).orderBy(desc(socialAccounts.createdAt));
   }
   async getSocialAccount(id: string) {

@@ -438,8 +438,11 @@ export async function registerRoutes(
   });
 
   // ── Social Accounts ──
-  app.get("/api/social-accounts", requireAuth, requirePermission("content.view"), async (_req, res) => {
-    const data = await storage.getSocialAccounts();
+  app.get("/api/social-accounts", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const filter: { ownerType?: string; podcastId?: string } = {};
+    if (req.query.ownerType) filter.ownerType = req.query.ownerType as string;
+    if (req.query.podcastId) filter.podcastId = req.query.podcastId as string;
+    const data = await storage.getSocialAccounts(Object.keys(filter).length > 0 ? filter : undefined);
     res.json(data);
   });
 
