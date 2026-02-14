@@ -69,6 +69,7 @@ export interface IStorage {
   getContentPiecesByStatus(status: string, type?: string): Promise<ContentPiece[]>;
   createContentPiece(piece: InsertContentPiece): Promise<ContentPiece>;
   updateContentPiece(id: string, data: Partial<InsertContentPiece>): Promise<ContentPiece | undefined>;
+  reorderContentPieces(pieceIds: string[]): Promise<void>;
 
   getAdvertisers(): Promise<Advertiser[]>;
   getAdvertiser(id: string): Promise<Advertiser | undefined>;
@@ -152,12 +153,14 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<void>;
+  reorderProducts(productIds: string[]): Promise<void>;
 
   getDealLineItems(dealId: string): Promise<DealLineItem[]>;
   createDealLineItem(item: InsertDealLineItem): Promise<DealLineItem>;
   updateDealLineItem(id: string, data: Partial<InsertDealLineItem>): Promise<DealLineItem | undefined>;
   deleteDealLineItem(id: string): Promise<void>;
   replaceDealLineItems(dealId: string, items: InsertDealLineItem[]): Promise<DealLineItem[]>;
+  reorderDealLineItems(dealId: string, itemIds: string[]): Promise<void>;
 
   getAdCreatives(dealId: string): Promise<AdCreative[]>;
   getAdCreative(id: string): Promise<AdCreative | undefined>;
@@ -326,6 +329,11 @@ export class DatabaseStorage implements IStorage {
   async updateContentPiece(id: string, data: Partial<InsertContentPiece>) {
     const [updated] = await db.update(contentPieces).set(data).where(eq(contentPieces.id, id)).returning();
     return updated;
+  }
+  async reorderContentPieces(pieceIds: string[]) {
+    for (let i = 0; i < pieceIds.length; i++) {
+      await db.update(contentPieces).set({ sortOrder: i }).where(eq(contentPieces.id, pieceIds[i]));
+    }
   }
 
   async getAdvertisers() {
@@ -653,6 +661,11 @@ export class DatabaseStorage implements IStorage {
     const created = await db.insert(dealLineItems).values(items).returning();
     return created;
   }
+  async reorderDealLineItems(dealId: string, itemIds: string[]) {
+    for (let i = 0; i < itemIds.length; i++) {
+      await db.update(dealLineItems).set({ sortOrder: i }).where(eq(dealLineItems.id, itemIds[i]));
+    }
+  }
 
   async getProducts(status?: string) {
     if (status) {
@@ -674,6 +687,11 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteProduct(id: string) {
     await db.delete(products).where(eq(products.id, id));
+  }
+  async reorderProducts(productIds: string[]) {
+    for (let i = 0; i < productIds.length; i++) {
+      await db.update(products).set({ sortOrder: i }).where(eq(products.id, productIds[i]));
+    }
   }
 
   async getAdCreatives(dealId: string) {

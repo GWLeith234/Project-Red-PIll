@@ -18,10 +18,11 @@ import {
   ExternalLink, Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SortableList } from "@/components/ui/sortable-list";
 import {
   useModerationQueue, useModerationCounts, useApproveStory, useRejectStory,
   useUpdateModerationPiece, useGenerateStory, useEpisodes, usePodcasts,
-  useClipAssets, useUpdateClipAsset
+  useClipAssets, useUpdateClipAsset, useReorderContentPieces
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import ArticleEditor, { type EditorBlock, markdownToBlocks, blocksToMarkdown } from "@/components/ArticleEditor";
@@ -69,6 +70,7 @@ export default function ModerationQueue() {
   const updatePiece = useUpdateModerationPiece();
   const updateClip = useUpdateClipAsset();
   const generateStory = useGenerateStory();
+  const reorderContent = useReorderContentPieces();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("all");
@@ -104,6 +106,15 @@ export default function ModerationQueue() {
     const q = searchQuery.toLowerCase();
     return (item.title?.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q) || item.body?.toLowerCase().includes(q) || item.hookText?.toLowerCase().includes(q));
   });
+
+  const handleReorderContent = async (reordered: any[]) => {
+    const ids = reordered.map((item: any) => item.id);
+    try {
+      await reorderContent.mutateAsync(ids);
+    } catch (err: any) {
+      toast({ title: "Reorder Failed", description: err.message, variant: "destructive" });
+    }
+  };
 
   function openEditor(item: any) {
     setEditItem({ ...item });
@@ -287,10 +298,11 @@ export default function ModerationQueue() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-1">
-          {filteredQueue.map((item: any) => (
+        <SortableList
+          items={filteredQueue}
+          onReorder={handleReorderContent}
+          renderItem={(item: any) => (
             <ContentCard
-              key={item.id}
               item={item}
               onPreview={() => setPreviewItem(item)}
               onEdit={() => openEditor(item)}
@@ -299,8 +311,15 @@ export default function ModerationQueue() {
               approving={approveStory.isPending || updateClip.isPending}
               rejecting={rejectStory.isPending || updateClip.isPending}
             />
-          ))}
-        </div>
+          )}
+          renderOverlay={(item: any) => (
+            <div className="p-3 bg-card rounded-lg border border-primary/30">
+              <p className="text-sm font-semibold">{item.title}</p>
+              <p className="text-xs text-muted-foreground font-mono capitalize">{item.type}</p>
+            </div>
+          )}
+          className="space-y-1"
+        />
       )}
 
       <PreviewDialog item={previewItem} onClose={() => setPreviewItem(null)} />

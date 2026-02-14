@@ -455,6 +455,30 @@ export function useReorderCampaignEmails() {
   });
 }
 
+export function useReorderProducts() {
+  return useMutation({
+    mutationFn: (productIds: string[]) =>
+      apiRequest("/api/products/reorder", { method: "PUT", body: JSON.stringify({ productIds }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/products"] }),
+  });
+}
+
+export function useReorderDealLineItems() {
+  return useMutation({
+    mutationFn: ({ dealId, itemIds }: { dealId: string; itemIds: string[] }) =>
+      apiRequest(`/api/deals/${dealId}/line-items/reorder`, { method: "PUT", body: JSON.stringify({ itemIds }) }),
+    onSuccess: (_d: any, vars: any) => queryClient.invalidateQueries({ queryKey: ["/api/deals", vars.dealId, "line-items"] }),
+  });
+}
+
+export function useReorderContentPieces() {
+  return useMutation({
+    mutationFn: (pieceIds: string[]) =>
+      apiRequest("/api/content-pieces/reorder", { method: "PUT", body: JSON.stringify({ pieceIds }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] }),
+  });
+}
+
 export function useUpdateOutboundCampaign() {
   return useMutation({
     mutationFn: ({ id, ...data }: any) =>

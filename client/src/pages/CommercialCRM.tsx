@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { SortableList } from "@/components/ui/sortable-list";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -794,71 +795,88 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
           <p className="text-xs text-muted-foreground text-center py-4">No line items yet. Add products from the catalog to build this deal.</p>
         )}
 
-        {lineItems.map((li, idx) => {
-          const product = products?.find((p: Product) => p.id === li.productId);
-          const liTotal = (parseFloat(li.rate) || 0) * (parseInt(li.quantity) || 0);
-          return (
-            <div key={li.key} className="p-3 rounded-md border border-border/50 bg-card/30 space-y-2" data-testid={`line-item-${idx}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-muted-foreground">Item {idx + 1}</span>
-                <Button variant="ghost" size="sm" onClick={() => removeLineItem(li.key)} className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" data-testid={`button-remove-line-item-${idx}`}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-              <Select value={li.productId || "none"} onValueChange={v => updateLineItem(li.key, "productId", v === "none" ? "" : v)}>
-                <SelectTrigger className="h-8 text-xs" data-testid={`select-line-item-product-${idx}`}>
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Select product</SelectItem>
-                  {products?.map((p: Product) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} - ${p.suggestedRetailRate.toFixed(2)} {getRateModelShortLabel(p.rateModel)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <SortableList
+          items={lineItems.map(li => ({ ...li, id: li.key }))}
+          onReorder={(reordered) => {
+            setLineItems(reordered.map(({ id, ...rest }) => ({ ...rest, key: id })) as LineItemRow[]);
+          }}
+          renderItem={(item, idx) => {
+            const product = products?.find((p: Product) => p.id === item.productId);
+            const liTotal = (parseFloat(item.rate) || 0) * (parseInt(item.quantity) || 0);
+            return (
+              <div className="p-3 rounded-md border border-border/50 bg-card/30 space-y-2" data-testid={`line-item-${idx}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-muted-foreground">Item {idx + 1}</span>
+                  <Button variant="ghost" size="sm" onClick={() => removeLineItem(item.id)} className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" data-testid={`button-remove-line-item-${idx}`}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                <Select value={item.productId || "none"} onValueChange={v => updateLineItem(item.id, "productId", v === "none" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs" data-testid={`select-line-item-product-${idx}`}>
+                    <SelectValue placeholder="Select product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select product</SelectItem>
+                    {products?.map((p: Product) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} - ${p.suggestedRetailRate.toFixed(2)} {getRateModelShortLabel(p.rateModel)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              {product && (
-                <>
-                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono">
-                    <span>Wholesale: ${product.wholesaleRate.toFixed(2)}</span>
-                    <span>Retail: ${product.suggestedRetailRate.toFixed(2)}</span>
-                    {(product.overrideThresholdPercent ?? 0) > 0 && (
-                      <span className="text-amber-400 flex items-center gap-0.5">
-                        <ShieldCheck className="h-2.5 w-2.5" />
-                        {product.overrideThresholdPercent}% override
-                      </span>
+                {product && (
+                  <>
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono">
+                      <span>Wholesale: ${product.wholesaleRate.toFixed(2)}</span>
+                      <span>Retail: ${product.suggestedRetailRate.toFixed(2)}</span>
+                      {(product.overrideThresholdPercent ?? 0) > 0 && (
+                        <span className="text-amber-400 flex items-center gap-0.5">
+                          <ShieldCheck className="h-2.5 w-2.5" />
+                          {product.overrideThresholdPercent}% override
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Rate ($)</label>
+                        <Input type="number" step="0.01" min="0" value={item.rate} onChange={e => updateLineItem(item.id, "rate", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-rate-${idx}`} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Qty</label>
+                        <Input type="number" min="1" value={item.quantity} onChange={e => updateLineItem(item.id, "quantity", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-qty-${idx}`} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Total</label>
+                        <div className="h-8 flex items-center text-xs font-bold text-primary">${liTotal.toLocaleString()}</div>
+                      </div>
+                    </div>
+                    {item.warning && (
+                      <div className={cn(
+                        "flex items-center gap-1.5 text-[10px] p-1.5 rounded",
+                        item.warning.includes("admin") ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
+                      )}>
+                        <ShieldCheck className="h-3 w-3 shrink-0" />
+                        {item.warning}
+                      </div>
                     )}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Rate ($)</label>
-                      <Input type="number" step="0.01" min="0" value={li.rate} onChange={e => updateLineItem(li.key, "rate", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-rate-${idx}`} />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Qty</label>
-                      <Input type="number" min="1" value={li.quantity} onChange={e => updateLineItem(li.key, "quantity", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-qty-${idx}`} />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Total</label>
-                      <div className="h-8 flex items-center text-xs font-bold text-primary">${liTotal.toLocaleString()}</div>
-                    </div>
-                  </div>
-                  {li.warning && (
-                    <div className={cn(
-                      "flex items-center gap-1.5 text-[10px] p-1.5 rounded",
-                      li.warning.includes("admin") ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    )}>
-                      <ShieldCheck className="h-3 w-3 shrink-0" />
-                      {li.warning}
-                    </div>
-                  )}
-                </>
-              )}
+                  </>
+                )}
+              </div>
+            );
+          }}
+          renderOverlay={(item) => (
+            <div className="p-3 bg-card rounded-lg border border-primary/30">
+              <p className="text-sm font-semibold">
+                {products?.find((p: Product) => p.id === item.productId)?.name || `Item`}
+              </p>
+              <p className="text-xs text-muted-foreground font-mono">
+                ${((parseFloat(item.rate) || 0) * (parseInt(item.quantity) || 0)).toLocaleString()}
+              </p>
             </div>
-          );
-        })}
+          )}
+          className="space-y-2"
+        />
 
         {lineItems.length > 0 && (
           <div className="flex items-center justify-between pt-2 border-t border-border/30">

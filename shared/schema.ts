@@ -122,6 +122,7 @@ export const contentPieces = pgTable("content_pieces", {
   moderatedBy: varchar("moderated_by"),
   moderatedAt: timestamp("moderated_at"),
   publishedAt: timestamp("published_at").defaultNow(),
+  sortOrder: integer("sort_order").default(0),
 });
 
 export const advertisers = pgTable("advertisers", {

@@ -15,7 +15,8 @@ import {
   Package, Edit3, Trash2, Tag, Layers, ShieldCheck, AlertTriangle, CheckCircle2, Archive,
   Play, Clock, Pause, Building2
 } from "lucide-react";
-import { useMetrics, useCampaigns, useDeals, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/lib/api";
+import { useMetrics, useCampaigns, useDeals, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useReorderProducts } from "@/lib/api";
+import { SortableList } from "@/components/ui/sortable-list";
 import { useToast } from "@/hooks/use-toast";
 import { PRODUCT_CATEGORIES, RATE_MODELS, type Product } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
@@ -199,6 +200,17 @@ function ProductsTab() {
     });
   }
 
+  const reorderProducts = useReorderProducts();
+
+  const handleReorderProducts = async (reordered: Product[]) => {
+    const ids = reordered.map(p => p.id);
+    try {
+      await reorderProducts.mutateAsync(ids);
+    } catch (err: any) {
+      toast({ title: "Reorder Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const filtered = statusFilter === "all" ? products : products?.filter((p: Product) => p.status === statusFilter);
   const activeCount = products?.filter((p: Product) => p.status === "active").length || 0;
   const totalProducts = products?.length || 0;
@@ -275,10 +287,9 @@ function ProductsTab() {
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
             </div>
           ) : filtered?.length > 0 ? (
-            <div className="space-y-3" data-testid="products-list">
-              {filtered.map((p: Product) => (
+            (() => {
+              const renderProductCard = (p: Product) => (
                 <div
-                  key={p.id}
                   className="relative p-5 bg-card/30 rounded-lg border border-transparent hover:border-primary/20 transition-all group"
                   style={{ borderLeftWidth: 3, borderLeftColor: p.status === "active" ? "hsl(var(--primary))" : p.status === "inactive" ? "hsl(45, 90%, 50%)" : "hsl(var(--muted-foreground))" }}
                   data-testid={`card-product-${p.id}`}
@@ -367,8 +378,31 @@ function ProductsTab() {
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+
+              return canEdit && statusFilter === "all" ? (
+                <div data-testid="products-list">
+                  <SortableList
+                    items={filtered || []}
+                    onReorder={handleReorderProducts}
+                    renderItem={(p: Product) => renderProductCard(p)}
+                    renderOverlay={(p: Product) => (
+                      <div className="p-3 bg-card rounded-lg border border-primary/30">
+                        <p className="text-sm font-semibold">{p.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{getCategoryLabel(p.category)}</p>
+                      </div>
+                    )}
+                    className="space-y-3"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3" data-testid="products-list">
+                  {filtered?.map((p: Product) => (
+                    <div key={p.id}>{renderProductCard(p)}</div>
+                  ))}
+                </div>
+              );
+            })()
           ) : (
             <div className="text-center py-12">
               <Package className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />

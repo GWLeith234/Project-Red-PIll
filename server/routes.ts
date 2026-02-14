@@ -316,6 +316,13 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.put("/api/content-pieces/reorder", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { pieceIds } = req.body;
+    if (!Array.isArray(pieceIds)) return res.status(400).json({ message: "Expected pieceIds array" });
+    await storage.reorderContentPieces(pieceIds);
+    res.json({ success: true });
+  });
+
   // ── AI Content Agent ──
   app.post("/api/ai-agent/generate-story", requireAuth, requirePermission("content.edit"), async (req, res) => {
     const { episodeId, transcript } = req.body;
@@ -3163,6 +3170,14 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.put("/api/products/reorder", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    const { productIds } = req.body;
+    if (!Array.isArray(productIds)) return res.status(400).json({ message: "Expected productIds array" });
+    await storage.reorderProducts(productIds);
+    const data = await storage.getProducts();
+    res.json(data);
+  });
+
   // ── Commercial CRM: Deal Line Items ──
   app.get("/api/deals/:dealId/line-items", requireAuth, requirePermission("sales.view"), async (req, res) => {
     const data = await storage.getDealLineItems(req.params.dealId);
@@ -3218,6 +3233,14 @@ export async function registerRoutes(
   app.delete("/api/deal-line-items/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
     await storage.deleteDealLineItem(req.params.id);
     res.status(204).send();
+  });
+
+  app.put("/api/deals/:dealId/line-items/reorder", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const { itemIds } = req.body;
+    if (!Array.isArray(itemIds)) return res.status(400).json({ message: "Expected itemIds array" });
+    await storage.reorderDealLineItems(req.params.dealId, itemIds);
+    const data = await storage.getDealLineItems(req.params.dealId);
+    res.json(data);
   });
 
   // ── Commercial CRM: Ad Creatives ──
