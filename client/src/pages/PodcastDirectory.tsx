@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, Users, TrendingUp, Headphones, Search } from "lucide-react";
+import { Mic, Users, TrendingUp, Headphones, Search, Star, Play, Crown } from "lucide-react";
 import { useState } from "react";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
 
@@ -12,8 +12,11 @@ function formatSubscribers(count: number | null) {
   return count.toString();
 }
 
+const CATEGORIES = ["All", "Talk", "News", "Comedy", "Tech", "Business", "Sports", "Culture", "True Crime", "Health"];
+
 export default function PodcastDirectory() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
   const { data: podcasts, isLoading } = useQuery({
     queryKey: ["/api/public/podcasts"],
     queryFn: async () => {
@@ -30,27 +33,51 @@ export default function PodcastDirectory() {
   ) || [];
 
   return (
-    <div className="bg-white min-h-screen" data-testid="podcast-directory">
-      <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-16 sm:py-20">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4" data-testid="text-directory-title">
+    <div className="bg-gray-50 min-h-screen" data-testid="podcast-directory">
+      <div className="bg-gradient-to-b from-gray-950 via-gray-900 to-gray-800 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(220,38,38,0.15),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(168,85,247,0.1),transparent_60%)]" />
+        <div className="max-w-7xl mx-auto px-4 pt-12 pb-8 sm:pt-16 sm:pb-10 relative z-10">
+          <div className="text-center max-w-2xl mx-auto mb-8">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-1.5 mb-5">
+              <Headphones className="h-4 w-4 text-red-400" />
+              <span className="text-sm font-medium text-gray-300">Podcast Network</span>
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-white via-white to-gray-400 bg-clip-text text-transparent" data-testid="text-directory-title">
               Our Shows
             </h1>
             <p className="text-gray-400 text-lg leading-relaxed">
               Discover podcasts across our network. From deep dives to daily briefings, find your next favorite show.
             </p>
           </div>
-          <div className="max-w-lg mx-auto relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+
+          <div className="max-w-xl mx-auto relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search shows..."
+              placeholder="Search shows, hosts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-800/80 border border-gray-700 rounded-xl pl-12 pr-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+              className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-full pl-12 pr-4 py-3.5 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/40 focus:bg-white/15 transition-all"
               data-testid="input-search-shows"
             />
+          </div>
+
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  activeCategory === cat
+                    ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                    : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white"
+                }`}
+                data-testid={`filter-category-${cat.toLowerCase()}`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -60,18 +87,32 @@ export default function PodcastDirectory() {
         <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-10">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden border border-gray-100">
-                <Skeleton className="aspect-square bg-gray-100" />
-                <div className="p-4">
-                  <Skeleton className="h-5 w-3/4 mb-2 bg-gray-100" />
-                  <Skeleton className="h-4 w-1/2 bg-gray-50" />
-                </div>
+          <div>
+            <div className="mb-12">
+              <Skeleton className="h-7 w-48 mb-6 bg-gray-200" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl overflow-hidden border border-gray-200 bg-white">
+                    <Skeleton className="aspect-[4/3] bg-gray-100" />
+                    <div className="p-5">
+                      <Skeleton className="h-5 w-3/4 mb-2 bg-gray-100" />
+                      <Skeleton className="h-4 w-1/2 bg-gray-50" />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <Skeleton className="h-32 w-32 rounded-full bg-gray-200 mb-3" />
+                  <Skeleton className="h-4 w-24 bg-gray-100 mb-1" />
+                  <Skeleton className="h-3 w-16 bg-gray-50" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
@@ -86,53 +127,67 @@ export default function PodcastDirectory() {
         ) : (
           <>
             {filtered.length >= 3 && !searchQuery && (
-              <div className="mb-16">
-                <h2 className="text-2xl font-bold text-gray-900 mb-8" data-testid="text-featured-heading">Featured Shows</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="mb-14">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-8 w-8 rounded-lg bg-red-600 flex items-center justify-center">
+                    <Star className="h-4 w-4 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900" data-testid="text-featured-heading">Featured Shows</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {filtered.slice(0, 3).map((podcast: any, idx: number) => (
                     <Link key={podcast.id} href={`/show/${podcast.id}`} className="block group" data-testid={`card-featured-${podcast.id}`}>
-                      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 text-white aspect-[4/3]">
+                      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white aspect-[4/3] shadow-xl group-hover:shadow-2xl transition-shadow">
                         {podcast.coverImage ? (
                           <img
                             src={podcast.coverImage}
                             alt={podcast.title}
-                            className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 transition-opacity"
+                            className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 group-hover:scale-105 transition-all duration-500"
                           />
                         ) : null}
-                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent" />
-                        <div className="absolute bottom-0 left-0 right-0 p-6">
-                          <div className="flex items-center gap-3 mb-3">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+                        <div className="absolute top-4 left-4 flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                            {idx + 1}
+                          </div>
+                          {idx === 0 && (
+                            <div className="bg-amber-500 text-gray-900 text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 uppercase tracking-wide">
+                              <Crown className="h-3 w-3" />
+                              Top Pick
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="absolute bottom-0 left-0 right-0 p-5">
+                          <div className="flex items-end gap-3">
                             {podcast.coverImage ? (
-                              <img src={podcast.coverImage} alt="" className="h-14 w-14 rounded-xl object-cover ring-2 ring-white/20 shadow-lg" />
+                              <img src={podcast.coverImage} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-white/30 shadow-lg flex-shrink-0" />
                             ) : (
-                              <div className="h-14 w-14 rounded-xl bg-amber-500 flex items-center justify-center ring-2 ring-white/20">
-                                <Mic className="h-7 w-7 text-gray-900" />
+                              <div className="h-16 w-16 rounded-full bg-red-600 flex items-center justify-center ring-2 ring-white/30 flex-shrink-0">
+                                <Mic className="h-8 w-8 text-white" />
                               </div>
                             )}
-                            <div className="min-w-0">
-                              <h3 className="text-lg font-bold leading-tight truncate group-hover:text-amber-400 transition-colors" data-testid={`text-featured-title-${podcast.id}`}>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-lg font-bold leading-tight truncate group-hover:text-red-400 transition-colors" data-testid={`text-featured-title-${podcast.id}`}>
                                 {podcast.title}
                               </h3>
-                              <p className="text-gray-400 text-sm">with {podcast.host}</p>
+                              <p className="text-gray-400 text-sm truncate">with {podcast.host}</p>
+                              {podcast.subscribers && (
+                                <p className="text-gray-500 text-xs mt-1 flex items-center gap-1">
+                                  <Users className="h-3 w-3" />
+                                  {formatSubscribers(podcast.subscribers)} subscribers
+                                </p>
+                              )}
+                            </div>
+                            <div className="h-10 w-10 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                              <Play className="h-5 w-5 text-white ml-0.5" />
                             </div>
                           </div>
                           {podcast.description && (
-                            <p className="text-gray-300 text-sm line-clamp-2 leading-relaxed">{podcast.description}</p>
+                            <p className="text-gray-300 text-sm line-clamp-2 leading-relaxed mt-3">{podcast.description}</p>
                           )}
-                          <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-                            {podcast.subscribers && (
-                              <span className="flex items-center gap-1">
-                                <Users className="h-3 w-3" />
-                                {formatSubscribers(podcast.subscribers)} subscribers
-                              </span>
-                            )}
-                          </div>
                         </div>
-                        {idx === 0 && (
-                          <div className="absolute top-4 right-4 bg-amber-500 text-gray-900 text-xs font-bold px-3 py-1 rounded-full">
-                            FEATURED
-                          </div>
-                        )}
                       </div>
                     </Link>
                   ))}
@@ -146,41 +201,49 @@ export default function PodcastDirectory() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-8" data-testid="text-all-shows-heading">
-                {searchQuery ? `Results for "${searchQuery}"` : "All Shows"}
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5" data-testid="shows-grid">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="h-8 w-8 rounded-lg bg-gray-900 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900" data-testid="text-all-shows-heading">
+                  {searchQuery ? `Results for "${searchQuery}"` : "All Shows"}
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-5 gap-y-8" data-testid="shows-grid">
                 {filtered.map((podcast: any, idx: number) => (
                   <Link key={podcast.id} href={`/show/${podcast.id}`} className="block group" data-testid={`card-show-${podcast.id}`}>
-                    <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-200">
-                      <div className="aspect-square relative bg-gray-50 overflow-hidden">
-                        {podcast.coverImage ? (
-                          <img
-                            src={podcast.coverImage}
-                            alt={podcast.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                            <Mic className="h-12 w-12 text-gray-300" />
-                          </div>
-                        )}
-                        <div className="absolute top-3 left-3 bg-gray-900/80 text-white text-xs font-bold px-2 py-0.5 rounded-md backdrop-blur-sm">
-                          #{idx + 1}
+                    <div className="flex flex-col items-center text-center">
+                      <div className="relative mb-3">
+                        <div className="h-32 w-32 sm:h-36 sm:w-36 rounded-full overflow-hidden ring-2 ring-gray-200 group-hover:ring-red-500 group-hover:ring-4 transition-all duration-300 shadow-md group-hover:shadow-xl bg-gray-100">
+                          {podcast.coverImage ? (
+                            <img
+                              src={podcast.coverImage}
+                              alt={podcast.title}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
+                              <Mic className="h-12 w-12 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute -top-1 -left-1 h-7 w-7 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center shadow-md ring-2 ring-white">
+                          {idx + 1}
+                        </div>
+                        <div className="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 scale-75 group-hover:scale-100">
+                          <Play className="h-4 w-4 ml-0.5" />
                         </div>
                       </div>
-                      <div className="p-3.5">
-                        <h3 className="font-bold text-gray-900 text-sm leading-snug truncate group-hover:text-amber-600 transition-colors" data-testid={`text-show-title-${podcast.id}`}>
-                          {podcast.title}
-                        </h3>
-                        <p className="text-gray-500 text-xs mt-0.5 truncate">with {podcast.host}</p>
-                        {podcast.subscribers && (
-                          <p className="text-gray-400 text-xs mt-2 flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {formatSubscribers(podcast.subscribers)}
-                          </p>
-                        )}
-                      </div>
+                      <h3 className="font-bold text-gray-900 text-sm leading-snug truncate max-w-full group-hover:text-red-600 transition-colors" data-testid={`text-show-title-${podcast.id}`}>
+                        {podcast.title}
+                      </h3>
+                      <p className="text-gray-500 text-xs mt-0.5 truncate max-w-full">with {podcast.host}</p>
+                      {podcast.subscribers && (
+                        <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {formatSubscribers(podcast.subscribers)}
+                        </p>
+                      )}
                     </div>
                   </Link>
                 ))}

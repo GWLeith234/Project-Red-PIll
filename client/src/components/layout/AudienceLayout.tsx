@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark, FileText } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
@@ -37,9 +37,111 @@ function XIcon({ className }: { className?: string }) {
   );
 }
 
+function PresetsBar({ podcasts, primaryColor }: { podcasts: any[]; primaryColor: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [location] = useLocation();
+
+  const checkScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  };
+
+  useEffect(() => {
+    checkScroll();
+    const el = scrollRef.current;
+    if (el) el.addEventListener("scroll", checkScroll, { passive: true });
+    return () => el?.removeEventListener("scroll", checkScroll);
+  }, [podcasts]);
+
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -200 : 200, behavior: "smooth" });
+  };
+
+  if (!podcasts?.length) return null;
+
+  const presetItems = [
+    { id: "__home", label: "For You", href: "/home", icon: <Home className="h-5 w-5" /> },
+    { id: "__trending", label: "Trending", href: "/news", icon: <TrendingUp className="h-5 w-5" /> },
+    { id: "__discover", label: "Discover", href: "/podcasts", icon: <Shuffle className="h-5 w-5" /> },
+    ...podcasts.map((p: any) => ({
+      id: p.id,
+      label: p.title,
+      href: `/show/${p.id}`,
+      image: p.coverImage,
+    })),
+  ];
+
+  return (
+    <div className="relative bg-gray-900/80 backdrop-blur-sm border-b border-gray-800/50" data-testid="presets-bar">
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          className="absolute left-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-r from-gray-900 to-transparent flex items-center justify-center text-gray-400 hover:text-white"
+          data-testid="btn-presets-scroll-left"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      )}
+      <div
+        ref={scrollRef}
+        className="flex items-center gap-4 px-4 py-2.5 overflow-x-auto scrollbar-hide"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {presetItems.map((item: any) => {
+          const isActive = item.href === location || (item.href !== "/home" && item.href !== "/news" && item.href !== "/podcasts" && location.startsWith(item.href));
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className="flex flex-col items-center gap-1 flex-shrink-0 group"
+              data-testid={`preset-${item.id}`}
+            >
+              <div
+                className={`h-12 w-12 rounded-full flex items-center justify-center overflow-hidden transition-all duration-200 ${
+                  isActive
+                    ? "ring-2 ring-offset-1 ring-offset-gray-900 scale-110"
+                    : "ring-1 ring-gray-700 group-hover:ring-gray-500 group-hover:scale-105"
+                }`}
+                style={isActive ? { boxShadow: `0 0 0 2px ${primaryColor}` } : undefined}
+              >
+                {item.image ? (
+                  <img src={item.image} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-300">
+                    {item.icon || <Mic className="h-5 w-5" />}
+                  </div>
+                )}
+              </div>
+              <span className={`text-[10px] font-medium max-w-[56px] truncate ${
+                isActive ? "text-white" : "text-gray-500 group-hover:text-gray-300"
+              }`}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          className="absolute right-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-l from-gray-900 to-transparent flex items-center justify-center text-gray-400 hover:text-white"
+          data-testid="btn-presets-scroll-right"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AudienceLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showsOpen, setShowsOpen] = useState(false);
   const { data: podcasts } = usePublicPodcasts();
   const { data: branding } = usePublicBranding();
   const { savedCount } = useReadLater();
@@ -50,151 +152,76 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
   const logoUrl = branding?.logoUrl;
   const primaryColor = branding?.primaryColor || "#E5C100";
 
-
   const isActivePath = (path: string) => {
     if (path === "home") return location === "/home";
-    if (path === "podcasts") return location === "/podcasts";
+    if (path === "podcasts") return location === "/podcasts" || location.startsWith("/show/") || location.startsWith("/listen/");
     if (path === "search") return location === "/search";
-    if (path === "shows") return location.startsWith("/show/") || location.startsWith("/listen/") || location.startsWith("/news/");
-    if (path === "news") return location.startsWith("/news/");
-    if (path === "episodes") return location.startsWith("/listen/");
+    if (path === "news") return location === "/news" || location.startsWith("/news/");
+    if (path === "read-later") return location === "/read-later";
     return false;
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col" data-testid="audience-layout">
+    <div className="min-h-screen bg-gray-50 flex flex-col" data-testid="audience-layout">
       <header className="sticky top-0 z-50 bg-gray-950 text-white" data-testid="audience-masthead">
-        <div className="border-b border-gray-800">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-between h-16">
-              <Link href="/home" className="flex items-center gap-3 group" data-testid="link-masthead-home">
-                {logoUrl ? (
-                  <img src={logoUrl} alt={platformName} className="h-9 max-w-[180px] object-contain" data-testid="img-masthead-logo" />
-                ) : (
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
-                      <Mic className="h-5 w-5 text-gray-900" />
-                    </div>
-                    <span className="text-xl font-bold tracking-tight hidden sm:block" data-testid="text-masthead-name">{platformName}</span>
-                  </div>
-                )}
-              </Link>
-
-              <nav className="hidden lg:flex items-center gap-1" data-testid="audience-nav-desktop">
-                <Link
-                  href="/home"
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                    ${isActivePath("home") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                  data-testid="nav-home"
-                >
-                  <Home className="h-4 w-4" />
-                  Home
-                </Link>
-
-                <Link
-                  href="/podcasts"
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                    ${isActivePath("podcasts") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                  data-testid="nav-podcasts"
-                >
-                  <Radio className="h-4 w-4" />
-                  Podcasts
-                </Link>
-
-                <Link
-                  href="/news"
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                    ${location === "/news" ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                  data-testid="nav-news"
-                >
-                  <FileText className="h-4 w-4" />
-                  News
-                </Link>
-
-                <div className="relative group">
-                  <button
-                    onClick={() => setShowsOpen(!showsOpen)}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                      ${isActivePath("shows") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                    data-testid="nav-shows"
-                  >
-                    <Headphones className="h-4 w-4" />
-                    Shows
-                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showsOpen ? "rotate-180" : ""}`} />
-                  </button>
-
-                  {showsOpen && podcasts && podcasts.length > 0 && (
-                      <div
-                        className="absolute top-full left-0 mt-1 w-80 bg-gray-900 border border-gray-800 rounded-lg shadow-2xl py-2 z-50"
-                        onMouseLeave={() => setShowsOpen(false)}
-                        data-testid="dropdown-shows"
-                      >
-                        <div className="px-3 py-2 border-b border-gray-800">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Our Shows</p>
-                        </div>
-                        {podcasts.map((p: any) => (
-                          <Link
-                            key={p.id}
-                            href={`/show/${p.id}`}
-                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 transition-colors"
-                            onClick={() => setShowsOpen(false)}
-                            data-testid={`nav-show-${p.id}`}
-                          >
-                            {p.coverImage ? (
-                              <img src={p.coverImage} alt="" className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
-                            ) : (
-                              <div className="h-10 w-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
-                                <Mic className="h-5 w-5 text-gray-500" />
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-white truncate">{p.title}</p>
-                              <p className="text-xs text-gray-500 truncate">with {p.host}</p>
-                            </div>
-                          </Link>
-                        ))}
-                        <div className="border-t border-gray-800 mt-1 pt-1">
-                          <Link
-                            href="/podcasts"
-                            className="flex items-center gap-2 px-3 py-2 text-xs text-amber-500 hover:bg-gray-800 transition-colors font-medium"
-                            onClick={() => setShowsOpen(false)}
-                          >
-                            Browse all shows &rarr;
-                          </Link>
-                        </div>
+        <div className="border-b border-gray-800/50">
+          <div className="max-w-[1400px] mx-auto px-4">
+            <div className="flex items-center justify-between h-14">
+              <div className="flex items-center gap-6">
+                <Link href="/home" className="flex items-center gap-2.5 group flex-shrink-0" data-testid="link-masthead-home">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={platformName} className="h-8 max-w-[160px] object-contain" data-testid="img-masthead-logo" />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
+                        <Radio className="h-4 w-4 text-gray-900" />
                       </div>
-                    )}
-                </div>
-
-                <Link
-                  href="/news"
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                    ${isActivePath("news") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                  data-testid="nav-news"
-                >
-                  <Newspaper className="h-4 w-4" />
-                  News
+                      <span className="text-lg font-bold tracking-tight hidden sm:block" data-testid="text-masthead-name">{platformName}</span>
+                    </div>
+                  )}
                 </Link>
-              </nav>
 
-              <div className="flex items-center gap-2">
+                <nav className="hidden lg:flex items-center" data-testid="audience-nav-desktop">
+                  {[
+                    { href: "/home", label: "Home", path: "home", icon: Home },
+                    { href: "/podcasts", label: "Listen", path: "podcasts", icon: Headphones },
+                    { href: "/news", label: "News", path: "news", icon: Newspaper },
+                  ].map(({ href, label, path, icon: Icon }) => (
+                    <Link
+                      key={path}
+                      href={href}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium transition-all rounded-full mx-0.5
+                        ${isActivePath(path)
+                          ? "text-gray-900"
+                          : "text-gray-400 hover:text-white"
+                        }`}
+                      style={isActivePath(path) ? { backgroundColor: primaryColor } : undefined}
+                      data-testid={`nav-${path}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="flex items-center gap-1.5">
                 <Link
                   href="/search"
-                  className={`hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors rounded-lg
-                    ${isActivePath("search") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  className="flex items-center gap-1.5 px-2.5 py-2 text-sm transition-colors rounded-full text-gray-400 hover:text-white hover:bg-gray-800"
                   data-testid="nav-search"
                 >
                   <Search className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/read-later"
-                  className={`hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors rounded-lg relative
-                    ${location === "/read-later" ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  className={`flex items-center gap-1.5 px-2.5 py-2 text-sm transition-colors rounded-full relative
+                    ${isActivePath("read-later") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800"}`}
                   data-testid="nav-read-later"
                 >
                   <Bookmark className="h-4 w-4" />
                   {savedCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full bg-amber-500 text-[10px] font-bold text-gray-900 flex items-center justify-center" data-testid="badge-read-later-count">
+                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center" style={{ backgroundColor: primaryColor, color: "#111" }} data-testid="badge-read-later-count">
                       {savedCount > 99 ? "99+" : savedCount}
                     </span>
                   )}
@@ -206,7 +233,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                     const el = document.querySelector('[data-testid="widget-inline-subscribe"], [data-testid="widget-sidebar-subscribe"], [data-testid="widget-episode-subscribe"]');
                     el?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-full transition-all hover:brightness-110"
                   style={{ backgroundColor: primaryColor, color: "#111" }}
                   data-testid="button-masthead-subscribe"
                 >
@@ -218,86 +245,94 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   data-testid="button-mobile-menu"
                 >
-                  {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                 </button>
               </div>
             </div>
           </div>
         </div>
 
+        <PresetsBar podcasts={podcasts || []} primaryColor={primaryColor} />
+
         {mobileMenuOpen && (
-          <div className="lg:hidden bg-gray-900 border-b border-gray-800" data-testid="audience-nav-mobile">
-            <div className="max-w-7xl mx-auto px-4 py-4 space-y-1">
-              <Link
-                href="/podcasts"
-                className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-                data-testid="mobile-nav-podcasts"
-              >
-                <Radio className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-white font-medium">Browse Podcasts</span>
-              </Link>
-              <Link
-                href="/news"
-                className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-                data-testid="mobile-nav-news"
-              >
-                <FileText className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-white font-medium">News</span>
-              </Link>
+          <div className="lg:hidden bg-gray-900 border-b border-gray-800 animate-in slide-in-from-top-2 duration-200" data-testid="audience-nav-mobile">
+            <div className="px-4 py-4 space-y-1">
+              {[
+                { href: "/home", label: "Home", icon: Home },
+                { href: "/podcasts", label: "Listen", icon: Headphones },
+                { href: "/news", label: "News", icon: Newspaper },
+                { href: "/search", label: "Search", icon: Search },
+              ].map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-3 py-3 hover:bg-gray-800 rounded-xl transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                  data-testid={`mobile-nav-${label.toLowerCase()}`}
+                >
+                  <Icon className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm text-white font-medium">{label}</span>
+                </Link>
+              ))}
+
               {podcasts && podcasts.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Shows</p>
+                <div className="pt-3 mt-2 border-t border-gray-800">
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-3 mb-2">Shows</p>
                   {podcasts.map((p: any) => (
                     <Link
                       key={p.id}
                       href={`/show/${p.id}`}
-                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-xl transition-colors"
                       onClick={() => setMobileMenuOpen(false)}
                       data-testid={`mobile-nav-show-${p.id}`}
                     >
                       {p.coverImage ? (
-                        <img src={p.coverImage} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                        <img src={p.coverImage} alt="" className="h-9 w-9 rounded-full object-cover ring-1 ring-gray-700" />
                       ) : (
-                        <div className="h-8 w-8 rounded-lg bg-gray-800 flex items-center justify-center">
+                        <div className="h-9 w-9 rounded-full bg-gray-800 flex items-center justify-center ring-1 ring-gray-700">
                           <Mic className="h-4 w-4 text-gray-500" />
                         </div>
                       )}
-                      <span className="text-sm text-white font-medium">{p.title}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{p.title}</p>
+                        <p className="text-xs text-gray-500 truncate">with {p.host}</p>
+                      </div>
                     </Link>
                   ))}
                 </div>
               )}
-              <Link
-                href="/read-later"
-                className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-800 rounded-lg transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-                data-testid="mobile-nav-read-later"
-              >
-                <Bookmark className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-white font-medium">Read Later</span>
-                {savedCount > 0 && (
-                  <span className="ml-auto text-xs bg-amber-500 text-gray-900 px-1.5 py-0.5 rounded-full font-bold">{savedCount}</span>
-                )}
-              </Link>
-              <a
-                href="#subscribe"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMobileMenuOpen(false);
-                  setTimeout(() => {
-                    const el = document.querySelector('[data-testid="widget-inline-subscribe"], [data-testid="widget-sidebar-subscribe"], [data-testid="widget-episode-subscribe"]');
-                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }, 100);
-                }}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg font-semibold text-sm"
-                style={{ backgroundColor: primaryColor, color: "#111" }}
-                data-testid="button-mobile-subscribe"
-              >
-                <Bell className="h-4 w-4" />
-                Subscribe
-              </a>
+
+              <div className="pt-3 mt-2 border-t border-gray-800">
+                <Link
+                  href="/read-later"
+                  className="flex items-center gap-3 px-3 py-3 hover:bg-gray-800 rounded-xl transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                  data-testid="mobile-nav-read-later"
+                >
+                  <Bookmark className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm text-white font-medium">Read Later</span>
+                  {savedCount > 0 && (
+                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: primaryColor, color: "#111" }}>{savedCount}</span>
+                  )}
+                </Link>
+                <a
+                  href="#subscribe"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMobileMenuOpen(false);
+                    setTimeout(() => {
+                      const el = document.querySelector('[data-testid="widget-inline-subscribe"], [data-testid="widget-sidebar-subscribe"], [data-testid="widget-episode-subscribe"]');
+                      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }, 100);
+                  }}
+                  className="flex items-center justify-center gap-2 mx-3 mt-3 py-2.5 rounded-full font-semibold text-sm transition-all hover:brightness-110"
+                  style={{ backgroundColor: primaryColor, color: "#111" }}
+                  data-testid="button-mobile-subscribe"
+                >
+                  <Bell className="h-4 w-4" />
+                  Subscribe
+                </a>
+              </div>
             </div>
           </div>
         )}
@@ -307,18 +342,20 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         {children}
       </main>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-950 border-t border-gray-800 safe-area-bottom print:hidden" data-testid="mobile-tab-bar">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-950/95 backdrop-blur-lg border-t border-gray-800/50 safe-area-bottom print:hidden" data-testid="mobile-tab-bar">
         <div className="flex items-center justify-around h-14">
           {[
             { href: "/home", icon: Home, label: "Home", path: "home" },
-            { href: "/podcasts", icon: Radio, label: "Podcasts", path: "podcasts" },
+            { href: "/podcasts", icon: Headphones, label: "Listen", path: "podcasts" },
+            { href: "/news", icon: Newspaper, label: "News", path: "news" },
             { href: "/search", icon: Search, label: "Search", path: "search" },
           ].map(({ href, icon: Icon, label, path }) => (
             <Link
               key={path}
               href={href}
               className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
-                ${isActivePath(path) ? "text-white" : "text-gray-500"}`}
+                ${isActivePath(path) ? "" : "text-gray-500"}`}
+              style={isActivePath(path) ? { color: primaryColor } : undefined}
               data-testid={`tab-${path}`}
             >
               <Icon className="h-5 w-5" />
@@ -331,39 +368,39 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
       <PWAInstallPrompt />
 
       <footer className="bg-gray-950 text-gray-400 print:hidden" data-testid="audience-footer">
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
-            <div className="md:col-span-1">
-              <div className="flex items-center gap-2.5 mb-4">
+        <div className="max-w-[1400px] mx-auto px-4 py-10">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
+            <div className="col-span-2">
+              <div className="flex items-center gap-2.5 mb-3">
                 {logoUrl ? (
-                  <img src={logoUrl} alt={platformName} className="h-8 max-w-[160px] object-contain brightness-200" />
+                  <img src={logoUrl} alt={platformName} className="h-7 max-w-[140px] object-contain brightness-200" />
                 ) : (
                   <>
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
-                      <Mic className="h-4 w-4 text-gray-900" />
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
+                      <Radio className="h-3.5 w-3.5 text-gray-900" />
                     </div>
-                    <span className="text-lg font-bold text-white">{platformName}</span>
+                    <span className="text-base font-bold text-white">{platformName}</span>
                   </>
                 )}
               </div>
-              <p className="text-sm text-gray-500 leading-relaxed mb-4">{tagline}</p>
-              <div className="flex gap-3">
-                <a href="#" className="h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors" data-testid="link-social-x">
+              <p className="text-sm text-gray-500 leading-relaxed mb-4 max-w-xs">{tagline}</p>
+              <div className="flex gap-2">
+                <a href="#" className="h-8 w-8 rounded-full bg-gray-800/80 flex items-center justify-center hover:bg-gray-700 transition-colors" data-testid="link-social-x">
                   <XIcon className="h-3.5 w-3.5 text-gray-400" />
                 </a>
-                <a href="#" className="h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors" data-testid="link-social-facebook">
+                <a href="#" className="h-8 w-8 rounded-full bg-gray-800/80 flex items-center justify-center hover:bg-gray-700 transition-colors" data-testid="link-social-facebook">
                   <svg className="h-3.5 w-3.5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 </a>
-                <a href="#" className="h-8 w-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors" data-testid="link-social-instagram">
+                <a href="#" className="h-8 w-8 rounded-full bg-gray-800/80 flex items-center justify-center hover:bg-gray-700 transition-colors" data-testid="link-social-instagram">
                   <svg className="h-3.5 w-3.5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
                 </a>
               </div>
             </div>
 
             <div>
-              <h4 className="text-white text-sm font-semibold uppercase tracking-wider mb-4">Shows</h4>
-              <ul className="space-y-2">
-                {podcasts?.slice(0, 6).map((p: any) => (
+              <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-3">Shows</h4>
+              <ul className="space-y-1.5">
+                {podcasts?.slice(0, 5).map((p: any) => (
                   <li key={p.id}>
                     <Link href={`/show/${p.id}`} className="text-sm text-gray-500 hover:text-white transition-colors" data-testid={`footer-show-${p.id}`}>
                       {p.title}
@@ -374,43 +411,42 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
             </div>
 
             <div>
-              <h4 className="text-white text-sm font-semibold uppercase tracking-wider mb-4">Platform</h4>
-              <ul className="space-y-2">
-                <li><span className="text-sm text-gray-500">News & Stories</span></li>
-                <li><span className="text-sm text-gray-500">Podcasts</span></li>
-                <li><span className="text-sm text-gray-500">Episodes</span></li>
-                <li><span className="text-sm text-gray-500">Subscribe</span></li>
+              <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-3">Explore</h4>
+              <ul className="space-y-1.5">
+                <li><Link href="/home" className="text-sm text-gray-500 hover:text-white transition-colors">Home</Link></li>
+                <li><Link href="/podcasts" className="text-sm text-gray-500 hover:text-white transition-colors">All Podcasts</Link></li>
+                <li><Link href="/news" className="text-sm text-gray-500 hover:text-white transition-colors">News</Link></li>
+                <li><Link href="/search" className="text-sm text-gray-500 hover:text-white transition-colors">Search</Link></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-white text-sm font-semibold uppercase tracking-wider mb-4">Get the App</h4>
-              <p className="text-sm text-gray-500 mb-4">Listen anywhere. Available on all your devices.</p>
+              <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-3">Get the App</h4>
               <div className="space-y-2">
-                <a href="#" className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors" data-testid="link-app-store">
-                  <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                <a href="#" className="flex items-center gap-2 px-3 py-2 bg-gray-800/60 rounded-lg hover:bg-gray-700 transition-colors" data-testid="link-app-store">
+                  <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
                   <div>
-                    <p className="text-[10px] text-gray-500 leading-none">Download on the</p>
-                    <p className="text-sm text-white font-medium leading-tight">App Store</p>
+                    <p className="text-[9px] text-gray-500 leading-none">Download on the</p>
+                    <p className="text-xs text-white font-medium leading-tight">App Store</p>
                   </div>
                 </a>
-                <a href="#" className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors" data-testid="link-google-play">
-                  <svg className="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 12l2.302-3.492zM5.864 2.658L16.8 9.99l-2.302 2.302L5.864 3.658z"/></svg>
+                <a href="#" className="flex items-center gap-2 px-3 py-2 bg-gray-800/60 rounded-lg hover:bg-gray-700 transition-colors" data-testid="link-google-play">
+                  <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 12l2.302-3.492zM5.864 2.658L16.8 9.99l-2.302 2.302L5.864 3.658z"/></svg>
                   <div>
-                    <p className="text-[10px] text-gray-500 leading-none">Get it on</p>
-                    <p className="text-sm text-white font-medium leading-tight">Google Play</p>
+                    <p className="text-[9px] text-gray-500 leading-none">Get it on</p>
+                    <p className="text-xs text-white font-medium leading-tight">Google Play</p>
                   </div>
                 </a>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="border-t border-gray-800/50 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-gray-600">&copy; {new Date().getFullYear()} {platformName}. All rights reserved.</p>
             <div className="flex items-center gap-4 text-xs text-gray-600">
-              <span>Privacy Policy</span>
-              <span>Terms of Service</span>
-              <span>Contact</span>
+              <span className="hover:text-gray-400 cursor-pointer transition-colors">Privacy</span>
+              <span className="hover:text-gray-400 cursor-pointer transition-colors">Terms</span>
+              <span className="hover:text-gray-400 cursor-pointer transition-colors">Contact</span>
             </div>
           </div>
         </div>

@@ -81,7 +81,7 @@ function ShareBar({ title, shareUrl, compact }: { title: string; shareUrl: strin
           target={item.label === "Email" || item.label === "Text" ? "_self" : "_blank"}
           rel="noopener noreferrer"
           title={`Share via ${item.label}`}
-          className={`inline-flex items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-500 transition-all duration-200 ${item.color} ${compact ? "h-8 w-8" : "h-9 w-9"}`}
+          className={`inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-all duration-200 ${item.color} ${compact ? "h-8 w-8" : "h-9 w-9"}`}
           data-testid={`button-share-${item.label.toLowerCase()}`}
         >
           {item.icon}
@@ -90,7 +90,7 @@ function ShareBar({ title, shareUrl, compact }: { title: string; shareUrl: strin
       <button
         onClick={handleCopyLink}
         title="Copy link"
-        className={`inline-flex items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-700 hover:text-white ${compact ? "h-8 w-8" : "h-9 w-9"}`}
+        className={`inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-700 hover:text-white ${compact ? "h-8 w-8" : "h-9 w-9"}`}
         data-testid="button-copy-link"
       >
         {copied ? <Check className="h-4 w-4 text-green-500" /> : <Link2 className="h-4 w-4" />}
@@ -98,7 +98,7 @@ function ShareBar({ title, shareUrl, compact }: { title: string; shareUrl: strin
       <button
         onClick={() => window.print()}
         title="Print"
-        className={`inline-flex items-center justify-center rounded-sm border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-700 hover:text-white ${compact ? "h-8 w-8" : "h-9 w-9"}`}
+        className={`inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-700 hover:text-white ${compact ? "h-8 w-8" : "h-9 w-9"}`}
         data-testid="button-print"
       >
         <Printer className="h-4 w-4" />
@@ -153,7 +153,7 @@ function CommentSection({ articleId }: { articleId: string }) {
         Comments {commentsList.length > 0 && <span className="text-sm font-normal text-gray-500">({commentsList.length})</span>}
       </h3>
 
-      <form onSubmit={handleSubmit} className="mb-8 bg-gray-50 border border-gray-200 p-4" data-testid="form-add-comment">
+      <form onSubmit={handleSubmit} className="mb-8 bg-white rounded-xl border border-gray-200 p-5 shadow-sm" data-testid="form-add-comment">
         <div className="mb-3">
           <input
             type="text"
@@ -162,7 +162,7 @@ function CommentSection({ articleId }: { articleId: string }) {
             onChange={(e) => setAuthorName(e.target.value)}
             required
             maxLength={100}
-            className="w-full px-3 py-2 bg-white border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition-colors"
             data-testid="input-comment-author"
           />
         </div>
@@ -174,7 +174,7 @@ function CommentSection({ articleId }: { articleId: string }) {
             required
             maxLength={2000}
             rows={3}
-            className="w-full px-3 py-2 bg-white border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 transition-colors resize-none"
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition-colors resize-none"
             data-testid="input-comment-content"
           />
         </div>
@@ -182,7 +182,7 @@ function CommentSection({ articleId }: { articleId: string }) {
           <button
             type="submit"
             disabled={addComment.isPending || !authorName.trim() || !content.trim()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="button-submit-comment"
           >
             <Send className="h-3.5 w-3.5" />
@@ -257,13 +257,15 @@ export default function ArticlePage() {
 
   if (articleLoading) {
     return (
-      <div className="bg-white">
+      <div className="bg-gray-50 min-h-screen">
         <div className="max-w-5xl mx-auto px-4 py-12">
-          <Skeleton className="h-10 w-3/4 mb-4 bg-gray-200" />
-          <Skeleton className="h-4 w-48 mb-8 bg-gray-100" />
-          <Skeleton className="h-5 w-full mb-3 bg-gray-100" />
-          <Skeleton className="h-5 w-full mb-3 bg-gray-100" />
-          <Skeleton className="h-5 w-3/4 mb-6 bg-gray-100" />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+            <Skeleton className="h-10 w-3/4 mb-4 bg-gray-200" />
+            <Skeleton className="h-4 w-48 mb-8 bg-gray-100" />
+            <Skeleton className="h-5 w-full mb-3 bg-gray-100" />
+            <Skeleton className="h-5 w-full mb-3 bg-gray-100" />
+            <Skeleton className="h-5 w-3/4 mb-6 bg-gray-100" />
+          </div>
         </div>
       </div>
     );
@@ -271,8 +273,8 @@ export default function ArticlePage() {
 
   if (articleError || !article) {
     return (
-      <div className="bg-white flex items-center justify-center py-20">
-        <div className="text-center">
+      <div className="bg-gray-50 min-h-screen flex items-center justify-center py-20">
+        <div className="text-center bg-white rounded-xl shadow-sm border border-gray-100 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Article not found</h1>
           <p className="text-gray-500 mb-4">This article doesn't exist or has been removed.</p>
           <Link href="/news" className="text-blue-600 hover:underline text-sm">Back to News</Link>
@@ -286,8 +288,8 @@ export default function ArticlePage() {
   const paragraphs = article.body ? article.body.split("\n\n") : [];
 
   return (
-    <div className="bg-white" data-testid="article-page">
-      <nav className="border-b border-gray-100 bg-gray-50/50">
+    <div className="bg-gray-50 min-h-screen" data-testid="article-page">
+      <nav className="bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
             <Link href="/news" className="hover:text-gray-900 cursor-pointer">{podcast?.title || "News"}</Link>
@@ -305,165 +307,167 @@ export default function ArticlePage() {
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 max-w-[720px]">
-            <article data-testid={`article-detail-${article.id}`}>
-              <header className="mb-6">
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-4" data-testid="text-article-headline">
-                  {article.title}
-                </h1>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+              <article data-testid={`article-detail-${article.id}`}>
+                <header className="mb-6">
+                  <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-4" data-testid="text-article-headline">
+                    {article.title}
+                  </h1>
 
-                {article.description && (
-                  <p className="text-lg text-gray-500 leading-relaxed mb-5" data-testid="text-article-description">
-                    {article.description}
-                  </p>
-                )}
+                  {article.description && (
+                    <p className="text-lg text-gray-500 leading-relaxed mb-5" data-testid="text-article-description">
+                      {article.description}
+                    </p>
+                  )}
 
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <div className="flex items-center space-x-3">
-                    {article.author ? (
-                      <>
-                        {article.author.profilePhoto ? (
-                          <img src={article.author.profilePhoto} alt={article.author.displayName} className="h-6 w-6 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
-                            <User className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                        <Link href={`/author/${article.author.id}`} className="font-medium text-gray-700 hover:text-blue-600 hover:underline cursor-pointer" data-testid="link-article-author">
-                          {article.author.displayName || "Staff Writer"}
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        {podcast?.coverImage ? (
-                          <img src={podcast.coverImage} alt={podcast?.title} className="h-6 w-6 rounded-full object-cover" />
-                        ) : (
-                          <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
-                            <Mic className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                        <span className="font-medium text-gray-700">{podcast?.host || "Editorial Team"}</span>
-                      </>
-                    )}
-                  </div>
-                  <span className="mx-3 text-gray-300">|</span>
-                  <Clock className="h-3.5 w-3.5 mr-1" />
-                  <time>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</time>
-                </div>
-
-                <div className="border-t border-b border-gray-100 py-3 flex items-center justify-between">
-                  <ShareBar title={article.title} shareUrl={shareUrl} />
-                  <button
-                    onClick={() =>
-                      toggleArticle({
-                        id: article.id,
-                        title: article.title,
-                        description: article.description,
-                        coverImage: article.coverImage,
-                        podcastId: params.podcastId!,
-                        podcastTitle: podcast?.title,
-                        readingTime: article.readingTime,
-                        publishedAt: article.publishedAt,
-                      })
-                    }
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      isSaved(article.id)
-                        ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                    data-testid="button-read-later"
-                  >
-                    <Bookmark className={`h-4 w-4 ${isSaved(article.id) ? "fill-amber-600" : ""}`} />
-                    {isSaved(article.id) ? "Saved" : "Read Later"}
-                  </button>
-                </div>
-              </header>
-
-              {article.coverImage && (
-                <div className="mb-8">
-                  <img
-                    src={article.coverImage}
-                    alt={article.title}
-                    className="w-full rounded-sm object-cover max-h-[400px] bg-gray-100"
-                    data-testid="img-article-cover"
-                  />
-                </div>
-              )}
-
-              <div className="prose prose-lg prose-gray max-w-none" data-testid="text-article-body">
-                {paragraphs.length > 0 ? (
-                  paragraphs.map((paragraph: string, i: number) => (
-                    <div key={i}>
-                      <p className="text-gray-800 leading-relaxed mb-6 text-[17px]">
-                        {paragraph}
-                      </p>
-                      {i === 1 && paragraphs.length > 3 && (
+                  <div className="flex items-center text-sm text-gray-500 mb-4">
+                    <div className="flex items-center space-x-3">
+                      {article.author ? (
                         <>
-                          <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-1">
-                            <AdPlaceholder width={300} height={250} label="In-Article 1" />
-                          </div>
-                          <div className="print:hidden">
-                            <InlineSubscribeWidget
-                              podcastId={podcast?.id}
-                              podcastTitle={podcast?.title}
-                              source="article_inline"
-                              isSubscribed={isSubscribed}
-                              recommendations={recommendations}
-                              subscriberName={subscriberName}
-                            />
-                          </div>
+                          {article.author.profilePhoto ? (
+                            <img src={article.author.profilePhoto} alt={article.author.displayName} className="h-6 w-6 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
+                              <User className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          <Link href={`/author/${article.author.id}`} className="font-medium text-gray-700 hover:text-blue-600 hover:underline cursor-pointer" data-testid="link-article-author">
+                            {article.author.displayName || "Staff Writer"}
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          {podcast?.coverImage ? (
+                            <img src={podcast.coverImage} alt={podcast?.title} className="h-6 w-6 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
+                              <Mic className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          <span className="font-medium text-gray-700">{podcast?.host || "Editorial Team"}</span>
                         </>
                       )}
-                      {i === Math.floor(paragraphs.length * 0.7) && paragraphs.length > 5 && (
-                        <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-2">
-                          <AdPlaceholder width={336} height={280} label="In-Article 2" />
+                    </div>
+                    <span className="mx-3 text-gray-300">|</span>
+                    <Clock className="h-3.5 w-3.5 mr-1" />
+                    <time>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</time>
+                  </div>
+
+                  <div className="border-t border-b border-gray-100 py-3 flex items-center justify-between">
+                    <ShareBar title={article.title} shareUrl={shareUrl} />
+                    <button
+                      onClick={() =>
+                        toggleArticle({
+                          id: article.id,
+                          title: article.title,
+                          description: article.description,
+                          coverImage: article.coverImage,
+                          podcastId: params.podcastId!,
+                          podcastTitle: podcast?.title,
+                          readingTime: article.readingTime,
+                          publishedAt: article.publishedAt,
+                        })
+                      }
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        isSaved(article.id)
+                          ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                      data-testid="button-read-later"
+                    >
+                      <Bookmark className={`h-4 w-4 ${isSaved(article.id) ? "fill-amber-600" : ""}`} />
+                      {isSaved(article.id) ? "Saved" : "Read Later"}
+                    </button>
+                  </div>
+                </header>
+
+                {article.coverImage && (
+                  <div className="mb-8">
+                    <img
+                      src={article.coverImage}
+                      alt={article.title}
+                      className="w-full rounded-lg object-cover max-h-[400px] bg-gray-100"
+                      data-testid="img-article-cover"
+                    />
+                  </div>
+                )}
+
+                <div className="prose prose-lg prose-gray max-w-none" data-testid="text-article-body">
+                  {paragraphs.length > 0 ? (
+                    paragraphs.map((paragraph: string, i: number) => (
+                      <div key={i}>
+                        <p className="text-gray-800 leading-relaxed mb-6 text-[17px]">
+                          {paragraph}
+                        </p>
+                        {i === 1 && paragraphs.length > 3 && (
+                          <>
+                            <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-1">
+                              <AdPlaceholder width={300} height={250} label="In-Article 1" />
+                            </div>
+                            <div className="print:hidden">
+                              <InlineSubscribeWidget
+                                podcastId={podcast?.id}
+                                podcastTitle={podcast?.title}
+                                source="article_inline"
+                                isSubscribed={isSubscribed}
+                                recommendations={recommendations}
+                                subscriberName={subscriberName}
+                              />
+                            </div>
+                          </>
+                        )}
+                        {i === Math.floor(paragraphs.length * 0.7) && paragraphs.length > 5 && (
+                          <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-2">
+                            <AdPlaceholder width={336} height={280} label="In-Article 2" />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : article.description ? (
+                    <p className="text-gray-800 leading-relaxed mb-6 text-[17px]">
+                      {article.description}
+                    </p>
+                  ) : (
+                    <p className="text-gray-400 italic">Full article content is being generated...</p>
+                  )}
+                </div>
+
+                <div className="mt-10 pt-6 border-t border-gray-200">
+                  <p className="text-sm text-gray-500 mb-3">Share this story</p>
+                  <ShareBar title={article.title} shareUrl={shareUrl} />
+                </div>
+
+                <CommentSection articleId={article.id} />
+
+                <div className="flex justify-center my-8 print:hidden">
+                  <AdPlaceholder width={728} height={90} label="Bottom Leaderboard" className="hidden md:flex" />
+                  <AdPlaceholder width={320} height={100} label="Mobile Leaderboard" className="md:hidden" />
+                </div>
+
+                <footer className="mt-8 pt-8 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {podcast?.coverImage ? (
+                        <img src={podcast.coverImage} alt={podcast?.title} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center">
+                          <Mic className="h-5 w-5 text-white" />
                         </div>
                       )}
-                    </div>
-                  ))
-                ) : article.description ? (
-                  <p className="text-gray-800 leading-relaxed mb-6 text-[17px]">
-                    {article.description}
-                  </p>
-                ) : (
-                  <p className="text-gray-400 italic">Full article content is being generated...</p>
-                )}
-              </div>
-
-              <div className="mt-10 pt-6 border-t border-gray-200">
-                <p className="text-sm text-gray-500 mb-3">Share this story</p>
-                <ShareBar title={article.title} shareUrl={shareUrl} />
-              </div>
-
-              <CommentSection articleId={article.id} />
-
-              <div className="flex justify-center my-8 print:hidden">
-                <AdPlaceholder width={728} height={90} label="Bottom Leaderboard" className="hidden md:flex" />
-                <AdPlaceholder width={320} height={100} label="Mobile Leaderboard" className="md:hidden" />
-              </div>
-
-              <footer className="mt-8 pt-8 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    {podcast?.coverImage ? (
-                      <img src={podcast.coverImage} alt={podcast?.title} className="h-10 w-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center">
-                        <Mic className="h-5 w-5 text-white" />
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">{podcast?.host || "Editorial Team"}</p>
+                        <p className="text-gray-500 text-xs">{podcast?.title}</p>
                       </div>
-                    )}
-                    <div>
-                      <p className="font-semibold text-gray-900 text-sm">{podcast?.host || "Editorial Team"}</p>
-                      <p className="text-gray-500 text-xs">{podcast?.title}</p>
                     </div>
+                    <Link href="/news">
+                      <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-50" data-testid="button-more-stories">
+                        More Stories
+                      </Button>
+                    </Link>
                   </div>
-                  <Link href="/news">
-                    <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-50" data-testid="button-more-stories">
-                      More Stories
-                    </Button>
-                  </Link>
-                </div>
-              </footer>
-            </article>
+                </footer>
+              </article>
+            </div>
           </div>
 
           <aside className="hidden lg:block w-[300px] shrink-0 print:hidden" data-testid="article-sidebar">
@@ -480,7 +484,7 @@ export default function ArticlePage() {
 
               <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
 
-              <div className="border border-gray-100 bg-gray-50 p-4">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About the Show</h3>
                 <div className="flex items-center space-x-3 mb-3">
                   {podcast?.coverImage ? (
@@ -499,7 +503,7 @@ export default function ArticlePage() {
                   {podcast?.subscribers ? `${(podcast.subscribers / 1000).toFixed(0)}K subscribers` : ""}
                 </p>
                 <Link href="/news">
-                  <Button variant="outline" size="sm" className="w-full mt-3 text-xs border-gray-300" data-testid="button-sidebar-all-stories">
+                  <Button variant="outline" size="sm" className="w-full mt-3 text-xs border-gray-300 rounded-lg" data-testid="button-sidebar-all-stories">
                     View All Stories
                   </Button>
                 </Link>

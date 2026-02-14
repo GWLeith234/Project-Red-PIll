@@ -51,7 +51,7 @@ export default function ShowDetail() {
 
   if (isLoading) {
     return (
-      <div className="bg-white">
+      <div className="bg-gray-50 min-h-screen">
         <div className="bg-gray-950 text-white">
           <div className="max-w-6xl mx-auto px-4 py-12">
             <div className="flex items-center gap-6">
@@ -65,7 +65,7 @@ export default function ShowDetail() {
         </div>
         <div className="max-w-6xl mx-auto px-4 py-8">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full mb-4 bg-gray-100 rounded-xl" />
+            <Skeleton key={i} className="h-20 w-full mb-4 bg-white rounded-xl shadow-sm" />
           ))}
         </div>
       </div>
@@ -74,8 +74,8 @@ export default function ShowDetail() {
 
   if (error || !data) {
     return (
-      <div className="bg-white flex items-center justify-center py-20">
-        <div className="text-center">
+      <div className="bg-gray-50 min-h-screen flex items-center justify-center py-20">
+        <div className="text-center bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
           <Mic className="h-16 w-16 text-gray-200 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Show not found</h1>
           <p className="text-gray-500 mb-4">This show doesn't exist or is no longer available.</p>
@@ -96,37 +96,38 @@ export default function ShowDetail() {
   ];
 
   return (
-    <div className="bg-white" data-testid="show-detail">
-      <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
-        <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
-          <div className="flex flex-col sm:flex-row items-start gap-6">
+    <div className="bg-gray-50 min-h-screen" data-testid="show-detail">
+      <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-transparent to-amber-500/5 pointer-events-none" />
+        <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 relative">
+          <div className="flex flex-col sm:flex-row items-start gap-8">
             <div className="flex-shrink-0">
               {podcast.coverImage ? (
                 <img
                   src={podcast.coverImage}
                   alt={podcast.title}
-                  className="h-36 w-36 sm:h-44 sm:w-44 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10"
+                  className="h-40 w-40 sm:h-48 sm:w-48 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10"
                   data-testid="img-show-cover"
                 />
               ) : (
-                <div className="h-36 w-36 sm:h-44 sm:w-44 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-2xl">
+                <div className="h-40 w-40 sm:h-48 sm:w-48 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-2xl">
                   <Mic className="h-16 w-16 text-gray-900" />
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/15 text-amber-400 text-xs font-semibold uppercase tracking-wider rounded-md">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/15 text-amber-400 text-xs font-semibold uppercase tracking-wider rounded-full">
                   <Mic className="h-3 w-3" />
                   Podcast
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2" data-testid="text-show-title">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3" data-testid="text-show-title">
                 {podcast.title}
               </h1>
               <p className="text-gray-400 text-lg mb-4">with {podcast.host}</p>
               {podcast.description && (
-                <p className="text-gray-400 text-sm leading-relaxed max-w-2xl line-clamp-3 mb-5">
+                <p className="text-gray-400 text-sm leading-relaxed max-w-2xl line-clamp-3 mb-6">
                   {podcast.description}
                 </p>
               )}
@@ -153,19 +154,19 @@ export default function ShowDetail() {
         </div>
       </div>
 
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-30">
+      <div className="bg-white border-b border-gray-200 sticky top-16 z-30">
         <div className="max-w-6xl mx-auto px-4">
-          <nav className="flex gap-0 -mb-px" data-testid="show-tabs">
+          <nav className="flex gap-2 py-3" data-testid="show-tabs">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors
+                  className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-full transition-all
                     ${activeTab === tab.id
-                      ? "border-amber-500 text-gray-900"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      ? "bg-amber-500 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                     }`}
                   data-testid={`tab-${tab.id}`}
                 >
@@ -173,7 +174,7 @@ export default function ShowDetail() {
                   {tab.label}
                   {tab.count > 0 && (
                     <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full
-                      ${activeTab === tab.id ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"}`}>
+                      ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"}`}>
                       {tab.count}
                     </span>
                   )}
@@ -184,12 +185,12 @@ export default function ShowDetail() {
         </div>
       </div>
 
-      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+      <div className="flex justify-center py-4 bg-gray-50 border-b border-gray-100">
         <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
         <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-4 py-10">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0">
             {activeTab === "episodes" && (
@@ -205,7 +206,9 @@ export default function ShowDetail() {
 
           <aside className="hidden lg:block w-[300px] shrink-0 print:hidden">
             <div className="sticky top-32 space-y-6">
-              <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <AdPlaceholder width={268} height={250} label="Sidebar Rectangle" />
+              </div>
 
               <SidebarSubscribeWidget
                 podcastId={podcast.id}
@@ -217,7 +220,9 @@ export default function ShowDetail() {
                 subscriberName={subscriberName}
               />
 
-              <AdPlaceholder width={300} height={600} label="Sidebar Half Page" />
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <AdPlaceholder width={268} height={600} label="Sidebar Half Page" />
+              </div>
             </div>
           </aside>
         </div>
@@ -238,14 +243,14 @@ export default function ShowDetail() {
 function EpisodeTypeBadge({ type }: { type: string }) {
   if (type === "video" || type === "both") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
         <Video className="h-3 w-3" />
         {type === "both" ? "Video + Audio" : "Video"}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs font-semibold rounded-full">
       <Headphones className="h-3 w-3" />
       Audio
     </span>
@@ -255,7 +260,7 @@ function EpisodeTypeBadge({ type }: { type: string }) {
 function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; podcastId: string; podcastTitle: string }) {
   if (episodes.length === 0) {
     return (
-      <div className="text-center py-16">
+      <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
         <Headphones className="h-12 w-12 text-gray-200 mx-auto mb-3" />
         <p className="text-gray-500 text-lg font-medium">No episodes yet</p>
         <p className="text-gray-400 text-sm mt-1">New episodes will appear here when published.</p>
@@ -264,7 +269,7 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
   }
 
   return (
-    <div className="space-y-3" data-testid="episodes-list">
+    <div className="space-y-4" data-testid="episodes-list">
       {episodes.map((ep: any) => (
         <Link
           key={ep.id}
@@ -272,12 +277,12 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
           className="block"
           data-testid={`card-episode-${ep.id}`}
         >
-          <div className="group flex gap-4 p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all bg-white">
+          <div className="group flex gap-4 p-5 rounded-xl border border-gray-100 hover:border-amber-200 hover:shadow-md transition-all bg-white shadow-sm">
             <div className="flex-shrink-0 relative">
               {ep.thumbnailUrl ? (
-                <img src={ep.thumbnailUrl} alt="" className="h-20 w-20 sm:h-24 sm:w-28 rounded-lg object-cover bg-gray-100" />
+                <img src={ep.thumbnailUrl} alt="" className="h-20 w-20 sm:h-24 sm:w-28 rounded-xl object-cover bg-gray-100" />
               ) : (
-                <div className="h-20 w-20 sm:h-24 sm:w-28 rounded-lg bg-gray-100 flex items-center justify-center">
+                <div className="h-20 w-20 sm:h-24 sm:w-28 rounded-xl bg-gray-50 flex items-center justify-center">
                   {ep.episodeType === "video" || ep.episodeType === "both" ? (
                     <Video className="h-8 w-8 text-gray-300" />
                   ) : (
@@ -287,7 +292,7 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
               )}
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
-                  <Play className="h-4 w-4 text-gray-900 ml-0.5" />
+                  <Play className="h-4 w-4 text-white ml-0.5" />
                 </div>
               </div>
             </div>
@@ -301,7 +306,7 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
               {ep.description && (
                 <p className="text-gray-500 text-xs sm:text-sm mt-1 line-clamp-2 leading-relaxed">{ep.description}</p>
               )}
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+              <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400">
                 {ep.publishedAt && (
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -326,7 +331,7 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
 function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: string }) {
   if (articles.length === 0) {
     return (
-      <div className="text-center py-16">
+      <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
         <FileText className="h-12 w-12 text-gray-200 mx-auto mb-3" />
         <p className="text-gray-500 text-lg font-medium">No articles yet</p>
         <p className="text-gray-400 text-sm mt-1">AI-generated articles from episodes will appear here.</p>
@@ -335,7 +340,7 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
   }
 
   return (
-    <div className="divide-y divide-gray-100" data-testid="articles-list">
+    <div className="space-y-4" data-testid="articles-list">
       {articles.map((article: any) => (
         <Link
           key={article.id}
@@ -343,14 +348,14 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
           className="block"
           data-testid={`card-article-${article.id}`}
         >
-          <article className="group py-5 first:pt-0 cursor-pointer">
+          <article className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-5 cursor-pointer">
             <div className="flex gap-5">
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-amber-600 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
                   {article.title}
                 </h3>
                 {article.description && (
-                  <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-2">
+                  <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">
                     {article.description}
                   </p>
                 )}
@@ -369,7 +374,7 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
                   <img
                     src={article.coverImage}
                     alt=""
-                    className="w-[140px] h-[90px] object-cover rounded-lg bg-gray-100"
+                    className="w-[140px] h-[90px] object-cover rounded-xl bg-gray-100"
                   />
                 </div>
               )}
@@ -383,38 +388,40 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
 
 function AboutTab({ podcast, episodeCount, articleCount }: { podcast: any; episodeCount: number; articleCount: number }) {
   return (
-    <div className="max-w-2xl" data-testid="about-section">
-      <div className="flex items-center gap-5 mb-8">
-        {podcast.coverImage ? (
-          <img src={podcast.coverImage} alt="" className="h-24 w-24 rounded-2xl object-cover shadow-md" />
-        ) : (
-          <div className="h-24 w-24 rounded-2xl bg-amber-500 flex items-center justify-center">
-            <Mic className="h-10 w-10 text-gray-900" />
+    <div className="max-w-2xl space-y-6" data-testid="about-section">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center gap-5 mb-6">
+          {podcast.coverImage ? (
+            <img src={podcast.coverImage} alt="" className="h-24 w-24 rounded-2xl object-cover shadow-md" />
+          ) : (
+            <div className="h-24 w-24 rounded-2xl bg-amber-500 flex items-center justify-center">
+              <Mic className="h-10 w-10 text-gray-900" />
+            </div>
+          )}
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">{podcast.title}</h2>
+            <p className="text-gray-500 text-lg">with {podcast.host}</p>
+          </div>
+        </div>
+
+        {podcast.description && (
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About This Show</h3>
+            <p className="text-gray-600 leading-relaxed whitespace-pre-line">{podcast.description}</p>
           </div>
         )}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">{podcast.title}</h2>
-          <p className="text-gray-500 text-lg">with {podcast.host}</p>
-        </div>
       </div>
 
-      {podcast.description && (
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About This Show</h3>
-          <p className="text-gray-600 leading-relaxed whitespace-pre-line">{podcast.description}</p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-gray-50 rounded-xl p-4 text-center">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
           <p className="text-2xl font-bold text-gray-900">{episodeCount}</p>
           <p className="text-gray-500 text-xs mt-1">Episodes</p>
         </div>
-        <div className="bg-gray-50 rounded-xl p-4 text-center">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
           <p className="text-2xl font-bold text-gray-900">{articleCount}</p>
           <p className="text-gray-500 text-xs mt-1">Articles</p>
         </div>
-        <div className="bg-gray-50 rounded-xl p-4 text-center">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
           <p className="text-2xl font-bold text-gray-900">{formatSubscribers(podcast.subscribers) || "0"}</p>
           <p className="text-gray-500 text-xs mt-1">Subscribers</p>
         </div>
