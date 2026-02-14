@@ -22,6 +22,7 @@ import {
   ContactRound,
   Network,
   Send,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -49,6 +50,7 @@ const navGroups: NavGroup[] = [
     label: "Content Factory",
     items: [
       { name: "Pipeline Generator", href: "/content", icon: Factory, permission: "content.view" },
+      { name: "Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
       { name: "Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
     ],

@@ -311,7 +311,7 @@ export default function ModerationQueue() {
         onShipNow={handleShipNow}
         onSchedule={() => {
           setShipPreviewItem(null);
-          navigate("/content?tab=schedule");
+          navigate("/scheduler");
         }}
         shipping={approveStory.isPending || updateClip.isPending}
       />

@@ -27,6 +27,7 @@ import ModerationQueue from "@/pages/ModerationQueue";
 import AuthorProfile from "@/pages/AuthorProfile";
 import Analytics from "@/pages/Analytics";
 import CampaignBuilderPage from "@/pages/CampaignBuilderPage";
+import SchedulerPage from "@/pages/SchedulerPage";
 import NotFound from "@/pages/not-found";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -81,6 +82,7 @@ function ProtectedRoutes() {
       <Switch>
         <Route path="/">{() => <PermissionGate permission="dashboard.view"><Dashboard /></PermissionGate>}</Route>
         <Route path="/content">{() => <PermissionGate permission="content.view"><ContentFactory /></PermissionGate>}</Route>
+        <Route path="/scheduler">{() => <PermissionGate permission="content.view"><SchedulerPage /></PermissionGate>}</Route>
         <Route path="/moderation">{() => <PermissionGate permission="content.edit"><ModerationQueue /></PermissionGate>}</Route>
         <Route path="/campaigns">{() => <PermissionGate permission="content.view"><CampaignBuilderPage /></PermissionGate>}</Route>
         <Route path="/monetization">{() => <PermissionGate permission="monetization.view"><Monetization /></PermissionGate>}</Route>

@@ -25,7 +25,6 @@ import {
   useEpisodes, useContentPieces, usePodcasts, useCreateEpisode,
   useQueueTranscription, useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
   useClipAssets, useUpdateClipAsset, useDeleteClipAsset,
-  useScheduledPosts, useCreateScheduledPost, useUpdateScheduledPost, useDeleteScheduledPost,
   useNewsletterRuns, useSendNewsletter, useDeleteNewsletterRun,
   useUpdateContentPiece
 } from "@/lib/api";
@@ -219,9 +218,6 @@ export default function ContentFactory() {
           <TabsTrigger value="clips" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-clips">
             <Scissors className="mr-1.5 h-3 w-3" /> Clips
           </TabsTrigger>
-          <TabsTrigger value="schedule" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-schedule">
-            <Calendar className="mr-1.5 h-3 w-3" /> Schedule
-          </TabsTrigger>
           <TabsTrigger value="newsletter" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-newsletter">
             <Mail className="mr-1.5 h-3 w-3" /> Newsletter
           </TabsTrigger>
@@ -235,9 +231,6 @@ export default function ContentFactory() {
         </TabsContent>
         <TabsContent value="clips" className="mt-4">
           <ClipsTab />
-        </TabsContent>
-        <TabsContent value="schedule" className="mt-4">
-          <ScheduleTab />
         </TabsContent>
         <TabsContent value="newsletter" className="mt-4">
           <NewsletterTab />
@@ -667,35 +660,37 @@ function PipelineTab() {
   }
 
   return (
-    <div className="grid grid-cols-12 gap-6">
-      <div className="col-span-12 lg:col-span-4 space-y-4">
-        <Card className="glass-panel border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-display text-lg flex items-center gap-2">
+    <div className="space-y-6">
+      <Card className="glass-panel border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <Mic className="h-5 w-5 text-primary" />
-              Episodes
-            </CardTitle>
-            <CardDescription className="font-mono text-xs">Select or queue episodes for content generation</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search episodes..."
-                value={episodeSearch}
-                onChange={(e) => setEpisodeSearch(e.target.value)}
-                className="pl-8 h-8 text-xs font-mono"
-                data-testid="input-search-episodes"
-              />
+              <CardTitle className="font-display text-lg">Select Episode</CardTitle>
             </div>
+            <CardDescription className="font-mono text-xs">Queue and select episodes for content generation</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search episodes..."
+              value={episodeSearch}
+              onChange={(e) => setEpisodeSearch(e.target.value)}
+              className="pl-8 h-8 text-xs font-mono"
+              data-testid="input-search-episodes"
+            />
+          </div>
 
-            {epLoading ? (
-              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
-            ) : (
-              <div className="space-y-1 max-h-[50vh] overflow-y-auto pr-1">
-                {queuedEpisodes.length > 0 && (
-                  <>
-                    <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pt-1 pb-1">In Queue / Processing</p>
+          {epLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+          ) : (
+            <>
+              {queuedEpisodes.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pb-2">In Queue / Processing</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {queuedEpisodes.map((ep: any) => {
                       const epPodcast = podcasts?.find((p: any) => p.id === ep.podcastId);
                       const isActive = ep.id === selectedEpisodeId;
@@ -705,7 +700,7 @@ function PipelineTab() {
                           key={ep.id}
                           className={cn(
                             "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all border",
-                            isActive ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-card/60 hover:border-border/50"
+                            isActive ? "bg-primary/10 border-primary/30 ring-1 ring-primary/20" : "border-border/30 hover:bg-card/60 hover:border-border/50"
                           )}
                           onClick={() => setSelectedEpisodeId(ep.id)}
                           data-testid={`episode-row-${ep.id}`}
@@ -733,12 +728,14 @@ function PipelineTab() {
                         </div>
                       );
                     })}
-                  </>
-                )}
+                  </div>
+                </div>
+              )}
 
-                {pendingEpisodes.length > 0 && (
-                  <>
-                    <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pt-3 pb-1">Available Episodes</p>
+              {pendingEpisodes.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pt-2 pb-2">Available Episodes</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {pendingEpisodes.map((ep: any) => {
                       const epPodcast = podcasts?.find((p: any) => p.id === ep.podcastId);
                       const isActive = ep.id === selectedEpisodeId;
@@ -748,7 +745,7 @@ function PipelineTab() {
                           key={ep.id}
                           className={cn(
                             "flex items-center gap-3 p-2.5 rounded-lg transition-all border group",
-                            isActive ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-card/60 hover:border-border/50"
+                            isActive ? "bg-primary/10 border-primary/30 ring-1 ring-primary/20" : "border-border/30 hover:bg-card/60 hover:border-border/50"
                           )}
                           data-testid={`episode-row-${ep.id}`}
                         >
@@ -783,208 +780,205 @@ function PipelineTab() {
                         </div>
                       );
                     })}
-                  </>
-                )}
-
-                {filteredEpisodes.length === 0 && (
-                  <div className="text-center py-6">
-                    <Mic className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                    <p className="text-xs text-muted-foreground font-mono">No episodes found</p>
                   </div>
+                </div>
+              )}
+
+              {filteredEpisodes.length === 0 && (
+                <div className="text-center py-6">
+                  <Mic className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-xs text-muted-foreground font-mono">No episodes found</p>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedEpisode && (
+        <Card className="glass-panel border-border/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <CardTitle className="font-display text-base" data-testid="text-selected-episode">{selectedEpisode.title}</CardTitle>
+                <CardDescription className="font-mono text-xs">{podcast?.title || "Unknown Podcast"}</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {selectedEpisode.duration && (
+                  <Badge variant="outline" className="font-mono text-xs">
+                    <Clock className="mr-1 h-3 w-3" /> {selectedEpisode.duration}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="font-mono text-xs capitalize">
+                  {selectedEpisode.episodeType || "audio"}
+                </Badge>
+                {(selectedEpisode.transcriptStatus === "pending" || selectedEpisode.transcriptStatus === "processing") ? (
+                  <TranscriptProgressBar status={selectedEpisode.transcriptStatus} />
+                ) : (
+                  <Badge variant="outline" className={cn(
+                    "font-mono text-xs",
+                    (selectedEpisode.transcriptStatus === "ready" || selectedEpisode.transcriptStatus === "complete") ? "border-emerald-500/50 text-emerald-500" :
+                    selectedEpisode.transcriptStatus === "failed" ? "border-destructive/50 text-destructive" :
+                    "border-muted text-muted-foreground"
+                  )}>
+                    Transcript: {selectedEpisode.transcriptStatus === "complete" ? "ready" : (selectedEpisode.transcriptStatus || "pending")}
+                  </Badge>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {selectedEpisode && (
-          <>
-            <Card className="glass-panel border-border/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="font-display text-base" data-testid="text-selected-episode">{selectedEpisode.title}</CardTitle>
-                <CardDescription className="font-mono text-xs">
-                  {podcast?.title || "Unknown Podcast"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {selectedEpisode.duration && (
-                    <Badge variant="outline" className="font-mono text-xs">
-                      <Clock className="mr-1 h-3 w-3" /> {selectedEpisode.duration}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="font-mono text-xs capitalize">
-                    {selectedEpisode.episodeType || "audio"}
-                  </Badge>
-                  {(selectedEpisode.transcriptStatus === "pending" || selectedEpisode.transcriptStatus === "processing") ? (
-                    <TranscriptProgressBar status={selectedEpisode.transcriptStatus} />
-                  ) : (
-                    <Badge variant="outline" className={cn(
-                      "font-mono text-xs",
-                      (selectedEpisode.transcriptStatus === "ready" || selectedEpisode.transcriptStatus === "complete") ? "border-emerald-500/50 text-emerald-500" :
-                      selectedEpisode.transcriptStatus === "failed" ? "border-destructive/50 text-destructive" :
-                      "border-muted text-muted-foreground"
-                    )}>
-                      Transcript: {selectedEpisode.transcriptStatus === "complete" ? "ready" : (selectedEpisode.transcriptStatus || "pending")}
-                    </Badge>
-                  )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {transcriptReady ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3 items-center">
+                    <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Content Types:</Label>
+                    {["article", "blog", "social", "clips", "newsletter", "seo"].map(type => (
+                      <label key={type} className="flex items-center gap-1.5 cursor-pointer">
+                        <Checkbox
+                          checked={contentTypes.includes(type)}
+                          onCheckedChange={() => toggleContentType(type)}
+                          data-testid={`checkbox-${type}`}
+                        />
+                        <span className="capitalize font-mono text-xs">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <Button
+                    onClick={handleRunPipeline}
+                    disabled={runPipeline.isPending || contentTypes.length === 0}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider"
+                    data-testid="button-run-pipeline"
+                  >
+                    {runPipeline.isPending ? (
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Zap className="mr-2 h-3 w-3" />
+                    )}
+                    Generate Content
+                  </Button>
                 </div>
 
-                {transcriptReady ? (
-                  <>
-                    <div className="space-y-2 pt-2">
-                      <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Content Types</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {["article", "blog", "social", "clips", "newsletter", "seo"].map(type => (
-                          <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
-                            <Checkbox
-                              checked={contentTypes.includes(type)}
-                              onCheckedChange={() => toggleContentType(type)}
-                              data-testid={`checkbox-${type}`}
-                            />
-                            <span className="capitalize font-mono text-xs">{type}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handleRunPipeline}
-                      disabled={runPipeline.isPending || contentTypes.length === 0}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider mt-2"
-                      data-testid="button-run-pipeline"
-                    >
-                      {runPipeline.isPending ? (
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      ) : (
-                        <Zap className="mr-2 h-3 w-3" />
-                      )}
-                      Generate Content
-                    </Button>
-                  </>
-                ) : transcriptProcessing ? (
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
-                      <p className="text-xs font-mono font-medium text-primary">Transcription in Progress</p>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground font-mono">Content generation will be available once transcription completes.</p>
-                  </div>
-                ) : (
-                  <div className="bg-muted/20 border border-border/30 rounded-lg p-3 mt-2">
-                    <p className="text-xs text-muted-foreground font-mono mb-2">Start transcription first to enable content generation.</p>
-                    <Button
-                      onClick={() => handleQueueEpisode(selectedEpisodeId)}
-                      disabled={queueTranscription.isPending}
-                      variant="outline"
-                      className="w-full font-mono text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-                      data-testid="button-start-transcription"
-                    >
-                      {queueTranscription.isPending ? (
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      ) : (
-                        <Zap className="mr-2 h-3 w-3" />
-                      )}
-                      Start Transcription
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="glass-panel border-border/50">
-              <CardHeader className="pb-2">
-                <CardTitle className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Pipeline Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Progress value={progress} className="h-2 mb-3" />
-                <div className="space-y-1.5">
+                <div className="flex items-center gap-3">
+                  <Progress value={progress} className="h-2 flex-1" />
+                  <span className="font-mono text-[10px] text-muted-foreground shrink-0">{progress}%</span>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {pipelineSteps.map((step, i) => {
                     const stepProgress = (i + 1) / pipelineSteps.length * 100;
                     const status = progress >= stepProgress ? "complete" : progress >= stepProgress - 14 ? "processing" : "pending";
                     return (
-                      <div key={step.key} className="flex items-center text-xs gap-2">
-                        {status === "complete" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-                        {status === "processing" && <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />}
-                        {status === "pending" && <div className="h-2 w-2 rounded-full bg-muted-foreground/30 mx-[3px]" />}
+                      <div key={step.key} className="flex items-center text-xs gap-1.5">
+                        {status === "complete" && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+                        {status === "processing" && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
+                        {status === "pending" && <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />}
                         <span className={cn(
-                          "font-mono",
+                          "font-mono text-[10px]",
                           status === "complete" ? "text-foreground" :
                           status === "processing" ? "text-primary" :
                           "text-muted-foreground"
                         )}>{step.label}</span>
-                        {i < pipelineSteps.length - 1 && status === "complete" && (
-                          <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
-                        )}
+                        {i < pipelineSteps.length - 1 && <ArrowRight className="h-2.5 w-2.5 text-muted-foreground/30" />}
                       </div>
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+              </div>
+            ) : transcriptProcessing ? (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                  <p className="text-xs font-mono font-medium text-primary">Transcription in Progress</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-mono">Content generation will be available once transcription completes.</p>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between bg-muted/20 border border-border/30 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground font-mono">Start transcription first to enable content generation.</p>
+                <Button
+                  onClick={() => handleQueueEpisode(selectedEpisodeId)}
+                  disabled={queueTranscription.isPending}
+                  variant="outline"
+                  className="font-mono text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+                  data-testid="button-start-transcription"
+                >
+                  {queueTranscription.isPending ? (
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Zap className="mr-2 h-3 w-3" />
+                  )}
+                  Start Transcription
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-      <div className="col-span-12 lg:col-span-8">
-        {!selectedEpisodeId ? (
-          <Card className="glass-panel border-border/50 h-64 flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <Mic className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="font-mono text-sm">Select an episode to view generated content</p>
+      {selectedEpisodeId && (
+        <div>
+          {contentLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="glass-panel border-border/50"><CardContent className="p-6"><Skeleton className="h-24 w-full" /></CardContent></Card>
+              ))}
             </div>
-          </Card>
-        ) : contentLoading ? (
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="glass-panel border-border/50"><CardContent className="p-6"><Skeleton className="h-24 w-full" /></CardContent></Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <KeywordAnalysisCard episodeId={selectedEpisodeId} />
-            {Object.entries(typeConfig).map(([type, config]) => {
-              const items = grouped[type] || [];
-              const Icon = config.icon;
-              return (
-                <Card key={type} className="glass-panel border-border/50 hover:border-primary/30 transition-all" data-testid={`card-content-${type}`}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <Icon className={cn("h-4 w-4", config.color)} />
-                      <CardTitle className="text-sm font-display">{config.title}</CardTitle>
-                      <Badge variant="outline" className="ml-auto font-mono text-[10px]">{items.length}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {items.length > 0 ? (
-                      <div className="space-y-2">
-                        {items.map((item: any) => (
-                          <div key={item.id} className="flex items-center justify-between p-2 rounded bg-card/30 border border-transparent hover:border-border transition-colors text-sm" data-testid={`content-piece-${item.id}`}>
-                            <span className="truncate max-w-[160px] font-medium text-xs">{item.title}</span>
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant="outline" className={cn(
-                                "text-[9px] uppercase font-mono h-5 px-1.5",
-                                item.status === "ready" ? "border-emerald-500 text-emerald-500 bg-emerald-500/10" :
-                                item.status === "generating" ? "border-primary text-primary bg-primary/10 animate-pulse" :
-                                "border-muted text-muted-foreground"
-                              )}>{item.status}</Badge>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPreviewPiece(item); setEditMode(false); }} data-testid={`button-view-${item.id}`}>
-                                <Eye className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <KeywordAnalysisCard episodeId={selectedEpisodeId} />
+              {Object.entries(typeConfig).map(([type, config]) => {
+                const items = grouped[type] || [];
+                const TypeIcon = config.icon;
+                return (
+                  <Card key={type} className="glass-panel border-border/50 hover:border-primary/30 transition-all" data-testid={`card-content-${type}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        <TypeIcon className={cn("h-4 w-4", config.color)} />
+                        <CardTitle className="text-sm font-display">{config.title}</CardTitle>
+                        <Badge variant="outline" className="ml-auto font-mono text-[10px]">{items.length}</Badge>
                       </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground py-2">No items generated yet.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    </CardHeader>
+                    <CardContent>
+                      {items.length > 0 ? (
+                        <div className="space-y-2">
+                          {items.map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between p-2 rounded bg-card/30 border border-transparent hover:border-border transition-colors text-sm" data-testid={`content-piece-${item.id}`}>
+                              <span className="truncate max-w-[160px] font-medium text-xs">{item.title}</span>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="outline" className={cn(
+                                  "text-[9px] uppercase font-mono h-5 px-1.5",
+                                  item.status === "ready" ? "border-emerald-500 text-emerald-500 bg-emerald-500/10" :
+                                  item.status === "generating" ? "border-primary text-primary bg-primary/10 animate-pulse" :
+                                  "border-muted text-muted-foreground"
+                                )}>{item.status}</Badge>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPreviewPiece(item); setEditMode(false); }} data-testid={`button-view-${item.id}`}>
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground py-2">No items generated yet.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!selectedEpisodeId && (
+        <Card className="glass-panel border-border/50 h-48 flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <Mic className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="font-mono text-sm">Select an episode above to view the pipeline</p>
+            <p className="font-mono text-[10px] mt-1 text-muted-foreground/60">Queue an episode with "Start" to begin transcription</p>
           </div>
-        )}
-      </div>
+        </Card>
+      )}
 
       <Dialog open={!!previewPiece} onOpenChange={(open) => { if (!open) { setPreviewPiece(null); setEditMode(false); } }}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto glass-panel" data-testid="dialog-content-preview">
@@ -1689,329 +1683,6 @@ function ClipsTab() {
   );
 }
 
-function ScheduleTab() {
-  const { data: posts, isLoading } = useScheduledPosts();
-  const { data: contentPieces } = useContentPieces();
-  const createPost = useCreateScheduledPost();
-  const updatePost = useUpdateScheduledPost();
-  const deletePost = useDeleteScheduledPost();
-  const smartSuggestions = useSmartSuggestions();
-  const { toast } = useToast();
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingPost, setEditingPost] = useState<any>(null);
-  const [form, setForm] = useState({
-    contentPieceId: "",
-    platform: "",
-    scheduledAt: "",
-    postText: "",
-    hashtags: "",
-  });
-  const [suggestions, setSuggestions] = useState<any>(null);
-
-  function openNewDialog() {
-    setEditingPost(null);
-    setForm({ contentPieceId: "", platform: "", scheduledAt: "", postText: "", hashtags: "" });
-    setDialogOpen(true);
-  }
-
-  function openEditDialog(post: any) {
-    setEditingPost(post);
-    setForm({
-      contentPieceId: post.contentPieceId,
-      platform: post.platform,
-      scheduledAt: post.scheduledAt ? new Date(post.scheduledAt).toISOString().slice(0, 16) : "",
-      postText: post.postText || "",
-      hashtags: (post.hashtags || []).join(", "),
-    });
-    setDialogOpen(true);
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const data: any = {
-      contentPieceId: form.contentPieceId,
-      platform: form.platform,
-      scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : new Date().toISOString(),
-      postText: form.postText || undefined,
-      hashtags: form.hashtags ? form.hashtags.split(",").map(h => h.trim()).filter(Boolean) : [],
-    };
-
-    if (editingPost) {
-      updatePost.mutate({ id: editingPost.id, ...data }, {
-        onSuccess: () => { toast({ title: "Post Updated" }); setDialogOpen(false); },
-        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-      });
-    } else {
-      createPost.mutate(data, {
-        onSuccess: () => { toast({ title: "Post Scheduled" }); setDialogOpen(false); },
-        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-      });
-    }
-  }
-
-  function handleDelete(id: string) {
-    deletePost.mutate(id, {
-      onSuccess: () => toast({ title: "Post Deleted" }),
-      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-    });
-  }
-
-  function handleGetSuggestions() {
-    if (!form.contentPieceId) return;
-    const piece = contentPieces?.find((p: any) => p.id === form.contentPieceId);
-    if (!piece?.episodeId) return;
-    smartSuggestions.mutate({ episodeId: piece.episodeId }, {
-      onSuccess: (data: any) => setSuggestions(data),
-      onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-    });
-  }
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "published": return "border-emerald-500 text-emerald-500 bg-emerald-500/10";
-      case "scheduled": return "border-primary text-primary bg-primary/10";
-      case "draft": return "border-muted text-muted-foreground";
-      case "failed": return "border-red-500 text-red-500 bg-red-500/10";
-      default: return "border-muted text-muted-foreground";
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-12 gap-6">
-      <div className="col-span-12 lg:col-span-8 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold font-display flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Scheduled Posts
-          </h2>
-          <Button onClick={openNewDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-schedule-post">
-            <Plus className="mr-1.5 h-3 w-3" /> Schedule Post
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
-          </div>
-        ) : !posts?.length ? (
-          <Card className="glass-panel border-border/50 py-12 text-center">
-            <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-muted-foreground font-mono text-sm">No scheduled posts yet.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {posts.map((post: any) => {
-              const piece = contentPieces?.find((p: any) => p.id === post.contentPieceId);
-              return (
-                <Card key={post.id} className="glass-panel border-border/50" data-testid={`card-post-${post.id}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 rounded bg-card border border-border">
-                          {getPlatformIcon(post.platform)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate" data-testid={`text-post-title-${post.id}`}>
-                            {piece?.title || "Untitled"}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                            <span>{getPlatformLabel(post.platform)}</span>
-                            <span>•</span>
-                            <span>{post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : "No date"}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={cn("font-mono text-[9px] uppercase", statusColor(post.status))}>
-                          {post.status}
-                        </Badge>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(post)} data-testid={`button-edit-post-${post.id}`}>
-                          <Edit3 className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-400" onClick={() => handleDelete(post.id)} data-testid={`button-delete-post-${post.id}`}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="col-span-12 lg:col-span-4">
-        <Card className="glass-panel border-primary/20">
-          <CardHeader>
-            <CardTitle className="font-display text-sm flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              SMART Suggestions
-            </CardTitle>
-            <CardDescription className="font-mono text-[10px]">AI-powered scheduling recommendations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {suggestions ? (
-              <div className="space-y-3">
-                {suggestions.overallStrategy && (
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <Lightbulb className="h-3 w-3 text-primary" />
-                      <span className="font-mono text-[10px] uppercase tracking-wider text-primary font-semibold">Strategy</span>
-                    </div>
-                    <p className="text-foreground/80 leading-relaxed">{suggestions.overallStrategy}</p>
-                  </div>
-                )}
-                {Array.isArray(suggestions.suggestions) && suggestions.suggestions.map((s: any, i: number) => (
-                  <div key={i} className="p-3 rounded-lg bg-card/50 border border-border/50 space-y-2" data-testid={`suggestion-${i}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {s.platform && getPlatformIcon(s.platform, "h-3.5 w-3.5")}
-                        <span className="font-mono text-xs font-semibold capitalize">{getPlatformLabel(s.platform || "general")}</span>
-                      </div>
-                      {s.priority && (
-                        <Badge variant="outline" className={cn(
-                          "font-mono text-[9px] uppercase",
-                          s.priority === "high" ? "border-emerald-500/50 text-emerald-400" :
-                          s.priority === "medium" ? "border-amber-500/50 text-amber-400" :
-                          "border-muted text-muted-foreground"
-                        )}>{s.priority}</Badge>
-                      )}
-                    </div>
-                    {s.bestTime && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>{s.bestTime}</span>
-                      </div>
-                    )}
-                    {s.format && (
-                      <p className="text-[11px] text-foreground/70">{s.format}</p>
-                    )}
-                    {s.tip && (
-                      <p className="text-[11px] text-foreground/80 border-l-2 border-primary/30 pl-2">{s.tip}</p>
-                    )}
-                    {s.hashtags && s.hashtags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {s.hashtags.map((h: string, hi: number) => (
-                          <span key={hi} className="text-[9px] font-mono px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded text-primary">{h.startsWith("#") ? h : `#${h}`}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {suggestions.contentCalendarSuggestion && (
-                  <div className="p-3 rounded-lg bg-card/50 border border-border/50 text-xs">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <Calendar className="h-3 w-3 text-muted-foreground" />
-                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Calendar</span>
-                    </div>
-                    <p className="text-foreground/70 leading-relaxed">{suggestions.contentCalendarSuggestion}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">Schedule a post to see AI recommendations for optimal posting times and content.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="glass-panel border-border max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">
-              {editingPost ? "Edit Scheduled Post" : "Schedule New Post"}
-            </DialogTitle>
-            <DialogDescription className="font-mono text-xs">
-              {editingPost ? "Update the scheduled post details" : "Schedule content to be published on social platforms"}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Content Piece</Label>
-              <Select value={form.contentPieceId} onValueChange={(v) => setForm({ ...form, contentPieceId: v })}>
-                <SelectTrigger data-testid="select-schedule-content">
-                  <SelectValue placeholder="Select content..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {contentPieces?.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Platform</Label>
-              <Select value={form.platform} onValueChange={(v) => setForm({ ...form, platform: v })}>
-                <SelectTrigger data-testid="select-schedule-platform">
-                  <SelectValue placeholder="Select platform..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="x">X</SelectItem>
-                  <SelectItem value="facebook">Facebook</SelectItem>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="linkedin">LinkedIn</SelectItem>
-                  <SelectItem value="tiktok">TikTok</SelectItem>
-                  <SelectItem value="google_business">Google Business</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Date & Time</Label>
-              <Input
-                type="datetime-local"
-                value={form.scheduledAt}
-                onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                data-testid="input-schedule-datetime"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Post Text</Label>
-              <Textarea
-                value={form.postText}
-                onChange={(e) => setForm({ ...form, postText: e.target.value })}
-                placeholder="Write your post text..."
-                rows={4}
-                data-testid="input-schedule-text"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Hashtags</Label>
-              <Input
-                value={form.hashtags}
-                onChange={(e) => setForm({ ...form, hashtags: e.target.value })}
-                placeholder="#podcast, #ai, #content"
-                data-testid="input-schedule-hashtags"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleGetSuggestions}
-                disabled={!form.contentPieceId || smartSuggestions.isPending}
-                className="font-mono text-xs"
-                data-testid="button-get-suggestions"
-              >
-                {smartSuggestions.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                Get Suggestions
-              </Button>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="font-mono text-xs" data-testid="button-cancel-schedule">Cancel</Button>
-              <Button type="submit" disabled={createPost.isPending || updatePost.isPending || !form.contentPieceId || !form.platform} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-submit-schedule">
-                {(createPost.isPending || updatePost.isPending) ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Calendar className="mr-2 h-3 w-3" />}
-                {editingPost ? "Update" : "Schedule"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
 
 function NewsletterTab() {
   const { data: runs, isLoading } = useNewsletterRuns();
