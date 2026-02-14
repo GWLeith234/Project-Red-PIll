@@ -16,7 +16,7 @@ import {
   ArrowRight, CheckCircle2, Loader2, Clock, Search, Upload, PenLine,
   Scissors, Play, ThumbsUp, ThumbsDown, Calendar, Plus, Trash2,
   Edit3, Eye, Building2, Wifi, WifiOff, Sparkles, Zap, Send,
-  ChevronRight, AlertTriangle
+  ChevronRight, AlertTriangle, ImagePlus, Music, Film, X as XCloseIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -365,18 +365,61 @@ function PipelineTab() {
   );
 }
 
+function FileDropzone({ label, accept, icon: Icon, uploadedPath, onClear, onFile, isUploading, progress }: {
+  label: string; accept: string; icon: any; uploadedPath: string;
+  onClear: () => void; onFile: (f: File) => void; isUploading: boolean; progress: number;
+}) {
+  const [dragOver, setDragOver] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div
+      className={cn(
+        "border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-all",
+        dragOver ? "border-primary bg-primary/10" : "border-border/50 hover:border-primary/50",
+        isUploading && "pointer-events-none opacity-70"
+      )}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
+      onClick={() => ref.current?.click()}
+      data-testid={`dropzone-${label.toLowerCase().replace(/\s/g, "-")}`}
+    >
+      <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} data-testid={`input-file-${label.toLowerCase().replace(/\s/g, "-")}`} />
+      {isUploading ? (
+        <div className="space-y-2">
+          <Loader2 className="h-8 w-8 text-primary mx-auto animate-spin" />
+          <p className="font-mono text-xs text-primary">Uploading... {progress}%</p>
+          <Progress value={progress} className="h-1.5 max-w-[200px] mx-auto" />
+        </div>
+      ) : uploadedPath ? (
+        <div className="space-y-1 relative">
+          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+          <p className="font-mono text-xs text-emerald-500">{label} uploaded</p>
+          <p className="text-[10px] text-muted-foreground truncate max-w-[200px] mx-auto">{uploadedPath.split("/").pop()}</p>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            className="absolute top-0 right-0 p-1 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+            data-testid={`button-clear-${label.toLowerCase().replace(/\s/g, "-")}`}
+          >
+            <XCloseIcon className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <Icon className="h-8 w-8 text-muted-foreground mx-auto" />
+          <p className="font-mono text-xs text-muted-foreground">{label}</p>
+          <p className="text-[10px] text-muted-foreground">Drag & drop or click</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UploadTab() {
   const { data: podcasts } = usePodcasts();
+  const { data: episodes } = useEpisodes();
   const createEpisode = useCreateEpisode();
-  const { uploadFile, isUploading, progress } = useUpload({
-    onSuccess: (response) => {
-      setUploadedPath(response.objectPath);
-      toast({ title: "File Uploaded", description: "Your file has been uploaded successfully." });
-    },
-    onError: (err) => {
-      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
-    },
-  });
   const { toast } = useToast();
 
   const [form, setForm] = useState({
@@ -386,21 +429,26 @@ function UploadTab() {
     duration: "",
     episodeType: "audio",
   });
-  const [uploadedPath, setUploadedPath] = useState<string>("");
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) uploadFile(file);
-  }
+  const [audioPath, setAudioPath] = useState("");
+  const [videoPath, setVideoPath] = useState("");
+  const [thumbnailPath, setThumbnailPath] = useState("");
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) uploadFile(file);
-  }
+  const audioUpload = useUpload({
+    onSuccess: (r) => { setAudioPath(r.objectPath); toast({ title: "Audio Uploaded" }); },
+    onError: (err) => toast({ title: "Audio Upload Failed", description: err.message, variant: "destructive" }),
+  });
+  const videoUpload = useUpload({
+    onSuccess: (r) => { setVideoPath(r.objectPath); toast({ title: "Video Uploaded" }); },
+    onError: (err) => toast({ title: "Video Upload Failed", description: err.message, variant: "destructive" }),
+  });
+  const thumbnailUpload = useUpload({
+    onSuccess: (r) => { setThumbnailPath(r.objectPath); toast({ title: "Thumbnail Uploaded" }); },
+    onError: (err) => toast({ title: "Thumbnail Upload Failed", description: err.message, variant: "destructive" }),
+  });
+
+  const showAudio = form.episodeType === "audio" || form.episodeType === "both";
+  const showVideo = form.episodeType === "video" || form.episodeType === "both";
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -411,147 +459,244 @@ function UploadTab() {
       duration: form.duration || undefined,
       episodeType: form.episodeType,
     };
-    if (uploadedPath) {
-      if (form.episodeType === "video") {
-        data.videoUrl = uploadedPath;
-      } else {
-        data.audioUrl = uploadedPath;
-      }
-    }
+    if (audioPath) data.audioUrl = audioPath;
+    if (videoPath) data.videoUrl = videoPath;
+    if (thumbnailPath) data.thumbnailUrl = thumbnailPath;
     createEpisode.mutate(data, {
       onSuccess: () => {
-        toast({ title: "Episode Created", description: `"${form.title}" has been added.` });
+        toast({ title: "Episode Created", description: `"${form.title}" has been added to the content factory.` });
         setForm({ title: "", podcastId: "", description: "", duration: "", episodeType: "audio" });
-        setUploadedPath("");
+        setAudioPath("");
+        setVideoPath("");
+        setThumbnailPath("");
       },
       onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
     });
   }
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <Card className="glass-panel border-border/50">
-        <CardHeader>
-          <CardTitle className="font-display text-xl flex items-center gap-2">
-            <Upload className="h-5 w-5 text-primary" />
-            Upload Episode
-          </CardTitle>
-          <CardDescription className="font-mono text-xs">Upload audio or video files for AI processing</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={cn(
-              "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all",
-              dragOver ? "border-primary bg-primary/10" : "border-border/50 hover:border-primary/50",
-              isUploading && "pointer-events-none opacity-70"
-            )}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            data-testid="upload-dropzone"
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*,video/*"
-              className="hidden"
-              onChange={handleFileSelect}
-              data-testid="input-file-upload"
-            />
-            {isUploading ? (
-              <div className="space-y-3">
-                <Loader2 className="h-10 w-10 text-primary mx-auto animate-spin" />
-                <p className="font-mono text-sm text-primary">Uploading... {progress}%</p>
-                <Progress value={progress} className="h-2 max-w-xs mx-auto" />
-              </div>
-            ) : uploadedPath ? (
-              <div className="space-y-2">
-                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
-                <p className="font-mono text-sm text-emerald-500">File uploaded successfully</p>
-                <p className="text-xs text-muted-foreground truncate">{uploadedPath}</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Upload className="h-10 w-10 text-muted-foreground mx-auto" />
-                <p className="font-mono text-sm text-muted-foreground">
-                  Drag & drop audio/video files here
-                </p>
-                <p className="text-xs text-muted-foreground">or click to browse</p>
-              </div>
-            )}
-          </div>
+  const recentEpisodes = (episodes || [])
+    .sort((a: any, b: any) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
+    .slice(0, 5);
 
-          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Title</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Episode title..."
-                required
-                data-testid="input-upload-title"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Podcast</Label>
-              <Select value={form.podcastId} onValueChange={(v) => setForm({ ...form, podcastId: v })}>
-                <SelectTrigger data-testid="select-upload-podcast">
-                  <SelectValue placeholder="Select a podcast" />
-                </SelectTrigger>
-                <SelectContent>
-                  {podcasts?.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-wider">Description</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Episode description..."
-                rows={3}
-                data-testid="input-upload-description"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+  const hasFile = showAudio ? !!audioPath : showVideo ? !!videoPath : (!!audioPath || !!videoPath);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-6">
+        <Card className="glass-panel border-border/50">
+          <CardHeader>
+            <CardTitle className="font-display text-xl flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              Upload Episode
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">Upload audio and video files for AI content processing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-mono text-xs uppercase tracking-wider">Episode Title *</Label>
+                  <Input
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    placeholder="Episode title..."
+                    required
+                    data-testid="input-upload-title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-mono text-xs uppercase tracking-wider">Podcast *</Label>
+                  <Select value={form.podcastId} onValueChange={(v) => setForm({ ...form, podcastId: v })}>
+                    <SelectTrigger data-testid="select-upload-podcast">
+                      <SelectValue placeholder="Select a podcast" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {podcasts?.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label className="font-mono text-xs uppercase tracking-wider">Duration</Label>
-                <Input
-                  value={form.duration}
-                  onChange={(e) => setForm({ ...form, duration: e.target.value })}
-                  placeholder="e.g. 45:30"
-                  data-testid="input-upload-duration"
+                <Label className="font-mono text-xs uppercase tracking-wider">Description</Label>
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Episode description — helps AI generate better content..."
+                  rows={3}
+                  data-testid="input-upload-description"
                 />
               </div>
-              <div className="space-y-2">
-                <Label className="font-mono text-xs uppercase tracking-wider">Episode Type</Label>
-                <Select value={form.episodeType} onValueChange={(v) => setForm({ ...form, episodeType: v })}>
-                  <SelectTrigger data-testid="select-upload-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="audio">Audio</SelectItem>
-                    <SelectItem value="video">Video</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-mono text-xs uppercase tracking-wider">Duration</Label>
+                  <Input
+                    value={form.duration}
+                    onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                    placeholder="e.g. 45:30"
+                    data-testid="input-upload-duration"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-mono text-xs uppercase tracking-wider">Episode Type</Label>
+                  <Select value={form.episodeType} onValueChange={(v) => {
+                    setForm({ ...form, episodeType: v });
+                    if (v === "audio") setVideoPath("");
+                    if (v === "video") setAudioPath("");
+                  }}>
+                    <SelectTrigger data-testid="select-upload-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="audio">Audio Only</SelectItem>
+                      <SelectItem value="video">Video Only</SelectItem>
+                      <SelectItem value="both">Audio + Video</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="font-mono text-xs uppercase tracking-wider mb-3 block">Media Files</Label>
+                <div className={cn("grid gap-4", form.episodeType === "both" ? "grid-cols-3" : "grid-cols-2")}>
+                  {showAudio && (
+                    <FileDropzone
+                      label="Audio File"
+                      accept="audio/*"
+                      icon={Music}
+                      uploadedPath={audioPath}
+                      onClear={() => setAudioPath("")}
+                      onFile={(f) => audioUpload.uploadFile(f)}
+                      isUploading={audioUpload.isUploading}
+                      progress={audioUpload.progress}
+                    />
+                  )}
+                  {showVideo && (
+                    <FileDropzone
+                      label="Video File"
+                      accept="video/*"
+                      icon={Film}
+                      uploadedPath={videoPath}
+                      onClear={() => setVideoPath("")}
+                      onFile={(f) => videoUpload.uploadFile(f)}
+                      isUploading={videoUpload.isUploading}
+                      progress={videoUpload.progress}
+                    />
+                  )}
+                  <FileDropzone
+                    label="Thumbnail"
+                    accept="image/*"
+                    icon={ImagePlus}
+                    uploadedPath={thumbnailPath}
+                    onClear={() => setThumbnailPath("")}
+                    onFile={(f) => thumbnailUpload.uploadFile(f)}
+                    isUploading={thumbnailUpload.isUploading}
+                    progress={thumbnailUpload.progress}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground font-mono mt-2">
+                  Accepted: {showAudio && "MP3, WAV, AAC, OGG"}{showAudio && showVideo && " · "}{showVideo && "MP4, MOV, WEBM"} · Images: JPG, PNG, WEBP
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={createEpisode.isPending || !form.title || !form.podcastId}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider h-11"
+                data-testid="button-submit-upload"
+              >
+                {createEpisode.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                Create Episode
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-6">
+        <Card className="glass-panel border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-sm flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Recent Uploads
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentEpisodes.length > 0 ? (
+              <div className="space-y-3">
+                {recentEpisodes.map((ep: any) => {
+                  const podcast = (podcasts || []).find((p: any) => p.id === ep.podcastId);
+                  return (
+                    <div key={ep.id} className="flex items-start gap-3 p-2 rounded-md border border-border/30 hover:border-primary/20 transition-colors" data-testid={`recent-episode-${ep.id}`}>
+                      <div className="flex-shrink-0 mt-0.5">
+                        {ep.episodeType === "video" ? (
+                          <div className="h-8 w-8 rounded bg-blue-500/10 flex items-center justify-center"><Film className="h-4 w-4 text-blue-400" /></div>
+                        ) : ep.episodeType === "both" ? (
+                          <div className="h-8 w-8 rounded bg-purple-500/10 flex items-center justify-center"><Video className="h-4 w-4 text-purple-400" /></div>
+                        ) : (
+                          <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center"><Mic className="h-4 w-4 text-primary" /></div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{ep.title}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono truncate">
+                          {podcast?.title || "Unknown"} · {ep.duration || "—"}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className={cn("text-[9px] h-4 px-1",
+                            ep.processingStatus === "complete" ? "border-emerald-500/30 text-emerald-400" :
+                            ep.processingStatus === "processing" ? "border-blue-500/30 text-blue-400" :
+                            "border-border/50 text-muted-foreground"
+                          )}>
+                            {ep.processingStatus === "complete" ? "Ready" : ep.processingStatus === "processing" ? `${ep.processingProgress}%` : "Pending"}
+                          </Badge>
+                          <Badge variant="outline" className="text-[9px] h-4 px-1 border-border/30 text-muted-foreground">
+                            {ep.episodeType}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-6">No episodes uploaded yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-display text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Upload Tips
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 text-xs text-muted-foreground">
+              <div className="flex gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                <p>Add a detailed description to help AI generate better articles and social posts.</p>
+              </div>
+              <div className="flex gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                <p>Use "Audio + Video" type when you have both formats for maximum content multiplication.</p>
+              </div>
+              <div className="flex gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                <p>Upload a thumbnail for better presentation on the podcast directory page.</p>
+              </div>
+              <div className="flex gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                <p>After uploading, go to the Pipeline tab to run the full AI content suite.</p>
               </div>
             </div>
-            <Button
-              type="submit"
-              disabled={createEpisode.isPending || !form.title || !form.podcastId}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider"
-              data-testid="button-submit-upload"
-            >
-              {createEpisode.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Upload className="mr-2 h-3 w-3" />}
-              Create Episode
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
