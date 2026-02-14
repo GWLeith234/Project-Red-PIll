@@ -535,11 +535,11 @@ function PipelineTab() {
                   ) : (
                     <Badge variant="outline" className={cn(
                       "font-mono text-xs",
-                      selectedEpisode.transcriptStatus === "ready" ? "border-emerald-500/50 text-emerald-500" :
+                      (selectedEpisode.transcriptStatus === "ready" || selectedEpisode.transcriptStatus === "complete") ? "border-emerald-500/50 text-emerald-500" :
                       selectedEpisode.transcriptStatus === "failed" ? "border-destructive/50 text-destructive" :
                       "border-muted text-muted-foreground"
                     )}>
-                      Transcript: {selectedEpisode.transcriptStatus || "pending"}
+                      Transcript: {selectedEpisode.transcriptStatus === "complete" ? "ready" : (selectedEpisode.transcriptStatus || "pending")}
                     </Badge>
                   )}
                 </div>

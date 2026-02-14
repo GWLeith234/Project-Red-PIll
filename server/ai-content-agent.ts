@@ -638,6 +638,26 @@ Return JSON:
   };
 }
 
+async function fetchAudioBuffer(audioUrl: string): Promise<Buffer> {
+  if (audioUrl.startsWith("/objects/")) {
+    const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+    const objectService = new ObjectStorageService();
+    const objectFile = await objectService.getObjectEntityFile(audioUrl);
+    const [contents] = await objectFile.download();
+    return Buffer.from(contents);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(audioUrl, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch audio file`);
+    return Buffer.from(await response.arrayBuffer());
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function runFullContentPipeline(episodeId: string, contentTypes: string[] = ["article", "blog", "social", "clips", "newsletter", "seo"]): Promise<{
   article?: ContentPiece;
   blog?: ContentPiece;
@@ -658,17 +678,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
     try {
       await storage.updateEpisode(episodeId, { transcriptStatus: "processing", processingStatus: "processing", processingProgress: 5 } as any);
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000);
-      const audioResponse = await fetch(episode.audioUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-
-      if (!audioResponse.ok) {
-        await storage.updateEpisode(episodeId, { transcriptStatus: "failed" } as any);
-        throw new Error("Failed to fetch audio file");
-      }
-
-      const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+      const audioBuffer = await fetchAudioBuffer(episode.audioUrl);
       const { ensureCompatibleFormat } = await import("./replit_integrations/audio/client");
       const { buffer, format } = await ensureCompatibleFormat(audioBuffer);
 
@@ -683,7 +693,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
       transcript = transcriptionResult.text;
       await storage.updateEpisode(episodeId, {
         transcript,
-        transcriptStatus: "complete",
+        transcriptStatus: "ready",
         processingProgress: 10,
       } as any);
     } catch (err: any) {
@@ -789,17 +799,7 @@ export async function transcribeAndGenerateStory(episodeId: string): Promise<{
     try {
       await storage.updateEpisode(episodeId, { transcriptStatus: "processing" } as any);
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000);
-      const audioResponse = await fetch(episode.audioUrl, { signal: controller.signal });
-      clearTimeout(timeout);
-
-      if (!audioResponse.ok) {
-        await storage.updateEpisode(episodeId, { transcriptStatus: "failed" } as any);
-        return { error: "Failed to fetch audio file" };
-      }
-
-      const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+      const audioBuffer = await fetchAudioBuffer(episode.audioUrl);
       const { ensureCompatibleFormat } = await import("./replit_integrations/audio/client");
       const { buffer, format } = await ensureCompatibleFormat(audioBuffer);
 
@@ -814,7 +814,7 @@ export async function transcribeAndGenerateStory(episodeId: string): Promise<{
       transcript = transcriptionResult.text;
       await storage.updateEpisode(episodeId, {
         transcript,
-        transcriptStatus: "complete",
+        transcriptStatus: "ready",
       } as any);
     } catch (err: any) {
       await storage.updateEpisode(episodeId, { transcriptStatus: "failed" } as any);
@@ -882,7 +882,7 @@ export async function generateStoryFromText(
   if (!episode.transcript) {
     await storage.updateEpisode(episodeId, {
       transcript,
-      transcriptStatus: "complete",
+      transcriptStatus: "ready",
     } as any);
   }
 
