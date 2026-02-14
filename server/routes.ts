@@ -1811,6 +1811,38 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subscribers/:id/recent-episodes", requireAuth, requirePermission("audience.view"), async (req, res) => {
+    const sub = await storage.getSubscriber(req.params.id);
+    if (!sub) return res.status(404).json({ message: "Subscriber not found" });
+    const podcastLinks = await storage.getSubscriberPodcasts(sub.id);
+    const podcastIds = podcastLinks.map(l => l.podcastId);
+    if (podcastIds.length === 0) return res.json([]);
+    const allEpisodes = await storage.getEpisodes();
+    const recentEpisodes = allEpisodes
+      .filter(ep => podcastIds.includes(ep.podcastId))
+      .sort((a, b) => {
+        const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const db = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+        return db - da;
+      })
+      .slice(0, 20);
+    const allPodcasts = await storage.getPodcasts();
+    const podcastMap = Object.fromEntries(allPodcasts.map(p => [p.id, p]));
+    const result = recentEpisodes.map(ep => ({
+      id: ep.id,
+      title: ep.title,
+      description: ep.description,
+      duration: ep.duration,
+      publishedAt: ep.publishedAt,
+      thumbnailUrl: ep.thumbnailUrl,
+      episodeType: ep.episodeType,
+      podcastId: ep.podcastId,
+      podcastTitle: podcastMap[ep.podcastId]?.title || "Unknown",
+      podcastCoverImage: podcastMap[ep.podcastId]?.coverImage || null,
+    }));
+    res.json(result);
+  });
+
   // ── Smart Suggestions (Cross-Pollination) ──
   app.get("/api/subscribers/:id/suggestions", requireAuth, requirePermission("audience.view"), async (req, res) => {
     const sub = await storage.getSubscriber(req.params.id);

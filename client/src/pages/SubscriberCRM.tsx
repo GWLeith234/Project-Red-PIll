@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   useSubscribers, useCreateSubscriber, useUpdateSubscriber, useDeleteSubscriber,
-  useSubscriber, useSubscriberSuggestions, useAnalyzeSocial, usePodcasts,
+  useSubscriber, useSubscriberSuggestions, useSubscriberRecentEpisodes, useAddSubscriberPodcast,
+  useAnalyzeSocial, usePodcasts,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
   useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
 } from "@/lib/api";
@@ -24,7 +25,8 @@ import {
   UserPlus, Search, Mail, Phone, MapPin, Linkedin, Twitter, Facebook,
   Loader2, Zap, X, ChevronRight, Star, TrendingUp, Users, ArrowLeft,
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles, Radio,
-  Send, FileText, MessageSquare, Plus, Calendar, Download, ListFilter, Save, Filter
+  Send, FileText, MessageSquare, Plus, Calendar, Download, ListFilter, Save, Filter,
+  Headphones, Clock, Play, Mic, CheckCircle2
 } from "lucide-react";
 
 function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
@@ -295,10 +297,13 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
 function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBack: () => void }) {
   const { data: sub, isLoading } = useSubscriber(subscriberId);
   const { data: suggestions, isLoading: suggestionsLoading } = useSubscriberSuggestions(subscriberId);
+  const { data: recentEpisodes, isLoading: episodesLoading } = useSubscriberRecentEpisodes(subscriberId);
   const [editing, setEditing] = useState(false);
   const { data: podcasts } = usePodcasts();
   const updateSubscriber = useUpdateSubscriber();
+  const addPodcast = useAddSubscriberPodcast();
   const { toast } = useToast();
+  const [subscribingId, setSubscribingId] = useState<string | null>(null);
 
   if (isLoading) return <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>;
   if (!sub) return <p className="text-muted-foreground">Subscriber not found.</p>;
@@ -313,6 +318,29 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
     } catch (err: any) {
       toast({ title: "Update Failed", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleQuickSubscribe = async (podcastId: string, podcastTitle: string) => {
+    setSubscribingId(podcastId);
+    try {
+      await addPodcast.mutateAsync({ subscriberId, podcastId });
+      toast({ title: "Subscribed!", description: `Added "${podcastTitle}" to this subscriber's shows.` });
+    } catch (err: any) {
+      toast({ title: "Subscribe Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSubscribingId(null);
+    }
+  };
+
+  const formatEpisodeDate = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
   };
 
   if (editing) {
@@ -442,22 +470,111 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
         <Card className="glass-panel border-border/50">
           <CardHeader>
             <CardTitle className="font-display text-lg flex items-center gap-2">
-              <Radio className="h-5 w-5 text-primary" />
+              <Headphones className="h-5 w-5 text-primary" />
               Subscribed Shows
+              <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-[10px] font-mono ml-1">
+                {sub.subscribedPodcasts.length}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {sub.subscribedPodcasts.map((p: any) => (
-                <div key={p.id} className="flex items-center gap-3 p-3 border border-border/50 rounded-sm bg-card/30" data-testid={`subscribed-podcast-${p.id}`}>
-                  {p.coverImage && <img src={p.coverImage} alt={p.title} className="h-10 w-10 rounded-sm object-cover" />}
-                  <div>
-                    <p className="text-sm font-medium">{p.title}</p>
-                    <p className="text-xs text-muted-foreground">{p.host}</p>
+                <div key={p.id} className="group flex gap-4 p-4 border border-border/50 rounded-lg bg-card/30 hover:border-primary/30 hover:bg-card/50 transition-all" data-testid={`subscribed-podcast-${p.id}`}>
+                  <div className="h-16 w-16 rounded-lg overflow-hidden shrink-0 bg-muted">
+                    {p.coverImage ? (
+                      <img src={p.coverImage} alt={p.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <Mic className="h-6 w-6 text-primary/50" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold group-hover:text-primary transition-colors truncate" data-testid={`text-podcast-title-${p.id}`}>{p.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.host}</p>
+                    {p.description && (
+                      <p className="text-xs text-muted-foreground/60 mt-1 line-clamp-2">{p.description}</p>
+                    )}
+                    {p.subscribers > 0 && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                          <Users className="h-2.5 w-2.5 inline mr-0.5" />
+                          {p.subscribers >= 1000 ? `${(p.subscribers / 1000).toFixed(0)}K` : p.subscribers}
+                        </span>
+                        {p.growthPercent > 0 && (
+                          <span className="text-[10px] font-mono text-accent">
+                            <TrendingUp className="h-2.5 w-2.5 inline mr-0.5" />+{p.growthPercent}%
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(sub.subscribedPodcasts?.length > 0) && (
+        <Card className="glass-panel border-border/50">
+          <CardHeader>
+            <CardTitle className="font-display text-lg flex items-center gap-2">
+              <Play className="h-5 w-5 text-primary" />
+              Recent Episodes
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">Latest episodes from subscribed shows</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {episodesLoading ? (
+              <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}</div>
+            ) : recentEpisodes?.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recentEpisodes.map((ep: any) => (
+                  <div key={ep.id} className="group flex gap-3 p-3 border border-border/50 rounded-lg bg-card/20 hover:border-primary/20 hover:bg-card/40 transition-all" data-testid={`recent-episode-${ep.id}`}>
+                    <div className="h-14 w-14 rounded-lg overflow-hidden shrink-0 bg-muted relative">
+                      {ep.thumbnailUrl || ep.podcastCoverImage ? (
+                        <img src={ep.thumbnailUrl || ep.podcastCoverImage} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
+                          <Headphones className="h-5 w-5 text-primary/40" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Play className="h-5 w-5 text-white fill-white" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate group-hover:text-primary transition-colors" data-testid={`text-episode-title-${ep.id}`}>{ep.title}</p>
+                      <p className="text-[11px] text-primary/60 font-medium truncate">{ep.podcastTitle}</p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-2.5 w-2.5" />
+                          {formatEpisodeDate(ep.publishedAt)}
+                        </span>
+                        {ep.duration && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5" />
+                            {ep.duration}
+                          </span>
+                        )}
+                        {ep.episodeType && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-border/50 text-muted-foreground/70">
+                            {ep.episodeType}
+                          </Badge>
+                        )}
+                      </div>
+                      {ep.description && (
+                        <p className="text-[11px] text-muted-foreground/50 mt-1 line-clamp-1">{ep.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">No episodes found for subscribed shows yet.</p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -473,45 +590,75 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
         </CardHeader>
         <CardContent>
           {suggestionsLoading ? (
-            <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+            <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}</div>
           ) : suggestions?.length > 0 ? (
             <div className="space-y-3">
               {suggestions.map((s: any) => (
-                <div key={s.podcast.id} className="flex items-start gap-4 p-3 border border-border/50 rounded-sm bg-card/30 hover:border-primary/30 transition-colors" data-testid={`suggestion-${s.podcast.id}`}>
-                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary font-bold font-display text-sm shrink-0">
-                    {s.score}%
+                <div key={s.podcast.id} className="flex items-center gap-4 p-4 border border-border/50 rounded-lg bg-card/30 hover:border-primary/30 transition-all" data-testid={`suggestion-${s.podcast.id}`}>
+                  <div className="h-14 w-14 rounded-lg overflow-hidden shrink-0 bg-muted">
+                    {s.podcast.coverImage ? (
+                      <img src={s.podcast.coverImage} alt={s.podcast.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <Mic className="h-6 w-6 text-primary/50" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold">{s.podcast.title}</p>
                       {s.score >= 70 && <Star className="h-3 w-3 text-primary fill-primary" />}
+                      <Badge variant="outline" className="text-[10px] font-mono bg-primary/5 text-primary border-primary/20 ml-auto shrink-0">
+                        {s.score}% match
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">Hosted by {s.podcast.host}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-1 mt-1.5">
                       {s.reasons.slice(0, 3).map((r: string, i: number) => (
                         <span key={i} className="text-[10px] font-mono text-primary/70 bg-primary/5 px-1.5 py-0.5 rounded">
                           {r}
                         </span>
                       ))}
                     </div>
+                    {s.podcast.subscribers > 0 && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-mono text-muted-foreground/60">
+                          {s.podcast.subscribers >= 1000 ? `${(s.podcast.subscribers / 1000).toFixed(0)}K` : s.podcast.subscribers} subscribers
+                        </span>
+                        {s.podcast.growthPercent > 0 && (
+                          <span className="text-[10px] font-mono text-accent flex items-center gap-0.5">
+                            <TrendingUp className="h-2.5 w-2.5" /> +{s.podcast.growthPercent}%
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {s.podcast.subscribers && (
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-mono text-muted-foreground">{(s.podcast.subscribers / 1000).toFixed(0)}K</span>
-                      {s.podcast.growthPercent > 0 && (
-                        <div className="flex items-center gap-0.5 text-accent text-[10px] font-mono">
-                          <TrendingUp className="h-3 w-3" /> +{s.podcast.growthPercent}%
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => handleQuickSubscribe(s.podcast.id, s.podcast.title)}
+                    disabled={subscribingId === s.podcast.id}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 gap-1.5"
+                    data-testid={`button-subscribe-${s.podcast.id}`}
+                  >
+                    {subscribingId === s.podcast.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5" />
+                    )}
+                    Subscribe
+                  </Button>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Add interests and subscribe to shows to get personalized suggestions.
-            </p>
+            <div className="text-center py-8">
+              <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="h-6 w-6 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Add interests and subscribe to shows to get personalized suggestions.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

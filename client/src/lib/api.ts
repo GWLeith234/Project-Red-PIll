@@ -149,6 +149,22 @@ export function useSubscriberSuggestions(id: string) {
   return useQuery({ queryKey: ["/api/subscribers", id, "suggestions"], queryFn: () => apiRequest(`/api/subscribers/${id}/suggestions`), enabled: !!id });
 }
 
+export function useSubscriberRecentEpisodes(id: string) {
+  return useQuery({ queryKey: ["/api/subscribers", id, "recent-episodes"], queryFn: () => apiRequest(`/api/subscribers/${id}/recent-episodes`), enabled: !!id });
+}
+
+export function useAddSubscriberPodcast() {
+  return useMutation({
+    mutationFn: ({ subscriberId, podcastId }: { subscriberId: string; podcastId: string }) =>
+      apiRequest(`/api/subscribers/${subscriberId}/podcasts`, { method: "POST", body: JSON.stringify({ podcastId }) }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers", variables.subscriberId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers", variables.subscriberId, "suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscribers", variables.subscriberId, "recent-episodes"] });
+    },
+  });
+}
+
 export function useAnalyzeSocial() {
   return useMutation({
     mutationFn: (data: { url: string }) => apiRequest("/api/subscribers/analyze-social", { method: "POST", body: JSON.stringify(data) }),
