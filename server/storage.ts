@@ -4,7 +4,7 @@ import pg from "pg";
 import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
-  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns, heroSlides,
+  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, adCreatives, outboundCampaigns, heroSlides,
   socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
@@ -23,6 +23,7 @@ import {
   type CompanyContact, type InsertCompanyContact,
   type Deal, type InsertDeal,
   type DealActivity, type InsertDealActivity,
+  type AdCreative, type InsertAdCreative,
   type OutboundCampaign, type InsertOutboundCampaign,
   type HeroSlide, type InsertHeroSlide,
   type SocialAccount, type InsertSocialAccount,
@@ -130,6 +131,12 @@ export interface IStorage {
   createDealActivity(activity: InsertDealActivity): Promise<DealActivity>;
   updateDealActivity(id: string, data: Partial<InsertDealActivity>): Promise<DealActivity | undefined>;
   deleteDealActivity(id: string): Promise<void>;
+
+  getAdCreatives(dealId: string): Promise<AdCreative[]>;
+  getAdCreative(id: string): Promise<AdCreative | undefined>;
+  createAdCreative(creative: InsertAdCreative): Promise<AdCreative>;
+  updateAdCreative(id: string, data: Partial<InsertAdCreative>): Promise<AdCreative | undefined>;
+  deleteAdCreative(id: string): Promise<void>;
 
   getOutboundCampaigns(audience?: string): Promise<OutboundCampaign[]>;
   getOutboundCampaign(id: string): Promise<OutboundCampaign | undefined>;
@@ -547,6 +554,25 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteDealActivity(id: string) {
     await db.delete(dealActivities).where(eq(dealActivities.id, id));
+  }
+
+  async getAdCreatives(dealId: string) {
+    return db.select().from(adCreatives).where(eq(adCreatives.dealId, dealId)).orderBy(desc(adCreatives.createdAt));
+  }
+  async getAdCreative(id: string) {
+    const [c] = await db.select().from(adCreatives).where(eq(adCreatives.id, id));
+    return c;
+  }
+  async createAdCreative(creative: InsertAdCreative) {
+    const [created] = await db.insert(adCreatives).values(creative).returning();
+    return created;
+  }
+  async updateAdCreative(id: string, data: Partial<InsertAdCreative>) {
+    const [updated] = await db.update(adCreatives).set({ ...data, updatedAt: new Date() }).where(eq(adCreatives.id, id)).returning();
+    return updated;
+  }
+  async deleteAdCreative(id: string) {
+    await db.delete(adCreatives).where(eq(adCreatives.id, id));
   }
 
   async getOutboundCampaigns(audience?: string) {

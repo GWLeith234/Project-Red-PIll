@@ -314,6 +314,39 @@ export function useDeleteDealActivity() {
   });
 }
 
+export function useAdCreatives(dealId: string) {
+  return useQuery({ queryKey: ["/api/deals", dealId, "creatives"], queryFn: () => apiRequest(`/api/deals/${dealId}/creatives`), enabled: !!dealId });
+}
+
+export function useCreateAdCreative() {
+  return useMutation({
+    mutationFn: ({ dealId, ...data }: any) => apiRequest(`/api/deals/${dealId}/creatives`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: (_d: any, vars: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals", vars.dealId, "creatives"] });
+    },
+  });
+}
+
+export function useUpdateAdCreative() {
+  return useMutation({
+    mutationFn: ({ id, dealId, ...data }: any) => apiRequest(`/api/ad-creatives/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: (_d: any, vars: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      if (vars.dealId) queryClient.invalidateQueries({ queryKey: ["/api/deals", vars.dealId, "creatives"] });
+    },
+  });
+}
+
+export function useDeleteAdCreative() {
+  return useMutation({
+    mutationFn: ({ id, dealId }: { id: string; dealId: string }) => apiRequest(`/api/ad-creatives/${id}`, { method: "DELETE" }),
+    onSuccess: (_d: any, vars: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      if (vars.dealId) queryClient.invalidateQueries({ queryKey: ["/api/deals", vars.dealId, "creatives"] });
+    },
+  });
+}
+
 export function useSettings() {
   return useQuery({ queryKey: ["/api/settings"], queryFn: () => apiRequest("/api/settings") });
 }

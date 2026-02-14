@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
   useDeals, useDeal, useCreateDeal, useUpdateDeal, useDeleteDeal,
   useDealActivities, useCreateDealActivity, usePodcasts, useAnalyzeSocial,
   useAnalyzeWebsite,
+  useAdCreatives, useCreateAdCreative, useUpdateAdCreative, useDeleteAdCreative,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
   useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
 } from "@/lib/api";
@@ -31,8 +32,12 @@ import {
   Plus, DollarSign, Calendar, Upload, Briefcase, TrendingUp,
   Target, X, CheckCircle, XCircle, AlertCircle, Clock,
   Send, FileText, MessageSquare, Download, ListFilter, Save, Filter,
+  Image, Film, Headphones, LayoutTemplate, Eye, BarChart3, ExternalLink,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { useUpload } from "@/hooks/use-upload";
+import { Label } from "@/components/ui/label";
 
 const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
 
@@ -1402,7 +1407,455 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
           )}
         </CardContent>
       </Card>
+
+      <AdCreativesSection dealId={dealId} />
     </div>
+  );
+}
+
+const AD_FORMAT_CONFIG: Record<string, { label: string; icon: any; description: string }> = {
+  "banner_728x90": { label: "Leaderboard (728×90)", icon: LayoutTemplate, description: "Standard horizontal banner" },
+  "banner_300x250": { label: "Medium Rectangle (300×250)", icon: Image, description: "Inline content ad" },
+  "banner_320x50": { label: "Mobile Banner (320×50)", icon: LayoutTemplate, description: "Mobile leaderboard" },
+  "banner_970x250": { label: "Billboard (970×250)", icon: LayoutTemplate, description: "Large format desktop" },
+  "video_preroll": { label: "Pre-Roll Video", icon: Film, description: "15-30s before content" },
+  "video_midroll": { label: "Mid-Roll Video", icon: Film, description: "During content break" },
+  "audio_spot": { label: "Audio Spot", icon: Headphones, description: "15-60s audio ad" },
+  "native": { label: "Native Ad", icon: FileText, description: "In-feed content style" },
+  "sponsored_content": { label: "Sponsored Content", icon: FileText, description: "Branded article/post" },
+  "page_takeover": { label: "Page Takeover", icon: Eye, description: "Full-page premium format" },
+  "custom": { label: "Custom Format", icon: Sparkles, description: "Custom specification" },
+};
+
+const CREATIVE_STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
+  draft: { label: "Draft", color: "text-gray-400", bgColor: "bg-gray-500/10 border-gray-500/20" },
+  pending_review: { label: "Pending Review", color: "text-amber-400", bgColor: "bg-amber-500/10 border-amber-500/20" },
+  approved: { label: "Approved", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
+  live: { label: "Live", color: "text-green-400", bgColor: "bg-green-500/10 border-green-500/20" },
+  paused: { label: "Paused", color: "text-orange-400", bgColor: "bg-orange-500/10 border-orange-500/20" },
+  completed: { label: "Completed", color: "text-purple-400", bgColor: "bg-purple-500/10 border-purple-500/20" },
+  rejected: { label: "Rejected", color: "text-red-400", bgColor: "bg-red-500/10 border-red-500/20" },
+};
+
+function AdCreativesSection({ dealId }: { dealId: string }) {
+  const { data: creatives, isLoading } = useAdCreatives(dealId);
+  const createCreative = useCreateAdCreative();
+  const updateCreative = useUpdateAdCreative();
+  const deleteCreative = useDeleteAdCreative();
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { uploadFile, isUploading } = useUpload();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [form, setForm] = useState({
+    name: "",
+    format: "banner_300x250",
+    fileUrl: "",
+    clickUrl: "",
+    targetImpressions: "",
+    deliveredImpressions: "0",
+    status: "draft",
+    notes: "",
+    dimensions: "",
+    fileSizeKb: "",
+  });
+
+  const resetForm = () => {
+    setForm({
+      name: "", format: "banner_300x250", fileUrl: "", clickUrl: "",
+      targetImpressions: "", deliveredImpressions: "0", status: "draft",
+      notes: "", dimensions: "", fileSizeKb: "",
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const result = await uploadFile(file);
+      if (result?.objectPath) {
+        setForm(f => ({
+          ...f,
+          fileUrl: result.objectPath,
+          fileSizeKb: String(Math.round(file.size / 1024)),
+        }));
+        toast({ title: "File uploaded" });
+      }
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return;
+    }
+    const payload = {
+      dealId,
+      name: form.name,
+      format: form.format,
+      fileUrl: form.fileUrl || null,
+      clickUrl: form.clickUrl || null,
+      targetImpressions: form.targetImpressions ? parseInt(form.targetImpressions) : null,
+      deliveredImpressions: form.deliveredImpressions ? parseInt(form.deliveredImpressions) : 0,
+      status: form.status,
+      notes: form.notes || null,
+      dimensions: form.dimensions || null,
+      fileSizeKb: form.fileSizeKb ? parseInt(form.fileSizeKb) : null,
+    };
+    try {
+      if (editingId) {
+        await updateCreative.mutateAsync({ id: editingId, dealId, ...payload });
+        toast({ title: "Creative updated" });
+      } else {
+        await createCreative.mutateAsync(payload);
+        toast({ title: "Creative added" });
+      }
+      resetForm();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleEdit = (creative: any) => {
+    setForm({
+      name: creative.name || "",
+      format: creative.format || "banner_300x250",
+      fileUrl: creative.fileUrl || "",
+      clickUrl: creative.clickUrl || "",
+      targetImpressions: creative.targetImpressions?.toString() || "",
+      deliveredImpressions: creative.deliveredImpressions?.toString() || "0",
+      status: creative.status || "draft",
+      notes: creative.notes || "",
+      dimensions: creative.dimensions || "",
+      fileSizeKb: creative.fileSizeKb?.toString() || "",
+    });
+    setEditingId(creative.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCreative.mutateAsync({ id, dealId });
+      toast({ title: "Creative deleted" });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await updateCreative.mutateAsync({ id, dealId, status: newStatus });
+      toast({ title: `Status updated to ${CREATIVE_STATUS_CONFIG[newStatus]?.label || newStatus}` });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const totalTarget = creatives?.reduce((sum: number, c: any) => sum + (c.targetImpressions || 0), 0) || 0;
+  const totalDelivered = creatives?.reduce((sum: number, c: any) => sum + (c.deliveredImpressions || 0), 0) || 0;
+  const deliveryPct = totalTarget > 0 ? Math.min(100, Math.round((totalDelivered / totalTarget) * 100)) : 0;
+
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-display text-lg flex items-center gap-2">
+            <Image className="h-5 w-5 text-primary" />
+            Ad Creatives ({creatives?.length || 0})
+          </CardTitle>
+          <Button
+            size="sm"
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            data-testid="button-add-creative"
+          >
+            <Plus className="h-3 w-3 mr-1" /> Add Creative
+          </Button>
+        </div>
+
+        {creatives?.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 mt-3">
+            <div className="p-3 bg-card/30 border border-border/50 rounded-sm text-center">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Target</p>
+              <p className="text-lg font-display font-bold text-foreground">{totalTarget.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-card/30 border border-border/50 rounded-sm text-center">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Delivered</p>
+              <p className="text-lg font-display font-bold text-green-400">{totalDelivered.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-card/30 border border-border/50 rounded-sm text-center">
+              <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Delivery</p>
+              <div className="flex items-center gap-2 justify-center">
+                <p className="text-lg font-display font-bold text-primary">{deliveryPct}%</p>
+              </div>
+              <Progress value={deliveryPct} className="h-1.5 mt-1" />
+            </div>
+          </div>
+        )}
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {showForm && (
+          <div className="border border-primary/30 rounded-sm p-4 bg-primary/5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-mono uppercase tracking-wider text-primary">
+                {editingId ? "Edit Creative" : "New Creative"}
+              </h4>
+              <Button variant="ghost" size="sm" onClick={resetForm} data-testid="button-cancel-creative">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Name *</Label>
+                <Input
+                  placeholder="e.g., Q1 Homepage Banner"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  data-testid="input-creative-name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Format</Label>
+                <Select value={form.format} onValueChange={v => setForm(f => ({ ...f, format: v }))}>
+                  <SelectTrigger data-testid="select-creative-format">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(AD_FORMAT_CONFIG).map(([key, cfg]) => (
+                      <SelectItem key={key} value={key}>
+                        <span className="flex items-center gap-2">
+                          <cfg.icon className="h-3 w-3" />
+                          {cfg.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Creative File</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="File URL"
+                    value={form.fileUrl}
+                    onChange={e => setForm(f => ({ ...f, fileUrl: e.target.value }))}
+                    className="flex-1"
+                    data-testid="input-creative-file-url"
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*,audio/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    data-testid="button-upload-creative"
+                  >
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Click-Through URL</Label>
+                <Input
+                  placeholder="https://..."
+                  value={form.clickUrl}
+                  onChange={e => setForm(f => ({ ...f, clickUrl: e.target.value }))}
+                  data-testid="input-creative-click-url"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Target Impressions</Label>
+                <Input
+                  type="number"
+                  placeholder="e.g., 100000"
+                  value={form.targetImpressions}
+                  onChange={e => setForm(f => ({ ...f, targetImpressions: e.target.value }))}
+                  data-testid="input-creative-target-impressions"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Dimensions</Label>
+                <Input
+                  placeholder="e.g., 300x250"
+                  value={form.dimensions}
+                  onChange={e => setForm(f => ({ ...f, dimensions: e.target.value }))}
+                  data-testid="input-creative-dimensions"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger data-testid="select-creative-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CREATIVE_STATUS_CONFIG).map(([key, cfg]) => (
+                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Notes</Label>
+              <Textarea
+                placeholder="Creative specs, requirements, notes..."
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                className="min-h-[60px]"
+                data-testid="input-creative-notes"
+              />
+            </div>
+
+            <Button
+              onClick={handleSubmit}
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              disabled={createCreative.isPending || updateCreative.isPending}
+              data-testid="button-submit-creative"
+            >
+              {(createCreative.isPending || updateCreative.isPending) ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : editingId ? (
+                <Save className="h-3 w-3 mr-1" />
+              ) : (
+                <Plus className="h-3 w-3 mr-1" />
+              )}
+              {editingId ? "Update Creative" : "Add Creative"}
+            </Button>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : creatives?.length > 0 ? (
+          <div className="space-y-3">
+            {creatives.map((creative: any) => {
+              const formatCfg = AD_FORMAT_CONFIG[creative.format] || AD_FORMAT_CONFIG.custom;
+              const statusCfg = CREATIVE_STATUS_CONFIG[creative.status] || CREATIVE_STATUS_CONFIG.draft;
+              const FormatIcon = formatCfg.icon;
+              const delivPct = creative.targetImpressions > 0
+                ? Math.min(100, Math.round((creative.deliveredImpressions || 0) / creative.targetImpressions * 100))
+                : 0;
+
+              return (
+                <div key={creative.id} className="border border-border/50 rounded-sm bg-card/30 overflow-hidden" data-testid={`creative-${creative.id}`}>
+                  <div className="flex items-start gap-3 p-4">
+                    <div className="h-10 w-10 rounded-sm bg-primary/10 flex items-center justify-center shrink-0">
+                      <FormatIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold truncate">{creative.name}</p>
+                        <Badge variant="outline" className={cn("text-[9px] font-mono border", statusCfg.bgColor, statusCfg.color)}>
+                          {statusCfg.label}
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] font-mono bg-card/50 border-border/50">
+                          {formatCfg.label}
+                        </Badge>
+                      </div>
+
+                      {creative.dimensions && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{creative.dimensions} • {creative.fileSizeKb ? `${creative.fileSizeKb}KB` : "No file size"}</p>
+                      )}
+
+                      {creative.targetImpressions > 0 && (
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground mb-1">
+                            <span>{(creative.deliveredImpressions || 0).toLocaleString()} / {creative.targetImpressions.toLocaleString()} impressions</span>
+                            <span className={delivPct >= 100 ? "text-green-400" : ""}>{delivPct}%</span>
+                          </div>
+                          <Progress value={delivPct} className="h-1.5" />
+                        </div>
+                      )}
+
+                      {creative.notes && (
+                        <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{creative.notes}</p>
+                      )}
+
+                      <div className="flex items-center gap-2 mt-2">
+                        {creative.fileUrl && (
+                          <a href={creative.fileUrl} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline inline-flex items-center gap-1" data-testid={`link-creative-file-${creative.id}`}>
+                            <ExternalLink className="h-3 w-3" /> View File
+                          </a>
+                        )}
+                        {creative.clickUrl && (
+                          <a href={creative.clickUrl} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                            <Globe className="h-3 w-3" /> Landing Page
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Select value={creative.status} onValueChange={v => handleStatusChange(creative.id, v)}>
+                        <SelectTrigger className="h-7 w-[110px] text-[10px]" data-testid={`select-status-${creative.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(CREATIVE_STATUS_CONFIG).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key} className="text-xs">{cfg.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(creative)} data-testid={`button-edit-creative-${creative.id}`}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(creative.id)}
+                        className="text-destructive hover:text-destructive" data-testid={`button-delete-creative-${creative.id}`}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {creative.fileUrl && (creative.format?.startsWith("banner") || creative.format === "native" || creative.format === "page_takeover") && (
+                    <div className="border-t border-border/30 p-3 bg-card/20">
+                      <img
+                        src={creative.fileUrl}
+                        alt={creative.name}
+                        className="max-h-32 rounded-sm object-contain mx-auto"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : !showForm ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Image className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No ad creatives yet.</p>
+            <p className="text-xs mt-1">Add banner, video, audio, or native ad creatives for this deal.</p>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

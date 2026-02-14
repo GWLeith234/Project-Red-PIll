@@ -342,6 +342,35 @@ export const dealActivities = pgTable("deal_activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const AD_CREATIVE_FORMATS = ["banner_728x90", "banner_300x250", "banner_320x50", "banner_970x250", "video_preroll", "video_midroll", "audio_spot", "native", "sponsored_content", "page_takeover", "custom"] as const;
+export type AdCreativeFormat = typeof AD_CREATIVE_FORMATS[number];
+export const AD_CREATIVE_STATUSES = ["draft", "review", "approved", "live", "paused", "expired"] as const;
+export type AdCreativeStatus = typeof AD_CREATIVE_STATUSES[number];
+
+export const adCreatives = pgTable("ad_creatives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealId: varchar("deal_id").notNull(),
+  name: text("name").notNull(),
+  format: text("format").notNull().default("banner_300x250"),
+  fileUrl: text("file_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  clickUrl: text("click_url"),
+  altText: text("alt_text"),
+  headline: text("headline"),
+  bodyText: text("body_text"),
+  ctaText: text("cta_text"),
+  targetedImpressions: integer("targeted_impressions").default(0),
+  deliveredImpressions: integer("delivered_impressions").default(0),
+  clicks: integer("clicks").default(0),
+  status: text("status").default("draft").notNull(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  podcastId: varchar("podcast_id"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const OUTBOUND_CAMPAIGN_TYPES = ["email", "sms"] as const;
 export type OutboundCampaignType = typeof OUTBOUND_CAMPAIGN_TYPES[number];
 export const OUTBOUND_CAMPAIGN_AUDIENCES = ["subscribers", "contacts"] as const;
@@ -481,6 +510,7 @@ export const insertCompanySchema = createInsertSchema(companies).omit({ id: true
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDealSchema = createInsertSchema(deals).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDealActivitySchema = createInsertSchema(dealActivities).omit({ id: true, createdAt: true });
+export const insertAdCreativeSchema = createInsertSchema(adCreatives).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSubscriberSchema = createInsertSchema(subscribers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSubscriberPodcastSchema = createInsertSchema(subscriberPodcasts).omit({ id: true, subscribedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, lastLoginAt: true });
@@ -530,6 +560,8 @@ export type InsertDeal = z.infer<typeof insertDealSchema>;
 export type Deal = typeof deals.$inferSelect;
 export type InsertDealActivity = z.infer<typeof insertDealActivitySchema>;
 export type DealActivity = typeof dealActivities.$inferSelect;
+export type InsertAdCreative = z.infer<typeof insertAdCreativeSchema>;
+export type AdCreative = typeof adCreatives.$inferSelect;
 
 export type InsertOutboundCampaign = z.infer<typeof insertOutboundCampaignSchema>;
 export type OutboundCampaign = typeof outboundCampaigns.$inferSelect;

@@ -6,7 +6,7 @@ import {
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
-  insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema,
+  insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
@@ -2806,6 +2806,32 @@ export async function registerRoutes(
 
   app.delete("/api/deal-activities/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
     await storage.deleteDealActivity(req.params.id);
+    res.status(204).send();
+  });
+
+  // ── Commercial CRM: Ad Creatives ──
+  app.get("/api/deals/:dealId/creatives", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const data = await storage.getAdCreatives(req.params.dealId);
+    res.json(data);
+  });
+
+  app.post("/api/deals/:dealId/creatives", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertAdCreativeSchema.safeParse({ ...req.body, dealId: req.params.dealId });
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createAdCreative(parsed.data);
+    res.json(data);
+  });
+
+  app.patch("/api/ad-creatives/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    const parsed = insertAdCreativeSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateAdCreative(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Creative not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/ad-creatives/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    await storage.deleteAdCreative(req.params.id);
     res.status(204).send();
   });
 
