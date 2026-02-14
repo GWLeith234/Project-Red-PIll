@@ -53,7 +53,7 @@ const PLATFORM_OPTIONS = [
   { value: "TikTok", label: "TikTok" },
   { value: "Reels", label: "Instagram Reels" },
   { value: "Shorts", label: "YouTube Shorts" },
-  { value: "X", label: "X (Twitter)" },
+  { value: "X", label: "X" },
   { value: "LinkedIn", label: "LinkedIn" },
   { value: "Facebook", label: "Facebook" },
   { value: "Pinterest", label: "Pinterest" },
@@ -293,7 +293,7 @@ export default function Settings() {
         defaultLanguage: settings.defaultLanguage || "en",
         autoPublishContent: settings.autoPublishContent ?? false,
         contentTypes: settings.contentTypes || ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
-        defaultPlatforms: (settings.defaultPlatforms || ["TikTok", "Reels", "Shorts", "X", "LinkedIn"]).map((p: string) => p === "Twitter" ? "X" : p),
+        defaultPlatforms: (settings.defaultPlatforms || ["TikTok", "Reels", "Shorts", "X", "LinkedIn"]).map((p: string) => p === "Twitter" ? "X" : p === "Twitter/X" ? "X" : p),
         aiQuality: settings.aiQuality || "balanced",
         emailNotifications: settings.emailNotifications ?? true,
         alertThreshold: settings.alertThreshold || "all",
@@ -813,7 +813,7 @@ function getSocialPlatformIcon(platform: string, className?: string) {
 
 function getSocialPlatformLabel(platform: string) {
   switch (platform) {
-    case "x": return "X (Twitter)";
+    case "x": return "X";
     case "facebook": return "Facebook";
     case "linkedin": return "LinkedIn";
     case "google_business": return "Google Business";
@@ -824,7 +824,7 @@ function getSocialPlatformLabel(platform: string) {
 }
 
 const PLATFORM_CARDS = [
-  { platform: "x", label: "X (Twitter)", description: "Post updates and threads", color: "text-foreground", bgGradient: "from-zinc-800 to-zinc-900" },
+  { platform: "x", label: "X", description: "Post updates and threads", color: "text-foreground", bgGradient: "from-zinc-800 to-zinc-900" },
   { platform: "facebook", label: "Facebook", description: "Pages and groups", color: "text-blue-500", bgGradient: "from-blue-950 to-blue-900" },
   { platform: "instagram", label: "Instagram", description: "Stories, reels, carousels", color: "text-pink-500", bgGradient: "from-pink-950 to-purple-900" },
   { platform: "linkedin", label: "LinkedIn", description: "Professional content", color: "text-[#0A66C2]", bgGradient: "from-blue-950 to-cyan-900" },

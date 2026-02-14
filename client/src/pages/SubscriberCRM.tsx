@@ -134,7 +134,7 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <p className="text-sm text-muted-foreground">
-                Paste a LinkedIn, X/Twitter, or Facebook profile URL to automatically import their photo, name, title, and bio.
+                Paste a LinkedIn, X, or Facebook profile URL to automatically import their photo, name, title, and bio.
               </p>
               <Input
                 placeholder="https://linkedin.com/in/name or https://x.com/handle"

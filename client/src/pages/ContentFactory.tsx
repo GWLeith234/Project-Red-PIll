@@ -63,7 +63,7 @@ function getPlatformIcon(platform: string, className?: string) {
 
 function getPlatformLabel(platform: string) {
   switch (platform) {
-    case "x": return "X (Twitter)";
+    case "x": return "X";
     case "facebook": return "Facebook";
     case "linkedin": return "LinkedIn";
     case "google_business": return "Google Business";
@@ -1374,7 +1374,7 @@ function ScheduleTab() {
                   <SelectValue placeholder="Select platform..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="x">X (Twitter)</SelectItem>
+                  <SelectItem value="x">X</SelectItem>
                   <SelectItem value="facebook">Facebook</SelectItem>
                   <SelectItem value="instagram">Instagram</SelectItem>
                   <SelectItem value="linkedin">LinkedIn</SelectItem>

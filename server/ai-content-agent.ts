@@ -296,7 +296,7 @@ export async function generateSocialPosts(
   const systemPrompt = `You are a social media content strategist for a media company. Create platform-specific posts from podcast transcripts.
 
 Generate posts for each platform with the right tone, length, and format:
-- X (Twitter): Punchy, 280 chars max, use threads for longer content. Include 2-3 hashtags.
+- X: Punchy, 280 chars max, use threads for longer content. Include 2-3 hashtags.
 - LinkedIn: Professional, 1300 chars, thought leadership angle. Include 3-5 hashtags.
 - Facebook: Conversational, 500-800 chars, engaging question or story hook.
 - Google Business: Brief update, 300 chars, local business focus.
