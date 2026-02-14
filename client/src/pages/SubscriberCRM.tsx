@@ -44,6 +44,8 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
     country: initialData?.country || "",
     company: initialData?.company || "",
     title: initialData?.title || "",
+    profilePhoto: initialData?.profilePhoto || "",
+    bio: initialData?.bio || "",
     notes: initialData?.notes || "",
     linkedinUrl: initialData?.linkedinUrl || "",
     twitterUrl: initialData?.twitterUrl || "",
@@ -71,12 +73,13 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
       if (result.firstName && !form.firstName) updates.firstName = result.firstName;
       if (result.lastName && !form.lastName) updates.lastName = result.lastName;
       if (result.title && !form.title) updates.title = result.title;
-      if (result.bio && !form.notes) updates.notes = result.bio;
+      if (result.bio && !form.bio) updates.bio = result.bio;
       if (result.linkedinUrl) updates.linkedinUrl = result.linkedinUrl;
       if (result.twitterUrl) updates.twitterUrl = result.twitterUrl;
       if (result.facebookUrl) updates.facebookUrl = result.facebookUrl;
       setForm(prev => ({ ...prev, ...updates }));
-      toast({ title: "Profile Imported", description: `Grabbed data from ${result.platform || "social"} profile.` });
+      const grabbed = Object.keys(updates).filter(k => updates[k]).length;
+      toast({ title: "Profile Imported", description: `Grabbed ${grabbed} field${grabbed !== 1 ? "s" : ""} from ${result.platform || "social"} profile${result.profilePhoto ? " (including photo)" : ""}.` });
       setShowSocialDialog(false);
       setSocialUrl("");
     } catch (err: any) {
@@ -160,6 +163,19 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
           </DialogContent>
         </Dialog>
       </div>
+
+      {form.profilePhoto && (
+        <div className="flex items-center gap-4 p-3 border border-border/50 rounded-sm bg-card/30" data-testid="preview-profile-photo">
+          <img src={form.profilePhoto} alt="Profile" className="h-16 w-16 rounded-full object-cover border-2 border-primary/20" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Profile Photo</p>
+            <Input value={form.profilePhoto} onChange={e => setForm(f => ({ ...f, profilePhoto: e.target.value }))} placeholder="Photo URL" className="text-xs" data-testid="input-profile-photo" />
+          </div>
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => setForm(f => ({ ...f, profilePhoto: "" }))} data-testid="button-remove-photo">
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>

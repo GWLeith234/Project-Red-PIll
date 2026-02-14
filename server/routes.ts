@@ -477,10 +477,15 @@ export async function registerRoutes(
 
       const response = await fetch(targetUrl, {
         signal: controller.signal,
+        redirect: "follow",
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; MediaTech/1.0; +https://mediatech.com)",
-          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
         },
       });
       clearTimeout(timeout);
@@ -493,13 +498,18 @@ export async function registerRoutes(
 
       const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
         || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+      const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
       const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
         || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
       const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
         || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i);
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
 
-      const profilePhoto = ogImageMatch?.[1] || null;
+      let profilePhoto = ogImageMatch?.[1] || twitterImageMatch?.[1] || null;
+      if (profilePhoto && (profilePhoto.includes("static.licdn.com/aero") || profilePhoto.includes("default-avatar") || profilePhoto.includes("/company-logo") || profilePhoto.includes("ghost-person"))) {
+        profilePhoto = null;
+      }
 
       const rawTitle = ogTitleMatch?.[1] || titleMatch?.[1] || "";
       const cleanTitle = rawTitle
@@ -577,9 +587,15 @@ export async function registerRoutes(
 
       const response = await fetch(targetUrl, {
         signal: controller.signal,
+        redirect: "follow",
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; BrandAnalyzer/1.0)",
-          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
         },
       });
       clearTimeout(timeout);
@@ -893,10 +909,15 @@ export async function registerRoutes(
 
       const response = await fetch(targetUrl, {
         signal: controller.signal,
+        redirect: "follow",
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; MediaTech/1.0; +https://mediatech.com)",
-          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
         },
       });
       clearTimeout(timeout);
@@ -909,12 +930,17 @@ export async function registerRoutes(
 
       const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
         || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+      const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
       const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
         || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
       const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
         || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i);
 
-      const profilePhoto = ogImageMatch?.[1] || null;
+      let profilePhoto = ogImageMatch?.[1] || twitterImageMatch?.[1] || null;
+      if (profilePhoto && (profilePhoto.includes("static.licdn.com/aero") || profilePhoto.includes("default-avatar") || profilePhoto.includes("/company-logo") || profilePhoto.includes("ghost-person"))) {
+        profilePhoto = null;
+      }
 
       const rawTitle = (ogTitleMatch?.[1] || "")
         .replace(/\s*[-–|]\s*(LinkedIn|X|Twitter|Facebook).*$/i, "")
@@ -1507,12 +1533,16 @@ export async function registerRoutes(
 
       const response = await fetch(targetUrl, {
         signal: controller.signal,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; MediaTech/1.0)",
-          "Accept": "text/html,application/xhtml+xml",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
         redirect: "follow",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Cache-Control": "no-cache",
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "none",
+        },
       });
       clearTimeout(timeout);
 
