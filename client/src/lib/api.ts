@@ -352,3 +352,37 @@ export function useUpdateModerationPiece() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] }),
   });
 }
+
+export function useOutboundCampaigns(audience?: string) {
+  const url = audience ? `/api/outbound-campaigns?audience=${audience}` : "/api/outbound-campaigns";
+  return useQuery({ queryKey: ["/api/outbound-campaigns", audience], queryFn: () => apiRequest(url) });
+}
+
+export function useCreateOutboundCampaign() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/outbound-campaigns", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns"] }),
+  });
+}
+
+export function useDeleteOutboundCampaign() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/outbound-campaigns/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns"] }),
+  });
+}
+
+export function useSendOutboundCampaign() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/outbound-campaigns/${id}/send`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns"] }),
+  });
+}
+
+export function useCampaignRecipients(campaignId: string) {
+  return useQuery({
+    queryKey: ["/api/outbound-campaigns", campaignId, "recipients"],
+    queryFn: () => apiRequest(`/api/outbound-campaigns/${campaignId}/recipients`),
+    enabled: !!campaignId,
+  });
+}

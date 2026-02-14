@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Mail, Check, Loader2, Mic, Headphones, Bell, Sparkles, ArrowRight } from "lucide-react";
 
-async function publicSubscribe(data: { email: string; firstName?: string; lastName?: string; podcastId?: string; source?: string }) {
+async function publicSubscribe(data: { email: string; firstName?: string; lastName?: string; podcastId?: string; source?: string; marketingConsent?: boolean; smsConsent?: boolean }) {
   const res = await fetch("/api/public/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -22,6 +22,7 @@ export function InlineSubscribeWidget({ podcastId, podcastTitle, source = "artic
 }) {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
@@ -61,37 +62,43 @@ export function InlineSubscribeWidget({ podcastId, podcastTitle, source = "artic
               e.preventDefault();
               if (!email.trim()) return;
               setError("");
-              subscribe.mutate({ email: email.trim(), firstName: firstName.trim() || undefined, podcastId, source });
+              subscribe.mutate({ email: email.trim(), firstName: firstName.trim() || undefined, podcastId, source, marketingConsent: consent });
             }}
-            className="flex flex-col sm:flex-row gap-2"
+            className="flex flex-col gap-2"
             data-testid="form-inline-subscribe"
           >
-            <input
-              type="text"
-              placeholder="First name (optional)"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="px-3 py-2.5 bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors sm:w-36"
-              data-testid="input-subscribe-firstname"
-            />
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
-              data-testid="input-subscribe-email"
-            />
-            <button
-              type="submit"
-              disabled={subscribe.isPending}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              data-testid="button-subscribe-inline"
-            >
-              {subscribe.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Subscribe
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                placeholder="First name (optional)"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="px-3 py-2.5 bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors sm:w-36"
+                data-testid="input-subscribe-firstname"
+              />
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="flex-1 px-3 py-2.5 bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
+                data-testid="input-subscribe-email"
+              />
+              <button
+                type="submit"
+                disabled={subscribe.isPending}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                data-testid="button-subscribe-inline"
+              >
+                {subscribe.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                Subscribe
+              </button>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-amber-500" data-testid="checkbox-consent-inline" />
+              <span className="text-gray-400 text-[11px] leading-tight">I agree to receive emails and marketing communications. You can unsubscribe at any time.</span>
+            </label>
           </form>
           {error && <p className="text-red-400 text-xs mt-2" data-testid="text-subscribe-error">{error}</p>}
         </div>
@@ -107,6 +114,7 @@ export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
   source?: string;
 }) {
   const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
@@ -149,7 +157,7 @@ export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
           e.preventDefault();
           if (!email.trim()) return;
           setError("");
-          subscribe.mutate({ email: email.trim(), podcastId, source });
+          subscribe.mutate({ email: email.trim(), podcastId, source, marketingConsent: consent });
         }}
         data-testid="form-sidebar-subscribe"
       >
@@ -162,6 +170,10 @@ export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
           className="w-full px-3 py-2 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 mb-2 focus:outline-none focus:border-gray-400 transition-colors"
           data-testid="input-sidebar-subscribe-email"
         />
+        <label className="flex items-start gap-2 cursor-pointer mb-2">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-gray-900" data-testid="checkbox-consent-sidebar" />
+          <span className="text-gray-500 text-[10px] leading-tight">I agree to receive marketing emails. Unsubscribe anytime.</span>
+        </label>
         <button
           type="submit"
           disabled={subscribe.isPending}
@@ -173,7 +185,6 @@ export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
         </button>
       </form>
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-      <p className="text-[10px] text-gray-400 mt-2 text-center">No spam. Unsubscribe anytime.</p>
     </div>
   );
 }
@@ -184,6 +195,7 @@ export function StickyBottomSubscribeBar({ podcastId, podcastTitle, source = "st
   source?: string;
 }) {
   const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [error, setError] = useState("");
@@ -211,29 +223,35 @@ export function StickyBottomSubscribeBar({ podcastId, podcastTitle, source = "st
             e.preventDefault();
             if (!email.trim()) return;
             setError("");
-            subscribe.mutate({ email: email.trim(), podcastId, source });
+            subscribe.mutate({ email: email.trim(), podcastId, source, marketingConsent: consent });
           }}
-          className="flex gap-2 w-full sm:w-auto"
+          className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto"
           data-testid="form-sticky-subscribe"
         >
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="flex-1 sm:w-52 px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500"
-            data-testid="input-sticky-subscribe-email"
-          />
-          <button
-            type="submit"
-            disabled={subscribe.isPending}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            data-testid="button-subscribe-sticky"
-          >
-            {subscribe.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-            Subscribe
-          </button>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="flex-1 sm:w-52 px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500"
+              data-testid="input-sticky-subscribe-email"
+            />
+            <button
+              type="submit"
+              disabled={subscribe.isPending}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              data-testid="button-subscribe-sticky"
+            >
+              {subscribe.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+              Subscribe
+            </button>
+          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="accent-amber-500" data-testid="checkbox-consent-sticky" />
+            <span className="text-gray-400 text-[10px]">I agree to receive marketing emails</span>
+          </label>
         </form>
         {error && <span className="text-red-400 text-xs">{error}</span>}
         <button
@@ -256,6 +274,7 @@ export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
 }) {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
@@ -297,7 +316,7 @@ export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
           e.preventDefault();
           if (!email.trim()) return;
           setError("");
-          subscribe.mutate({ email: email.trim(), firstName: firstName.trim() || undefined, podcastId, source });
+          subscribe.mutate({ email: email.trim(), firstName: firstName.trim() || undefined, podcastId, source, marketingConsent: consent });
         }}
         className="max-w-md mx-auto space-y-2"
         data-testid="form-episode-subscribe"
@@ -321,6 +340,10 @@ export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
             data-testid="input-episode-subscribe-email"
           />
         </div>
+        <label className="flex items-start gap-2 cursor-pointer text-left">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-amber-500" data-testid="checkbox-consent-episode" />
+          <span className="text-gray-400 text-[11px] leading-tight">I agree to receive emails and marketing communications. You can unsubscribe at any time.</span>
+        </label>
         <button
           type="submit"
           disabled={subscribe.isPending}
@@ -332,7 +355,6 @@ export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
         </button>
       </form>
       {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
-      <p className="text-gray-600 text-[10px] mt-3">Free forever. No spam. Unsubscribe anytime.</p>
     </div>
   );
 }

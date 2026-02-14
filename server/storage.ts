@@ -4,7 +4,7 @@ import pg from "pg";
 import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
-  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities,
+  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -22,6 +22,7 @@ import {
   type CompanyContact, type InsertCompanyContact,
   type Deal, type InsertDeal,
   type DealActivity, type InsertDealActivity,
+  type OutboundCampaign, type InsertOutboundCampaign,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -121,6 +122,14 @@ export interface IStorage {
   createDealActivity(activity: InsertDealActivity): Promise<DealActivity>;
   updateDealActivity(id: string, data: Partial<InsertDealActivity>): Promise<DealActivity | undefined>;
   deleteDealActivity(id: string): Promise<void>;
+
+  getOutboundCampaigns(audience?: string): Promise<OutboundCampaign[]>;
+  getOutboundCampaign(id: string): Promise<OutboundCampaign | undefined>;
+  createOutboundCampaign(campaign: InsertOutboundCampaign): Promise<OutboundCampaign>;
+  updateOutboundCampaign(id: string, data: Partial<InsertOutboundCampaign>): Promise<OutboundCampaign | undefined>;
+  deleteOutboundCampaign(id: string): Promise<void>;
+  getConsentedSubscribers(type: "email" | "sms", podcastId?: string): Promise<Subscriber[]>;
+  getConsentedContacts(type: "email" | "sms"): Promise<CompanyContact[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -487,6 +496,43 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteDealActivity(id: string) {
     await db.delete(dealActivities).where(eq(dealActivities.id, id));
+  }
+
+  async getOutboundCampaigns(audience?: string) {
+    if (audience) {
+      return db.select().from(outboundCampaigns).where(eq(outboundCampaigns.audience, audience)).orderBy(desc(outboundCampaigns.createdAt));
+    }
+    return db.select().from(outboundCampaigns).orderBy(desc(outboundCampaigns.createdAt));
+  }
+  async getOutboundCampaign(id: string) {
+    const [c] = await db.select().from(outboundCampaigns).where(eq(outboundCampaigns.id, id));
+    return c;
+  }
+  async createOutboundCampaign(campaign: InsertOutboundCampaign) {
+    const [created] = await db.insert(outboundCampaigns).values(campaign).returning();
+    return created;
+  }
+  async updateOutboundCampaign(id: string, data: Partial<InsertOutboundCampaign>) {
+    const [updated] = await db.update(outboundCampaigns).set(data).where(eq(outboundCampaigns.id, id)).returning();
+    return updated;
+  }
+  async deleteOutboundCampaign(id: string) {
+    await db.delete(outboundCampaigns).where(eq(outboundCampaigns.id, id));
+  }
+  async getConsentedSubscribers(type: "email" | "sms", podcastId?: string) {
+    const consentField = type === "email" ? subscribers.marketingConsent : subscribers.smsConsent;
+    if (podcastId) {
+      const results = await db.select({ subscriber: subscribers })
+        .from(subscribers)
+        .innerJoin(subscriberPodcasts, eq(subscribers.id, subscriberPodcasts.subscriberId))
+        .where(and(eq(consentField, true), eq(subscribers.status, "active"), eq(subscriberPodcasts.podcastId, podcastId)));
+      return results.map(r => r.subscriber);
+    }
+    return db.select().from(subscribers).where(and(eq(consentField, true), eq(subscribers.status, "active")));
+  }
+  async getConsentedContacts(type: "email" | "sms") {
+    const consentField = type === "email" ? companyContacts.marketingConsent : companyContacts.smsConsent;
+    return db.select().from(companyContacts).where(and(eq(consentField, true), eq(companyContacts.status, "active")));
   }
 }
 

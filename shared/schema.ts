@@ -224,6 +224,10 @@ export const subscribers = pgTable("subscribers", {
   notes: text("notes"),
   source: text("source").default("manual"),
   status: text("status").default("active").notNull(),
+  marketingConsent: boolean("marketing_consent").default(false),
+  marketingConsentAt: timestamp("marketing_consent_at"),
+  smsConsent: boolean("sms_consent").default(false),
+  smsConsentAt: timestamp("sms_consent_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -279,6 +283,10 @@ export const companyContacts = pgTable("company_contacts", {
   tags: text("tags").array().default(sql`ARRAY[]::text[]`),
   notes: text("notes"),
   status: text("status").default("active").notNull(),
+  marketingConsent: boolean("marketing_consent").default(false),
+  marketingConsentAt: timestamp("marketing_consent_at"),
+  smsConsent: boolean("sms_consent").default(false),
+  smsConsentAt: timestamp("sms_consent_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -321,7 +329,33 @@ export const dealActivities = pgTable("deal_activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const OUTBOUND_CAMPAIGN_TYPES = ["email", "sms"] as const;
+export type OutboundCampaignType = typeof OUTBOUND_CAMPAIGN_TYPES[number];
+export const OUTBOUND_CAMPAIGN_AUDIENCES = ["subscribers", "contacts"] as const;
+export type OutboundCampaignAudience = typeof OUTBOUND_CAMPAIGN_AUDIENCES[number];
+export const OUTBOUND_CAMPAIGN_STATUSES = ["draft", "scheduled", "sending", "sent", "failed"] as const;
+export type OutboundCampaignStatus = typeof OUTBOUND_CAMPAIGN_STATUSES[number];
+
+export const outboundCampaigns = pgTable("outbound_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  audience: text("audience").notNull(),
+  status: text("status").default("draft").notNull(),
+  subject: text("subject"),
+  body: text("body").notNull(),
+  podcastFilter: varchar("podcast_filter"),
+  recipientCount: integer("recipient_count").default(0),
+  sentCount: integer("sent_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+});
+
 // Insert schemas
+export const insertOutboundCampaignSchema = createInsertSchema(outboundCampaigns).omit({ id: true, createdAt: true, sentAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDealSchema = createInsertSchema(deals).omit({ id: true, createdAt: true, updatedAt: true });
@@ -375,5 +409,8 @@ export type InsertDeal = z.infer<typeof insertDealSchema>;
 export type Deal = typeof deals.$inferSelect;
 export type InsertDealActivity = z.infer<typeof insertDealActivitySchema>;
 export type DealActivity = typeof dealActivities.$inferSelect;
+
+export type InsertOutboundCampaign = z.infer<typeof insertOutboundCampaignSchema>;
+export type OutboundCampaign = typeof outboundCampaigns.$inferSelect;
 
 export * from "./models/chat";

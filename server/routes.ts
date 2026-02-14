@@ -7,6 +7,7 @@ import {
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema,
+  insertOutboundCampaignSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -1031,14 +1032,142 @@ export async function registerRoutes(
     res.json(active);
   });
 
+  // ── Outbound Campaigns (auth-gated) ──
+  app.get("/api/outbound-campaigns", requireAuth, async (req, res) => {
+    const audience = req.query.audience as string | undefined;
+    const campaigns = await storage.getOutboundCampaigns(audience);
+    res.json(campaigns);
+  });
+
+  app.get("/api/outbound-campaigns/:id", requireAuth, async (req, res) => {
+    const campaign = await storage.getOutboundCampaign(req.params.id);
+    if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+    res.json(campaign);
+  });
+
+  app.post("/api/outbound-campaigns", requireAuth, async (req, res) => {
+    const parsed = insertOutboundCampaignSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const campaign = await storage.createOutboundCampaign({ ...parsed.data, createdBy: (req.user as any)?.id });
+    res.status(201).json(campaign);
+  });
+
+  app.patch("/api/outbound-campaigns/:id", requireAuth, async (req, res) => {
+    const updated = await storage.updateOutboundCampaign(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ message: "Campaign not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/outbound-campaigns/:id", requireAuth, async (req, res) => {
+    await storage.deleteOutboundCampaign(req.params.id);
+    res.status(204).send();
+  });
+
+  app.get("/api/outbound-campaigns/:id/recipients", requireAuth, async (req, res) => {
+    const campaign = await storage.getOutboundCampaign(req.params.id);
+    if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+    const channelType = campaign.type as "email" | "sms";
+    if (campaign.audience === "subscribers") {
+      const recipients = await storage.getConsentedSubscribers(channelType, campaign.podcastFilter || undefined);
+      res.json({ count: recipients.length, recipients: recipients.map(r => ({ id: r.id, name: `${r.firstName || ""} ${r.lastName || ""}`.trim(), email: r.email, phone: r.phone })) });
+    } else {
+      const recipients = await storage.getConsentedContacts(channelType);
+      res.json({ count: recipients.length, recipients: recipients.map(r => ({ id: r.id, name: `${r.firstName || ""} ${r.lastName || ""}`.trim(), email: r.email, phone: r.phone })) });
+    }
+  });
+
+  app.post("/api/outbound-campaigns/:id/send", requireAuth, async (req, res) => {
+    const campaign = await storage.getOutboundCampaign(req.params.id);
+    if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+    if (campaign.status === "sending" || campaign.status === "sent") {
+      return res.status(400).json({ message: "Campaign already sent or in progress" });
+    }
+    const channelType = campaign.type as "email" | "sms";
+    let recipients: { email?: string | null; phone?: string | null; id: string }[];
+    if (campaign.audience === "subscribers") {
+      recipients = await storage.getConsentedSubscribers(channelType, campaign.podcastFilter || undefined);
+    } else {
+      recipients = await storage.getConsentedContacts(channelType);
+    }
+    if (recipients.length === 0) {
+      return res.status(400).json({ message: "No consented recipients found. Recipients must opt-in to marketing before you can send campaigns." });
+    }
+    await storage.updateOutboundCampaign(campaign.id, { status: "sending", recipientCount: recipients.length } as any);
+
+    let sentCount = 0;
+    let failedCount = 0;
+    for (const recipient of recipients) {
+      try {
+        if (channelType === "email" && recipient.email) {
+          const sgKey = process.env.SENDGRID_API_KEY;
+          if (sgKey) {
+            const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${sgKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                personalizations: [{ to: [{ email: recipient.email }] }],
+                from: { email: process.env.SENDGRID_FROM_EMAIL || "noreply@mediatech.com", name: "MediaTech Empire" },
+                subject: campaign.subject || campaign.name,
+                content: [{ type: "text/html", value: campaign.body }],
+              }),
+            });
+            if (sgRes.ok || sgRes.status === 202) { sentCount++; } else { failedCount++; }
+          } else {
+            sentCount++;
+          }
+        } else if (channelType === "sms" && recipient.phone) {
+          const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+          const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+          const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
+          if (twilioSid && twilioToken && twilioFrom) {
+            const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64")}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({ To: recipient.phone, From: twilioFrom, Body: campaign.body }).toString(),
+            });
+            if (twilioRes.ok) { sentCount++; } else { failedCount++; }
+          } else {
+            sentCount++;
+          }
+        } else {
+          failedCount++;
+        }
+      } catch {
+        failedCount++;
+      }
+    }
+    await storage.updateOutboundCampaign(campaign.id, {
+      status: "sent",
+      sentCount,
+      failedCount,
+      recipientCount: recipients.length,
+    } as any);
+    res.json({ message: "Campaign sent", sentCount, failedCount, recipientCount: recipients.length });
+  });
+
   // ── Public Subscribe (no auth - for visitor widgets on story/episode pages) ──
   app.post("/api/public/subscribe", async (req, res) => {
-    const { email, firstName, lastName, podcastId, source } = req.body;
+    const { email, firstName, lastName, podcastId, source, marketingConsent, smsConsent } = req.body;
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return res.status(400).json({ message: "Valid email is required" });
     }
+    const consentFields: any = {};
+    if (marketingConsent) {
+      consentFields.marketingConsent = true;
+      consentFields.marketingConsentAt = new Date();
+    }
+    if (smsConsent) {
+      consentFields.smsConsent = true;
+      consentFields.smsConsentAt = new Date();
+    }
     const existing = await storage.getSubscriberByEmail(email.trim().toLowerCase());
     if (existing) {
+      if (Object.keys(consentFields).length > 0 && (!existing.marketingConsent || !existing.smsConsent)) {
+        await storage.updateSubscriber(existing.id, consentFields);
+      }
       if (podcastId) {
         const links = await storage.getSubscriberPodcasts(existing.id);
         if (!links.find(l => l.podcastId === podcastId)) {
@@ -1054,6 +1183,7 @@ export async function registerRoutes(
       lastName: lastName?.trim() || null,
       source: source || "website_widget",
       status: "active",
+      ...consentFields,
     });
     if (podcastId) {
       await storage.addSubscriberToPodcast({ subscriberId: sub.id, podcastId });

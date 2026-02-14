@@ -15,6 +15,7 @@ import {
   useDeals, useDeal, useCreateDeal, useUpdateDeal, useDeleteDeal,
   useDealActivities, useCreateDealActivity, usePodcasts, useAnalyzeSocial,
   useAnalyzeWebsite,
+  useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
 } from "@/lib/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -28,6 +29,7 @@ import {
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles,
   Plus, DollarSign, Calendar, Upload, Briefcase, TrendingUp,
   Target, X, CheckCircle, XCircle, AlertCircle, Clock,
+  Send, FileText, MessageSquare,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -1865,6 +1867,168 @@ function DealsTab() {
   );
 }
 
+function ContactCampaignsTab() {
+  const { data: campaigns, isLoading } = useOutboundCampaigns("contacts");
+  const { data: podcasts } = usePodcasts();
+  const createCampaign = useCreateOutboundCampaign();
+  const deleteCampaign = useDeleteOutboundCampaign();
+  const sendCampaign = useSendOutboundCampaign();
+  const { toast } = useToast();
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ name: "", type: "email", subject: "", body: "", podcastFilter: "" });
+
+  const handleCreate = async () => {
+    if (!form.name.trim() || !form.body.trim()) {
+      toast({ title: "Required", description: "Name and body are required.", variant: "destructive" });
+      return;
+    }
+    try {
+      await createCampaign.mutateAsync({
+        ...form,
+        audience: "contacts",
+        status: "draft",
+        subject: form.type === "email" ? form.subject : undefined,
+        podcastFilter: form.podcastFilter || undefined,
+      });
+      toast({ title: "Campaign Created" });
+      setShowDialog(false);
+      setForm({ name: "", type: "email", subject: "", body: "", podcastFilter: "" });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleSend = async (id: string) => {
+    if (!confirm("Send this campaign to all consented contacts?")) return;
+    try {
+      await sendCampaign.mutateAsync(id);
+      toast({ title: "Campaign Sent" });
+    } catch (err: any) {
+      toast({ title: "Send Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this campaign?")) return;
+    try {
+      await deleteCampaign.mutateAsync(id);
+      toast({ title: "Campaign Deleted" });
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const statusColor = (s: string) => {
+    switch (s) {
+      case "sent": return "bg-green-500/10 text-green-400 border-green-500/20";
+      case "sending": return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+      case "failed": return "bg-red-500/10 text-red-400 border-red-500/20";
+      default: return "bg-muted text-muted-foreground border-border/50";
+    }
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground font-mono">{(campaigns || []).length} campaign{(campaigns || []).length !== 1 ? "s" : ""}</p>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-new-contact-campaign">
+              <Plus className="h-3 w-3 mr-1" /> New Campaign
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-display">Compose Campaign (Contacts)</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 mt-2">
+              <Input placeholder="Campaign name" value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} data-testid="input-contact-campaign-name" />
+              <Select value={form.type} onValueChange={(v) => setForm(p => ({ ...p, type: v }))}>
+                <SelectTrigger data-testid="select-contact-campaign-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email"><Mail className="h-3 w-3 inline mr-1" />Email</SelectItem>
+                  <SelectItem value="sms"><MessageSquare className="h-3 w-3 inline mr-1" />SMS</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.type === "email" && (
+                <Input placeholder="Subject line" value={form.subject} onChange={(e) => setForm(p => ({ ...p, subject: e.target.value }))} data-testid="input-contact-campaign-subject" />
+              )}
+              <Textarea placeholder="Message body..." rows={6} value={form.body} onChange={(e) => setForm(p => ({ ...p, body: e.target.value }))} data-testid="input-contact-campaign-body" />
+              {podcasts && podcasts.length > 0 && (
+                <Select value={form.podcastFilter || "all"} onValueChange={(v) => setForm(p => ({ ...p, podcastFilter: v === "all" ? "" : v }))}>
+                  <SelectTrigger data-testid="select-contact-campaign-podcast"><SelectValue placeholder="All shows" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Shows</SelectItem>
+                    {podcasts.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button onClick={handleCreate} disabled={createCampaign.isPending} className="w-full bg-primary hover:bg-primary/90" data-testid="button-create-contact-campaign">
+                {createCampaign.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                Create Draft
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}</div>
+      ) : (campaigns || []).length > 0 ? (
+        <div className="space-y-3">
+          {(campaigns || []).map((c: any) => (
+            <Card key={c.id} className="glass-panel border-border/50 hover:border-primary/30 transition-colors" data-testid={`card-contact-campaign-${c.id}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("h-9 w-9 rounded-sm flex items-center justify-center", c.type === "sms" ? "bg-purple-500/10" : "bg-blue-500/10")}>
+                      {c.type === "sms" ? <MessageSquare className="h-4 w-4 text-purple-400" /> : <Mail className="h-4 w-4 text-blue-400" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{c.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline" className={cn("text-[9px] font-mono", statusColor(c.status))}>{c.status}</Badge>
+                        <Badge variant="outline" className="text-[9px] font-mono">{c.type}</Badge>
+                        {c.subject && <span className="text-xs text-muted-foreground truncate max-w-[200px]">{c.subject}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{c.recipientCount || 0} recipients</span>
+                    {c.sentCount > 0 && <span className="text-green-400">{c.sentCount} sent</span>}
+                    {c.failedCount > 0 && <span className="text-red-400">{c.failedCount} failed</span>}
+                    {c.status === "draft" && (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => handleSend(c.id)} className="h-7 text-primary hover:text-primary/80" data-testid={`button-send-contact-campaign-${c.id}`}>
+                          <Send className="h-3 w-3 mr-1" /> Send
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)} className="h-7 text-destructive hover:text-destructive/80" data-testid={`button-delete-contact-campaign-${c.id}`}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="glass-panel border-border/50">
+          <CardContent className="py-12 text-center">
+            <Send className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-display font-semibold text-muted-foreground mb-1">No Campaigns Yet</h3>
+            <p className="text-sm text-muted-foreground/70 mb-4">Create your first outreach campaign to engage contacts.</p>
+            <Button onClick={() => setShowDialog(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="button-first-contact-campaign">
+              <Plus className="mr-2 h-4 w-4" /> Create First Campaign
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function CommercialCRM() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -1884,6 +2048,9 @@ export default function CommercialCRM() {
           <TabsTrigger value="deals" className="font-mono text-xs uppercase tracking-wider data-[state=active]:text-primary" data-testid="tab-deals">
             <Briefcase className="h-3 w-3 mr-1" /> Deals
           </TabsTrigger>
+          <TabsTrigger value="campaigns" className="font-mono text-xs uppercase tracking-wider data-[state=active]:text-primary" data-testid="tab-contact-campaigns">
+            <Send className="h-3 w-3 mr-1" /> Campaigns
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="companies">
@@ -1894,6 +2061,9 @@ export default function CommercialCRM() {
         </TabsContent>
         <TabsContent value="deals">
           <DealsTab />
+        </TabsContent>
+        <TabsContent value="campaigns">
+          <ContactCampaignsTab />
         </TabsContent>
       </Tabs>
     </div>
