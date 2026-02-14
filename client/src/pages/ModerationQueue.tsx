@@ -18,6 +18,7 @@ import {
   useUpdateModerationPiece, useGenerateStory, useEpisodes, usePodcasts
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import ArticleEditor, { type EditorBlock, markdownToBlocks, blocksToMarkdown } from "@/components/ArticleEditor";
 
 export default function ModerationQueue() {
   const { data: queue, isLoading } = useModerationQueue();
@@ -31,9 +32,15 @@ export default function ModerationQueue() {
 
   const [previewItem, setPreviewItem] = useState<any | null>(null);
   const [editItem, setEditItem] = useState<any | null>(null);
+  const [editorBlocks, setEditorBlocks] = useState<EditorBlock[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [genForm, setGenForm] = useState({ episodeId: "", transcript: "" });
+
+  function openEditor(item: any) {
+    setEditItem({ ...item });
+    setEditorBlocks(markdownToBlocks(item.body || ""));
+  }
 
   function handleApprove(id: string) {
     approveStory.mutate(id, {
@@ -51,8 +58,22 @@ export default function ModerationQueue() {
 
   function handleSaveEdit() {
     if (!editItem) return;
+    const body = blocksToMarkdown(editorBlocks);
     updatePiece.mutate(
-      { id: editItem.id, data: { title: editItem.title, body: editItem.body, seoTitle: editItem.seoTitle, seoDescription: editItem.seoDescription, seoKeywords: editItem.seoKeywords, summary: editItem.summary } },
+      {
+        id: editItem.id,
+        data: {
+          title: editItem.title,
+          body,
+          description: editItem.description,
+          coverImage: editItem.coverImage,
+          seoTitle: editItem.seoTitle,
+          seoDescription: editItem.seoDescription,
+          seoKeywords: editItem.seoKeywords,
+          summary: editItem.summary,
+          readingTime: editItem.readingTime,
+        },
+      },
       {
         onSuccess: () => {
           toast({ title: "Story Updated", description: "Your edits have been saved." });
@@ -185,7 +206,7 @@ export default function ModerationQueue() {
                       <Button variant="ghost" size="sm" onClick={() => setPreviewItem(item)} data-testid={`button-preview-${item.id}`}>
                         <Eye className="w-4 h-4 mr-1" /> Preview
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setEditItem({ ...item })} data-testid={`button-edit-${item.id}`}>
+                      <Button variant="ghost" size="sm" onClick={() => openEditor(item)} data-testid={`button-edit-${item.id}`}>
                         <Edit3 className="w-4 h-4 mr-1" /> Edit
                       </Button>
                       <Button
@@ -256,81 +277,110 @@ export default function ModerationQueue() {
             )}
           </DialogHeader>
           <div className="prose prose-invert max-w-none mt-4">
-            {previewItem?.body?.split("\n").map((line: string, i: number) => {
-              if (line.startsWith("### ")) return <h3 key={i} className="text-lg font-semibold mt-4 mb-2">{line.replace("### ", "")}</h3>;
-              if (line.startsWith("## ")) return <h2 key={i} className="text-xl font-bold mt-6 mb-3">{line.replace("## ", "")}</h2>;
-              if (line.startsWith("> ")) return <blockquote key={i} className="border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-3">{line.replace("> ", "")}</blockquote>;
-              if (line.trim() === "") return <br key={i} />;
-              return <p key={i} className="mb-2 leading-relaxed">{line}</p>;
+            {previewItem?.coverImage && (
+              <figure className="mb-6">
+                <img src={previewItem.coverImage} alt={previewItem.title} className="w-full rounded-lg object-cover max-h-80" />
+              </figure>
+            )}
+            {previewItem?.description && (
+              <p className="text-lg text-muted-foreground leading-relaxed mb-4 italic">{previewItem.description}</p>
+            )}
+            {previewItem?.body?.split("\n\n").map((block: string, i: number) => {
+              const trimmed = block.trim();
+              if (!trimmed) return null;
+              if (trimmed === "---" || trimmed === "***" || trimmed === "___") return <hr key={i} className="my-6 border-border/50" />;
+              if (trimmed.startsWith("## ")) return <h2 key={i} className="text-xl font-bold mt-6 mb-3">{trimmed.replace("## ", "")}</h2>;
+              if (trimmed.startsWith("### ")) return <h3 key={i} className="text-lg font-semibold mt-4 mb-2">{trimmed.replace("### ", "")}</h3>;
+              const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
+              if (imgMatch) {
+                const imgLines = trimmed.split("\n");
+                let imgCredit = "";
+                if (imgLines.length > 1) {
+                  const cl = imgLines.slice(1).join(" ").trim();
+                  const cm = cl.match(/^\*(.+)\*$/);
+                  if (cm) imgCredit = cm[1];
+                }
+                return (
+                  <figure key={i} className="my-6">
+                    <img src={imgMatch[2]} alt={imgMatch[1]} className="w-full rounded-lg object-cover" />
+                    {(imgMatch[1] || imgCredit) && (
+                      <figcaption className="text-xs text-muted-foreground mt-2 italic">
+                        {imgMatch[1]}{imgCredit && ` — ${imgCredit}`}
+                      </figcaption>
+                    )}
+                  </figure>
+                );
+              }
+              if (trimmed.startsWith("> ")) {
+                const lines = trimmed.split("\n").map((l: string) => l.replace(/^>\s*/, ""));
+                return (
+                  <blockquote key={i} className="border-l-4 border-primary/50 pl-4 my-4 py-1">
+                    <p className="italic text-muted-foreground">{lines[0]?.replace(/^"|"$/g, "")}</p>
+                    {lines.length > 1 && <cite className="text-xs text-muted-foreground/70 not-italic">— {lines[lines.length - 1].replace(/^—\s*/, "")}</cite>}
+                  </blockquote>
+                );
+              }
+              const bulletLines = trimmed.split("\n");
+              if (bulletLines.every((l: string) => /^[-*]\s/.test(l.trim()))) {
+                return (
+                  <ul key={i} className="list-disc pl-6 space-y-1 my-4">
+                    {bulletLines.map((item: string, j: number) => (
+                      <li key={j} className="text-sm leading-relaxed">{item.trim().replace(/^[-*]\s+/, "")}</li>
+                    ))}
+                  </ul>
+                );
+              }
+              if (bulletLines.every((l: string) => /^\d+\.\s/.test(l.trim()))) {
+                return (
+                  <ol key={i} className="list-decimal pl-6 space-y-1 my-4">
+                    {bulletLines.map((item: string, j: number) => (
+                      <li key={j} className="text-sm leading-relaxed">{item.trim().replace(/^\d+\.\s+/, "")}</li>
+                    ))}
+                  </ol>
+                );
+              }
+              return <p key={i} className="mb-3 leading-relaxed">{trimmed}</p>;
             })}
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editItem} onOpenChange={() => setEditItem(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Story</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit3 className="w-5 h-5 text-primary" /> Article Editor
+            </DialogTitle>
+            {editItem?.episode && (
+              <p className="text-sm text-muted-foreground">
+                Source: {editItem.episode.title}
+                {editItem.episode.podcast && ` • ${editItem.episode.podcast.title}`}
+              </p>
+            )}
           </DialogHeader>
           {editItem && (
-            <div className="space-y-4">
-              <div>
-                <Label>Title</Label>
-                <Input
-                  value={editItem.title}
-                  onChange={(e) => setEditItem({ ...editItem, title: e.target.value })}
-                  data-testid="input-edit-title"
-                />
-              </div>
-              <div>
-                <Label>Summary</Label>
-                <Textarea
-                  value={editItem.summary || ""}
-                  onChange={(e) => setEditItem({ ...editItem, summary: e.target.value })}
-                  rows={2}
-                  data-testid="input-edit-summary"
-                />
-              </div>
-              <div>
-                <Label>Article Body (Markdown)</Label>
-                <Textarea
-                  value={editItem.body || ""}
-                  onChange={(e) => setEditItem({ ...editItem, body: e.target.value })}
-                  rows={12}
-                  className="font-mono text-sm"
-                  data-testid="input-edit-body"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>SEO Title</Label>
-                  <Input
-                    value={editItem.seoTitle || ""}
-                    onChange={(e) => setEditItem({ ...editItem, seoTitle: e.target.value })}
-                    data-testid="input-edit-seo-title"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{(editItem.seoTitle || "").length}/60 characters</p>
-                </div>
-                <div>
-                  <Label>SEO Description</Label>
-                  <Textarea
-                    value={editItem.seoDescription || ""}
-                    onChange={(e) => setEditItem({ ...editItem, seoDescription: e.target.value })}
-                    rows={2}
-                    data-testid="input-edit-seo-description"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{(editItem.seoDescription || "").length}/160 characters</p>
-                </div>
-              </div>
-              <div>
-                <Label>SEO Keywords (comma-separated)</Label>
-                <Input
-                  value={(editItem.seoKeywords || []).join(", ")}
-                  onChange={(e) => setEditItem({ ...editItem, seoKeywords: e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean) })}
-                  data-testid="input-edit-seo-keywords"
-                />
-              </div>
-            </div>
+            <ArticleEditor
+              title={editItem.title || ""}
+              description={editItem.description || ""}
+              coverImage={editItem.coverImage || ""}
+              coverCaption=""
+              blocks={editorBlocks}
+              seoTitle={editItem.seoTitle || ""}
+              seoDescription={editItem.seoDescription || ""}
+              seoKeywords={editItem.seoKeywords || []}
+              summary={editItem.summary || ""}
+              readingTime={editItem.readingTime || 0}
+              onTitleChange={(val) => setEditItem({ ...editItem, title: val })}
+              onDescriptionChange={(val) => setEditItem({ ...editItem, description: val })}
+              onCoverImageChange={(val) => setEditItem({ ...editItem, coverImage: val })}
+              onCoverCaptionChange={() => {}}
+              onBlocksChange={setEditorBlocks}
+              onSeoTitleChange={(val) => setEditItem({ ...editItem, seoTitle: val })}
+              onSeoDescriptionChange={(val) => setEditItem({ ...editItem, seoDescription: val })}
+              onSeoKeywordsChange={(val) => setEditItem({ ...editItem, seoKeywords: val })}
+              onSummaryChange={(val) => setEditItem({ ...editItem, summary: val })}
+              onReadingTimeChange={(val) => setEditItem({ ...editItem, readingTime: val })}
+            />
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditItem(null)}>Cancel</Button>

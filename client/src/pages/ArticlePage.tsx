@@ -657,7 +657,96 @@ export default function ArticlePage() {
 
   const podcast = podcastData;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-  const paragraphs = article.body ? article.body.split("\n\n") : [];
+
+  function renderMarkdownBlock(block: string, key: number) {
+    const trimmed = block.trim();
+    if (!trimmed) return null;
+
+    if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+      return <hr key={key} className="my-8 border-gray-200" />;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      return <h2 key={key} className="text-2xl font-bold text-gray-900 mt-10 mb-4">{trimmed.replace("## ", "")}</h2>;
+    }
+    if (trimmed.startsWith("### ")) {
+      return <h3 key={key} className="text-xl font-semibold text-gray-900 mt-8 mb-3">{trimmed.replace("### ", "")}</h3>;
+    }
+
+    const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
+    if (imgMatch) {
+      const caption = imgMatch[1];
+      const src = imgMatch[2];
+      const lines = trimmed.split("\n");
+      let credit = "";
+      if (lines.length > 1) {
+        const creditLine = lines.slice(1).join(" ").trim();
+        const creditMatch = creditLine.match(/^\*(.+)\*$/);
+        if (creditMatch) {
+          const parts = creditMatch[1].split(" — ");
+          credit = parts.length > 1 ? parts.slice(1).join(" — ") : creditMatch[1];
+        }
+      }
+      return (
+        <figure key={key} className="my-8">
+          <div className="rounded-lg overflow-hidden">
+            <img src={src} alt={caption} className="w-full object-cover" />
+          </div>
+          {(caption || credit) && (
+            <figcaption className="text-sm text-gray-500 mt-2 italic">
+              {caption}
+              {credit && ` — ${credit}`}
+            </figcaption>
+          )}
+        </figure>
+      );
+    }
+
+    if (trimmed.startsWith("> ")) {
+      const lines = trimmed.split("\n").map(l => l.replace(/^>\s*/, ""));
+      const quoteText = lines[0]?.replace(/^"|"$/g, "") || "";
+      const attribution = lines.length > 1 ? lines[lines.length - 1].replace(/^—\s*/, "") : "";
+      return (
+        <blockquote key={key} className="border-l-4 border-blue-500 pl-6 my-8 py-2">
+          <p className="text-xl italic text-gray-700 leading-relaxed">"{quoteText}"</p>
+          {attribution && <cite className="text-sm text-gray-500 mt-2 block not-italic">— {attribution}</cite>}
+        </blockquote>
+      );
+    }
+
+    const bulletLines = trimmed.split("\n");
+    if (bulletLines.every(l => /^[-*]\s/.test(l.trim()))) {
+      return (
+        <ul key={key} className="list-disc pl-6 space-y-2 my-6">
+          {bulletLines.map((item, i) => (
+            <li key={i} className="text-gray-800 text-[17px] leading-relaxed">
+              {item.trim().replace(/^[-*]\s+/, "")}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (bulletLines.every(l => /^\d+\.\s/.test(l.trim()))) {
+      return (
+        <ol key={key} className="list-decimal pl-6 space-y-2 my-6">
+          {bulletLines.map((item, i) => (
+            <li key={i} className="text-gray-800 text-[17px] leading-relaxed">
+              {item.trim().replace(/^\d+\.\s+/, "")}
+            </li>
+          ))}
+        </ol>
+      );
+    }
+
+    return (
+      <p key={key} className="text-gray-800 leading-relaxed mb-6 text-[17px]">
+        {trimmed}
+      </p>
+    );
+  }
+
+  const contentBlocks = article.body ? article.body.split("\n\n") : [];
 
   return (
     <div className="bg-gray-50 min-h-screen" data-testid="article-page">
@@ -771,13 +860,11 @@ export default function ArticlePage() {
                 )}
 
                 <div className="prose prose-lg prose-gray max-w-none" data-testid="text-article-body">
-                  {paragraphs.length > 0 ? (
-                    paragraphs.map((paragraph: string, i: number) => (
+                  {contentBlocks.length > 0 ? (
+                    contentBlocks.map((block: string, i: number) => (
                       <div key={i}>
-                        <p className="text-gray-800 leading-relaxed mb-6 text-[17px]">
-                          {paragraph}
-                        </p>
-                        {i === 1 && paragraphs.length > 3 && (
+                        {renderMarkdownBlock(block, i)}
+                        {i === 1 && contentBlocks.length > 3 && (
                           <>
                             <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-1">
                               <AdPlaceholder width={300} height={250} label="In-Article 1" />
@@ -794,7 +881,7 @@ export default function ArticlePage() {
                             </div>
                           </>
                         )}
-                        {i === Math.floor(paragraphs.length * 0.7) && paragraphs.length > 5 && (
+                        {i === Math.floor(contentBlocks.length * 0.7) && contentBlocks.length > 5 && (
                           <div className="flex justify-center my-8 print:hidden" data-testid="ad-inline-2">
                             <AdPlaceholder width={336} height={280} label="In-Article 2" />
                           </div>
