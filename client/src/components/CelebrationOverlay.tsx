@@ -6,6 +6,7 @@ export type CelebrationEvent = {
   type: "transcription" | "content_shipped" | "subscriber" | "revenue";
   title: string;
   subtitle?: string;
+  timestamp?: number;
 };
 
 const EVENT_CONFIG: Record<string, { emoji: string; color: string; glow: string; label: string }> = {
@@ -73,18 +74,23 @@ function CelebrationToast({ event, onDone }: { event: CelebrationEvent; onDone: 
 
 export function useCelebration() {
   const [events, setEvents] = useState<CelebrationEvent[]>([]);
+  const [winLog, setWinLog] = useState<CelebrationEvent[]>([]);
 
   const celebrate = useCallback((event: Omit<CelebrationEvent, "id">) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setEvents(prev => [...prev, { ...event, id }]);
+    const fullEvent = { ...event, id, timestamp: Date.now() };
+    setEvents(prev => [...prev, fullEvent]);
+    setWinLog(prev => [fullEvent, ...prev].slice(0, 50));
   }, []);
 
   const dismiss = useCallback((id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id));
   }, []);
 
-  return { events, celebrate, dismiss };
+  return { events, celebrate, dismiss, winLog };
 }
+
+export { EVENT_CONFIG };
 
 export function CelebrationOverlay({
   events,

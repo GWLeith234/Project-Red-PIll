@@ -9,9 +9,9 @@ import {
   Mic, Mail, Building2, Megaphone, LayoutGrid,
   Shield, UserPlus, Briefcase, Package, Server, Send,
   Bot, CalendarClock, FileText, Scissors, CheckCircle2, CircleDot, CircleDashed, Film,
-  Inbox, Rocket
+  Inbox, Rocket, Trophy
 } from "lucide-react";
-import { CelebrationOverlay, useCelebration, useActivityMonitor } from "@/components/CelebrationOverlay";
+import { CelebrationOverlay, useCelebration, useActivityMonitor, EVENT_CONFIG, type CelebrationEvent } from "@/components/CelebrationOverlay";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +72,7 @@ const WIDGET_CATEGORIES = [
   {
     label: "Content",
     widgets: [
+      { id: "wins", label: "Recent Wins", icon: Trophy, size: "md" },
       { id: "agent_activity", label: "Agent Activity Hub", icon: Bot, size: "lg" },
       { id: "queue_rollup", label: "Processing Queue", icon: Inbox, size: "md" },
       { id: "trending", label: "Trending Articles", icon: Newspaper, size: "lg" },
@@ -107,7 +108,7 @@ const ALL_WIDGETS = WIDGET_CATEGORIES.flatMap(c => c.widgets);
 
 const DEFAULT_WIDGETS = [
   "kpi_revenue", "kpi_listeners", "kpi_content", "kpi_adFill",
-  "agent_activity", "queue_rollup",
+  "wins", "agent_activity", "queue_rollup",
   "revenue_chart", "revenue_composition",
   "trending", "processing", "podcasts", "alerts",
 ];
@@ -1793,7 +1794,90 @@ function WidgetCustomizer({
   );
 }
 
-function renderWidget(id: string, metrics: any, metricsLoading: boolean) {
+function WinsWidget({ winLog }: { winLog: CelebrationEvent[] }) {
+  const { data: episodes } = useEpisodes();
+  const { data: contentPieces } = useContentPieces();
+  const { data: subscribers } = useSubscribers();
+  const { data: deals } = useDeals();
+
+  const initialWins: CelebrationEvent[] = [];
+
+  (episodes || [])
+    .filter((ep: any) => ep.transcriptStatus === "complete")
+    .slice(0, 3)
+    .forEach((ep: any) => {
+      initialWins.push({ id: `init-ep-${ep.id}`, type: "transcription", title: ep.title || "Episode", subtitle: "Transcription complete", timestamp: new Date(ep.updatedAt || ep.createdAt || Date.now()).getTime() });
+    });
+
+  (contentPieces || [])
+    .filter((cp: any) => cp.status === "approved" || cp.status === "published")
+    .slice(0, 3)
+    .forEach((cp: any) => {
+      initialWins.push({ id: `init-cp-${cp.id}`, type: "content_shipped", title: cp.title || "Content", subtitle: cp.type || "Published", timestamp: new Date(cp.updatedAt || cp.createdAt || Date.now()).getTime() });
+    });
+
+  if ((subscribers || []).length > 0) {
+    initialWins.push({ id: "init-sub", type: "subscriber", title: `${(subscribers || []).length} subscribers`, subtitle: "Audience active", timestamp: Date.now() });
+  }
+
+  (deals || [])
+    .filter((d: any) => d.stage === "closed_won")
+    .slice(0, 3)
+    .forEach((d: any) => {
+      const value = d.value ? `$${Number(d.value).toLocaleString()}` : "";
+      initialWins.push({ id: `init-deal-${d.id}`, type: "revenue", title: d.name || "Deal Won", subtitle: value ? `${value} booked` : "Revenue booked", timestamp: new Date(d.updatedAt || d.createdAt || Date.now()).getTime() });
+    });
+
+  const liveIds = new Set(winLog.map(w => w.id));
+  const combined = [...winLog, ...initialWins.filter(w => !liveIds.has(w.id))];
+  combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const display = combined.slice(0, 8);
+
+  return (
+    <Card className="glass-panel border-border/50 hover:border-accent/30 transition-colors" data-testid="widget-wins">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-mono font-semibold text-accent uppercase tracking-wider flex items-center gap-1.5">
+            <Trophy className="h-3.5 w-3.5" /> Recent Wins
+          </h3>
+          <Badge variant="outline" className="text-[9px] font-mono border-accent/30 text-accent">{display.length} wins</Badge>
+        </div>
+        {display.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-6">Wins will appear here as your platform runs</p>
+        ) : (
+          <div className="space-y-1.5">
+            {display.map((win) => {
+              const config = EVENT_CONFIG[win.type] || EVENT_CONFIG.content_shipped;
+              const ago = win.timestamp ? formatWinTime(win.timestamp) : "";
+              return (
+                <div key={win.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-sm hover:bg-muted/20 transition-colors group">
+                  <span className="text-base flex-shrink-0">{config.emoji}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-foreground truncate">{win.title}</p>
+                    {win.subtitle && <p className="text-[10px] text-muted-foreground font-mono truncate">{win.subtitle}</p>}
+                  </div>
+                  {ago && <span className="text-[9px] text-muted-foreground/60 font-mono flex-shrink-0">{ago}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatWinTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function renderWidget(id: string, metrics: any, metricsLoading: boolean, winLog: CelebrationEvent[] = []) {
   switch (id) {
     case "kpi_revenue":
       return <KPIWidget key={id} title="Monthly Revenue" value={metrics?.monthlyRevenue ? formatNumber(metrics.monthlyRevenue) : "$0"} change="+12.5%" trend="up" icon={DollarSign} color="text-primary" loading={metricsLoading} />;
@@ -1803,6 +1887,8 @@ function renderWidget(id: string, metrics: any, metricsLoading: boolean) {
       return <KPIWidget key={id} title="Content Pieces" value={metrics?.contentPiecesCount?.toLocaleString() || "0"} change="+18.2%" trend="up" icon={Layers} color="text-chart-4" loading={metricsLoading} />;
     case "kpi_adFill":
       return <KPIWidget key={id} title="Ad Fill Rate" value={metrics?.adFillRate ? `${metrics.adFillRate}%` : "0%"} change="-0.4%" trend="down" icon={Activity} color="text-chart-3" loading={metricsLoading} />;
+    case "wins":
+      return <WinsWidget key={id} winLog={winLog} />;
     case "revenue_chart":
       return <RevenueChartWidget key={id} />;
     case "revenue_composition":
@@ -1844,7 +1930,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [showCustomizer, setShowCustomizer] = useState(false);
 
-  const { events: celebrationEvents, celebrate, dismiss: dismissCelebration } = useCelebration();
+  const { events: celebrationEvents, celebrate, dismiss: dismissCelebration, winLog } = useCelebration();
   const activityCheck = useActivityMonitor(celebrate);
   const { data: monitorEpisodes } = useEpisodes();
   const { data: monitorContent } = useContentPieces();
@@ -1948,7 +2034,7 @@ export default function Dashboard() {
 
       {kpiWidgets.length > 0 && (
         <div className={cn("grid gap-4", kpiWidgets.length === 1 ? "grid-cols-1" : kpiWidgets.length === 2 ? "grid-cols-2" : kpiWidgets.length === 3 ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-4")}>
-          {kpiWidgets.map(id => renderWidget(id, metrics, metricsLoading))}
+          {kpiWidgets.map(id => renderWidget(id, metrics, metricsLoading, winLog))}
         </div>
       )}
 
@@ -1958,7 +2044,7 @@ export default function Dashboard() {
             const size = getWidgetSize(id);
             return (
               <div key={id} className={cn(size === "lg" ? "md:col-span-2" : "col-span-1")}>
-                {renderWidget(id, metrics, metricsLoading)}
+                {renderWidget(id, metrics, metricsLoading, winLog)}
               </div>
             );
           })}
