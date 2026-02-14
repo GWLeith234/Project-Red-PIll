@@ -126,6 +126,11 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      import("./newsletter-scheduler").then(({ startNewsletterScheduler }) => {
+        startNewsletterScheduler();
+      }).catch(err => {
+        console.error("Failed to start newsletter scheduler:", err);
+      });
     },
   );
 })();

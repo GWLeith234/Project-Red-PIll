@@ -5,7 +5,7 @@ import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, dealLineItems, products, adCreatives, outboundCampaigns, campaignEmails, heroSlides,
-  socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists, auditLogs, apiKeys,
+  socialAccounts, scheduledPosts, clipAssets, newsletterSchedules, newsletterRuns, newsLayoutSections, crmLists, auditLogs, apiKeys,
   tasks, taskComments, taskActivityLogs,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
@@ -33,6 +33,7 @@ import {
   type SocialAccount, type InsertSocialAccount,
   type ScheduledPost, type InsertScheduledPost,
   type ClipAsset, type InsertClipAsset,
+  type NewsletterSchedule, type InsertNewsletterSchedule,
   type NewsletterRun, type InsertNewsletterRun,
   type AuditLog, type InsertAuditLog,
   type ApiKey, type InsertApiKey,
@@ -213,8 +214,16 @@ export interface IStorage {
   updateClipAsset(id: string, data: Partial<InsertClipAsset>): Promise<ClipAsset | undefined>;
   deleteClipAsset(id: string): Promise<void>;
 
+  getNewsletterSchedules(): Promise<NewsletterSchedule[]>;
+  getNewsletterSchedule(id: string): Promise<NewsletterSchedule | undefined>;
+  getActiveNewsletterSchedules(): Promise<NewsletterSchedule[]>;
+  createNewsletterSchedule(schedule: InsertNewsletterSchedule): Promise<NewsletterSchedule>;
+  updateNewsletterSchedule(id: string, data: Partial<InsertNewsletterSchedule>): Promise<NewsletterSchedule | undefined>;
+  deleteNewsletterSchedule(id: string): Promise<void>;
+
   getNewsletterRuns(): Promise<NewsletterRun[]>;
   getNewsletterRun(id: string): Promise<NewsletterRun | undefined>;
+  getNewsletterRunsBySchedule(scheduleId: string): Promise<NewsletterRun[]>;
   createNewsletterRun(run: InsertNewsletterRun): Promise<NewsletterRun>;
   updateNewsletterRun(id: string, data: Partial<InsertNewsletterRun>): Promise<NewsletterRun | undefined>;
   deleteNewsletterRun(id: string): Promise<void>;
@@ -887,12 +896,37 @@ export class DatabaseStorage implements IStorage {
     await db.delete(clipAssets).where(eq(clipAssets.id, id));
   }
 
+  async getNewsletterSchedules() {
+    return db.select().from(newsletterSchedules).orderBy(desc(newsletterSchedules.createdAt));
+  }
+  async getNewsletterSchedule(id: string) {
+    const [schedule] = await db.select().from(newsletterSchedules).where(eq(newsletterSchedules.id, id));
+    return schedule;
+  }
+  async getActiveNewsletterSchedules() {
+    return db.select().from(newsletterSchedules).where(eq(newsletterSchedules.active, true));
+  }
+  async createNewsletterSchedule(schedule: InsertNewsletterSchedule) {
+    const [created] = await db.insert(newsletterSchedules).values(schedule).returning();
+    return created;
+  }
+  async updateNewsletterSchedule(id: string, data: Partial<InsertNewsletterSchedule>) {
+    const [updated] = await db.update(newsletterSchedules).set(data).where(eq(newsletterSchedules.id, id)).returning();
+    return updated;
+  }
+  async deleteNewsletterSchedule(id: string) {
+    await db.delete(newsletterSchedules).where(eq(newsletterSchedules.id, id));
+  }
+
   async getNewsletterRuns() {
     return db.select().from(newsletterRuns).orderBy(desc(newsletterRuns.createdAt));
   }
   async getNewsletterRun(id: string) {
     const [run] = await db.select().from(newsletterRuns).where(eq(newsletterRuns.id, id));
     return run;
+  }
+  async getNewsletterRunsBySchedule(scheduleId: string) {
+    return db.select().from(newsletterRuns).where(eq(newsletterRuns.scheduleId, scheduleId)).orderBy(desc(newsletterRuns.createdAt));
   }
   async createNewsletterRun(run: InsertNewsletterRun) {
     const [created] = await db.insert(newsletterRuns).values(run).returning();

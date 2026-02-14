@@ -666,13 +666,68 @@ export async function generateMonthlyNewsletter(
   month: string,
   year: string
 ): Promise<{ title: string; body: string; contentPieceIds: string[] }> {
+  const result = await generateNewsletterByCadence("monthly", undefined, month, year);
+  return result;
+}
+
+export async function generateNewsletterByCadence(
+  cadence: string,
+  contentTypes?: string[] | null,
+  month?: string,
+  year?: string
+): Promise<{ title: string; period: string; body: string; contentPieceIds: string[] }> {
   const allContent = await storage.getContentPieces();
-  const published = allContent.filter((p: ContentPiece) => p.status === "published" || p.status === "ready");
-  const recent = published.slice(0, 20);
+  let published = allContent.filter((p: ContentPiece) => p.status === "published" || p.status === "ready" || p.status === "approved");
+
+  if (contentTypes && contentTypes.length > 0) {
+    published = published.filter((p: ContentPiece) => contentTypes.includes(p.type));
+  }
+
+  const now = new Date();
+  let periodLabel = "";
+  let timeWindow = "";
+  let contentLimit = 20;
+  let windowStart: Date;
+
+  if (cadence === "daily") {
+    windowStart = new Date(now);
+    windowStart.setHours(0, 0, 0, 0);
+    periodLabel = `Daily Digest - ${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}`;
+    timeWindow = "today's";
+    contentLimit = 10;
+  } else if (cadence === "weekly") {
+    windowStart = new Date(now);
+    windowStart.setDate(windowStart.getDate() - 7);
+    windowStart.setHours(0, 0, 0, 0);
+    periodLabel = `Weekly Roundup - Week of ${windowStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    timeWindow = "this week's";
+    contentLimit = 15;
+  } else {
+    const m = month || String(now.getMonth() + 1);
+    const y = year || String(now.getFullYear());
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    windowStart = new Date(parseInt(y), parseInt(m) - 1, 1, 0, 0, 0, 0);
+    periodLabel = `Monthly Newsletter - ${monthNames[parseInt(m) - 1]} ${y}`;
+    timeWindow = `${monthNames[parseInt(m) - 1]} ${y}'s`;
+    contentLimit = 20;
+  }
+
+  let windowFiltered = published.filter((p: ContentPiece) => {
+    const pubDate = p.publishedAt ? new Date(p.publishedAt) : null;
+    if (!pubDate) return false;
+    return pubDate >= windowStart && pubDate <= now;
+  });
+
+  if (windowFiltered.length < 3) {
+    windowFiltered = published.slice(0, contentLimit);
+  }
+
+  const recent = windowFiltered.slice(0, contentLimit);
 
   if (recent.length === 0) {
     return {
-      title: `Monthly Newsletter - ${month} ${year}`,
+      title: periodLabel,
+      period: periodLabel,
       body: "No published content available for this period.",
       contentPieceIds: [],
     };
@@ -682,8 +737,25 @@ export async function generateMonthlyNewsletter(
     `- "${p.title}" (${p.type}): ${p.summary || p.description || "No summary"}`
   ).join("\n");
 
-  const systemPrompt = `You are a newsletter editor for a media company. Compile a monthly digest newsletter from recently published content.
-
+  const cadenceInstructions: Record<string, string> = {
+    daily: `You are a newsletter editor for a media company. Compile a concise daily digest from today's published content.
+The newsletter should:
+- Have a punchy, timely subject line
+- Include a brief 1-2 sentence editorial introduction
+- List top stories with one-line summaries
+- Be concise and scannable — readers should get value in under 2 minutes
+- Be formatted for email (HTML-compatible markdown)
+- Be professional but energetic in tone`,
+    weekly: `You are a newsletter editor for a media company. Compile a weekly roundup newsletter from this week's published content.
+The newsletter should:
+- Have an engaging subject line that highlights the biggest story
+- Include a brief editorial introduction with key themes
+- Highlight top stories with brief summaries
+- Group content by category when there are enough items
+- Include a "Don't miss" section for notable items
+- Be formatted for email (HTML-compatible markdown)
+- Be professional but conversational in tone`,
+    monthly: `You are a newsletter editor for a media company. Compile a monthly digest newsletter from recently published content.
 The newsletter should:
 - Have an engaging subject line
 - Include a brief editorial introduction
@@ -691,7 +763,10 @@ The newsletter should:
 - Group content by category (articles, blog posts, clips, etc.)
 - Include a closing section with what's coming next month
 - Be formatted for email (HTML-compatible markdown)
-- Be professional but warm in tone
+- Be professional but warm in tone`,
+  };
+
+  const systemPrompt = `${cadenceInstructions[cadence] || cadenceInstructions.monthly}
 
 Return JSON:
 {
@@ -703,7 +778,7 @@ Return JSON:
     model: "gpt-4o",
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: `Compile the ${month} ${year} monthly newsletter from this content:\n\n${contentSummaries}` },
+      { role: "user", content: `Compile ${timeWindow} ${cadence} newsletter from this content:\n\n${contentSummaries}` },
     ],
     response_format: { type: "json_object" },
     max_tokens: 2048,
@@ -712,7 +787,8 @@ Return JSON:
   const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
 
   return {
-    title: parsed.title || `Monthly Newsletter - ${month} ${year}`,
+    title: parsed.title || periodLabel,
+    period: periodLabel,
     body: parsed.body || "",
     contentPieceIds: recent.map((p: ContentPiece) => p.id),
   };

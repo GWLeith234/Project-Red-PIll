@@ -578,13 +578,35 @@ export const clipAssets = pgTable("clip_assets", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const newsletterSchedules = pgTable("newsletter_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  cadence: text("cadence").notNull().default("weekly"),
+  dayOfWeek: integer("day_of_week").default(1),
+  dayOfMonth: integer("day_of_month").default(1),
+  sendHour: integer("send_hour").default(9),
+  sendMinute: integer("send_minute").default(0),
+  timezone: text("timezone").default("America/New_York"),
+  active: boolean("active").default(true).notNull(),
+  contentTypes: text("content_types").array().default(sql`ARRAY['article','blog','social_post','newsletter']::text[]`),
+  subjectTemplate: text("subject_template"),
+  introTemplate: text("intro_template"),
+  podcastId: varchar("podcast_id"),
+  autoSend: boolean("auto_send").default(false).notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const newsletterRuns = pgTable("newsletter_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   period: text("period").notNull(),
+  cadence: text("cadence").default("monthly"),
   body: text("body"),
   contentPieceIds: text("content_piece_ids").array().default(sql`ARRAY[]::text[]`),
   status: text("status").default("draft").notNull(),
+  scheduleId: varchar("schedule_id"),
   outboundCampaignId: varchar("outbound_campaign_id"),
   sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -634,6 +656,7 @@ export const insertCrmListSchema = createInsertSchema(crmLists).omit({ id: true,
 export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true });
 export const insertScheduledPostSchema = createInsertSchema(scheduledPosts).omit({ id: true, createdAt: true });
 export const insertClipAssetSchema = createInsertSchema(clipAssets).omit({ id: true, createdAt: true });
+export const insertNewsletterScheduleSchema = createInsertSchema(newsletterSchedules).omit({ id: true, createdAt: true });
 export const insertNewsletterRunSchema = createInsertSchema(newsletterRuns).omit({ id: true, createdAt: true });
 export const insertHeroSlideSchema = createInsertSchema(heroSlides).omit({ id: true, createdAt: true });
 export const insertOutboundCampaignSchema = createInsertSchema(outboundCampaigns).omit({ id: true, createdAt: true, sentAt: true });
@@ -765,6 +788,8 @@ export type InsertScheduledPost = z.infer<typeof insertScheduledPostSchema>;
 export type ScheduledPost = typeof scheduledPosts.$inferSelect;
 export type InsertClipAsset = z.infer<typeof insertClipAssetSchema>;
 export type ClipAsset = typeof clipAssets.$inferSelect;
+export type InsertNewsletterSchedule = z.infer<typeof insertNewsletterScheduleSchema>;
+export type NewsletterSchedule = typeof newsletterSchedules.$inferSelect;
 export type InsertNewsletterRun = z.infer<typeof insertNewsletterRunSchema>;
 export type NewsletterRun = typeof newsletterRuns.$inferSelect;
 export type InsertNewsLayoutSection = z.infer<typeof insertNewsLayoutSectionSchema>;

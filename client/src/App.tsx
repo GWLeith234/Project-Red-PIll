@@ -33,6 +33,7 @@ const SchedulerPage = lazy(() => import("@/pages/SchedulerPage"));
 const AdResizer = lazy(() => import("@/pages/AdResizer"));
 const KanbanBoard = lazy(() => import("@/pages/KanbanBoard"));
 const MyTasks = lazy(() => import("@/pages/MyTasks"));
+const NewsletterManager = lazy(() => import("@/pages/NewsletterManager"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function PageLoader() {
@@ -113,6 +114,7 @@ function ProtectedRoutes() {
           <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
           <Route path="/kanban">{() => <PermissionGate permission="content.view"><KanbanBoard /></PermissionGate>}</Route>
           <Route path="/my-tasks">{() => <PermissionGate permission="content.view"><MyTasks /></PermissionGate>}</Route>
+          <Route path="/newsletters">{() => <PermissionGate permission="content.view"><NewsletterManager /></PermissionGate>}</Route>
           <Route component={NotFound} />
         </Switch>
       </Suspense>

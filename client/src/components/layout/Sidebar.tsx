@@ -26,6 +26,7 @@ import {
   Scaling,
   Kanban,
   ListTodo,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ const navGroups: NavGroup[] = [
       { name: "AI Content Generator", href: "/content", icon: Factory, permission: "content.view" },
       { name: "AI Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
       { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
+      { name: "Newsletters", href: "/newsletters", icon: Mail, permission: "content.view" },
       { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
     ],
   },

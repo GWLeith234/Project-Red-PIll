@@ -8,7 +8,7 @@ import {
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
-  insertApiKeySchema, insertTaskSchema, insertTaskCommentSchema, insertTaskActivityLogSchema,
+  insertApiKeySchema, insertTaskSchema, insertTaskCommentSchema, insertTaskActivityLogSchema, insertNewsletterScheduleSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -604,6 +604,93 @@ export async function registerRoutes(
   app.delete("/api/social-accounts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     await storage.deleteSocialAccount(req.params.id);
     res.status(204).end();
+  });
+
+  // ── Newsletter Schedules ──
+  app.get("/api/newsletter-schedules", requireAuth, requirePermission("content.view"), async (_req, res) => {
+    const data = await storage.getNewsletterSchedules();
+    res.json(data);
+  });
+
+  app.get("/api/newsletter-schedules/:id", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getNewsletterSchedule(req.params.id);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.post("/api/newsletter-schedules", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const parsed = insertNewsletterScheduleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const data = await storage.createNewsletterSchedule(parsed.data);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/newsletter-schedules/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const existing = await storage.getNewsletterSchedule(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    const allowedCadences = ["daily", "weekly", "monthly"];
+    const updates: Record<string, any> = {};
+    if (req.body.name !== undefined) updates.name = String(req.body.name);
+    if (req.body.cadence !== undefined) {
+      if (!allowedCadences.includes(req.body.cadence)) return res.status(400).json({ message: "Invalid cadence" });
+      updates.cadence = req.body.cadence;
+    }
+    if (req.body.dayOfWeek !== undefined) {
+      const dow = Number(req.body.dayOfWeek);
+      if (isNaN(dow) || dow < 0 || dow > 6) return res.status(400).json({ message: "dayOfWeek must be 0-6" });
+      updates.dayOfWeek = dow;
+    }
+    if (req.body.dayOfMonth !== undefined) {
+      const dom = Number(req.body.dayOfMonth);
+      if (isNaN(dom) || dom < 1 || dom > 31) return res.status(400).json({ message: "dayOfMonth must be 1-31" });
+      updates.dayOfMonth = dom;
+    }
+    if (req.body.sendHour !== undefined) updates.sendHour = Math.max(0, Math.min(23, Number(req.body.sendHour)));
+    if (req.body.sendMinute !== undefined) updates.sendMinute = Math.max(0, Math.min(59, Number(req.body.sendMinute)));
+    if (req.body.timezone !== undefined) updates.timezone = String(req.body.timezone);
+    if (req.body.active !== undefined) updates.active = Boolean(req.body.active);
+    if (req.body.autoSend !== undefined) updates.autoSend = Boolean(req.body.autoSend);
+    if (req.body.contentTypes !== undefined) updates.contentTypes = Array.isArray(req.body.contentTypes) ? req.body.contentTypes : [];
+    if (req.body.subjectTemplate !== undefined) updates.subjectTemplate = req.body.subjectTemplate || null;
+    if (req.body.introTemplate !== undefined) updates.introTemplate = req.body.introTemplate || null;
+    if (req.body.podcastId !== undefined) updates.podcastId = req.body.podcastId || null;
+    if (req.body.lastRunAt !== undefined) updates.lastRunAt = req.body.lastRunAt ? new Date(req.body.lastRunAt) : null;
+    if (req.body.nextRunAt !== undefined) updates.nextRunAt = req.body.nextRunAt ? new Date(req.body.nextRunAt) : null;
+    const data = await storage.updateNewsletterSchedule(req.params.id, updates);
+    res.json(data);
+  });
+
+  app.delete("/api/newsletter-schedules/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteNewsletterSchedule(req.params.id);
+    res.status(204).end();
+  });
+
+  app.post("/api/newsletter-schedules/:id/run-now", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const schedule = await storage.getNewsletterSchedule(req.params.id);
+    if (!schedule) return res.status(404).json({ message: "Not found" });
+
+    try {
+      const { generateNewsletterByCadence } = await import("./ai-content-agent");
+      const newsletter = await generateNewsletterByCadence(schedule.cadence, schedule.contentTypes || undefined);
+
+      const run = await storage.createNewsletterRun({
+        title: newsletter.title,
+        period: newsletter.period,
+        cadence: schedule.cadence,
+        body: newsletter.body,
+        contentPieceIds: newsletter.contentPieceIds,
+        scheduleId: schedule.id,
+        status: "draft",
+      });
+
+      await storage.updateNewsletterSchedule(schedule.id, {
+        lastRunAt: new Date(),
+      });
+
+      res.json(run);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
   });
 
   // ── Newsletter Runs ──
