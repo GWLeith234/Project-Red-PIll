@@ -193,6 +193,10 @@ function ProcessingQueue() {
 }
 
 export default function ContentFactory() {
+  const urlParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  const initialTab = urlParams.get("tab") || "pipeline";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
       <div className="flex items-center justify-between border-b border-border/50 pb-6">
@@ -204,7 +208,7 @@ export default function ContentFactory() {
 
       <ProcessingQueue />
 
-      <Tabs defaultValue="pipeline" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-card/50 border border-border/50 p-1 h-auto flex-wrap" data-testid="tabs-content-factory">
           <TabsTrigger value="pipeline" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-pipeline">
             <Zap className="mr-1.5 h-3 w-3" /> Pipeline

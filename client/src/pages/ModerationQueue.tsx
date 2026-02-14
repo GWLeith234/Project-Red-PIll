@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,8 @@ import {
   Bot, CheckCircle2, XCircle, Eye, Edit3, Clock, FileText, Sparkles,
   Loader2, Wand2, ChevronDown, ChevronUp, Tag, Newspaper, Send,
   MessageSquare, Scissors, Mail, Search as SearchIcon, Globe, Filter,
-  LayoutGrid, List, ArrowUpRight, Mic, Film
+  LayoutGrid, List, ArrowUpRight, Mic, Film, Rocket, CalendarClock,
+  ExternalLink, User, Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -57,6 +59,7 @@ function getTypeConfig(type: string) {
 }
 
 export default function ModerationQueue() {
+  const [, navigate] = useLocation();
   const { data: counts } = useModerationCounts();
   const { data: episodes } = useEpisodes();
   const { data: podcasts } = usePodcasts();
@@ -75,6 +78,7 @@ export default function ModerationQueue() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [genForm, setGenForm] = useState({ episodeId: "", transcript: "" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [shipPreviewItem, setShipPreviewItem] = useState<any | null>(null);
 
   const activeType = CONTENT_TABS.find(t => t.id === activeTab)?.type;
   const isClipTab = activeTab === "clip";
@@ -107,14 +111,20 @@ export default function ModerationQueue() {
   }
 
   function handleApprove(item: any) {
+    setShipPreviewItem(item);
+  }
+
+  function handleShipNow() {
+    if (!shipPreviewItem) return;
+    const item = shipPreviewItem;
     if (item._isClip) {
       updateClip.mutate({ id: item.id, data: { status: "approved" } }, {
-        onSuccess: () => toast({ title: "Clip Approved", description: "The clip has been approved." }),
+        onSuccess: () => { toast({ title: "Clip Approved & Shipped", description: "The clip is now live." }); setShipPreviewItem(null); },
         onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       });
     } else {
       approveStory.mutate(item.id, {
-        onSuccess: () => toast({ title: "Content Published", description: "The content is now live." }),
+        onSuccess: () => { toast({ title: "Content Shipped", description: "The content is now live on your site." }); setShipPreviewItem(null); },
         onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       });
     }
@@ -295,6 +305,17 @@ export default function ModerationQueue() {
 
       <PreviewDialog item={previewItem} onClose={() => setPreviewItem(null)} />
 
+      <LiveSitePreviewDialog
+        item={shipPreviewItem}
+        onClose={() => setShipPreviewItem(null)}
+        onShipNow={handleShipNow}
+        onSchedule={() => {
+          setShipPreviewItem(null);
+          navigate("/content?tab=schedule");
+        }}
+        shipping={approveStory.isPending || updateClip.isPending}
+      />
+
       <Dialog open={!!editItem} onOpenChange={() => setEditItem(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -396,6 +417,301 @@ export default function ModerationQueue() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function renderLiveMarkdownBlock(block: string, key: number) {
+  const trimmed = block.trim();
+  if (!trimmed) return null;
+  if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+    return <hr key={key} className="my-6 border-gray-200" />;
+  }
+  if (trimmed.startsWith("## ")) {
+    return <h2 key={key} className="text-2xl font-bold text-gray-900 mt-8 mb-3">{trimmed.replace("## ", "")}</h2>;
+  }
+  if (trimmed.startsWith("### ")) {
+    return <h3 key={key} className="text-xl font-semibold text-gray-900 mt-6 mb-2">{trimmed.replace("### ", "")}</h3>;
+  }
+  if (trimmed.startsWith("> ")) {
+    const lines = trimmed.split("\n").map((l: string) => l.replace(/^>\s*/, ""));
+    const quoteText = lines[0]?.replace(/^"|"$/g, "") || "";
+    return (
+      <blockquote key={key} className="border-l-4 border-blue-500 pl-5 my-6 py-1">
+        <p className="text-lg italic text-gray-700 leading-relaxed">"{quoteText}"</p>
+      </blockquote>
+    );
+  }
+  const bulletLines = trimmed.split("\n");
+  if (bulletLines.every((l: string) => /^[-*]\s/.test(l.trim()))) {
+    return (
+      <ul key={key} className="list-disc pl-6 space-y-1.5 my-4">
+        {bulletLines.map((item: string, i: number) => (
+          <li key={i} className="text-gray-800 text-[16px] leading-relaxed">{item.trim().replace(/^[-*]\s+/, "")}</li>
+        ))}
+      </ul>
+    );
+  }
+  if (bulletLines.every((l: string) => /^\d+\.\s/.test(l.trim()))) {
+    return (
+      <ol key={key} className="list-decimal pl-6 space-y-1.5 my-4">
+        {bulletLines.map((item: string, i: number) => (
+          <li key={i} className="text-gray-800 text-[16px] leading-relaxed">{item.trim().replace(/^\d+\.\s+/, "")}</li>
+        ))}
+      </ol>
+    );
+  }
+  return <p key={key} className="text-gray-800 leading-relaxed mb-4 text-[16px]">{trimmed}</p>;
+}
+
+function LiveSitePreviewDialog({ item, onClose, onShipNow, onSchedule, shipping }: {
+  item: any;
+  onClose: () => void;
+  onShipNow: () => void;
+  onSchedule: () => void;
+  shipping: boolean;
+}) {
+  if (!item) return null;
+  const isClip = item._isClip || item.type === "clip";
+  const isSocial = item.type === "social";
+  const isSeo = item.type === "seo";
+  const isNewsletter = item.type === "newsletter";
+  const typeConf = getTypeConfig(item.type);
+  const contentBlocks = item.body ? item.body.split("\n\n") : [];
+
+  return (
+    <Dialog open={!!item} onOpenChange={onClose}>
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0" data-testid="dialog-live-preview">
+        <div className="bg-gradient-to-r from-emerald-500/10 via-primary/10 to-blue-500/10 border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <Eye className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-display font-bold">Live Site Preview</h3>
+                <p className="text-xs font-mono text-muted-foreground">This is how your content will appear to readers</p>
+              </div>
+            </div>
+            <Badge variant="outline" className={cn("font-mono text-xs", typeConf.color)}>
+              {typeConf.label}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="bg-gray-50 min-h-[400px]">
+            {isClip ? (
+              <div className="max-w-2xl mx-auto px-6 py-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                      <Scissors className="h-5 w-5 text-pink-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{item.episode?.podcast?.title || "Podcast"}</p>
+                      <p className="text-xs text-gray-500">{item.episode?.title || "Episode"}</p>
+                    </div>
+                  </div>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-3">{item.title}</h1>
+                  <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4 mb-4">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-medium">Start</p>
+                        <p className="text-lg font-mono font-bold text-gray-900">{item.startTime}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-medium">End</p>
+                        <p className="text-lg font-mono font-bold text-gray-900">{item.endTime}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase font-medium">Viral Score</p>
+                        <p className="text-lg font-mono font-bold text-pink-600">{item.viralScore}/100</p>
+                      </div>
+                    </div>
+                  </div>
+                  {item.hookText && (
+                    <blockquote className="border-l-4 border-pink-400 pl-4 my-4">
+                      <p className="text-lg italic text-gray-700">"{item.hookText}"</p>
+                    </blockquote>
+                  )}
+                  {item.transcriptExcerpt && (
+                    <div className="bg-gray-50 rounded-lg p-4 mt-4">
+                      <p className="text-xs text-gray-500 uppercase font-medium mb-2">Transcript</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{item.transcriptExcerpt}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : isSocial ? (
+              <div className="max-w-lg mx-auto px-6 py-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-4 flex items-center gap-3 border-b border-gray-50">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">@brand</p>
+                      <p className="text-xs text-gray-500 capitalize">{item.platform || "social"}</p>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[15px] text-gray-900 leading-relaxed whitespace-pre-wrap">{item.body}</p>
+                  </div>
+                  {item.coverImage && (
+                    <div className="px-4 pb-4">
+                      <img src={item.coverImage} alt="" className="w-full rounded-xl object-cover max-h-80" />
+                    </div>
+                  )}
+                  <div className="px-4 pb-3 flex items-center gap-6 text-gray-400">
+                    <MessageSquare className="h-4 w-4" />
+                    <ArrowUpRight className="h-4 w-4" />
+                    <ExternalLink className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            ) : isSeo ? (
+              <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <p className="text-xs text-gray-500 uppercase font-medium mb-3">Google Search Preview</p>
+                  <div className="space-y-1">
+                    <p className="text-[13px] text-green-700 font-mono">{typeof window !== "undefined" ? window.location.origin : "https://yoursite.com"}/{item.slug || "page"}</p>
+                    <h2 className="text-xl text-blue-700 hover:underline cursor-pointer">{item.seoTitle || item.title}</h2>
+                    <p className="text-sm text-gray-600 leading-relaxed">{item.seoDescription || item.description || "No meta description set."}</p>
+                  </div>
+                </div>
+                {item.seoKeywords?.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-3">Target Keywords</p>
+                    <div className="flex flex-wrap gap-2">
+                      {item.seoKeywords.map((kw: string, i: number) => (
+                        <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full font-medium">{kw}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {item.body && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <p className="text-xs text-gray-500 uppercase font-medium mb-3">Content Preview</p>
+                    <div>{contentBlocks.map((block: string, i: number) => renderLiveMarkdownBlock(block, i))}</div>
+                  </div>
+                )}
+              </div>
+            ) : isNewsletter ? (
+              <div className="max-w-2xl mx-auto px-6 py-8">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                  <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-8 py-6 text-center">
+                    <Mail className="h-8 w-8 text-white mx-auto mb-2" />
+                    <h1 className="text-xl font-bold text-white">{item.title}</h1>
+                    {item.description && <p className="text-gray-300 text-sm mt-1">{item.description}</p>}
+                  </div>
+                  <div className="px-8 py-6">
+                    {contentBlocks.map((block: string, i: number) => renderLiveMarkdownBlock(block, i))}
+                  </div>
+                  <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">
+                    <p className="text-xs text-gray-400">You're receiving this because you subscribed to our newsletter.</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-3xl mx-auto px-6 py-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                  <article>
+                    <header className="mb-6">
+                      <h1 className="text-3xl font-bold text-gray-900 leading-tight mb-3">{item.title}</h1>
+                      {item.description && (
+                        <p className="text-lg text-gray-500 leading-relaxed mb-4">{item.description}</p>
+                      )}
+                      <div className="flex items-center text-sm text-gray-500 mb-4">
+                        <div className="flex items-center gap-2">
+                          {item.episode?.podcast?.coverImage ? (
+                            <img src={item.episode.podcast.coverImage} alt="" className="h-6 w-6 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
+                              <Mic className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                          <span className="font-medium text-gray-700">{item.episode?.podcast?.host || item.author?.displayName || "Editorial Team"}</span>
+                        </div>
+                        <span className="mx-3 text-gray-300">|</span>
+                        <Clock className="h-3.5 w-3.5 mr-1" />
+                        <span>Just now</span>
+                        {item.readingTime && (
+                          <>
+                            <span className="mx-2 text-gray-300">·</span>
+                            <span>{item.readingTime} min read</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="border-t border-gray-100 pt-3" />
+                    </header>
+
+                    {item.coverImage && (
+                      <div className="mb-6">
+                        <img src={item.coverImage} alt={item.title} className="w-full rounded-lg object-cover max-h-[360px] bg-gray-100" />
+                      </div>
+                    )}
+
+                    <div className="prose prose-lg prose-gray max-w-none">
+                      {contentBlocks.length > 0 ? (
+                        contentBlocks.map((block: string, i: number) => renderLiveMarkdownBlock(block, i))
+                      ) : item.summary ? (
+                        <p className="text-gray-800 leading-relaxed text-[16px]">{item.summary}</p>
+                      ) : (
+                        <p className="text-gray-400 italic">Content body is being generated...</p>
+                      )}
+                    </div>
+
+                    {item.seoKeywords?.length > 0 && (
+                      <div className="mt-6 pt-4 border-t border-gray-100">
+                        <div className="flex flex-wrap gap-2">
+                          {item.seoKeywords.map((kw: string, i: number) => (
+                            <span key={i} className="px-2.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">{kw}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-border bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Ready to publish this content?
+            </p>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={onClose} data-testid="button-cancel-ship">
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="border-primary/50 text-primary hover:bg-primary/10"
+                onClick={onSchedule}
+                data-testid="button-schedule-later"
+              >
+                <CalendarClock className="w-4 h-4 mr-2" />
+                Schedule for Later
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={onShipNow}
+                disabled={shipping}
+                data-testid="button-ship-now"
+              >
+                {shipping ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Shipping...</>
+                ) : (
+                  <><Rocket className="w-4 h-4 mr-2" />Ship Now</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
