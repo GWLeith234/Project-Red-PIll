@@ -17,6 +17,7 @@ Preferred communication style: Simple, everyday language.
 - **Charts**: Recharts for data visualization
 - **Build Tool**: Vite
 - **Fonts**: Inter (UI), JetBrains Mono (monospace/code), Rajdhani (display headings)
+- **Mobile Responsive**: Fully mobile-responsive admin layout with MobileSidebarProvider context, slide-in sidebar overlay on mobile (lg: breakpoint for desktop sidebar), hamburger menu toggle via MobileHeader component, responsive grids/headers/tabs across all pages
 
 ### Backend
 - **Runtime**: Node.js with Express 5
