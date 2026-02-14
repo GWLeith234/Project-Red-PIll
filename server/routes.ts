@@ -749,8 +749,14 @@ export async function registerRoutes(
     res.send(csv);
   });
 
-  app.get("/api/moderation/queue", requireAuth, requirePermission("content.edit"), async (_req, res) => {
-    const items = await storage.getContentPiecesByStatus("review", "article");
+  app.get("/api/moderation/queue", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const typeFilter = req.query.type as string | undefined;
+    const statusFilter = (req.query.status as string) || "review";
+
+    const items = typeFilter
+      ? await storage.getContentPiecesByStatus(statusFilter, typeFilter)
+      : await storage.getContentPiecesByStatus(statusFilter);
+
     const episodeIds = [...new Set(items.map(i => i.episodeId))];
     const episodesMap: Record<string, any> = {};
     for (const eid of episodeIds) {
@@ -764,6 +770,22 @@ export async function registerRoutes(
       ...item,
       episode: episodesMap[item.episodeId] || null,
     })));
+  });
+
+  app.get("/api/moderation/counts", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    const allReview = await storage.getContentPiecesByStatus("review");
+    const allDraft = await storage.getContentPiecesByStatus("draft");
+    const allPending = await storage.getContentPiecesByStatus("pending");
+    const combined = [...allReview, ...allDraft, ...allPending];
+    const counts: Record<string, number> = {};
+    for (const item of combined) {
+      counts[item.type] = (counts[item.type] || 0) + 1;
+    }
+    const allClips = await storage.getClipAssets();
+    const pendingClips = allClips.filter(c => c.status === "suggested" || c.status === "draft" || c.status === "review");
+    counts.clip = pendingClips.length;
+    counts._total = combined.length + pendingClips.length;
+    res.json(counts);
   });
 
   app.post("/api/moderation/:id/approve", requireAuth, requirePermission("content.edit"), async (req, res) => {

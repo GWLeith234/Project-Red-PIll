@@ -644,8 +644,29 @@ export function useDeleteNewsletterRun() {
   });
 }
 
-export function useModerationQueue() {
-  return useQuery({ queryKey: ["/api/moderation/queue"], queryFn: () => apiRequest("/api/moderation/queue") });
+export function useModerationQueue(type?: string) {
+  const params = new URLSearchParams();
+  if (type) params.set("type", type);
+  const statuses = ["review", "draft", "pending"];
+  const url = `/api/moderation/queue${params.toString() ? `?${params}` : ""}`;
+  return useQuery({
+    queryKey: ["/api/moderation/queue", type],
+    queryFn: async () => {
+      const results: any[] = [];
+      for (const status of statuses) {
+        const p = new URLSearchParams();
+        if (type) p.set("type", type);
+        p.set("status", status);
+        const items = await apiRequest(`/api/moderation/queue?${p}`);
+        results.push(...items);
+      }
+      return results;
+    },
+  });
+}
+
+export function useModerationCounts() {
+  return useQuery({ queryKey: ["/api/moderation/counts"], queryFn: () => apiRequest("/api/moderation/counts") });
 }
 
 export function useGenerateStory() {
@@ -664,7 +685,7 @@ export function useApproveStory() {
   return useMutation({
     mutationFn: (id: string) => apiRequest(`/api/moderation/${id}/approve`, { method: "POST" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+      queryClient.invalidateQueries({ predicate: (q) => (q.queryKey[0] as string)?.includes("/api/moderation") });
       queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
     },
   });
@@ -674,7 +695,7 @@ export function useRejectStory() {
   return useMutation({
     mutationFn: (id: string) => apiRequest(`/api/moderation/${id}/reject`, { method: "POST" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+      queryClient.invalidateQueries({ predicate: (q) => (q.queryKey[0] as string)?.includes("/api/moderation") });
       queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
     },
   });
@@ -684,7 +705,9 @@ export function useUpdateModerationPiece() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest(`/api/moderation/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (q) => (q.queryKey[0] as string)?.includes("/api/moderation") });
+    },
   });
 }
 
