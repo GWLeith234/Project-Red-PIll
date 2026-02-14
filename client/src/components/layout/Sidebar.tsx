@@ -21,6 +21,7 @@ import {
   ExternalLink,
   ContactRound,
   Network,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +49,7 @@ const navGroups: NavGroup[] = [
     label: "Content",
     items: [
       { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
+      { name: "Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
     ],
   },
