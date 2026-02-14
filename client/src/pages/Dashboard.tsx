@@ -1,24 +1,31 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid } from "recharts";
-import { ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers, ExternalLink, Settings, TrendingUp, Clock, ChevronRight, Linkedin, Camera, GripVertical, Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload } from "lucide-react";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid, PieChart, Pie, Cell } from "recharts";
+import {
+  ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers,
+  ExternalLink, Settings, TrendingUp, Clock, ChevronRight, Linkedin, Camera,
+  GripVertical, Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload,
+  Radio, Headphones, Newspaper, Bell, Target, BarChart3, PieChart as PieChartIcon,
+  Mic, Mail, Building2, Megaphone, ChevronDown, ChevronUp, LayoutGrid
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
-import { useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles, useProfile, useUpdateProfile, useAnalyzeLinkedIn } from "@/lib/api";
+import {
+  useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles,
+  useProfile, useUpdateProfile, useAnalyzeLinkedIn, usePodcasts, useSubscribers,
+  useAdvertisers
+} from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
 const revenueData = [
@@ -38,12 +45,53 @@ const sourceData = [
   { name: "Lead Gen", value: 10 },
 ];
 
-const ALL_WIDGETS = [
-  { id: "revenue", label: "Revenue Chart" },
-  { id: "composition", label: "Revenue Composition" },
-  { id: "trending", label: "Trending Articles" },
-  { id: "processing", label: "AI Content Engine" },
-  { id: "alerts", label: "Network Alerts" },
+const WIDGET_CATEGORIES = [
+  {
+    label: "KPIs",
+    widgets: [
+      { id: "kpi_revenue", label: "Revenue", icon: DollarSign, size: "sm" },
+      { id: "kpi_listeners", label: "Listeners", icon: Headphones, size: "sm" },
+      { id: "kpi_content", label: "Content Pieces", icon: Layers, size: "sm" },
+      { id: "kpi_adFill", label: "Ad Fill Rate", icon: Activity, size: "sm" },
+    ],
+  },
+  {
+    label: "Charts",
+    widgets: [
+      { id: "revenue_chart", label: "Revenue Trajectory", icon: TrendingUp, size: "lg" },
+      { id: "revenue_composition", label: "Revenue Composition", icon: PieChartIcon, size: "md" },
+    ],
+  },
+  {
+    label: "Content",
+    widgets: [
+      { id: "trending", label: "Trending Articles", icon: Newspaper, size: "lg" },
+      { id: "processing", label: "AI Content Engine", icon: Zap, size: "md" },
+      { id: "content_stats", label: "Content Breakdown", icon: BarChart3, size: "md" },
+    ],
+  },
+  {
+    label: "Network",
+    widgets: [
+      { id: "podcasts", label: "Podcast Network", icon: Radio, size: "md" },
+      { id: "subscribers", label: "Subscriber Overview", icon: Users, size: "md" },
+      { id: "advertisers", label: "Advertiser Pipeline", icon: Megaphone, size: "md" },
+    ],
+  },
+  {
+    label: "System",
+    widgets: [
+      { id: "alerts", label: "Network Alerts", icon: Bell, size: "md" },
+    ],
+  },
+];
+
+const ALL_WIDGETS = WIDGET_CATEGORIES.flatMap(c => c.widgets);
+
+const DEFAULT_WIDGETS = [
+  "kpi_revenue", "kpi_listeners", "kpi_content", "kpi_adFill",
+  "revenue_chart", "revenue_composition",
+  "trending", "processing", "podcasts", "alerts",
 ];
 
 function timeAgo(dateStr: string) {
@@ -58,6 +106,12 @@ function timeAgo(dateStr: string) {
 
 function formatNumber(n: number): string {
   if (n >= 1000000) return `$${(n / 1000000).toFixed(2)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return `${n}`;
+}
+
+function formatCount(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return `${n}`;
 }
@@ -455,44 +509,686 @@ function ProfileCard() {
   );
 }
 
-function WidgetCustomizer({ widgets, onToggle }: { widgets: string[]; onToggle: (id: string) => void }) {
+function KPIWidget({ title, value, change, trend, icon: Icon, color, loading }: any) {
+  if (loading) {
+    return (
+      <Card className="glass-panel border-border/50">
+        <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
+        <CardContent><Skeleton className="h-8 w-20" /><Skeleton className="h-3 w-32 mt-2" /></CardContent>
+      </Card>
+    );
+  }
   return (
-    <div className="flex flex-wrap gap-2">
-      {ALL_WIDGETS.map((w) => {
-        const active = widgets.includes(w.id);
-        return (
-          <Button
-            key={w.id}
-            variant={active ? "default" : "outline"}
-            size="sm"
-            className={cn(
-              "text-xs font-mono uppercase tracking-wider",
-              active ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/30" : "border-border/50 text-muted-foreground hover:text-foreground"
-            )}
-            onClick={() => onToggle(w.id)}
-            data-testid={`button-toggle-widget-${w.id}`}
-          >
-            {active ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
-            {w.label}
-          </Button>
-        );
-      })}
-    </div>
+    <Card className="glass-panel border-border/50 hover:border-primary/30 transition-colors group" data-testid={`metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground font-mono uppercase tracking-wider">{title}</CardTitle>
+        <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center bg-muted/50 group-hover:bg-primary/10 transition-colors", color)}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold font-display tracking-tight text-foreground" data-testid={`text-${title.toLowerCase().replace(/\s+/g, '-')}-value`}>{value}</div>
+        <div className="flex items-center text-xs mt-1">
+          {trend === 'up' ? <ArrowUpRight className="h-3 w-3 text-accent mr-1" /> : <ArrowDownRight className="h-3 w-3 text-destructive mr-1" />}
+          <span className={cn("font-mono font-medium", trend === 'up' ? "text-accent" : "text-destructive")}>{change}</span>
+          <span className="text-muted-foreground ml-1">from last month</span>
+        </div>
+      </CardContent>
+    </Card>
   );
+}
+
+function RevenueChartWidget() {
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader>
+        <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          Revenue Trajectory
+        </CardTitle>
+        <CardDescription className="font-mono text-xs">Actual vs Projected Performance (YTD)</CardDescription>
+      </CardHeader>
+      <CardContent className="pl-2">
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--secondary))" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="hsl(var(--secondary))" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} fontFamily="JetBrains Mono" />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value / 1000}K`} fontFamily="JetBrains Mono" />
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', fontFamily: 'JetBrains Mono', fontSize: '12px' }} itemStyle={{ color: 'hsl(var(--foreground))' }} formatter={(v: any) => `$${(v / 1000).toFixed(0)}K`} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
+              <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" name="Actual" />
+              <Area type="monotone" dataKey="projected" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="4 4" fillOpacity={1} fill="url(#colorProjected)" name="Projected" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RevenueCompositionWidget() {
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader>
+        <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+          <PieChartIcon className="h-5 w-5 text-primary" />
+          Revenue Composition
+        </CardTitle>
+        <CardDescription className="font-mono text-xs">Distribution by Source</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={sourceData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" stroke="none">
+                {sourceData.map((_entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', fontFamily: 'JetBrains Mono', fontSize: '12px' }} formatter={(v: any) => `${v}%`} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {sourceData.map((s, i) => (
+            <div key={s.name} className="flex items-center gap-2 text-xs">
+              <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+              <span className="text-muted-foreground font-mono truncate">{s.name}</span>
+              <span className="text-foreground font-semibold ml-auto">{s.value}%</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TrendingWidget() {
+  const { data: trendingArticles, isLoading } = useTrendingArticles();
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Trending Articles
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">Top stories across the network</CardDescription>
+        </div>
+        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px]">LIVE</Badge>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : trendingArticles?.length > 0 ? (
+          <div className="divide-y divide-border/30" data-testid="trending-articles">
+            {trendingArticles.slice(0, 5).map((article: any, index: number) => (
+              <Link key={article.id} href={article.podcastId ? `/news/${article.podcastId}/article/${article.id}` : "#"} className="block">
+                <div className="flex items-start gap-4 p-3 hover:bg-card/40 transition-colors cursor-pointer group" data-testid={`trending-article-${article.id}`}>
+                  <span className="text-2xl font-bold font-display text-primary/40 leading-none mt-0.5 w-6 text-right shrink-0">{index + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug mb-1 line-clamp-2" data-testid={`text-trending-title-${article.id}`}>{article.title}</h4>
+                    {article.description && <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">{article.description}</p>}
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+                      {article.podcast && (<><span className="text-primary/70">{article.podcast.title}</span><span className="text-border">|</span></>)}
+                      <Clock className="h-3 w-3" />
+                      <span>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors mt-1 shrink-0" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm py-4 text-center">No trending articles yet.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProcessingWidget() {
+  const { data: episodes, isLoading } = useEpisodes();
+  const processingEpisodes = episodes?.filter((ep: any) => ep.processingStatus !== "complete")?.slice(0, 5) || [];
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Zap className="h-5 w-5 text-primary" />
+            AI Content Engine
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">Live Generation Queue</CardDescription>
+        </div>
+        {processingEpisodes.length > 0 && (
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 animate-pulse font-mono text-[10px]">PROCESSING</Badge>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3" data-testid="content-engine-queue">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
+          ) : processingEpisodes.length > 0 ? (
+            processingEpisodes.map((item: any) => (
+              <div key={item.id} className="p-3 border border-border/50 bg-card/30 rounded-lg space-y-2" data-testid={`episode-queue-${item.id}`}>
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-sm truncate mr-2">{item.title}</p>
+                  <span className="text-xs font-mono font-bold text-primary shrink-0">{item.processingProgress}%</span>
+                </div>
+                <Progress value={item.processingProgress} className="h-1.5" />
+                <div className="flex items-center text-xs text-muted-foreground font-mono">
+                  <span className={cn("mr-1.5 h-1.5 w-1.5 rounded-full", item.processingStatus === "processing" ? "bg-primary animate-pulse" : item.processingStatus === "failed" ? "bg-destructive" : "bg-muted-foreground")} />
+                  {item.processingStatus === "processing" ? "Generating content..." : item.processingStatus === "failed" ? "Failed" : item.processingStatus}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-6">
+              <Zap className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-muted-foreground text-sm">All episodes processed</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ContentStatsWidget() {
+  const { data: contentPieces, isLoading } = useContentPieces();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const pieces = contentPieces || [];
+  const byType: Record<string, number> = {};
+  const byStatus: Record<string, number> = {};
+  pieces.forEach((p: any) => {
+    byType[p.type || "other"] = (byType[p.type || "other"] || 0) + 1;
+    byStatus[p.status || "draft"] = (byStatus[p.status || "draft"] || 0) + 1;
+  });
+
+  const typeData = Object.entries(byType).map(([name, count]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), count })).sort((a, b) => b.count - a.count);
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader>
+        <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          Content Breakdown
+        </CardTitle>
+        <CardDescription className="font-mono text-xs">{pieces.length} total pieces generated</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {typeData.length > 0 ? (
+          <div className="space-y-3">
+            {typeData.map((t, i) => (
+              <div key={t.name} className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-mono text-xs text-muted-foreground">{t.name}</span>
+                  <span className="font-mono text-xs font-semibold">{t.count}</span>
+                </div>
+                <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(t.count / pieces.length) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm text-center py-4">No content generated yet.</p>
+        )}
+        <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border/30">
+          <div className="text-center">
+            <p className="text-lg font-bold font-display">{byStatus["ready"] || 0}</p>
+            <p className="text-[10px] font-mono text-accent uppercase">Ready</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold font-display">{byStatus["draft"] || 0}</p>
+            <p className="text-[10px] font-mono text-muted-foreground uppercase">Drafts</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold font-display">{byStatus["pending_review"] || 0}</p>
+            <p className="text-[10px] font-mono text-primary uppercase">Review</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PodcastsWidget() {
+  const { data: podcasts, isLoading } = usePodcasts();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const shows = podcasts || [];
+  const activeShows = shows.filter((p: any) => p.status === "active");
+  const totalSubs = shows.reduce((sum: number, p: any) => sum + (p.subscribers || 0), 0);
+
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Radio className="h-5 w-5 text-primary" />
+            Podcast Network
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">{activeShows.length} active shows &middot; {formatCount(totalSubs)} subscribers</CardDescription>
+        </div>
+        <Link href="/network">
+          <Button variant="ghost" size="sm" className="text-xs font-mono text-muted-foreground hover:text-primary" data-testid="link-view-network">
+            View All <ChevronRight className="h-3 w-3 ml-1" />
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {shows.slice(0, 4).map((p: any) => (
+            <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-card/40 transition-colors group" data-testid={`podcast-widget-${p.id}`}>
+              <div className="h-10 w-10 rounded-lg overflow-hidden bg-muted shrink-0">
+                {p.coverImage ? (
+                  <img src={p.coverImage} alt={p.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <Mic className="h-4 w-4 text-primary/50" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{p.title}</p>
+                <p className="text-[11px] text-muted-foreground font-mono">{p.host}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xs font-mono font-semibold">{formatCount(p.subscribers || 0)}</p>
+                {p.growthPercent > 0 && (
+                  <p className="text-[10px] font-mono text-accent flex items-center justify-end gap-0.5">
+                    <TrendingUp className="h-2.5 w-2.5" />+{p.growthPercent}%
+                  </p>
+                )}
+              </div>
+              <Badge variant="outline" className={cn(
+                "text-[9px] font-mono shrink-0",
+                p.status === "active" ? "bg-accent/10 text-accent border-accent/20" : "bg-muted/50 text-muted-foreground"
+              )}>
+                {p.status || "active"}
+              </Badge>
+            </div>
+          ))}
+          {shows.length === 0 && (
+            <div className="text-center py-6">
+              <Radio className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-muted-foreground text-sm">No podcasts yet</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SubscribersWidget() {
+  const { data: subscribers, isLoading } = useSubscribers();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const subs = subscribers || [];
+  const bySrc: Record<string, number> = {};
+  subs.forEach((s: any) => {
+    const src = s.source?.replace(/_/g, " ") || "Unknown";
+    bySrc[src] = (bySrc[src] || 0) + 1;
+  });
+  const srcEntries = Object.entries(bySrc).sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Subscriber Overview
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">{subs.length} total subscribers</CardDescription>
+        </div>
+        <Link href="/subscriber-crm">
+          <Button variant="ghost" size="sm" className="text-xs font-mono text-muted-foreground hover:text-primary" data-testid="link-view-subscribers">
+            View All <ChevronRight className="h-3 w-3 ml-1" />
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-2xl font-bold font-display">{subs.length}</p>
+            <p className="text-[10px] font-mono text-muted-foreground uppercase">Total</p>
+          </div>
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-2xl font-bold font-display">{subs.filter((s: any) => s.status === "active").length}</p>
+            <p className="text-[10px] font-mono text-accent uppercase">Active</p>
+          </div>
+        </div>
+        {srcEntries.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">By Source</p>
+            {srcEntries.map(([src, count]) => (
+              <div key={src} className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-mono capitalize">{src}</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-16 bg-muted/30 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-primary/60" style={{ width: `${(count / subs.length) * 100}%` }} />
+                  </div>
+                  <span className="font-mono font-semibold w-6 text-right">{count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {subs.length === 0 && (
+          <div className="text-center py-4">
+            <p className="text-muted-foreground text-sm">No subscribers yet</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdvertisersWidget() {
+  const { data: advertisers, isLoading } = useAdvertisers();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const ads = advertisers || [];
+  const activeAds = ads.filter((a: any) => a.status === "active");
+  const totalSpend = ads.reduce((sum: number, a: any) => sum + (a.totalSpend || 0), 0);
+
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-primary" />
+            Advertiser Pipeline
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">{activeAds.length} active &middot; {formatNumber(totalSpend)} total spend</CardDescription>
+        </div>
+        <Link href="/monetization">
+          <Button variant="ghost" size="sm" className="text-xs font-mono text-muted-foreground hover:text-primary" data-testid="link-view-advertisers">
+            View All <ChevronRight className="h-3 w-3 ml-1" />
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {ads.slice(0, 4).map((a: any) => (
+            <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-card/40 transition-colors" data-testid={`advertiser-widget-${a.id}`}>
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-chart-2/20 to-chart-2/5 flex items-center justify-center shrink-0">
+                <Building2 className="h-4 w-4 text-chart-2/60" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{a.name}</p>
+                <p className="text-[11px] text-muted-foreground font-mono">{a.contactEmail || a.industry || "—"}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xs font-mono font-semibold">${((a.cpm || 0)).toFixed(0)} CPM</p>
+                <Badge variant="outline" className={cn(
+                  "text-[9px] font-mono",
+                  a.status === "active" ? "bg-accent/10 text-accent border-accent/20" : "bg-muted/50 text-muted-foreground"
+                )}>
+                  {a.status || "active"}
+                </Badge>
+              </div>
+            </div>
+          ))}
+          {ads.length === 0 && (
+            <div className="text-center py-6">
+              <Megaphone className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-muted-foreground text-sm">No advertisers yet</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlertsWidget() {
+  const { data: alertsData, isLoading } = useAlerts();
+  return (
+    <Card className="glass-panel border-border/50">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            Network Alerts
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">System Notifications</CardDescription>
+        </div>
+        {alertsData?.length > 0 && (
+          <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3/20 font-mono text-[10px]">
+            {alertsData.filter((a: any) => !a.read).length} NEW
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3" data-testid="alerts-list">
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
+          ) : alertsData?.length > 0 ? (
+            alertsData.slice(0, 5).map((item: any) => (
+              <div key={item.id} className="flex items-start space-x-3 p-3 border-l-2 rounded-r-lg bg-card/20 hover:bg-card/40 transition-colors" style={{
+                borderLeftColor: item.type === "warning" ? "hsl(var(--chart-4))" : item.type === "success" ? "hsl(var(--accent))" : "hsl(var(--chart-1))"
+              }} data-testid={`alert-${item.id}`}>
+                <div className={cn(
+                  "mt-0.5 h-2 w-2 rounded-full shrink-0",
+                  item.type === "warning" ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]" :
+                  item.type === "success" ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                )} />
+                <div>
+                  <p className="text-sm font-medium leading-none mb-1">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-muted-foreground text-sm text-center py-4">No alerts.</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WidgetCustomizer({
+  activeWidgets,
+  widgetOrder,
+  onToggle,
+  onReorder,
+  onClose,
+}: {
+  activeWidgets: string[];
+  widgetOrder: string[];
+  onToggle: (id: string) => void;
+  onReorder: (newOrder: string[]) => void;
+  onClose: () => void;
+}) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const orderedActive = widgetOrder.filter(id => activeWidgets.includes(id));
+
+  const moveWidget = (fromIdx: number, direction: "up" | "down") => {
+    const newOrder = [...widgetOrder];
+    const item = orderedActive[fromIdx];
+    const actualIdx = newOrder.indexOf(item);
+    const targetIdx = direction === "up" ? actualIdx - 1 : actualIdx + 1;
+    if (targetIdx < 0 || targetIdx >= newOrder.length) return;
+    [newOrder[actualIdx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[actualIdx]];
+    onReorder(newOrder);
+  };
+
+  return (
+    <Card className="glass-panel border-primary/30 animate-in slide-in-from-top-2 duration-300">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-sm font-mono uppercase tracking-wider text-primary flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4" />
+            Customize Dashboard
+          </CardTitle>
+          <CardDescription className="text-xs">Toggle widgets on/off and drag to reorder</CardDescription>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onClose} className="text-muted-foreground hover:text-foreground" data-testid="button-close-customizer">
+          <X className="h-4 w-4" />
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {WIDGET_CATEGORIES.map((cat) => (
+          <div key={cat.label}>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">{cat.label}</p>
+            <div className="flex flex-wrap gap-2">
+              {cat.widgets.map((w) => {
+                const active = activeWidgets.includes(w.id);
+                const Ic = w.icon;
+                return (
+                  <Button
+                    key={w.id}
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "text-xs font-mono tracking-wider gap-1.5",
+                      active ? "bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30" : "border-border/50 text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => onToggle(w.id)}
+                    data-testid={`button-toggle-widget-${w.id}`}
+                  >
+                    {active ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                    <Ic className="h-3 w-3" />
+                    {w.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {orderedActive.length > 0 && (
+          <div className="pt-3 border-t border-border/30">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Widget Order (drag to rearrange)</p>
+            <div className="space-y-1">
+              {orderedActive.map((id, idx) => {
+                const w = ALL_WIDGETS.find(w => w.id === id);
+                if (!w) return null;
+                const Ic = w.icon;
+                return (
+                  <div
+                    key={id}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg border border-border/30 bg-card/30 group transition-all",
+                      dragIdx === idx && "border-primary/50 bg-primary/5"
+                    )}
+                    draggable
+                    onDragStart={() => setDragIdx(idx)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => {
+                      if (dragIdx !== null && dragIdx !== idx) {
+                        const newOrd = [...widgetOrder];
+                        const fromItem = orderedActive[dragIdx];
+                        const toItem = orderedActive[idx];
+                        const fromActual = newOrd.indexOf(fromItem);
+                        const toActual = newOrd.indexOf(toItem);
+                        [newOrd[fromActual], newOrd[toActual]] = [newOrd[toActual], newOrd[fromActual]];
+                        onReorder(newOrd);
+                      }
+                      setDragIdx(null);
+                    }}
+                    onDragEnd={() => setDragIdx(null)}
+                  >
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 cursor-grab group-hover:text-muted-foreground shrink-0" />
+                    <Ic className="h-3.5 w-3.5 text-primary/60 shrink-0" />
+                    <span className="text-xs font-mono flex-1">{w.label}</span>
+                    <div className="flex gap-0.5 shrink-0">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => moveWidget(idx, "up")} disabled={idx === 0}>
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => moveWidget(idx, "down")} disabled={idx === orderedActive.length - 1}>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function renderWidget(id: string, metrics: any, metricsLoading: boolean) {
+  switch (id) {
+    case "kpi_revenue":
+      return <KPIWidget key={id} title="Monthly Revenue" value={metrics?.monthlyRevenue ? formatNumber(metrics.monthlyRevenue) : "$0"} change="+12.5%" trend="up" icon={DollarSign} color="text-primary" loading={metricsLoading} />;
+    case "kpi_listeners":
+      return <KPIWidget key={id} title="Active Listeners" value={metrics?.activeListeners ? formatCount(metrics.activeListeners) : "0"} change="+5.2%" trend="up" icon={Headphones} color="text-chart-2" loading={metricsLoading} />;
+    case "kpi_content":
+      return <KPIWidget key={id} title="Content Pieces" value={metrics?.contentPiecesCount?.toLocaleString() || "0"} change="+18.2%" trend="up" icon={Layers} color="text-chart-4" loading={metricsLoading} />;
+    case "kpi_adFill":
+      return <KPIWidget key={id} title="Ad Fill Rate" value={metrics?.adFillRate ? `${metrics.adFillRate}%` : "0%"} change="-0.4%" trend="down" icon={Activity} color="text-chart-3" loading={metricsLoading} />;
+    case "revenue_chart":
+      return <RevenueChartWidget key={id} />;
+    case "revenue_composition":
+      return <RevenueCompositionWidget key={id} />;
+    case "trending":
+      return <TrendingWidget key={id} />;
+    case "processing":
+      return <ProcessingWidget key={id} />;
+    case "content_stats":
+      return <ContentStatsWidget key={id} />;
+    case "podcasts":
+      return <PodcastsWidget key={id} />;
+    case "subscribers":
+      return <SubscribersWidget key={id} />;
+    case "advertisers":
+      return <AdvertisersWidget key={id} />;
+    case "alerts":
+      return <AlertsWidget key={id} />;
+    default:
+      return null;
+  }
 }
 
 export default function Dashboard() {
   const { data: metrics, isLoading: metricsLoading } = useMetrics();
-  const { data: alertsData, isLoading: alertsLoading } = useAlerts();
-  const { data: episodes, isLoading: episodesLoading } = useEpisodes();
-  const { data: trendingArticles, isLoading: trendingLoading } = useTrendingArticles();
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
   const { user } = useAuth();
   const { toast } = useToast();
   const [showCustomizer, setShowCustomizer] = useState(false);
 
-  const activeWidgets = profile?.dashboardWidgets || user?.dashboardWidgets || ["revenue", "composition", "trending", "processing", "alerts"];
+  const savedWidgets = profile?.dashboardWidgets || user?.dashboardWidgets || [];
+
+  const migrateOldWidgets = (widgets: string[]): string[] => {
+    const map: Record<string, string> = {
+      revenue: "revenue_chart",
+      composition: "revenue_composition",
+      listeners: "kpi_listeners",
+      content: "kpi_content",
+    };
+    return widgets.map(w => map[w] || w);
+  };
+
+  const rawWidgets = migrateOldWidgets(savedWidgets);
+  const activeWidgets = rawWidgets.length > 0 ? rawWidgets : DEFAULT_WIDGETS;
+
+  const allWidgetIds = ALL_WIDGETS.map(w => w.id);
+  const widgetOrder = [...new Set([...activeWidgets, ...allWidgetIds])];
 
   const toggleWidget = async (id: string) => {
     const current = [...activeWidgets];
@@ -509,7 +1205,19 @@ export default function Dashboard() {
     }
   };
 
-  const processingEpisodes = episodes?.filter((ep: any) => ep.processingStatus !== "complete")?.slice(0, 3) || [];
+  const handleReorder = async (newOrder: string[]) => {
+    const reordered = newOrder.filter(id => activeWidgets.includes(id));
+    try {
+      await updateProfile.mutateAsync({ dashboardWidgets: reordered });
+    } catch {
+      toast({ title: "Failed to reorder", variant: "destructive" });
+    }
+  };
+
+  const kpiWidgets = activeWidgets.filter(id => id.startsWith("kpi_"));
+  const otherWidgets = activeWidgets.filter(id => !id.startsWith("kpi_"));
+
+  const getWidgetSize = (id: string) => ALL_WIDGETS.find(w => w.id === id)?.size || "md";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -528,16 +1236,12 @@ export default function Dashboard() {
             onClick={() => setShowCustomizer(!showCustomizer)}
             data-testid="button-customize-dashboard"
           >
-            <Settings className="mr-2 h-3 w-3" />
+            <LayoutGrid className="mr-2 h-3 w-3" />
             Customize
           </Button>
           <Button variant="outline" className="font-mono text-xs uppercase tracking-wider border-primary/20 hover:border-primary/50 hover:bg-primary/10 hover:text-primary" data-testid="button-export">
             <ExternalLink className="mr-2 h-3 w-3" />
             Export Report
-          </Button>
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-deploy-agent">
-            <Zap className="mr-2 h-3 w-3" />
-            Deploy Agent
           </Button>
         </div>
       </div>
@@ -545,265 +1249,46 @@ export default function Dashboard() {
       <ProfileCard />
 
       {showCustomizer && (
-        <Card className="glass-panel border-primary/20 animate-in slide-in-from-top-2 duration-300">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-mono uppercase tracking-wider text-primary">Dashboard Widgets</CardTitle>
-            <CardDescription className="text-xs">Toggle widgets on or off to customize your dashboard</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <WidgetCustomizer widgets={activeWidgets} onToggle={toggleWidget} />
-          </CardContent>
-        </Card>
+        <WidgetCustomizer
+          activeWidgets={activeWidgets}
+          widgetOrder={widgetOrder}
+          onToggle={toggleWidget}
+          onReorder={handleReorder}
+          onClose={() => setShowCustomizer(false)}
+        />
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="glass-panel border-border/50">
-              <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
-              <CardContent><Skeleton className="h-8 w-20" /><Skeleton className="h-3 w-32 mt-2" /></CardContent>
-            </Card>
-          ))
-        ) : (
-          <>
-            <MetricCard title="Monthly Revenue" value={metrics?.monthlyRevenue ? formatNumber(metrics.monthlyRevenue) : "$0"} change="+12.5%" trend="up" icon={DollarSign} color="text-primary" />
-            <MetricCard title="Active Listeners" value={metrics?.activeListeners ? formatNumber(metrics.activeListeners) : "0"} change="+5.2%" trend="up" icon={Users} color="text-chart-2" />
-            <MetricCard title="Content Pieces" value={metrics?.contentPiecesCount?.toLocaleString() || "0"} change="+18.2%" trend="up" icon={Layers} color="text-chart-4" />
-            <MetricCard title="Ad Fill Rate" value={metrics?.adFillRate ? `${metrics.adFillRate}%` : "0%"} change="-0.4%" trend="down" icon={Activity} color="text-chart-3" />
-          </>
-        )}
-      </div>
-
-      {(activeWidgets.includes("revenue") || activeWidgets.includes("composition")) && (
-        <div className="grid gap-6 md:grid-cols-7">
-          {activeWidgets.includes("revenue") && (
-            <Card className={cn("glass-panel border-border/50", activeWidgets.includes("composition") ? "col-span-4" : "col-span-7")}>
-              <CardHeader>
-                <CardTitle className="font-display tracking-wide text-lg">Revenue Trajectory</CardTitle>
-                <CardDescription className="font-mono text-xs">Actual vs Projected Performance (YTD)</CardDescription>
-              </CardHeader>
-              <CardContent className="pl-2">
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorProjected" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--secondary))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(var(--secondary))" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} fontFamily="JetBrains Mono" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} fontFamily="JetBrains Mono" />
-                      <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', fontFamily: 'JetBrains Mono', fontSize: '12px' }} itemStyle={{ color: 'hsl(var(--foreground))' }} />
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} vertical={false} />
-                      <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                      <Area type="monotone" dataKey="projected" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="4 4" fillOpacity={1} fill="url(#colorProjected)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeWidgets.includes("composition") && (
-            <Card className={cn("glass-panel border-border/50", activeWidgets.includes("revenue") ? "col-span-3" : "col-span-7")}>
-              <CardHeader>
-                <CardTitle className="font-display tracking-wide text-lg">Revenue Composition</CardTitle>
-                <CardDescription className="font-mono text-xs">Distribution by Source</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={sourceData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={true} vertical={false} opacity={0.4} />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} width={80} fontFamily="JetBrains Mono" />
-                      <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', fontFamily: 'JetBrains Mono', fontSize: '12px' }} />
-                      <Bar dataKey="value" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} barSize={32} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+      {kpiWidgets.length > 0 && (
+        <div className={cn("grid gap-4", kpiWidgets.length === 1 ? "grid-cols-1" : kpiWidgets.length === 2 ? "grid-cols-2" : kpiWidgets.length === 3 ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-4")}>
+          {kpiWidgets.map(id => renderWidget(id, metrics, metricsLoading))}
         </div>
       )}
 
-      {activeWidgets.includes("trending") && (
-        <Card className="glass-panel border-border/50">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Trending Articles
-              </CardTitle>
-              <CardDescription className="font-mono text-xs">Top stories across the network</CardDescription>
-            </div>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-mono text-[10px]">
-              LIVE
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            {trendingLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="flex items-start gap-4 p-3">
-                    <Skeleton className="h-5 w-5 mt-0.5" />
-                    <div className="flex-1">
-                      <Skeleton className="h-4 w-3/4 mb-2" />
-                      <Skeleton className="h-3 w-full mb-1" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
-                ))}
+      {otherWidgets.length > 0 && (
+        <div className="grid gap-6 md:grid-cols-2">
+          {otherWidgets.map(id => {
+            const size = getWidgetSize(id);
+            return (
+              <div key={id} className={cn(size === "lg" ? "md:col-span-2" : "col-span-1")}>
+                {renderWidget(id, metrics, metricsLoading)}
               </div>
-            ) : trendingArticles?.length > 0 ? (
-              <div className="divide-y divide-border/30" data-testid="trending-articles">
-                {trendingArticles.map((article: any, index: number) => (
-                  <Link
-                    key={article.id}
-                    href={article.podcastId ? `/news/${article.podcastId}/article/${article.id}` : "#"}
-                    className="block"
-                  >
-                    <div
-                      className="flex items-start gap-4 p-3 hover:bg-card/40 transition-colors cursor-pointer group"
-                      data-testid={`trending-article-${article.id}`}
-                    >
-                      <span className="text-2xl font-bold font-display text-primary/40 leading-none mt-0.5 w-6 text-right shrink-0">
-                        {index + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-snug mb-1 line-clamp-2" data-testid={`text-trending-title-${article.id}`}>
-                          {article.title}
-                        </h4>
-                        {article.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mb-1.5">
-                            {article.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
-                          {article.podcast && (
-                            <>
-                              <span className="text-primary/70">{article.podcast.title}</span>
-                              <span className="text-border">|</span>
-                            </>
-                          )}
-                          <Clock className="h-3 w-3" />
-                          <span>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</span>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors mt-1 shrink-0" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm py-4 text-center">No trending articles yet.</p>
-            )}
+            );
+          })}
+        </div>
+      )}
+
+      {activeWidgets.length === 0 && !showCustomizer && (
+        <Card className="glass-panel border-dashed border-2 border-border/50">
+          <CardContent className="py-12 text-center">
+            <LayoutGrid className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-muted-foreground text-sm mb-3">Your dashboard is empty. Add widgets to get started.</p>
+            <Button variant="outline" onClick={() => setShowCustomizer(true)} className="font-mono text-xs" data-testid="button-add-widgets">
+              <LayoutGrid className="h-3 w-3 mr-2" />
+              Add Widgets
+            </Button>
           </CardContent>
         </Card>
       )}
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {activeWidgets.includes("processing") && (
-          <Card className="glass-panel border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="font-display tracking-wide text-lg">AI Content Engine</CardTitle>
-                <CardDescription className="font-mono text-xs">Live Generation Queue</CardDescription>
-              </div>
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 animate-pulse">
-                PROCESSING
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4" data-testid="content-engine-queue">
-                {episodesLoading ? (
-                  Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
-                ) : processingEpisodes.length > 0 ? (
-                  processingEpisodes.map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 border border-border/50 bg-card/30 rounded-sm" data-testid={`episode-queue-${item.id}`}>
-                      <div className="space-y-1">
-                        <p className="font-medium text-sm">{item.title}</p>
-                        <div className="flex items-center text-xs text-muted-foreground font-mono">
-                          <span className="text-primary mr-2">●</span>
-                          {item.processingStatus === "processing" ? "Generating Content" : item.processingStatus}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs font-mono font-bold text-accent">{item.processingProgress}%</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">No episodes processing.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {activeWidgets.includes("alerts") && (
-          <Card className="glass-panel border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="font-display tracking-wide text-lg">Network Alerts</CardTitle>
-                <CardDescription className="font-mono text-xs">System Notifications</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                <span className="sr-only">Settings</span>
-                <Settings className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4" data-testid="alerts-list">
-                {alertsLoading ? (
-                  Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
-                ) : alertsData?.length > 0 ? (
-                  alertsData.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="flex items-start space-x-3 p-3 border-l-2 border-border bg-card/20 rounded-r-sm hover:bg-card/40 transition-colors" data-testid={`alert-${item.id}`}>
-                      <div className={cn(
-                        "mt-0.5 h-2 w-2 rounded-full",
-                        item.type === "warning" ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]" :
-                        item.type === "success" ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                      )} />
-                      <div>
-                        <p className="text-sm font-medium leading-none mb-1">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">No alerts.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
     </div>
-  );
-}
-
-function MetricCard({ title, value, change, trend, icon: Icon, color }: any) {
-  return (
-    <Card className="glass-panel border-border/50 hover:border-primary/30 transition-colors" data-testid={`metric-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground font-mono uppercase tracking-wider">{title}</CardTitle>
-        <Icon className={cn("h-4 w-4", color)} />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold font-display tracking-tight text-foreground" data-testid={`text-${title.toLowerCase().replace(/\s+/g, '-')}-value`}>{value}</div>
-        <div className="flex items-center text-xs mt-1">
-          {trend === 'up' ? <ArrowUpRight className="h-3 w-3 text-accent mr-1" /> : <ArrowDownRight className="h-3 w-3 text-destructive mr-1" />}
-          <span className={cn("font-mono font-medium", trend === 'up' ? "text-accent" : "text-destructive")}>{change}</span>
-          <span className="text-muted-foreground ml-1">from last month</span>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
