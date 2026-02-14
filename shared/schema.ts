@@ -348,6 +348,19 @@ export const dealActivities = pgTable("deal_activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const dealLineItems = pgTable("deal_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealId: varchar("deal_id").notNull(),
+  productId: varchar("product_id").notNull(),
+  productName: text("product_name").notNull(),
+  rate: real("rate").notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+  total: real("total").default(0).notNull(),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const PRODUCT_CATEGORIES = ["display_ads", "audio_ads", "video_ads", "sponsorship", "branded_content", "newsletter", "social_media", "events", "custom"] as const;
 export type ProductCategory = typeof PRODUCT_CATEGORIES[number];
 export const PRODUCT_STATUSES = ["active", "inactive", "archived"] as const;
@@ -428,10 +441,37 @@ export const outboundCampaigns = pgTable("outbound_campaigns", {
   recipientCount: integer("recipient_count").default(0),
   sentCount: integer("sent_count").default(0),
   failedCount: integer("failed_count").default(0),
+  openCount: integer("open_count").default(0),
+  clickCount: integer("click_count").default(0),
+  bounceCount: integer("bounce_count").default(0),
+  deliveryRate: real("delivery_rate").default(0),
+  openRate: real("open_rate").default(0),
+  clickToOpenRate: real("click_to_open_rate").default(0),
+  cadenceType: text("cadence_type").default("single"),
+  startDate: timestamp("start_date"),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   scheduledAt: timestamp("scheduled_at"),
   sentAt: timestamp("sent_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const campaignEmails = pgTable("campaign_emails", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  dayNumber: integer("day_number").default(1).notNull(),
+  title: text("title").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").default("").notNull(),
+  waitDuration: integer("wait_duration").default(1),
+  waitUnit: text("wait_unit").default("days"),
+  sortOrder: integer("sort_order").default(0),
+  delivered: integer("delivered").default(0),
+  opened: integer("opened").default(0),
+  clicked: integer("clicked").default(0),
+  bounced: integer("bounced").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const SOCIAL_PLATFORMS = ["x", "facebook", "linkedin", "google_business", "instagram", "tiktok"] as const;
@@ -567,6 +607,8 @@ export const insertAlertSchema = createInsertSchema(alerts).omit({ id: true });
 export const insertBrandingSchema = createInsertSchema(branding).omit({ id: true, updatedAt: true });
 export const insertPlatformSettingsSchema = createInsertSchema(platformSettings).omit({ id: true, updatedAt: true });
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, createdAt: true });
+export const insertDealLineItemSchema = createInsertSchema(dealLineItems).omit({ id: true, createdAt: true });
+export const insertCampaignEmailSchema = createInsertSchema(campaignEmails).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -608,6 +650,10 @@ export type AdCreative = typeof adCreatives.$inferSelect;
 
 export type InsertOutboundCampaign = z.infer<typeof insertOutboundCampaignSchema>;
 export type OutboundCampaign = typeof outboundCampaigns.$inferSelect;
+export type InsertDealLineItem = z.infer<typeof insertDealLineItemSchema>;
+export type DealLineItem = typeof dealLineItems.$inferSelect;
+export type InsertCampaignEmail = z.infer<typeof insertCampaignEmailSchema>;
+export type CampaignEmail = typeof campaignEmails.$inferSelect;
 export type InsertHeroSlide = z.infer<typeof insertHeroSlideSchema>;
 export type HeroSlide = typeof heroSlides.$inferSelect;
 export type InsertSocialAccount = z.infer<typeof insertSocialAccountSchema>;

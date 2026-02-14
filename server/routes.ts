@@ -7,7 +7,7 @@ import {
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
-  insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema,
+  insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -2047,6 +2047,40 @@ export async function registerRoutes(
     res.json({ message: "Campaign sent", sentCount, failedCount, recipientCount: recipients.length });
   });
 
+  // ── Campaign Emails (cadence steps) ──
+  app.get("/api/outbound-campaigns/:campaignId/emails", requireAuth, async (req, res) => {
+    const data = await storage.getCampaignEmails(req.params.campaignId);
+    res.json(data);
+  });
+
+  app.post("/api/outbound-campaigns/:campaignId/emails", requireAuth, async (req, res) => {
+    const parsed = insertCampaignEmailSchema.safeParse({ ...req.body, campaignId: req.params.campaignId });
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createCampaignEmail(parsed.data);
+    res.json(data);
+  });
+
+  app.patch("/api/campaign-emails/:id", requireAuth, async (req, res) => {
+    const parsed = insertCampaignEmailSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateCampaignEmail(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Email not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/campaign-emails/:id", requireAuth, async (req, res) => {
+    await storage.deleteCampaignEmail(req.params.id);
+    res.status(204).send();
+  });
+
+  app.put("/api/outbound-campaigns/:campaignId/emails/reorder", requireAuth, async (req, res) => {
+    const { emailIds } = req.body;
+    if (!Array.isArray(emailIds)) return res.status(400).json({ message: "Expected emailIds array" });
+    await storage.reorderCampaignEmails(req.params.campaignId, emailIds);
+    const data = await storage.getCampaignEmails(req.params.campaignId);
+    res.json(data);
+  });
+
   // ── Public Subscription Check + Smart Recommendations (no auth) ──
   app.post("/api/public/check-subscription", async (req, res) => {
     const { email, podcastId } = req.body;
@@ -2762,11 +2796,13 @@ export async function registerRoutes(
     const activities = await storage.getDealActivities(deal.id);
     const company = deal.companyId ? await storage.getCompany(deal.companyId) : null;
     const contact = deal.contactId ? await storage.getCompanyContact(deal.contactId) : null;
-    res.json({ ...deal, activities, company, contact });
+    const lineItems = await storage.getDealLineItems(deal.id);
+    res.json({ ...deal, activities, company, contact, lineItems });
   });
 
   app.post("/api/deals", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
-    const parsed = insertDealSchema.safeParse(req.body);
+    const { lineItems: lineItemsData, ...dealBody } = req.body;
+    const parsed = insertDealSchema.safeParse(dealBody);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
     if (parsed.data.productId && parsed.data.productRate != null) {
       const product = await storage.getProduct(parsed.data.productId);
@@ -2779,11 +2815,15 @@ export async function registerRoutes(
       }
     }
     const data = await storage.createDeal(parsed.data);
+    if (Array.isArray(lineItemsData) && lineItemsData.length > 0) {
+      await storage.replaceDealLineItems(data.id, lineItemsData, req.user?.role === "admin");
+    }
     res.status(201).json(data);
   });
 
   app.patch("/api/deals/:id", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
-    const parsed = insertDealSchema.partial().safeParse(req.body);
+    const { lineItems: lineItemsData, ...dealBody } = req.body;
+    const parsed = insertDealSchema.partial().safeParse(dealBody);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
     if (parsed.data.productId && parsed.data.productRate != null) {
       const product = await storage.getProduct(parsed.data.productId);
@@ -2797,6 +2837,10 @@ export async function registerRoutes(
     }
     const data = await storage.updateDeal(req.params.id, parsed.data);
     if (!data) return res.status(404).json({ message: "Deal not found" });
+
+    if (Array.isArray(lineItemsData)) {
+      await storage.replaceDealLineItems(data.id, lineItemsData, req.user?.role === "admin");
+    }
 
     if (parsed.data.stage === "closed_won") {
       const existingCampaign = await storage.getCampaignByDealId(data.id);
@@ -2882,6 +2926,63 @@ export async function registerRoutes(
 
   app.delete("/api/products/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
     await storage.deleteProduct(req.params.id);
+    res.status(204).send();
+  });
+
+  // ── Commercial CRM: Deal Line Items ──
+  app.get("/api/deals/:dealId/line-items", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    const data = await storage.getDealLineItems(req.params.dealId);
+    res.json(data);
+  });
+
+  app.post("/api/deals/:dealId/line-items", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
+    const parsed = insertDealLineItemSchema.safeParse({ ...req.body, dealId: req.params.dealId });
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    if (parsed.data.productId) {
+      const product = await storage.getProduct(parsed.data.productId);
+      if (product && req.user?.role !== "admin") {
+        const thresholdPct = product.overrideThresholdPercent || 10;
+        const minAllowed = product.suggestedRetailRate * (1 - thresholdPct / 100);
+        if (parsed.data.rate < minAllowed) {
+          return res.status(403).json({ message: `Rate $${parsed.data.rate.toFixed(2)} exceeds your override threshold. Minimum allowed: $${minAllowed.toFixed(2)}` });
+        }
+      }
+    }
+    const data = await storage.createDealLineItem(parsed.data);
+    res.json(data);
+  });
+
+  app.put("/api/deals/:dealId/line-items", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
+    const items = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ message: "Expected array of line items" });
+    for (const item of items) {
+      if (item.productId) {
+        const product = await storage.getProduct(item.productId);
+        if (product && req.user?.role !== "admin") {
+          const thresholdPct = product.overrideThresholdPercent || 10;
+          const minAllowed = product.suggestedRetailRate * (1 - thresholdPct / 100);
+          if (item.rate < minAllowed) {
+            return res.status(403).json({ message: `Rate $${item.rate.toFixed(2)} for "${item.productName}" exceeds your override threshold. Minimum: $${minAllowed.toFixed(2)}` });
+          }
+        }
+      }
+    }
+    const validItems = items.map((item: any, i: number) => ({
+      dealId: req.params.dealId,
+      productId: item.productId,
+      productName: item.productName,
+      rate: item.rate,
+      quantity: item.quantity || 1,
+      total: (item.rate || 0) * (item.quantity || 1),
+      notes: item.notes || null,
+      sortOrder: i,
+    }));
+    const data = await storage.replaceDealLineItems(req.params.dealId, validItems);
+    res.json(data);
+  });
+
+  app.delete("/api/deal-line-items/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+    await storage.deleteDealLineItem(req.params.id);
     res.status(204).send();
   });
 

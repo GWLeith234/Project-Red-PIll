@@ -577,6 +577,14 @@ function getCategoryShortLabel(cat: string) {
   return cat.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
+interface LineItemRow {
+  key: string;
+  productId: string;
+  rate: string;
+  quantity: string;
+  warning: string;
+}
+
 function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCancel }: {
   onSubmit: (data: any) => void;
   initialData?: any;
@@ -602,73 +610,91 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
     startDate: initialData?.startDate ? new Date(initialData.startDate).toISOString().split("T")[0] : "",
     closeDate: initialData?.closeDate ? new Date(initialData.closeDate).toISOString().split("T")[0] : "",
     podcastId: initialData?.podcastId || "",
-    productId: initialData?.productId || "",
-    productRate: initialData?.productRate?.toString() || "",
-    productQuantity: initialData?.productQuantity?.toString() || "",
     notes: initialData?.notes || "",
   });
-  const { toast } = useToast();
 
-  const selectedProduct = products?.find((p: Product) => p.id === form.productId);
-  const [rateWarning, setRateWarning] = useState("");
+  const [lineItems, setLineItems] = useState<LineItemRow[]>(() => {
+    if (initialData?.lineItems?.length) {
+      return initialData.lineItems.map((li: any, i: number) => ({
+        key: `li-${i}`,
+        productId: li.productId || "",
+        rate: li.rate?.toString() || "",
+        quantity: li.quantity?.toString() || "",
+        warning: "",
+      }));
+    }
+    if (initialData?.productId) {
+      return [{
+        key: "li-0",
+        productId: initialData.productId,
+        rate: initialData.productRate?.toString() || "",
+        quantity: initialData.productQuantity?.toString() || "",
+        warning: "",
+      }];
+    }
+    return [];
+  });
+
+  const { toast } = useToast();
 
   const filteredContacts = form.companyId
     ? contacts.filter((c: any) => c.companyId === form.companyId)
     : contacts;
 
-  function handleProductChange(productId: string) {
-    if (productId === "none") {
-      setForm(f => ({ ...f, productId: "", productRate: "", productQuantity: "" }));
-      setRateWarning("");
-      return;
-    }
-    const product = products?.find((p: Product) => p.id === productId);
-    if (product) {
-      const qty = form.productQuantity || (product.minimumUnits ? String(product.minimumUnits) : "1");
-      const dealValue = product.suggestedRetailRate * (parseInt(qty) || 1);
-      setForm(f => ({
-        ...f,
-        productId,
-        productRate: String(product.suggestedRetailRate),
-        productQuantity: qty,
-        value: String(dealValue),
-      }));
-      setRateWarning("");
-    }
+  const totalValue = lineItems.reduce((sum, li) => {
+    const rate = parseFloat(li.rate) || 0;
+    const qty = parseInt(li.quantity) || 0;
+    return sum + rate * qty;
+  }, 0);
+
+  const computedValue = lineItems.length > 0 ? totalValue : (parseFloat(form.value) || 0);
+
+  function addLineItem() {
+    setLineItems(prev => [...prev, { key: `li-${Date.now()}`, productId: "", rate: "", quantity: "", warning: "" }]);
   }
 
-  function handleRateChange(newRate: string) {
-    setForm(f => ({ ...f, productRate: newRate }));
-    if (selectedProduct && newRate) {
-      const rate = parseFloat(newRate);
-      const suggestedRate = selectedProduct.suggestedRetailRate;
-      const thresholdPct = selectedProduct.overrideThresholdPercent || 10;
-      const minAllowed = suggestedRate * (1 - thresholdPct / 100);
-      const minimumRate = selectedProduct.minimumRate || 0;
+  function removeLineItem(key: string) {
+    setLineItems(prev => prev.filter(li => li.key !== key));
+  }
 
-      if (!isAdmin && rate < minAllowed) {
-        setRateWarning(`Rate is below your override threshold (${thresholdPct}% off). Minimum allowed: $${minAllowed.toFixed(2)}`);
-      } else if (rate < minimumRate) {
-        setRateWarning(`Rate is below the absolute minimum of $${minimumRate.toFixed(2)}`);
-      } else if (rate < suggestedRate) {
-        const discountPct = ((suggestedRate - rate) / suggestedRate * 100).toFixed(1);
-        setRateWarning(isAdmin ? `${discountPct}% below suggested retail (admin override)` : "");
-      } else {
-        setRateWarning("");
+  function updateLineItem(key: string, field: keyof LineItemRow, value: string) {
+    setLineItems(prev => prev.map(li => {
+      if (li.key !== key) return li;
+      const updated = { ...li, [field]: value };
+
+      if (field === "productId") {
+        const product = products?.find((p: Product) => p.id === value);
+        if (product) {
+          updated.rate = String(product.suggestedRetailRate);
+          updated.quantity = String(product.minimumUnits || 1);
+          updated.warning = "";
+        } else {
+          updated.rate = "";
+          updated.quantity = "";
+          updated.warning = "";
+        }
       }
 
-      const qty = parseInt(form.productQuantity) || 1;
-      setForm(f => ({ ...f, productRate: newRate, value: String(rate * qty) }));
-    }
-  }
+      if (field === "rate" || (field === "productId" && value)) {
+        const product = products?.find((p: Product) => p.id === updated.productId);
+        const rate = parseFloat(updated.rate) || 0;
+        if (product && rate > 0) {
+          const suggestedRate = product.suggestedRetailRate;
+          const thresholdPct = product.overrideThresholdPercent || 10;
+          const minAllowed = suggestedRate * (1 - thresholdPct / 100);
+          if (!isAdmin && rate < minAllowed) {
+            updated.warning = `Below threshold (${thresholdPct}% off). Min: $${minAllowed.toFixed(2)}`;
+          } else if (rate < suggestedRate) {
+            const discountPct = ((suggestedRate - rate) / suggestedRate * 100).toFixed(1);
+            updated.warning = isAdmin ? `${discountPct}% below retail (admin override)` : "";
+          } else {
+            updated.warning = "";
+          }
+        }
+      }
 
-  function handleQuantityChange(newQty: string) {
-    setForm(f => ({ ...f, productQuantity: newQty }));
-    const rate = parseFloat(form.productRate) || 0;
-    const qty = parseInt(newQty) || 0;
-    if (rate && qty) {
-      setForm(f => ({ ...f, productQuantity: newQty, value: String(rate * qty) }));
-    }
+      return updated;
+    }));
   }
 
   const handleSubmit = () => {
@@ -676,26 +702,35 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
       toast({ title: "Required Fields", description: "Title and company are required.", variant: "destructive" });
       return;
     }
-    if (selectedProduct && !isAdmin) {
-      const rate = parseFloat(form.productRate) || 0;
-      const thresholdPct = selectedProduct.overrideThresholdPercent || 10;
-      const minAllowed = selectedProduct.suggestedRetailRate * (1 - thresholdPct / 100);
-      if (rate < minAllowed) {
-        toast({ title: "Rate Override Exceeded", description: `Your rate ($${rate.toFixed(2)}) is below the allowed threshold. Minimum: $${minAllowed.toFixed(2)}`, variant: "destructive" });
-        return;
+    for (const li of lineItems) {
+      if (!li.productId) continue;
+      const product = products?.find((p: Product) => p.id === li.productId);
+      if (product && !isAdmin) {
+        const rate = parseFloat(li.rate) || 0;
+        const thresholdPct = product.overrideThresholdPercent || 10;
+        const minAllowed = product.suggestedRetailRate * (1 - thresholdPct / 100);
+        if (rate < minAllowed) {
+          toast({ title: "Rate Override Exceeded", description: `${product.name}: rate $${rate.toFixed(2)} is below allowed threshold ($${minAllowed.toFixed(2)})`, variant: "destructive" });
+          return;
+        }
       }
     }
     onSubmit({
       ...form,
-      value: form.value ? parseFloat(form.value) : 0,
+      value: computedValue,
       probability: form.probability ? parseInt(form.probability) : 50,
       contactId: form.contactId || null,
       podcastId: form.podcastId || null,
-      productId: form.productId || null,
-      productRate: form.productRate ? parseFloat(form.productRate) : null,
-      productQuantity: form.productQuantity ? parseInt(form.productQuantity) : null,
+      productId: lineItems[0]?.productId || null,
+      productRate: lineItems[0] ? (parseFloat(lineItems[0].rate) || null) : null,
+      productQuantity: lineItems[0] ? (parseInt(lineItems[0].quantity) || null) : null,
       startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
       closeDate: form.closeDate ? new Date(form.closeDate).toISOString() : null,
+      lineItems: lineItems.filter(li => li.productId).map(li => ({
+        productId: li.productId,
+        rate: parseFloat(li.rate) || 0,
+        quantity: parseInt(li.quantity) || 0,
+      })),
     });
   };
 
@@ -745,109 +780,95 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
       </div>
 
       <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-4">
-        <label className="text-xs font-mono uppercase tracking-wider text-primary flex items-center gap-2">
-          <Package className="h-3.5 w-3.5" />
-          Product
-        </label>
-        <Select value={form.productId || "none"} onValueChange={handleProductChange}>
-          <SelectTrigger data-testid="select-deal-product">
-            <SelectValue placeholder="Select a product from catalog" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No Product</SelectItem>
-            {products?.map((p: Product) => (
-              <SelectItem key={p.id} value={p.id}>
-                <span className="flex items-center gap-2">
-                  {p.name}
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    {getCategoryShortLabel(p.category)} | ${p.suggestedRetailRate.toFixed(2)} {getRateModelShortLabel(p.rateModel)}
-                  </span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-mono uppercase tracking-wider text-primary flex items-center gap-2">
+            <Package className="h-3.5 w-3.5" />
+            Line Items ({lineItems.length})
+          </label>
+          <Button variant="outline" size="sm" onClick={addLineItem} className="h-7 text-xs gap-1" data-testid="button-add-line-item">
+            <Plus className="h-3 w-3" /> Add Product
+          </Button>
+        </div>
 
-        {selectedProduct && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono p-2 rounded bg-card/50 border border-border/30">
-              <span>Wholesale: <span className="text-foreground font-semibold">${selectedProduct.wholesaleRate.toFixed(2)}</span></span>
-              <span>Suggested Retail: <span className="text-primary font-semibold">${selectedProduct.suggestedRetailRate.toFixed(2)}</span></span>
-              <span>Model: <span className="text-foreground">{getRateModelShortLabel(selectedProduct.rateModel)}</span></span>
-              {(selectedProduct.overrideThresholdPercent ?? 0) > 0 && (
-                <span className="flex items-center gap-1 text-amber-400">
-                  <ShieldCheck className="h-3 w-3" />
-                  {selectedProduct.overrideThresholdPercent}% override
-                </span>
+        {lineItems.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-4">No line items yet. Add products from the catalog to build this deal.</p>
+        )}
+
+        {lineItems.map((li, idx) => {
+          const product = products?.find((p: Product) => p.id === li.productId);
+          const liTotal = (parseFloat(li.rate) || 0) * (parseInt(li.quantity) || 0);
+          return (
+            <div key={li.key} className="p-3 rounded-md border border-border/50 bg-card/30 space-y-2" data-testid={`line-item-${idx}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-muted-foreground">Item {idx + 1}</span>
+                <Button variant="ghost" size="sm" onClick={() => removeLineItem(li.key)} className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" data-testid={`button-remove-line-item-${idx}`}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+              <Select value={li.productId || "none"} onValueChange={v => updateLineItem(li.key, "productId", v === "none" ? "" : v)}>
+                <SelectTrigger className="h-8 text-xs" data-testid={`select-line-item-product-${idx}`}>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select product</SelectItem>
+                  {products?.map((p: Product) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} - ${p.suggestedRetailRate.toFixed(2)} {getRateModelShortLabel(p.rateModel)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {product && (
+                <>
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono">
+                    <span>Wholesale: ${product.wholesaleRate.toFixed(2)}</span>
+                    <span>Retail: ${product.suggestedRetailRate.toFixed(2)}</span>
+                    {(product.overrideThresholdPercent ?? 0) > 0 && (
+                      <span className="text-amber-400 flex items-center gap-0.5">
+                        <ShieldCheck className="h-2.5 w-2.5" />
+                        {product.overrideThresholdPercent}% override
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Rate ($)</label>
+                      <Input type="number" step="0.01" min="0" value={li.rate} onChange={e => updateLineItem(li.key, "rate", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-rate-${idx}`} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Qty</label>
+                      <Input type="number" min="1" value={li.quantity} onChange={e => updateLineItem(li.key, "quantity", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-qty-${idx}`} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Total</label>
+                      <div className="h-8 flex items-center text-xs font-bold text-primary">${liTotal.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  {li.warning && (
+                    <div className={cn(
+                      "flex items-center gap-1.5 text-[10px] p-1.5 rounded",
+                      li.warning.includes("admin") ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    )}>
+                      <ShieldCheck className="h-3 w-3 shrink-0" />
+                      {li.warning}
+                    </div>
+                  )}
+                </>
               )}
             </div>
+          );
+        })}
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
-                  Rate ($) per {selectedProduct.unitLabel || "unit"}
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.productRate}
-                  onChange={e => handleRateChange(e.target.value)}
-                  placeholder={selectedProduct.suggestedRetailRate.toFixed(2)}
-                  data-testid="input-deal-product-rate"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
-                  Quantity ({selectedProduct.unitLabel || "units"})
-                </label>
-                <Input
-                  type="number"
-                  min={selectedProduct.minimumUnits || 0}
-                  value={form.productQuantity}
-                  onChange={e => handleQuantityChange(e.target.value)}
-                  placeholder={String(selectedProduct.minimumUnits || 1)}
-                  data-testid="input-deal-product-quantity"
-                />
-                {(selectedProduct.minimumUnits ?? 0) > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Min: {selectedProduct.minimumUnits?.toLocaleString()}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Deal Value ($)</label>
-                <Input
-                  type="number"
-                  value={form.value}
-                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
-                  className="font-bold"
-                  data-testid="input-deal-value"
-                />
-                <p className="text-[10px] text-muted-foreground mt-0.5">Auto-calculated from rate x quantity</p>
-              </div>
-            </div>
-
-            {rateWarning && (
-              <div className={cn(
-                "flex items-center gap-2 text-xs p-2 rounded",
-                rateWarning.includes("admin override") ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                rateWarning.includes("below") ? "bg-red-500/10 text-red-400 border border-red-500/20" :
-                "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-              )} data-testid="text-rate-warning">
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                {rateWarning}
-              </div>
-            )}
-
-            {selectedProduct.deliverables && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-mono uppercase tracking-wider">Deliverables:</span> {selectedProduct.deliverables}
-              </div>
-            )}
+        {lineItems.length > 0 && (
+          <div className="flex items-center justify-between pt-2 border-t border-border/30">
+            <span className="text-xs font-mono text-muted-foreground">Deal Total</span>
+            <span className="text-lg font-bold text-primary" data-testid="text-deal-total">${totalValue.toLocaleString()}</span>
           </div>
         )}
       </div>
 
-      {!selectedProduct && (
+      {lineItems.length === 0 && (
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Value ($)</label>
           <Input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} placeholder="25000" data-testid="input-deal-value-manual" />

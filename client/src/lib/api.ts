@@ -389,6 +389,80 @@ export function useDeleteAdCreative() {
   });
 }
 
+export function useDealLineItems(dealId: string | undefined) {
+  return useQuery({
+    queryKey: ["/api/deals", dealId, "line-items"],
+    queryFn: () => apiRequest(`/api/deals/${dealId}/line-items`),
+    enabled: !!dealId,
+  });
+}
+
+export function useReplaceDealLineItems() {
+  return useMutation({
+    mutationFn: ({ dealId, items }: { dealId: string; items: any[] }) =>
+      apiRequest(`/api/deals/${dealId}/line-items`, { method: "PUT", body: JSON.stringify(items) }),
+    onSuccess: (_d: any, vars: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals", vars.dealId, "line-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+    },
+  });
+}
+
+export function useDeleteDealLineItem() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/deal-line-items/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/deals"] }),
+  });
+}
+
+export function useCampaignEmails(campaignId: string | undefined) {
+  return useQuery({
+    queryKey: ["/api/outbound-campaigns", campaignId, "emails"],
+    queryFn: () => apiRequest(`/api/outbound-campaigns/${campaignId}/emails`),
+    enabled: !!campaignId,
+  });
+}
+
+export function useCreateCampaignEmail() {
+  return useMutation({
+    mutationFn: ({ campaignId, ...data }: any) =>
+      apiRequest(`/api/outbound-campaigns/${campaignId}/emails`, { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: (_d: any, vars: any) => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns", vars.campaignId, "emails"] }),
+  });
+}
+
+export function useUpdateCampaignEmail() {
+  return useMutation({
+    mutationFn: ({ id, campaignId, ...data }: any) =>
+      apiRequest(`/api/campaign-emails/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: (_d: any, vars: any) => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns", vars.campaignId, "emails"] }),
+  });
+}
+
+export function useDeleteCampaignEmail() {
+  return useMutation({
+    mutationFn: ({ id, campaignId }: { id: string; campaignId: string }) =>
+      apiRequest(`/api/campaign-emails/${id}`, { method: "DELETE" }),
+    onSuccess: (_d: any, vars: any) => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns", vars.campaignId, "emails"] }),
+  });
+}
+
+export function useReorderCampaignEmails() {
+  return useMutation({
+    mutationFn: ({ campaignId, emailIds }: { campaignId: string; emailIds: string[] }) =>
+      apiRequest(`/api/outbound-campaigns/${campaignId}/emails/reorder`, { method: "PUT", body: JSON.stringify({ emailIds }) }),
+    onSuccess: (_d: any, vars: any) => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns", vars.campaignId, "emails"] }),
+  });
+}
+
+export function useUpdateOutboundCampaign() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) =>
+      apiRequest(`/api/outbound-campaigns/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/outbound-campaigns"] }),
+  });
+}
+
 export function useSettings() {
   return useQuery({ queryKey: ["/api/settings"], queryFn: () => apiRequest("/api/settings") });
 }

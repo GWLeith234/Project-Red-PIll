@@ -15,7 +15,7 @@ import {
   Package, Edit3, Trash2, Tag, Layers, ShieldCheck, AlertTriangle, CheckCircle2, Archive,
   Play, Clock, Pause, Building2
 } from "lucide-react";
-import { useMetrics, useCampaigns, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/lib/api";
+import { useMetrics, useCampaigns, useDeals, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { PRODUCT_CATEGORIES, RATE_MODELS, type Product } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
@@ -555,47 +555,142 @@ function ProductsTab() {
   );
 }
 
+function ProductPerformanceTab() {
+  const { data: products, isLoading } = useProducts();
+  const { data: allCampaigns } = useCampaigns();
+  const { data: deals } = useDeals();
+
+  const productStats = (products || []).map((p: Product) => {
+    const productDeals = (deals || []).filter((d: any) => d.productId === p.id);
+    const totalRevenue = productDeals.reduce((sum: number, d: any) => sum + (d.value || 0), 0);
+    const totalUnits = productDeals.reduce((sum: number, d: any) => sum + (d.productQuantity || 0), 0);
+    const wonDeals = productDeals.filter((d: any) => d.stage === "closed_won");
+    const wonRevenue = wonDeals.reduce((sum: number, d: any) => sum + (d.value || 0), 0);
+    const avgRate = totalUnits > 0 ? totalRevenue / totalUnits : 0;
+    const margin = p.wholesaleRate > 0 ? ((avgRate - p.wholesaleRate) / avgRate * 100) : 0;
+    return { ...p, dealCount: productDeals.length, wonCount: wonDeals.length, totalRevenue, wonRevenue, totalUnits, avgRate, margin };
+  }).sort((a: any, b: any) => b.wonRevenue - a.wonRevenue);
+
+  const totalPipelineRevenue = productStats.reduce((s: number, p: any) => s + p.totalRevenue, 0);
+  const totalWonRevenue = productStats.reduce((s: number, p: any) => s + p.wonRevenue, 0);
+  const totalDeals = productStats.reduce((s: number, p: any) => s + p.dealCount, 0);
+
+  if (isLoading) return <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-6">
+            <p className="text-sm font-medium text-muted-foreground font-mono">TOTAL PRODUCTS</p>
+            <div className="text-2xl font-bold font-display" data-testid="text-total-products">{products?.length || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">{products?.filter((p: Product) => p.status === "active").length || 0} active</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-6">
+            <p className="text-sm font-medium text-muted-foreground font-mono">PIPELINE REVENUE</p>
+            <div className="text-2xl font-bold font-display text-blue-400" data-testid="text-pipeline-revenue">${totalPipelineRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">{totalDeals} deals</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-6">
+            <p className="text-sm font-medium text-muted-foreground font-mono">WON REVENUE</p>
+            <div className="text-2xl font-bold font-display text-green-400" data-testid="text-won-revenue">${totalWonRevenue.toLocaleString()}</div>
+            <p className="text-xs text-accent mt-1">Closed won deals</p>
+          </CardContent>
+        </Card>
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-6">
+            <p className="text-sm font-medium text-muted-foreground font-mono">ACTIVE CAMPAIGNS</p>
+            <div className="text-2xl font-bold font-display text-purple-400" data-testid="text-campaign-count">{allCampaigns?.filter((c: any) => c.status === "active" || c.status === "scheduled").length || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">From closed won deals</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="glass-panel border-border/50">
+        <CardHeader>
+          <CardTitle className="font-display">Product Performance</CardTitle>
+          <CardDescription className="font-mono text-xs">Revenue, deals, and margin analysis per product</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {productStats.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No products yet. Add products in the Products tab.</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-8 gap-4 text-xs font-mono uppercase tracking-wider text-muted-foreground px-4 pb-2 border-b border-border/30">
+                <div className="col-span-2">Product</div>
+                <div className="text-right">Deals</div>
+                <div className="text-right">Won</div>
+                <div className="text-right">Pipeline $</div>
+                <div className="text-right">Won $</div>
+                <div className="text-right">Avg Rate</div>
+                <div className="text-right">Margin</div>
+              </div>
+              {productStats.map((p: any) => (
+                <div key={p.id} className="grid grid-cols-8 gap-4 items-center p-4 bg-card/30 rounded border border-transparent hover:border-primary/20 transition-colors" data-testid={`row-product-perf-${p.id}`}>
+                  <div className="col-span-2">
+                    <p className="font-medium text-sm">{p.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{getCategoryLabel(p.category)} | {getRateModelLabel(p.rateModel)}</p>
+                  </div>
+                  <div className="text-right font-mono text-sm">{p.dealCount}</div>
+                  <div className="text-right font-mono text-sm text-green-400">{p.wonCount}</div>
+                  <div className="text-right font-mono text-sm">${p.totalRevenue.toLocaleString()}</div>
+                  <div className="text-right font-mono text-sm font-bold text-green-400">${p.wonRevenue.toLocaleString()}</div>
+                  <div className="text-right font-mono text-sm">${p.avgRate.toFixed(2)}</div>
+                  <div className="text-right">
+                    <Badge variant="outline" className={`font-mono text-[10px] ${p.margin > 30 ? 'bg-green-500/10 text-green-400 border-green-500/20' : p.margin > 10 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                      {p.margin > 0 ? `${p.margin.toFixed(1)}%` : "N/A"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="glass-panel border-border/50">
+        <CardHeader>
+          <CardTitle className="font-display">Active Campaigns</CardTitle>
+          <CardDescription className="font-mono text-xs">Campaigns auto-created from closed won deals</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!allCampaigns?.length ? (
+            <p className="text-muted-foreground text-sm">No campaigns yet. Move deals to "Closed Won" in the CRM to create campaigns automatically.</p>
+          ) : (
+            <div className="space-y-3">
+              {allCampaigns.map((c: any) => (
+                <div key={c.id} className="flex items-center justify-between p-4 bg-card/30 rounded border border-transparent hover:border-primary/20 transition-colors" data-testid={`row-campaign-${c.id}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded flex items-center justify-center border ${c.status === 'active' ? 'bg-green-500/10 border-green-500/20 text-green-400' : c.status === 'scheduled' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-gray-500/10 border-gray-500/20 text-gray-400'}`}>
+                      {c.status === "active" ? <Play className="h-4 w-4" /> : c.status === "scheduled" ? <Clock className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{c.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        Budget: ${(c.budget || 0).toLocaleString()}
+                        {c.startDate && ` | Start: ${new Date(c.startDate).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`font-mono text-[10px] uppercase ${c.status === 'active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : c.status === 'scheduled' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
+                    {c.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Monetization() {
-  const { data: advertisers, isLoading: adsLoading } = useAdvertisers();
   const { data: metrics, isLoading: metricsLoading } = useMetrics();
-  const createAdvertiser = useCreateAdvertiser();
-  const createCampaign = useCreateCampaign();
-  const { toast } = useToast();
-
-  const [advOpen, setAdvOpen] = useState(false);
-  const [campOpen, setCampOpen] = useState(false);
-  const [advForm, setAdvForm] = useState({ name: "", type: "Direct", monthlySpend: "" });
-  const [campForm, setCampForm] = useState({ name: "", advertiserId: "", budget: "", status: "active" });
-
-  function handleAdvSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    createAdvertiser.mutate(
-      { name: advForm.name, type: advForm.type, monthlySpend: parseFloat(advForm.monthlySpend) || 0 },
-      {
-        onSuccess: () => {
-          toast({ title: "Advertiser Added", description: `${advForm.name} is now in the network.` });
-          setAdvOpen(false);
-          setAdvForm({ name: "", type: "Direct", monthlySpend: "" });
-        },
-        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-      }
-    );
-  }
-
-  function handleCampSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    createCampaign.mutate(
-      { name: campForm.name, advertiserId: campForm.advertiserId, budget: parseFloat(campForm.budget) || 0, status: campForm.status },
-      {
-        onSuccess: () => {
-          toast({ title: "Campaign Created", description: `"${campForm.name}" is now live.` });
-          setCampOpen(false);
-          setCampForm({ name: "", advertiserId: "", budget: "", status: "active" });
-        },
-        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-      }
-    );
-  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -616,112 +711,13 @@ export default function Monetization() {
             <Package className="mr-2 h-3.5 w-3.5" />
             Products
           </TabsTrigger>
+          <TabsTrigger value="performance" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-revenue-performance">
+            <Target className="mr-2 h-3.5 w-3.5" />
+            Performance
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setAdvOpen(true)} className="font-mono text-xs uppercase tracking-wider border-border bg-card/50" data-testid="button-new-advertiser">
-              <UserPlus className="mr-2 h-3 w-3" />
-              New Advertiser
-            </Button>
-            <Button onClick={() => setCampOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-new-campaign">
-              <Plus className="mr-2 h-3 w-3" />
-              New Campaign
-            </Button>
-          </div>
-
-          <Dialog open={advOpen} onOpenChange={setAdvOpen}>
-            <DialogContent className="glass-panel border-border">
-              <DialogHeader>
-                <DialogTitle className="font-display text-xl">Add Advertiser</DialogTitle>
-                <DialogDescription className="font-mono text-xs">Register a new advertising partner</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleAdvSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="adv-name" className="font-mono text-xs uppercase tracking-wider">Company Name</Label>
-                  <Input id="adv-name" placeholder="e.g. TechCorp Inc." value={advForm.name} onChange={(e) => setAdvForm({ ...advForm, name: e.target.value })} required data-testid="input-advertiser-name" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-mono text-xs uppercase tracking-wider">Type</Label>
-                  <Select value={advForm.type} onValueChange={(v) => setAdvForm({ ...advForm, type: v })}>
-                    <SelectTrigger data-testid="select-advertiser-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Direct">Direct</SelectItem>
-                      <SelectItem value="Programmatic">Programmatic</SelectItem>
-                      <SelectItem value="Affiliate">Affiliate</SelectItem>
-                      <SelectItem value="Agency">Agency</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="adv-spend" className="font-mono text-xs uppercase tracking-wider">Monthly Spend ($)</Label>
-                  <Input id="adv-spend" type="number" placeholder="e.g. 25000" value={advForm.monthlySpend} onChange={(e) => setAdvForm({ ...advForm, monthlySpend: e.target.value })} data-testid="input-advertiser-spend" />
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setAdvOpen(false)} className="font-mono text-xs" data-testid="button-cancel-advertiser">Cancel</Button>
-                  <Button type="submit" disabled={createAdvertiser.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-submit-advertiser">
-                    {createAdvertiser.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <UserPlus className="mr-2 h-3 w-3" />}
-                    Add Advertiser
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={campOpen} onOpenChange={setCampOpen}>
-            <DialogContent className="glass-panel border-border">
-              <DialogHeader>
-                <DialogTitle className="font-display text-xl">Create Campaign</DialogTitle>
-                <DialogDescription className="font-mono text-xs">Launch a new advertising campaign</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCampSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="camp-name" className="font-mono text-xs uppercase tracking-wider">Campaign Name</Label>
-                  <Input id="camp-name" placeholder="e.g. Q1 Brand Awareness" value={campForm.name} onChange={(e) => setCampForm({ ...campForm, name: e.target.value })} required data-testid="input-campaign-name" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-mono text-xs uppercase tracking-wider">Advertiser</Label>
-                  <Select value={campForm.advertiserId} onValueChange={(v) => setCampForm({ ...campForm, advertiserId: v })} required>
-                    <SelectTrigger data-testid="select-campaign-advertiser">
-                      <SelectValue placeholder="Select an advertiser" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {advertisers?.map((a: any) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="camp-budget" className="font-mono text-xs uppercase tracking-wider">Budget ($)</Label>
-                  <Input id="camp-budget" type="number" placeholder="e.g. 50000" value={campForm.budget} onChange={(e) => setCampForm({ ...campForm, budget: e.target.value })} data-testid="input-campaign-budget" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-mono text-xs uppercase tracking-wider">Status</Label>
-                  <Select value={campForm.status} onValueChange={(v) => setCampForm({ ...campForm, status: v })}>
-                    <SelectTrigger data-testid="select-campaign-status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setCampOpen(false)} className="font-mono text-xs" data-testid="button-cancel-campaign">Cancel</Button>
-                  <Button type="submit" disabled={createCampaign.isPending || !campForm.advertiserId} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-submit-campaign">
-                    {createCampaign.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Plus className="mr-2 h-3 w-3" />}
-                    Launch Campaign
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-
           <div className="grid gap-4 md:grid-cols-4">
             {metricsLoading ? (
               Array.from({ length: 4 }).map((_, i) => <Card key={i} className="glass-panel border-border/50"><CardContent className="p-6"><Skeleton className="h-12 w-full" /></CardContent></Card>)
@@ -760,11 +756,11 @@ export default function Monetization() {
                 <Card className="glass-panel border-border/50">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between space-y-0 pb-2">
-                      <p className="text-sm font-medium text-muted-foreground font-mono">ACTIVE CAMPAIGNS</p>
+                      <p className="text-sm font-medium text-muted-foreground font-mono">YIELD</p>
                       <Briefcase className="h-4 w-4 text-purple-400" />
                     </div>
-                    <div className="text-2xl font-bold font-display" data-testid="text-active-campaigns">{advertisers?.length || 0}</div>
-                    <p className="text-xs text-muted-foreground mt-1">3 pending approval</p>
+                    <div className="text-2xl font-bold font-display" data-testid="text-yield">${((metrics?.avgCpm || 0) * 1.4).toFixed(0)}K</div>
+                    <p className="text-xs text-muted-foreground mt-1">est. monthly at current fill</p>
                   </CardContent>
                 </Card>
               </>
@@ -817,53 +813,14 @@ export default function Monetization() {
               </CardContent>
             </Card>
           </div>
-
-          <Card className="glass-panel border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="font-display">Top Advertisers</CardTitle>
-                <CardDescription className="font-mono text-xs">Highest spenders this month</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" className="font-mono text-xs" data-testid="button-download-csv">
-                <Download className="mr-2 h-3 w-3" />
-                Download CSV
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4" data-testid="advertisers-list">
-                {adsLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
-                ) : advertisers?.length > 0 ? (
-                  advertisers.map((ad: any) => (
-                    <div key={ad.id} className="flex items-center justify-between p-4 bg-card/30 rounded border border-transparent hover:border-primary/20 transition-colors" data-testid={`row-advertiser-${ad.id}`}>
-                      <div className="flex items-center space-x-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary border border-primary/20">
-                          {ad.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-medium">{ad.name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{ad.type}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-6">
-                        <div className="text-right">
-                          <p className="font-bold text-foreground">${ad.monthlySpend?.toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">Monthly Spend</p>
-                        </div>
-                        <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 uppercase font-mono text-[10px]">{ad.status}</Badge>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">No advertisers yet.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">
           <ProductsTab />
+        </TabsContent>
+
+        <TabsContent value="performance" className="mt-6">
+          <ProductPerformanceTab />
         </TabsContent>
       </Tabs>
     </div>

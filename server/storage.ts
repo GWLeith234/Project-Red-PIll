@@ -4,7 +4,7 @@ import pg from "pg";
 import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
-  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, products, adCreatives, outboundCampaigns, heroSlides,
+  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, dealLineItems, products, adCreatives, outboundCampaigns, campaignEmails, heroSlides,
   socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
@@ -26,6 +26,8 @@ import {
   type Product, type InsertProduct,
   type AdCreative, type InsertAdCreative,
   type OutboundCampaign, type InsertOutboundCampaign,
+  type DealLineItem, type InsertDealLineItem,
+  type CampaignEmail, type InsertCampaignEmail,
   type HeroSlide, type InsertHeroSlide,
   type SocialAccount, type InsertSocialAccount,
   type ScheduledPost, type InsertScheduledPost,
@@ -140,6 +142,12 @@ export interface IStorage {
   updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<void>;
 
+  getDealLineItems(dealId: string): Promise<DealLineItem[]>;
+  createDealLineItem(item: InsertDealLineItem): Promise<DealLineItem>;
+  updateDealLineItem(id: string, data: Partial<InsertDealLineItem>): Promise<DealLineItem | undefined>;
+  deleteDealLineItem(id: string): Promise<void>;
+  replaceDealLineItems(dealId: string, items: InsertDealLineItem[]): Promise<DealLineItem[]>;
+
   getAdCreatives(dealId: string): Promise<AdCreative[]>;
   getAdCreative(id: string): Promise<AdCreative | undefined>;
   createAdCreative(creative: InsertAdCreative): Promise<AdCreative>;
@@ -151,6 +159,13 @@ export interface IStorage {
   createOutboundCampaign(campaign: InsertOutboundCampaign): Promise<OutboundCampaign>;
   updateOutboundCampaign(id: string, data: Partial<InsertOutboundCampaign>): Promise<OutboundCampaign | undefined>;
   deleteOutboundCampaign(id: string): Promise<void>;
+
+  getCampaignEmails(campaignId: string): Promise<CampaignEmail[]>;
+  getCampaignEmail(id: string): Promise<CampaignEmail | undefined>;
+  createCampaignEmail(email: InsertCampaignEmail): Promise<CampaignEmail>;
+  updateCampaignEmail(id: string, data: Partial<InsertCampaignEmail>): Promise<CampaignEmail | undefined>;
+  deleteCampaignEmail(id: string): Promise<void>;
+  reorderCampaignEmails(campaignId: string, emailIds: string[]): Promise<void>;
   getConsentedSubscribers(type: "email" | "sms", podcastId?: string): Promise<Subscriber[]>;
   getConsentedContacts(type: "email" | "sms"): Promise<CompanyContact[]>;
 
@@ -555,6 +570,7 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteDeal(id: string) {
+    await db.delete(dealLineItems).where(eq(dealLineItems.dealId, id));
     await db.delete(dealActivities).where(eq(dealActivities.dealId, id));
     await db.delete(deals).where(eq(deals.id, id));
   }
@@ -572,6 +588,27 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteDealActivity(id: string) {
     await db.delete(dealActivities).where(eq(dealActivities.id, id));
+  }
+
+  async getDealLineItems(dealId: string) {
+    return db.select().from(dealLineItems).where(eq(dealLineItems.dealId, dealId)).orderBy(dealLineItems.sortOrder);
+  }
+  async createDealLineItem(item: InsertDealLineItem) {
+    const [created] = await db.insert(dealLineItems).values(item).returning();
+    return created;
+  }
+  async updateDealLineItem(id: string, data: Partial<InsertDealLineItem>) {
+    const [updated] = await db.update(dealLineItems).set(data).where(eq(dealLineItems.id, id)).returning();
+    return updated;
+  }
+  async deleteDealLineItem(id: string) {
+    await db.delete(dealLineItems).where(eq(dealLineItems.id, id));
+  }
+  async replaceDealLineItems(dealId: string, items: InsertDealLineItem[]) {
+    await db.delete(dealLineItems).where(eq(dealLineItems.dealId, dealId));
+    if (items.length === 0) return [];
+    const created = await db.insert(dealLineItems).values(items).returning();
+    return created;
   }
 
   async getProducts(status?: string) {
@@ -634,7 +671,32 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteOutboundCampaign(id: string) {
+    await db.delete(campaignEmails).where(eq(campaignEmails.campaignId, id));
     await db.delete(outboundCampaigns).where(eq(outboundCampaigns.id, id));
+  }
+
+  async getCampaignEmails(campaignId: string) {
+    return db.select().from(campaignEmails).where(eq(campaignEmails.campaignId, campaignId)).orderBy(campaignEmails.sortOrder);
+  }
+  async getCampaignEmail(id: string) {
+    const [email] = await db.select().from(campaignEmails).where(eq(campaignEmails.id, id)).limit(1);
+    return email;
+  }
+  async createCampaignEmail(email: InsertCampaignEmail) {
+    const [created] = await db.insert(campaignEmails).values(email).returning();
+    return created;
+  }
+  async updateCampaignEmail(id: string, data: Partial<InsertCampaignEmail>) {
+    const [updated] = await db.update(campaignEmails).set({ ...data, updatedAt: new Date() }).where(eq(campaignEmails.id, id)).returning();
+    return updated;
+  }
+  async deleteCampaignEmail(id: string) {
+    await db.delete(campaignEmails).where(eq(campaignEmails.id, id));
+  }
+  async reorderCampaignEmails(campaignId: string, emailIds: string[]) {
+    for (let i = 0; i < emailIds.length; i++) {
+      await db.update(campaignEmails).set({ sortOrder: i, dayNumber: i + 1 }).where(eq(campaignEmails.id, emailIds[i]));
+    }
   }
   async getConsentedSubscribers(type: "email" | "sms", podcastId?: string) {
     const consentField = type === "email" ? subscribers.marketingConsent : subscribers.smsConsent;

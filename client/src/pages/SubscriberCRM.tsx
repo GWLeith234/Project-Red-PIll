@@ -14,6 +14,8 @@ import {
   useAnalyzeSocial, usePodcasts,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
   useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
+  useCampaignEmails, useCreateCampaignEmail, useUpdateCampaignEmail, useDeleteCampaignEmail,
+  useReorderCampaignEmails, useUpdateOutboundCampaign,
 } from "@/lib/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -26,7 +28,8 @@ import {
   Loader2, Zap, X, ChevronRight, Star, TrendingUp, Users, ArrowLeft,
   Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles, Radio,
   Send, FileText, MessageSquare, Plus, Calendar, Download, ListFilter, Save, Filter,
-  Headphones, Clock, Play, Mic, CheckCircle2
+  Headphones, Clock, Play, Mic, CheckCircle2,
+  ArrowUp, ArrowDown, BarChart2, Eye, MousePointerClick, AlertTriangle
 } from "lucide-react";
 
 function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
@@ -666,6 +669,403 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
   );
 }
 
+function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, statusColor }: {
+  campaignId: string;
+  campaign: any;
+  onBack: () => void;
+  onSend: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+  statusColor: (status: string) => string;
+}) {
+  const { data: emails, isLoading: emailsLoading } = useCampaignEmails(campaignId);
+  const createEmail = useCreateCampaignEmail();
+  const updateEmail = useUpdateCampaignEmail();
+  const deleteEmail = useDeleteCampaignEmail();
+  const reorderEmails = useReorderCampaignEmails();
+  const { toast } = useToast();
+
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [emailForm, setEmailForm] = useState({
+    subject: "",
+    body: "",
+    dayNumber: 1,
+    waitDuration: 1,
+    waitUnit: "days",
+  });
+
+  const sortedEmails = (emails || []).slice().sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  const openAddDialog = () => {
+    setEditingEmailId(null);
+    setEmailForm({ subject: "", body: "", dayNumber: sortedEmails.length + 1, waitDuration: 1, waitUnit: "days" });
+    setShowEmailDialog(true);
+  };
+
+  const openEditDialog = (email: any) => {
+    setEditingEmailId(email.id);
+    setEmailForm({
+      subject: email.subject || "",
+      body: email.body || "",
+      dayNumber: email.dayNumber || 1,
+      waitDuration: email.waitDuration || 1,
+      waitUnit: email.waitUnit || "days",
+    });
+    setShowEmailDialog(true);
+  };
+
+  const handleSaveEmail = async () => {
+    if (!emailForm.subject.trim()) {
+      toast({ title: "Subject Required", variant: "destructive" });
+      return;
+    }
+    try {
+      if (editingEmailId) {
+        await updateEmail.mutateAsync({
+          id: editingEmailId,
+          campaignId,
+          title: emailForm.subject,
+          subject: emailForm.subject,
+          body: emailForm.body,
+          dayNumber: emailForm.dayNumber,
+          waitDuration: emailForm.waitDuration,
+          waitUnit: emailForm.waitUnit,
+        });
+        toast({ title: "Email Step Updated" });
+      } else {
+        await createEmail.mutateAsync({
+          campaignId,
+          title: emailForm.subject,
+          subject: emailForm.subject,
+          body: emailForm.body,
+          dayNumber: emailForm.dayNumber,
+          waitDuration: emailForm.waitDuration,
+          waitUnit: emailForm.waitUnit,
+          sortOrder: sortedEmails.length,
+        });
+        toast({ title: "Email Step Added" });
+      }
+      setShowEmailDialog(false);
+      setEditingEmailId(null);
+    } catch (err: any) {
+      toast({ title: "Save Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleDeleteEmail = async (emailId: string) => {
+    if (!confirm("Delete this email step?")) return;
+    try {
+      await deleteEmail.mutateAsync({ id: emailId, campaignId });
+      toast({ title: "Email Step Deleted" });
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleMoveEmail = async (index: number, direction: "up" | "down") => {
+    const ids = sortedEmails.map((e: any) => e.id);
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= ids.length) return;
+    [ids[index], ids[swapIndex]] = [ids[swapIndex], ids[index]];
+    try {
+      await reorderEmails.mutateAsync({ campaignId, emailIds: ids });
+    } catch (err: any) {
+      toast({ title: "Reorder Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const c = campaign;
+  if (!c) return <p className="text-muted-foreground">Campaign not found.</p>;
+
+  const kpis = [
+    { label: "Delivery Rate", value: `${(c.deliveryRate || 0).toFixed(1)}%`, icon: Send, color: "text-accent" },
+    { label: "Open Rate", value: `${(c.openRate || 0).toFixed(1)}%`, icon: Eye, color: "text-chart-1" },
+    { label: "Click-to-Open", value: `${(c.clickToOpenRate || 0).toFixed(1)}%`, icon: MousePointerClick, color: "text-chart-2" },
+    { label: "Bounce Rate", value: `${c.bounceCount || 0}`, icon: AlertTriangle, color: "text-destructive" },
+  ];
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <Button variant="ghost" size="sm" onClick={onBack} className="mb-2" data-testid="button-back-to-campaigns">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Back to Campaigns
+      </Button>
+
+      <Card className="glass-panel border-border/50 overflow-hidden" data-testid="campaign-detail-header">
+        <div className="h-12 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent" />
+        <CardContent className="-mt-4 relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "h-10 w-10 rounded-sm flex items-center justify-center shrink-0",
+                c.type === "email" ? "bg-chart-1/10 text-chart-1" : "bg-chart-2/10 text-chart-2"
+              )}>
+                {c.type === "email" ? <Mail className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold font-display" data-testid="text-campaign-detail-name">{c.name}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className={cn("text-[10px] font-mono", statusColor(c.status))} data-testid="badge-campaign-detail-status">
+                    {c.status}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px] font-mono bg-card/30 border-border/50 text-muted-foreground">
+                    {c.type}
+                  </Badge>
+                  {c.cadenceType && c.cadenceType !== "single" && (
+                    <Badge variant="outline" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20">
+                      {c.cadenceType}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {c.status === "draft" && (
+                <>
+                  <Button
+                    size="sm" variant="outline"
+                    className="text-xs font-mono border-primary/30 text-primary hover:bg-primary/10"
+                    onClick={() => onSend(c.id)}
+                    data-testid="button-campaign-detail-send"
+                  >
+                    <Send className="h-3 w-3 mr-1" /> Send
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => onDelete(c.id, c.name)}
+                    data-testid="button-campaign-detail-delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-4 gap-4">
+        {kpis.map((kpi) => (
+          <Card key={kpi.label} className="glass-panel border-border/50" data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s+/g, "-")}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <kpi.icon className={cn("h-4 w-4", kpi.color)} />
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{kpi.label}</p>
+              </div>
+              <p className={cn("text-2xl font-bold font-display", kpi.color)}>{kpi.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <BarChart2 className="h-4 w-4 text-primary" /> Email Cadence
+            </h3>
+            <Button size="sm" variant="outline" onClick={openAddDialog} className="text-xs font-mono border-primary/30 text-primary hover:bg-primary/10" data-testid="button-add-email-step">
+              <Plus className="h-3 w-3 mr-1" /> Add Email Step
+            </Button>
+          </div>
+
+          {emailsLoading ? (
+            <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+          ) : sortedEmails.length > 0 ? (
+            <div className="relative">
+              <div className="absolute left-5 top-0 bottom-0 w-px bg-border/50" />
+              <div className="space-y-3">
+                {sortedEmails.map((email: any, index: number) => (
+                  <div key={email.id} className="relative pl-12" data-testid={`email-step-${email.id}`}>
+                    <div className="absolute left-3 top-4 h-5 w-5 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center z-10">
+                      <span className="text-[9px] font-mono font-bold text-primary">{index + 1}</span>
+                    </div>
+                    <Card className="glass-panel border-border/50 hover:border-primary/20 transition-colors group">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditDialog(email)}>
+                            <p className="text-sm font-semibold font-display truncate" data-testid={`text-email-subject-${email.id}`}>
+                              {email.subject || "(No subject)"}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" /> Day {email.dayNumber || 1}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> Wait {email.waitDuration || 0} {email.waitUnit || "days"}
+                              </span>
+                            </div>
+                            {email.body && (
+                              <p className="text-xs text-muted-foreground/70 mt-1 truncate max-w-md">{email.body}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                              onClick={() => handleMoveEmail(index, "up")}
+                              disabled={index === 0}
+                              data-testid={`button-move-up-${email.id}`}
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                              onClick={() => handleMoveEmail(index, "down")}
+                              disabled={index === sortedEmails.length - 1}
+                              data-testid={`button-move-down-${email.id}`}
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                              onClick={() => openEditDialog(email)}
+                              data-testid={`button-edit-email-${email.id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteEmail(email.id)}
+                              data-testid={`button-delete-email-${email.id}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Card className="glass-panel border-border/50">
+              <CardContent className="py-8 text-center">
+                <Mail className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground mb-3">No email steps yet. Build your cadence sequence.</p>
+                <Button size="sm" onClick={openAddDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="button-add-first-email-step">
+                  <Plus className="h-3 w-3 mr-1" /> Add First Step
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" /> Campaign Info
+          </h3>
+          <Card className="glass-panel border-border/50">
+            <CardContent className="p-4 space-y-3">
+              {[
+                { label: "Cadence Type", value: c.cadenceType || "single" },
+                { label: "Audience", value: c.audience || "—" },
+                { label: "Podcast Filter", value: c.podcastFilter || "All" },
+                { label: "Recipients", value: String(c.recipientCount || 0) },
+                { label: "Sent", value: String(c.sentCount || 0) },
+                { label: "Failed", value: String(c.failedCount || 0) },
+                { label: "Open Count", value: String(c.openCount || 0) },
+                { label: "Click Count", value: String(c.clickCount || 0) },
+                { label: "Start Date", value: c.startDate ? new Date(c.startDate).toLocaleDateString() : "—" },
+                { label: "Created", value: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "—" },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between" data-testid={`info-${item.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{item.label}</p>
+                  <p className="text-sm font-semibold">{item.value}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              {editingEmailId ? "Edit Email Step" : "Add Email Step"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Subject *</label>
+              <Input
+                value={emailForm.subject}
+                onChange={(e) => setEmailForm(f => ({ ...f, subject: e.target.value }))}
+                placeholder="Email subject line"
+                data-testid="input-email-step-subject"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Body</label>
+              <Textarea
+                value={emailForm.body}
+                onChange={(e) => setEmailForm(f => ({ ...f, body: e.target.value }))}
+                placeholder="Write your email content..."
+                className="min-h-[120px]"
+                data-testid="input-email-step-body"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Day Number</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={emailForm.dayNumber}
+                  onChange={(e) => setEmailForm(f => ({ ...f, dayNumber: parseInt(e.target.value) || 1 }))}
+                  data-testid="input-email-step-day"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Wait Duration</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={emailForm.waitDuration}
+                  onChange={(e) => setEmailForm(f => ({ ...f, waitDuration: parseInt(e.target.value) || 0 }))}
+                  data-testid="input-email-step-wait"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Wait Unit</label>
+                <Select value={emailForm.waitUnit} onValueChange={(v) => setEmailForm(f => ({ ...f, waitUnit: v }))}>
+                  <SelectTrigger data-testid="select-email-step-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hours">Hours</SelectItem>
+                    <SelectItem value="days">Days</SelectItem>
+                    <SelectItem value="weeks">Weeks</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={handleSaveEmail}
+                disabled={createEmail.isPending || updateEmail.isPending}
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                data-testid="button-save-email-step"
+              >
+                {(createEmail.isPending || updateEmail.isPending) ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                ) : (
+                  <><Save className="h-4 w-4 mr-2" /> {editingEmailId ? "Update Step" : "Add Step"}</>
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => setShowEmailDialog(false)} data-testid="button-cancel-email-step">
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function SubscriberCRM() {
   const [activeTab, setActiveTab] = useState<"subscribers" | "campaigns">("subscribers");
   const [filterPodcast, setFilterPodcast] = useState<string | undefined>(undefined);
@@ -676,6 +1076,7 @@ export default function SubscriberCRM() {
   const [showFilters, setShowFilters] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedSubscriberId, setSelectedSubscriberId] = useState<string | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [showCampaignDialog, setShowCampaignDialog] = useState(false);
   const [showSaveListDialog, setShowSaveListDialog] = useState(false);
   const [showListsPanel, setShowListsPanel] = useState(false);
@@ -1260,12 +1661,21 @@ export default function SubscriberCRM() {
 
       {activeTab === "campaigns" && (
         <>
-          {campaignsLoading ? (
+          {selectedCampaignId ? (
+            <CampaignDetail
+              campaignId={selectedCampaignId}
+              campaign={(campaignsList || []).find((c: any) => c.id === selectedCampaignId)}
+              onBack={() => setSelectedCampaignId(null)}
+              onSend={handleSendCampaign}
+              onDelete={(id, name) => { handleDeleteCampaign(id, name); setSelectedCampaignId(null); }}
+              statusColor={statusColor}
+            />
+          ) : campaignsLoading ? (
             <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
           ) : (campaignsList || []).length > 0 ? (
             <div className="space-y-3">
               {(campaignsList || []).map((c: any) => (
-                <Card key={c.id} className="glass-panel border-border/50 hover:border-primary/20 transition-colors" data-testid={`campaign-card-${c.id}`}>
+                <Card key={c.id} className="glass-panel border-border/50 hover:border-primary/20 transition-colors cursor-pointer" onClick={() => setSelectedCampaignId(c.id)} data-testid={`campaign-card-${c.id}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       <div className={cn(
@@ -1315,7 +1725,7 @@ export default function SubscriberCRM() {
                               size="sm"
                               variant="outline"
                               className="text-xs font-mono border-primary/30 text-primary hover:bg-primary/10"
-                              onClick={() => handleSendCampaign(c.id)}
+                              onClick={(e) => { e.stopPropagation(); handleSendCampaign(c.id); }}
                               disabled={sendCampaign.isPending}
                               data-testid={`button-send-campaign-${c.id}`}
                             >
@@ -1325,13 +1735,14 @@ export default function SubscriberCRM() {
                               size="sm"
                               variant="ghost"
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                              onClick={() => handleDeleteCampaign(c.id, c.name)}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCampaign(c.id, c.name); }}
                               data-testid={`button-delete-campaign-${c.id}`}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </>
                         )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40" />
                       </div>
                     </div>
                   </CardContent>
