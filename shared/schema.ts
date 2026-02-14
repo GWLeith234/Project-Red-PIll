@@ -186,6 +186,7 @@ export const branding = pgTable("branding", {
 
 export const platformSettings = pgTable("platform_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyLocation: text("company_location"),
   timezone: text("timezone").default("America/New_York"),
   dateFormat: text("date_format").default("MM/DD/YYYY"),
   defaultLanguage: text("default_language").default("en"),
