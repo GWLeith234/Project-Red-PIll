@@ -2278,17 +2278,24 @@ export async function registerRoutes(
   });
 
   // ── Public Podcasts (no auth - for audience navigation) ──
-  app.get("/api/public/podcasts", async (_req, res) => {
+  app.get("/api/public/podcasts", async (req, res) => {
+    const category = req.query.category as string | undefined;
     const all = await storage.getPodcasts();
-    const active = all.filter(p => p.status === "active").map(p => ({
+    let active = all.filter(p => p.status === "active");
+    if (category && category !== "All") {
+      active = active.filter(p => p.category === category);
+    }
+    const mapped = active.map(p => ({
       id: p.id,
       title: p.title,
       host: p.host,
       description: p.description,
       coverImage: p.coverImage,
-      subscribers: p.subscribers,
-    }));
-    res.json(active);
+      category: p.category,
+      subscribers: p.subscribers || 0,
+      growthPercent: p.growthPercent || 0,
+    })).sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0));
+    res.json(mapped);
   });
 
   // ── Outbound Campaigns (auth-gated) ──

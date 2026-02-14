@@ -19,17 +19,17 @@ export default function Network() {
   const createPodcast = useCreatePodcast();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", host: "", description: "", coverImage: "" });
+  const [form, setForm] = useState({ title: "", host: "", description: "", coverImage: "", category: "Talk" });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     createPodcast.mutate(
-      { title: form.title, host: form.host, description: form.description || undefined, coverImage: form.coverImage || undefined },
+      { title: form.title, host: form.host, description: form.description || undefined, coverImage: form.coverImage || undefined, category: form.category || "Talk" },
       {
         onSuccess: () => {
           toast({ title: "Show Added", description: `${form.title} has been onboarded to the network.` });
           setOpen(false);
-          setForm({ title: "", host: "", description: "", coverImage: "" });
+          setForm({ title: "", host: "", description: "", coverImage: "", category: "Talk" });
         },
         onError: (err: any) => {
           toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -77,6 +77,20 @@ export default function Network() {
             <div className="space-y-2">
               <Label htmlFor="coverImage" className="font-mono text-xs uppercase tracking-wider">Cover Image URL</Label>
               <Input id="coverImage" placeholder="https://..." value={form.coverImage} onChange={(e) => setForm({ ...form, coverImage: e.target.value })} data-testid="input-podcast-cover" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category" className="font-mono text-xs uppercase tracking-wider">Category</Label>
+              <select
+                id="category"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                data-testid="select-podcast-category"
+              >
+                {["Talk", "News", "Comedy", "Tech", "Business", "Sports", "Culture", "True Crime", "Health"].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)} className="font-mono text-xs" data-testid="button-cancel-podcast">Cancel</Button>

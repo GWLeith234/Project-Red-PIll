@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, Users, TrendingUp, Headphones, Search, Star, Play, Crown } from "lucide-react";
-import { useState } from "react";
+import { Mic, Users, TrendingUp, Headphones, Search, Star, Play, Crown, ArrowUpRight, ArrowDownRight, Flame, BarChart3 } from "lucide-react";
+import { useState, useMemo } from "react";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function formatSubscribers(count: number | null) {
@@ -18,9 +18,11 @@ export default function PodcastDirectory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const { data: podcasts, isLoading } = useQuery({
-    queryKey: ["/api/public/podcasts"],
+    queryKey: ["/api/public/podcasts", activeCategory],
     queryFn: async () => {
-      const res = await fetch("/api/public/podcasts");
+      const params = new URLSearchParams();
+      if (activeCategory !== "All") params.set("category", activeCategory);
+      const res = await fetch(`/api/public/podcasts?${params.toString()}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -31,6 +33,21 @@ export default function PodcastDirectory() {
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.host?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
+
+  const trending = useMemo(() => {
+    if (!podcasts?.length) return [];
+    return [...podcasts]
+      .filter((p: any) => (p.growthPercent || 0) > 0)
+      .sort((a: any, b: any) => (b.growthPercent || 0) - (a.growthPercent || 0))
+      .slice(0, 5);
+  }, [podcasts]);
+
+  const networkStats = useMemo(() => {
+    if (!podcasts?.length) return null;
+    const totalSubs = podcasts.reduce((s: number, p: any) => s + (p.subscribers || 0), 0);
+    const avgGrowth = podcasts.reduce((s: number, p: any) => s + (p.growthPercent || 0), 0) / podcasts.length;
+    return { totalShows: podcasts.length, totalSubs, avgGrowth };
+  }, [podcasts]);
 
   return (
     <div className="bg-gray-50 min-h-screen" data-testid="podcast-directory">
@@ -195,6 +212,70 @@ export default function PodcastDirectory() {
               </div>
             )}
 
+            {(trending.length > 0 || networkStats) && !searchQuery && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-10">
+                {networkStats && (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6" data-testid="network-stats-widget">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center">
+                        <BarChart3 className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Network Stats</h3>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center">
+                        <p className="text-2xl font-extrabold text-gray-900">{networkStats.totalShows}</p>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mt-0.5">Shows</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-extrabold text-gray-900">{formatSubscribers(networkStats.totalSubs)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mt-0.5">Subscribers</p>
+                      </div>
+                      <div className="text-center">
+                        <p className={`text-2xl font-extrabold ${networkStats.avgGrowth >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          {networkStats.avgGrowth >= 0 ? "+" : ""}{networkStats.avgGrowth.toFixed(1)}%
+                        </p>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mt-0.5">Avg Growth</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {trending.length > 0 && (
+                  <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6" data-testid="trending-shows-widget">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                        <Flame className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Trending Now</h3>
+                    </div>
+                    <div className="space-y-2.5">
+                      {trending.map((p: any, idx: number) => (
+                        <Link key={p.id} href={`/show/${p.id}`} className="flex items-center gap-3 group hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors" data-testid={`trending-show-${p.id}`}>
+                          <span className="text-lg font-black text-gray-200 w-6 text-right tabular-nums">{idx + 1}</span>
+                          {p.coverImage ? (
+                            <img src={p.coverImage} alt="" className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-200 flex-shrink-0" />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                              <Mic className="h-4 w-4 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-red-600 transition-colors">{p.title}</p>
+                            <p className="text-xs text-gray-500 truncate">{p.host} · {formatSubscribers(p.subscribers)} subs</p>
+                          </div>
+                          <div className={`flex items-center gap-0.5 text-xs font-bold px-2 py-1 rounded-full ${p.growthPercent >= 0 ? "text-emerald-700 bg-emerald-50" : "text-red-700 bg-red-50"}`}>
+                            {p.growthPercent >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                            {Math.abs(p.growthPercent).toFixed(1)}%
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-center my-8">
               <AdPlaceholder width={728} height={90} label="Mid-Content Leaderboard" className="hidden md:flex" />
               <AdPlaceholder width={320} height={100} label="Mid-Content Mobile" className="md:hidden" />
@@ -238,11 +319,22 @@ export default function PodcastDirectory() {
                         {podcast.title}
                       </h3>
                       <p className="text-gray-500 text-xs mt-0.5 truncate max-w-full">with {podcast.host}</p>
-                      {podcast.subscribers && (
-                        <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {formatSubscribers(podcast.subscribers)}
-                        </p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap justify-center">
+                        {podcast.subscribers > 0 && (
+                          <span className="text-gray-400 text-xs flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {formatSubscribers(podcast.subscribers)}
+                          </span>
+                        )}
+                        {podcast.growthPercent !== 0 && (
+                          <span className={`text-[10px] font-bold flex items-center gap-0.5 ${podcast.growthPercent > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                            {podcast.growthPercent > 0 ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                            {Math.abs(podcast.growthPercent).toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                      {podcast.category && (
+                        <span className="mt-1 inline-block px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-medium rounded-full">{podcast.category}</span>
                       )}
                     </div>
                   </Link>

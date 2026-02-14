@@ -75,6 +75,7 @@ export const podcasts = pgTable("podcasts", {
   host: text("host").notNull(),
   description: text("description"),
   coverImage: text("cover_image"),
+  category: text("category").default("Talk"),
   subscribers: integer("subscribers").default(0),
   growthPercent: real("growth_percent").default(0),
   multiplicationFactor: integer("multiplication_factor").default(50),
