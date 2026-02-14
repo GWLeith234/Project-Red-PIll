@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,63 @@ export default function ContentFactory() {
           <NewsletterTab />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function TranscriptProgressBar({ status }: { status: string }) {
+  const [progress, setProgress] = useState(status === "processing" ? 25 : 0);
+  const [elapsed, setElapsed] = useState(0);
+  const estimatedSeconds = status === "processing" ? 120 : 180;
+
+  useEffect(() => {
+    setProgress(status === "processing" ? 25 : 0);
+    setElapsed(0);
+  }, [status]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(prev => {
+        const next = prev + 1;
+        if (status === "processing") {
+          const target = Math.min(92, 25 + (next / estimatedSeconds) * 67);
+          setProgress(target);
+        } else {
+          const target = Math.min(20, (next / estimatedSeconds) * 20);
+          setProgress(target);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [status, estimatedSeconds]);
+
+  const remaining = Math.max(0, estimatedSeconds - elapsed);
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
+  return (
+    <div className="flex-1 min-w-[200px]" data-testid="transcript-progress-bar">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+          {status === "processing" ? "Transcribing..." : "Queued for transcription"}
+        </span>
+        <span className="text-[10px] font-mono text-primary tabular-nums">
+          ~{minutes}:{seconds.toString().padStart(2, "0")} remaining
+        </span>
+      </div>
+      <div className="h-2 w-full bg-muted/50 rounded-full overflow-hidden border border-border/30">
+        <div
+          className="h-full rounded-full transition-all duration-1000 ease-linear relative"
+          style={{
+            width: `${progress}%`,
+            background: "linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%)",
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -473,14 +530,18 @@ function PipelineTab() {
                   <Badge variant="outline" className="font-mono text-xs capitalize">
                     {selectedEpisode.episodeType || "audio"}
                   </Badge>
-                  <Badge variant="outline" className={cn(
-                    "font-mono text-xs",
-                    selectedEpisode.transcriptStatus === "ready" ? "border-emerald-500/50 text-emerald-500" :
-                    selectedEpisode.transcriptStatus === "processing" ? "border-primary/50 text-primary" :
-                    "border-muted text-muted-foreground"
-                  )}>
-                    Transcript: {selectedEpisode.transcriptStatus || "pending"}
-                  </Badge>
+                  {(selectedEpisode.transcriptStatus === "pending" || selectedEpisode.transcriptStatus === "processing") ? (
+                    <TranscriptProgressBar status={selectedEpisode.transcriptStatus} />
+                  ) : (
+                    <Badge variant="outline" className={cn(
+                      "font-mono text-xs",
+                      selectedEpisode.transcriptStatus === "ready" ? "border-emerald-500/50 text-emerald-500" :
+                      selectedEpisode.transcriptStatus === "failed" ? "border-destructive/50 text-destructive" :
+                      "border-muted text-muted-foreground"
+                    )}>
+                      Transcript: {selectedEpisode.transcriptStatus || "pending"}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="space-y-2 pt-2">
