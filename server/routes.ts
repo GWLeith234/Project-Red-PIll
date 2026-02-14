@@ -7,7 +7,7 @@ import {
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema,
-  insertOutboundCampaignSchema, insertHeroSlideSchema,
+  insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -1201,6 +1201,275 @@ export async function registerRoutes(
   app.get("/api/public/hero-slides", async (_req, res) => {
     const slides = await storage.getActiveHeroSlides();
     res.json(slides);
+  });
+
+  // ── News Layout Sections ──
+  app.get("/api/news-layout-sections", requirePermission("customize.view"), async (_req, res) => {
+    const sections = await storage.getNewsLayoutSections();
+    res.json(sections);
+  });
+
+  app.post("/api/news-layout-sections", requirePermission("customize.edit"), async (req, res) => {
+    const parsed = insertNewsLayoutSectionSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const section = await storage.createNewsLayoutSection(parsed.data);
+    res.json(section);
+  });
+
+  app.patch("/api/news-layout-sections/:id", requirePermission("customize.edit"), async (req, res) => {
+    const section = await storage.updateNewsLayoutSection(req.params.id, req.body);
+    if (!section) return res.status(404).json({ message: "Section not found" });
+    res.json(section);
+  });
+
+  app.delete("/api/news-layout-sections/:id", requirePermission("customize.edit"), async (req, res) => {
+    await storage.deleteNewsLayoutSection(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.get("/api/public/news-layout", async (_req, res) => {
+    const sections = await storage.getActiveNewsLayoutSections();
+    res.json(sections);
+  });
+
+  app.get("/api/public/news-feed", async (_req, res) => {
+    try {
+      const sections = await storage.getActiveNewsLayoutSections();
+      const allPodcasts = await storage.getPodcasts();
+      const allContent = await storage.getContentPieces();
+      const publishedArticles = allContent
+        .filter((c) => (c.type === "article" || c.type === "blog") && c.status === "ready")
+        .sort((a, b) => {
+          const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+          const db2 = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+          return db2 - da;
+        });
+
+      const allEpisodes = await storage.getEpisodes();
+      const publishedEpisodes = allEpisodes
+        .filter((e) => e.publishedAt)
+        .sort((a, b) => new Date(b.publishedAt!).getTime() - new Date(a.publishedAt!).getTime());
+
+      const podcastMap = new Map(allPodcasts.map((p) => [p.id, p]));
+
+      const resolvedSections = sections.map((section) => {
+        let items: any[] = [];
+        const filters = (section.contentFilters || {}) as Record<string, any>;
+        const max = section.maxItems || 6;
+
+        if (section.contentRule === "editors_pick" && section.pinnedArticleIds?.length) {
+          items = section.pinnedArticleIds
+            .map((id) => publishedArticles.find((a) => a.id === id))
+            .filter(Boolean)
+            .slice(0, max);
+        } else if (section.contentRule === "latest") {
+          let pool = [...publishedArticles];
+          if (filters.podcastId) {
+            const epIds = allEpisodes.filter((e) => e.podcastId === filters.podcastId).map((e) => e.id);
+            pool = pool.filter((a) => a.episodeId && epIds.includes(a.episodeId));
+          }
+          if (filters.contentType) {
+            pool = pool.filter((a) => a.type === filters.contentType);
+          }
+          items = pool.slice(0, max);
+        } else if (section.contentRule === "trending") {
+          items = [...publishedArticles]
+            .sort((a, b) => (b.body?.length || 0) - (a.body?.length || 0))
+            .slice(0, max);
+        } else if (section.contentRule === "by_podcast") {
+          if (filters.podcastId) {
+            const epIds = allEpisodes.filter((e) => e.podcastId === filters.podcastId).map((e) => e.id);
+            items = publishedArticles.filter((a) => a.episodeId && epIds.includes(a.episodeId)).slice(0, max);
+          }
+        } else if (section.contentRule === "video") {
+          const videoEps = publishedEpisodes.filter((e) => e.episodeType === "video" || e.episodeType === "both");
+          items = videoEps.slice(0, max).map((ep) => ({
+            ...ep,
+            isEpisode: true,
+            podcastTitle: podcastMap.get(ep.podcastId)?.title,
+            podcastCoverImage: podcastMap.get(ep.podcastId)?.coverImage,
+          }));
+        } else {
+          items = publishedArticles.slice(0, max);
+        }
+
+        const enrichedItems = items.map((item) => {
+          if ((item as any).isEpisode) return item;
+          const episode = item.episodeId ? allEpisodes.find((e) => e.id === item.episodeId) : null;
+          const podcast = episode?.podcastId ? podcastMap.get(episode.podcastId) : null;
+          return {
+            ...item,
+            podcastId: podcast?.id,
+            podcastTitle: podcast?.title,
+            podcastCoverImage: podcast?.coverImage,
+          };
+        });
+
+        return {
+          ...section,
+          items: enrichedItems,
+        };
+      });
+
+      const defaultSections = resolvedSections.length > 0 ? resolvedSections : [
+        {
+          id: "default-featured",
+          name: "Featured Stories",
+          sectionType: "hero",
+          contentRule: "latest",
+          displayOrder: 0,
+          maxItems: 1,
+          active: true,
+          showImages: true,
+          layout: "full_width",
+          items: publishedArticles.slice(0, 1).map((a) => {
+            const ep = a.episodeId ? allEpisodes.find((e) => e.id === a.episodeId) : null;
+            const p = ep?.podcastId ? podcastMap.get(ep.podcastId) : null;
+            return { ...a, podcastId: p?.id, podcastTitle: p?.title, podcastCoverImage: p?.coverImage };
+          }),
+        },
+        {
+          id: "default-latest",
+          name: "Latest Stories",
+          sectionType: "grid",
+          contentRule: "latest",
+          displayOrder: 1,
+          maxItems: 6,
+          active: true,
+          showImages: true,
+          layout: "with_sidebar",
+          items: publishedArticles.slice(1, 7).map((a) => {
+            const ep = a.episodeId ? allEpisodes.find((e) => e.id === a.episodeId) : null;
+            const p = ep?.podcastId ? podcastMap.get(ep.podcastId) : null;
+            return { ...a, podcastId: p?.id, podcastTitle: p?.title, podcastCoverImage: p?.coverImage };
+          }),
+        },
+        {
+          id: "default-trending",
+          name: "Trending",
+          sectionType: "list",
+          contentRule: "trending",
+          displayOrder: 2,
+          maxItems: 5,
+          active: true,
+          showImages: false,
+          layout: "full_width",
+          items: publishedArticles.slice(0, 5).map((a) => {
+            const ep = a.episodeId ? allEpisodes.find((e) => e.id === a.episodeId) : null;
+            const p = ep?.podcastId ? podcastMap.get(ep.podcastId) : null;
+            return { ...a, podcastId: p?.id, podcastTitle: p?.title, podcastCoverImage: p?.coverImage };
+          }),
+        },
+      ];
+
+      res.json({
+        sections: defaultSections,
+        podcasts: allPodcasts.map((p) => ({ id: p.id, title: p.title, coverImage: p.coverImage })),
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/news-layout-sections/smart-suggest", requirePermission("customize.edit"), async (_req, res) => {
+    try {
+      const allPodcasts = await storage.getPodcasts();
+      const allContent = await storage.getContentPieces();
+      const allEpisodes = await storage.getEpisodes();
+
+      const publishedArticles = allContent.filter((c) => (c.type === "article" || c.type === "blog") && c.status === "ready");
+      const videoEpisodes = allEpisodes.filter((e) => (e.episodeType === "video" || e.episodeType === "both") && e.publishedAt);
+
+      const suggestions: any[] = [];
+      let order = 0;
+
+      suggestions.push({
+        name: "Featured Story",
+        sectionType: "hero",
+        contentRule: "latest",
+        contentFilters: {},
+        displayOrder: order++,
+        maxItems: 1,
+        active: true,
+        showImages: true,
+        layout: "full_width",
+      });
+
+      suggestions.push({
+        name: "Latest Stories",
+        sectionType: "grid",
+        contentRule: "latest",
+        contentFilters: {},
+        displayOrder: order++,
+        maxItems: 6,
+        active: true,
+        showImages: true,
+        layout: "with_sidebar",
+      });
+
+      if (publishedArticles.length > 8) {
+        suggestions.push({
+          name: "Trending Now",
+          sectionType: "numbered_list",
+          contentRule: "trending",
+          contentFilters: {},
+          displayOrder: order++,
+          maxItems: 5,
+          active: true,
+          showImages: false,
+          layout: "full_width",
+        });
+      }
+
+      if (videoEpisodes.length > 0) {
+        suggestions.push({
+          name: "Video Spotlight",
+          sectionType: "carousel",
+          contentRule: "video",
+          contentFilters: {},
+          displayOrder: order++,
+          maxItems: 4,
+          active: true,
+          showImages: true,
+          layout: "full_width",
+        });
+      }
+
+      for (const podcast of allPodcasts.slice(0, 3)) {
+        const epIds = allEpisodes.filter((e) => e.podcastId === podcast.id).map((e) => e.id);
+        const podcastArticles = publishedArticles.filter((a) => a.episodeId && epIds.includes(a.episodeId));
+        if (podcastArticles.length >= 2) {
+          suggestions.push({
+            name: podcast.title,
+            sectionType: "list",
+            contentRule: "by_podcast",
+            contentFilters: { podcastId: podcast.id },
+            displayOrder: order++,
+            maxItems: 4,
+            active: true,
+            showImages: true,
+            layout: "with_sidebar",
+          });
+        }
+      }
+
+      suggestions.push({
+        name: "Editor's Picks",
+        sectionType: "grid",
+        contentRule: "editors_pick",
+        contentFilters: {},
+        pinnedArticleIds: publishedArticles.slice(0, 3).map((a) => a.id),
+        displayOrder: order++,
+        maxItems: 3,
+        active: true,
+        showImages: true,
+        layout: "full_width",
+      });
+
+      res.json({ suggestions });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   // ── Platform Settings ──

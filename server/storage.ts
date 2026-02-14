@@ -5,7 +5,7 @@ import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns, heroSlides,
-  socialAccounts, scheduledPosts, clipAssets, newsletterRuns, crmLists,
+  socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -29,6 +29,7 @@ import {
   type ScheduledPost, type InsertScheduledPost,
   type ClipAsset, type InsertClipAsset,
   type NewsletterRun, type InsertNewsletterRun,
+  type NewsLayoutSection, type InsertNewsLayoutSection,
   type CrmList, type InsertCrmList,
 } from "@shared/schema";
 
@@ -168,6 +169,13 @@ export interface IStorage {
   createNewsletterRun(run: InsertNewsletterRun): Promise<NewsletterRun>;
   updateNewsletterRun(id: string, data: Partial<InsertNewsletterRun>): Promise<NewsletterRun | undefined>;
   deleteNewsletterRun(id: string): Promise<void>;
+
+  getNewsLayoutSections(): Promise<NewsLayoutSection[]>;
+  getActiveNewsLayoutSections(): Promise<NewsLayoutSection[]>;
+  getNewsLayoutSection(id: string): Promise<NewsLayoutSection | undefined>;
+  createNewsLayoutSection(section: InsertNewsLayoutSection): Promise<NewsLayoutSection>;
+  updateNewsLayoutSection(id: string, data: Partial<InsertNewsLayoutSection>): Promise<NewsLayoutSection | undefined>;
+  deleteNewsLayoutSection(id: string): Promise<void>;
 
   getCrmLists(crmType?: string): Promise<CrmList[]>;
   getCrmList(id: string): Promise<CrmList | undefined>;
@@ -680,6 +688,28 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteNewsletterRun(id: string) {
     await db.delete(newsletterRuns).where(eq(newsletterRuns.id, id));
+  }
+
+  async getNewsLayoutSections() {
+    return db.select().from(newsLayoutSections).orderBy(newsLayoutSections.displayOrder);
+  }
+  async getActiveNewsLayoutSections() {
+    return db.select().from(newsLayoutSections).where(eq(newsLayoutSections.active, true)).orderBy(newsLayoutSections.displayOrder);
+  }
+  async getNewsLayoutSection(id: string) {
+    const [section] = await db.select().from(newsLayoutSections).where(eq(newsLayoutSections.id, id));
+    return section;
+  }
+  async createNewsLayoutSection(section: InsertNewsLayoutSection) {
+    const [created] = await db.insert(newsLayoutSections).values(section).returning();
+    return created;
+  }
+  async updateNewsLayoutSection(id: string, data: Partial<InsertNewsLayoutSection>) {
+    const [updated] = await db.update(newsLayoutSections).set(data).where(eq(newsLayoutSections.id, id)).returning();
+    return updated;
+  }
+  async deleteNewsLayoutSection(id: string) {
+    await db.delete(newsLayoutSections).where(eq(newsLayoutSections.id, id));
   }
 
   async getCrmLists(crmType?: string) {

@@ -441,6 +441,21 @@ export const heroSlides = pgTable("hero_slides", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const newsLayoutSections = pgTable("news_layout_sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  sectionType: text("section_type").notNull().default("list"),
+  contentRule: text("content_rule").notNull().default("latest"),
+  contentFilters: jsonb("content_filters").default({}),
+  pinnedArticleIds: text("pinned_article_ids").array().default(sql`ARRAY[]::text[]`),
+  displayOrder: integer("display_order").default(0).notNull(),
+  maxItems: integer("max_items").default(6),
+  active: boolean("active").default(true).notNull(),
+  showImages: boolean("show_images").default(true),
+  layout: text("layout").default("full_width"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const crmLists = pgTable("crm_lists", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -453,6 +468,7 @@ export const crmLists = pgTable("crm_lists", {
 });
 
 // Insert schemas
+export const insertNewsLayoutSectionSchema = createInsertSchema(newsLayoutSections).omit({ id: true, createdAt: true });
 export const insertCrmListSchema = createInsertSchema(crmLists).omit({ id: true, createdAt: true });
 export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true });
 export const insertScheduledPostSchema = createInsertSchema(scheduledPosts).omit({ id: true, createdAt: true });
@@ -526,6 +542,8 @@ export type InsertClipAsset = z.infer<typeof insertClipAssetSchema>;
 export type ClipAsset = typeof clipAssets.$inferSelect;
 export type InsertNewsletterRun = z.infer<typeof insertNewsletterRunSchema>;
 export type NewsletterRun = typeof newsletterRuns.$inferSelect;
+export type InsertNewsLayoutSection = z.infer<typeof insertNewsLayoutSectionSchema>;
+export type NewsLayoutSection = typeof newsLayoutSections.$inferSelect;
 export type InsertCrmList = z.infer<typeof insertCrmListSchema>;
 export type CrmList = typeof crmLists.$inferSelect;
 
