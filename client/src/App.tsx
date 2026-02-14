@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { NpsFeedbackWidget } from "@/components/NpsFeedbackWidget";
 import Login from "@/pages/Login";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
@@ -59,6 +60,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
             {children}
           </div>
         </main>
+        <NpsFeedbackWidget />
       </div>
     </MobileSidebarProvider>
   );

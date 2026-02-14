@@ -6,7 +6,7 @@ import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, dealLineItems, products, adCreatives, outboundCampaigns, campaignEmails, heroSlides,
   socialAccounts, scheduledPosts, clipAssets, newsletterSchedules, newsletterRuns, newsLayoutSections, crmLists, auditLogs, apiKeys,
-  tasks, taskComments, taskActivityLogs,
+  tasks, taskComments, taskActivityLogs, npsSurveys,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -42,6 +42,7 @@ import {
   type Task, type InsertTask,
   type TaskComment, type InsertTaskComment,
   type TaskActivityLog, type InsertTaskActivityLog,
+  type NpsSurvey, type InsertNpsSurvey,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -252,6 +253,10 @@ export interface IStorage {
   deleteTaskComment(id: string): Promise<void>;
   getTaskActivityLogs(taskId: string): Promise<TaskActivityLog[]>;
   createTaskActivityLog(log: InsertTaskActivityLog): Promise<TaskActivityLog>;
+
+  getNpsSurveys(): Promise<NpsSurvey[]>;
+  createNpsSurvey(survey: InsertNpsSurvey): Promise<NpsSurvey>;
+  getNpsSurveysByUser(userId: string): Promise<NpsSurvey[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1029,6 +1034,17 @@ export class DatabaseStorage implements IStorage {
   async createTaskActivityLog(log: InsertTaskActivityLog) {
     const [created] = await db.insert(taskActivityLogs).values(log).returning();
     return created;
+  }
+
+  async getNpsSurveys() {
+    return db.select().from(npsSurveys).orderBy(desc(npsSurveys.createdAt));
+  }
+  async createNpsSurvey(survey: InsertNpsSurvey) {
+    const [created] = await db.insert(npsSurveys).values(survey).returning();
+    return created;
+  }
+  async getNpsSurveysByUser(userId: string) {
+    return db.select().from(npsSurveys).where(eq(npsSurveys.userId, userId)).orderBy(desc(npsSurveys.createdAt));
   }
 }
 

@@ -820,6 +820,25 @@ export function useAdminDashboardStats() {
   return useQuery({ queryKey: ["/api/admin/dashboard-stats"], queryFn: () => apiRequest("/api/admin/dashboard-stats") });
 }
 
+export function useNpsAnalytics() {
+  return useQuery({ queryKey: ["/api/nps/analytics"], queryFn: () => apiRequest("/api/nps/analytics") });
+}
+
+export function useMyNpsSurveys() {
+  return useQuery({ queryKey: ["/api/nps/mine"], queryFn: () => apiRequest("/api/nps/mine") });
+}
+
+export function useSubmitNps() {
+  return useMutation({
+    mutationFn: (data: { score: number; feedback?: string; category?: string }) =>
+      apiRequest("/api/nps", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nps/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/nps/mine"] });
+    },
+  });
+}
+
 export function downloadCsvExport(entity: string, params: Record<string, string> = {}) {
   const query = new URLSearchParams(params).toString();
   const url = `/api/export/${entity}${query ? `?${query}` : ""}`;

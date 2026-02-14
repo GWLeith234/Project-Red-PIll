@@ -11,8 +11,9 @@ import {
   TrendingUp, Users, Globe, Clock, ArrowUpRight, ArrowDownRight,
   Smartphone, Monitor, Tablet, FileText, Radio, Layers,
   Activity, Target, Zap, Factory, DollarSign, Briefcase, Headphones, Shield,
+  MessageSquareHeart, ThumbsUp, ThumbsDown, Minus,
 } from "lucide-react";
-import { useEmailCampaignAnalytics, useWebsiteAnalytics } from "@/lib/api";
+import { useEmailCampaignAnalytics, useWebsiteAnalytics, useNpsAnalytics } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useSearch, useLocation } from "wouter";
 
@@ -483,6 +484,7 @@ const SECTION_TABS = [
   { key: "revenue", label: "Revenue Factory", icon: DollarSign },
   { key: "crm", label: "CRM", icon: Briefcase },
   { key: "audience", label: "Audience", icon: Headphones },
+  { key: "nps", label: "NPS", icon: MessageSquareHeart },
   { key: "admin", label: "Admin", icon: Shield },
 ] as const;
 
@@ -505,6 +507,9 @@ const SECTION_SUBTABS: Record<SectionKey, { key: string; label: string; icon: an
     { key: "website", label: "Website & App", icon: Globe },
     { key: "email", label: "Email Campaigns", icon: Mail },
   ],
+  nps: [
+    { key: "nps_overview", label: "NPS Overview", icon: MessageSquareHeart },
+  ],
   admin: [
     { key: "website", label: "Website & App", icon: Globe },
     { key: "email", label: "Email Campaigns", icon: Mail },
@@ -516,6 +521,7 @@ const SECTION_DESCRIPTIONS: Record<SectionKey, string> = {
   revenue: "Revenue performance, ad delivery, and monetization analytics",
   crm: "Campaign delivery, subscriber engagement, and conversion rates",
   audience: "Listener growth, website traffic, and audience demographics",
+  nps: "Net Promoter Score tracking, user satisfaction, and feedback analysis",
   admin: "Platform usage, system health, and operational metrics",
 };
 
@@ -595,6 +601,178 @@ export default function Analytics() {
 
       {activeSubTab === "email" && <EmailCampaignSection />}
       {activeSubTab === "website" && <WebsiteAnalyticsSection />}
+      {activeSubTab === "nps_overview" && <NpsAnalyticsSection />}
+    </div>
+  );
+}
+
+function NpsAnalyticsSection() {
+  const { data, isLoading } = useNpsAnalytics();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-28" />)}
+        </div>
+        <Skeleton className="h-80" />
+      </div>
+    );
+  }
+
+  if (!data || data.total === 0) {
+    return (
+      <div className="space-y-6" data-testid="section-nps-analytics">
+        <SectionHeader icon={MessageSquareHeart} title="NPS Analytics" description="Net Promoter Score tracking and user satisfaction metrics" />
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-8 text-center">
+            <MessageSquareHeart className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-sm text-muted-foreground">No NPS responses yet. Users can submit feedback via the feedback button in the bottom-right corner.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const npsColor = data.npsScore >= 50 ? "text-emerald-400" : data.npsScore >= 0 ? "text-amber-400" : "text-red-400";
+  const npsLabel = data.npsScore >= 70 ? "Excellent" : data.npsScore >= 50 ? "Great" : data.npsScore >= 0 ? "Good" : "Needs Improvement";
+
+  const pieData = [
+    { name: "Promoters", value: data.promoters, color: "hsl(142, 71%, 45%)" },
+    { name: "Passives", value: data.passives, color: "hsl(45, 93%, 47%)" },
+    { name: "Detractors", value: data.detractors, color: "hsl(0, 84%, 60%)" },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="section-nps-analytics">
+      <SectionHeader icon={MessageSquareHeart} title="NPS Analytics" description="Net Promoter Score tracking and user satisfaction metrics" />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={Target} label="NPS Score" value={`${data.npsScore > 0 ? "+" : ""}${data.npsScore}`} subValue={npsLabel} color="border-primary/30 bg-primary/5 text-primary" testId="kpi-nps-score" />
+        <KpiCard icon={Users} label="Total Responses" value={String(data.total)} subValue={`Avg: ${data.avgScore}/10`} color="border-blue-500/30 bg-blue-500/5 text-blue-400" testId="kpi-nps-total" />
+        <KpiCard icon={ThumbsUp} label="Promoters (9-10)" value={`${data.promoterPct}%`} subValue={`${data.promoters} responses`} color="border-emerald-500/30 bg-emerald-500/5 text-emerald-400" testId="kpi-nps-promoters" />
+        <KpiCard icon={ThumbsDown} label="Detractors (0-6)" value={`${data.detractorPct}%`} subValue={`${data.detractors} responses`} color="border-red-500/30 bg-red-500/5 text-red-400" testId="kpi-nps-detractors" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Response Distribution</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={3}>
+                    {pieData.map((d, i) => (
+                      <Cell key={i} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "4px", fontSize: "12px" }} />
+                  <Legend formatter={(v: string) => <span className="text-xs font-mono text-muted-foreground">{v}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-center mt-2">
+              <span className={cn("text-3xl font-display font-bold", npsColor)} data-testid="text-nps-big-score">{data.npsScore > 0 ? "+" : ""}{data.npsScore}</span>
+              <p className="text-xs text-muted-foreground font-mono mt-1">Net Promoter Score</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Score Distribution (0-10)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.scoreDistribution || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="score" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "4px", fontSize: "12px" }} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {(data.scoreDistribution || []).map((entry: any, i: number) => (
+                      <Cell key={i} fill={entry.score <= 6 ? "hsl(0, 84%, 60%)" : entry.score <= 8 ? "hsl(45, 93%, 47%)" : "hsl(142, 71%, 45%)"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {data.trend && data.trend.length > 0 && (
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">NPS Trend (Monthly)</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data.trend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" tick={{ fontSize: 11 }} domain={[-100, 100]} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "4px", fontSize: "12px" }} />
+                  <Area type="monotone" dataKey="nps" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.1} strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {data.byCategory && Object.keys(data.byCategory).length > 0 && (
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">NPS by Category</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.entries(data.byCategory).map(([cat, stats]: [string, any]) => (
+                <div key={cat} className="p-3 bg-muted/20 rounded-sm border border-border/30" data-testid={`nps-category-${cat}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-mono uppercase tracking-wider text-foreground">{cat.replace(/_/g, " ")}</span>
+                    <Badge variant="outline" className={cn("text-xs font-mono", stats.nps >= 50 ? "text-emerald-400 border-emerald-500/30" : stats.nps >= 0 ? "text-amber-400 border-amber-500/30" : "text-red-400 border-red-500/30")}>
+                      NPS: {stats.nps > 0 ? "+" : ""}{stats.nps}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{stats.count} responses</span>
+                    <span>Avg: {stats.avgScore}/10</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {data.recentFeedback && data.recentFeedback.length > 0 && (
+        <Card className="glass-panel border-border/50">
+          <CardContent className="p-4">
+            <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-4">Recent Feedback</h3>
+            <div className="space-y-3">
+              {data.recentFeedback.map((f: any) => (
+                <div key={f.id} className="p-3 bg-muted/20 rounded-sm border border-border/30" data-testid={`nps-feedback-${f.id}`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className={cn(
+                      "inline-flex items-center justify-center w-8 h-8 rounded-sm text-xs font-mono font-bold",
+                      f.score <= 6 ? "bg-red-500/10 text-red-400 border border-red-500/30" :
+                      f.score <= 8 ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" :
+                      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                    )}>
+                      {f.score}
+                    </span>
+                    <div className="flex-1">
+                      <Badge variant="outline" className="text-[10px] font-mono">{f.category}</Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {new Date(f.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground/80">{f.feedback}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

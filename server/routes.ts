@@ -9,6 +9,7 @@ import {
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
   insertApiKeySchema, insertTaskSchema, insertTaskCommentSchema, insertTaskActivityLogSchema, insertNewsletterScheduleSchema,
+  insertNpsSurveySchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -3971,6 +3972,96 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  });
+
+  // ── NPS Surveys ──
+  app.get("/api/nps", requireAuth, async (req, res) => {
+    const surveys = await storage.getNpsSurveys();
+    res.json(surveys);
+  });
+
+  app.get("/api/nps/analytics", requireAuth, async (req, res) => {
+    const surveys = await storage.getNpsSurveys();
+    const total = surveys.length;
+    if (total === 0) {
+      return res.json({
+        total: 0, avgScore: 0, npsScore: 0,
+        promoters: 0, passives: 0, detractors: 0,
+        promoterPct: 0, passivePct: 0, detractorPct: 0,
+        byCategory: {}, trend: [], recentFeedback: [],
+      });
+    }
+    const promoters = surveys.filter(s => s.score >= 9).length;
+    const passives = surveys.filter(s => s.score >= 7 && s.score <= 8).length;
+    const detractors = surveys.filter(s => s.score <= 6).length;
+    const avgScore = surveys.reduce((sum, s) => sum + s.score, 0) / total;
+    const npsScore = Math.round(((promoters - detractors) / total) * 100);
+
+    const byCategory: Record<string, { count: number; avgScore: number; nps: number }> = {};
+    const catGroups: Record<string, number[]> = {};
+    surveys.forEach(s => {
+      const cat = s.category || "general";
+      if (!catGroups[cat]) catGroups[cat] = [];
+      catGroups[cat].push(s.score);
+    });
+    Object.entries(catGroups).forEach(([cat, scores]) => {
+      const count = scores.length;
+      const avg = scores.reduce((a, b) => a + b, 0) / count;
+      const p = scores.filter(s => s >= 9).length;
+      const d = scores.filter(s => s <= 6).length;
+      byCategory[cat] = { count, avgScore: Math.round(avg * 10) / 10, nps: Math.round(((p - d) / count) * 100) };
+    });
+
+    const monthlyGroups: Record<string, number[]> = {};
+    surveys.forEach(s => {
+      const month = new Date(s.createdAt).toISOString().slice(0, 7);
+      if (!monthlyGroups[month]) monthlyGroups[month] = [];
+      monthlyGroups[month].push(s.score);
+    });
+    const trend = Object.entries(monthlyGroups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([month, scores]) => {
+        const p = scores.filter(s => s >= 9).length;
+        const d = scores.filter(s => s <= 6).length;
+        return {
+          month,
+          nps: Math.round(((p - d) / scores.length) * 100),
+          avg: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
+          responses: scores.length,
+        };
+      });
+
+    const scoreDistribution = Array.from({ length: 11 }, (_, i) => ({
+      score: i,
+      count: surveys.filter(s => s.score === i).length,
+    }));
+
+    const recentFeedback = surveys
+      .filter(s => s.feedback)
+      .slice(0, 20)
+      .map(s => ({ id: s.id, score: s.score, feedback: s.feedback, category: s.category, createdAt: s.createdAt }));
+
+    res.json({
+      total, avgScore: Math.round(avgScore * 10) / 10, npsScore,
+      promoters, passives, detractors,
+      promoterPct: Math.round((promoters / total) * 100),
+      passivePct: Math.round((passives / total) * 100),
+      detractorPct: Math.round((detractors / total) * 100),
+      byCategory, trend, scoreDistribution, recentFeedback,
+    });
+  });
+
+  app.get("/api/nps/mine", requireAuth, async (req, res) => {
+    const surveys = await storage.getNpsSurveysByUser((req as any).session?.userId);
+    res.json(surveys);
+  });
+
+  app.post("/api/nps", requireAuth, async (req, res) => {
+    const parsed = insertNpsSurveySchema.safeParse({ ...req.body, userId: (req as any).session?.userId });
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const survey = await storage.createNpsSurvey(parsed.data);
+    res.status(201).json(survey);
   });
 
   return httpServer;

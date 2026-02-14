@@ -804,4 +804,20 @@ export type TaskComment = typeof taskComments.$inferSelect;
 export type InsertTaskActivityLog = z.infer<typeof insertTaskActivityLogSchema>;
 export type TaskActivityLog = typeof taskActivityLogs.$inferSelect;
 
+export const NPS_CATEGORIES = ["usability", "features", "performance", "support", "content_quality", "value", "general"] as const;
+export type NpsCategory = typeof NPS_CATEGORIES[number];
+
+export const npsSurveys = pgTable("nps_surveys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  score: integer("score").notNull(),
+  feedback: text("feedback"),
+  category: varchar("category", { length: 50 }).default("general"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNpsSurveySchema = createInsertSchema(npsSurveys).omit({ id: true, createdAt: true });
+export type InsertNpsSurvey = z.infer<typeof insertNpsSurveySchema>;
+export type NpsSurvey = typeof npsSurveys.$inferSelect;
+
 export * from "./models/chat";
