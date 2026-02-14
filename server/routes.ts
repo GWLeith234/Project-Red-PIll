@@ -786,9 +786,10 @@ export async function registerRoutes(
   });
 
   app.patch("/api/profile", requireAuth, async (req: any, res) => {
-    const { profilePhoto, bio, title, linkedinUrl, dashboardWidgets, displayName } = req.body;
+    const { profilePhoto, bannerImage, bio, title, linkedinUrl, dashboardWidgets, displayName } = req.body;
     const data: any = {};
     if (profilePhoto !== undefined) data.profilePhoto = profilePhoto;
+    if (bannerImage !== undefined) data.bannerImage = bannerImage;
     if (bio !== undefined) data.bio = bio;
     if (title !== undefined) data.title = title;
     if (linkedinUrl !== undefined) data.linkedinUrl = linkedinUrl;

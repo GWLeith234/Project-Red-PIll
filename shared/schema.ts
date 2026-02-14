@@ -60,6 +60,7 @@ export const users = pgTable("users", {
   permissions: text("permissions").array().default(sql`ARRAY[]::text[]`),
   status: text("status").default("active").notNull(),
   profilePhoto: text("profile_photo"),
+  bannerImage: text("banner_image"),
   bio: text("bio"),
   title: text("title"),
   linkedinUrl: text("linkedin_url"),

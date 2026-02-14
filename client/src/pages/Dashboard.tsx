@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid } from "recharts";
-import { ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers, ExternalLink, Settings, TrendingUp, Clock, ChevronRight, Linkedin, Camera, GripVertical, Eye, EyeOff, Pencil, Check, X, Loader2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Activity, Zap, DollarSign, Users, Layers, ExternalLink, Settings, TrendingUp, Clock, ChevronRight, Linkedin, Camera, GripVertical, Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,14 @@ function ProfileCard() {
   const [editBio, setEditBio] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [showLinkedinDialog, setShowLinkedinDialog] = useState(false);
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
+  const [showBannerDialog, setShowBannerDialog] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const displayProfile = profile || user;
   const initials = (displayProfile?.displayName || displayProfile?.username || "U")
@@ -82,6 +90,79 @@ function ProfileCard() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const resp = await fetch("/api/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!resp.ok) throw new Error("Failed to get upload URL");
+    const { uploadURL, objectPath } = await resp.json();
+    const uploadResp = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+    if (!uploadResp.ok) throw new Error("Failed to upload file");
+    return objectPath;
+  };
+
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const path = await uploadFile(file);
+      await updateProfile.mutateAsync({ profilePhoto: path });
+      await refresh();
+      toast({ title: "Photo Updated" });
+      setShowPhotoDialog(false);
+    } catch (err: any) {
+      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoUrlSave = async () => {
+    if (!photoUrl.trim()) return;
+    try {
+      await updateProfile.mutateAsync({ profilePhoto: photoUrl.trim() });
+      await refresh();
+      toast({ title: "Photo Updated" });
+      setShowPhotoDialog(false);
+      setPhotoUrl("");
+    } catch (err: any) {
+      toast({ title: "Update Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    try {
+      const path = await uploadFile(file);
+      await updateProfile.mutateAsync({ bannerImage: path });
+      await refresh();
+      toast({ title: "Banner Updated" });
+      setShowBannerDialog(false);
+    } catch (err: any) {
+      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
+  const handleBannerUrlSave = async () => {
+    if (!bannerUrl.trim()) return;
+    try {
+      await updateProfile.mutateAsync({ bannerImage: bannerUrl.trim() });
+      await refresh();
+      toast({ title: "Banner Updated" });
+      setShowBannerDialog(false);
+      setBannerUrl("");
+    } catch (err: any) {
+      toast({ title: "Update Failed", description: err.message, variant: "destructive" });
+    }
+  };
 
   const handleAnalyzeLinkedIn = async () => {
     if (!linkedinUrl.trim()) return;
@@ -126,17 +207,35 @@ function ProfileCard() {
 
   return (
     <Card className="glass-panel border-border/50 overflow-hidden" data-testid="profile-card">
-      <div className="h-20 bg-gradient-to-r from-primary/30 via-primary/10 to-transparent relative">
-        <div className="absolute inset-0 bg-[url('/images/command-center-bg.png')] bg-cover opacity-20" />
+      <div className="h-24 relative group cursor-pointer" onClick={() => setShowBannerDialog(true)} data-testid="button-edit-banner">
+        {displayProfile?.bannerImage ? (
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${displayProfile.bannerImage})` }} />
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/30 via-primary/10 to-transparent" />
+            <div className="absolute inset-0 bg-[url('/images/command-center-bg.png')] bg-cover opacity-20" />
+          </>
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="flex items-center gap-2 text-white text-xs font-mono">
+            <ImagePlus className="h-4 w-4" />
+            Change Banner
+          </div>
+        </div>
       </div>
       <CardContent className="-mt-10 relative">
         <div className="flex items-end gap-4 mb-4">
-          <Avatar className="h-20 w-20 border-4 border-background shadow-xl ring-2 ring-primary/20" data-testid="img-profile-photo">
-            {displayProfile?.profilePhoto ? (
-              <AvatarImage src={displayProfile.profilePhoto} alt={displayProfile.displayName || "Profile"} />
-            ) : null}
-            <AvatarFallback className="bg-primary/20 text-primary text-xl font-display">{initials}</AvatarFallback>
-          </Avatar>
+          <div className="relative group/avatar cursor-pointer" onClick={() => setShowPhotoDialog(true)} data-testid="button-edit-photo">
+            <Avatar className="h-20 w-20 border-4 border-background shadow-xl ring-2 ring-primary/20" data-testid="img-profile-photo">
+              {displayProfile?.profilePhoto ? (
+                <AvatarImage src={displayProfile.profilePhoto} alt={displayProfile.displayName || "Profile"} />
+              ) : null}
+              <AvatarFallback className="bg-primary/20 text-primary text-xl font-display">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 rounded-full bg-black/0 group-hover/avatar:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 border-4 border-transparent">
+              <Camera className="h-5 w-5 text-white" />
+            </div>
+          </div>
           <div className="flex-1 pb-1">
             <h2 className="text-xl font-bold font-display tracking-tight" data-testid="text-profile-name">
               {displayProfile?.displayName || displayProfile?.username || "User"}
@@ -247,6 +346,110 @@ function ProfileCard() {
             </a>
           )}
         </div>
+
+        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFileUpload} data-testid="input-photo-upload" />
+        <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerFileUpload} data-testid="input-banner-upload" />
+
+        <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display flex items-center gap-2">
+                <Camera className="h-5 w-5 text-primary" />
+                Profile Photo
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              {displayProfile?.profilePhoto && (
+                <div className="flex justify-center">
+                  <Avatar className="h-24 w-24 border-2 border-primary/30">
+                    <AvatarImage src={displayProfile.profilePhoto} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-2xl font-display">{initials}</AvatarFallback>
+                  </Avatar>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-upload-photo-file"
+                >
+                  {uploadingPhoto ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Upload Image File
+                </Button>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground font-mono">OR</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <Input
+                  placeholder="Paste image URL..."
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  data-testid="input-photo-url"
+                />
+                <Button
+                  onClick={handlePhotoUrlSave}
+                  disabled={!photoUrl.trim()}
+                  className="w-full bg-primary hover:bg-primary/90"
+                  data-testid="button-save-photo-url"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Save Photo URL
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showBannerDialog} onOpenChange={setShowBannerDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display flex items-center gap-2">
+                <ImagePlus className="h-5 w-5 text-primary" />
+                Banner Image
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              {displayProfile?.bannerImage && (
+                <div className="rounded-md overflow-hidden h-24 bg-cover bg-center" style={{ backgroundImage: `url(${displayProfile.bannerImage})` }} />
+              )}
+              <div className="space-y-2">
+                <Button
+                  onClick={() => bannerInputRef.current?.click()}
+                  disabled={uploadingBanner}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-upload-banner-file"
+                >
+                  {uploadingBanner ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Upload Banner Image
+                </Button>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground font-mono">OR</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+                <Input
+                  placeholder="Paste banner image URL..."
+                  value={bannerUrl}
+                  onChange={(e) => setBannerUrl(e.target.value)}
+                  data-testid="input-banner-url"
+                />
+                <Button
+                  onClick={handleBannerUrlSave}
+                  disabled={!bannerUrl.trim()}
+                  className="w-full bg-primary hover:bg-primary/90"
+                  data-testid="button-save-banner-url"
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Save Banner URL
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
