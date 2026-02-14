@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Mic, Play, Clock, Users, Headphones, Video, FileText, ChevronRight, ArrowRight, Zap } from "lucide-react";
+import { Mic, Play, Clock, Users, Headphones, Video, FileText, ChevronRight, ArrowRight, Zap, ChevronLeft } from "lucide-react";
+import type { HeroSlide } from "@shared/schema";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -50,6 +52,178 @@ function EpisodeTypeBadge({ type }: { type: string }) {
   );
 }
 
+function HeroCarousel({ primaryColor }: { primaryColor: string }) {
+  const { data: slides = [] } = useQuery<HeroSlide[]>({
+    queryKey: ["/api/public/hero-slides"],
+    queryFn: async () => {
+      const res = await fetch("/api/public/hero-slides");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const goNext = useCallback(() => {
+    if (slides.length <= 1) return;
+    setCurrent((prev) => (prev + 1) % slides.length);
+  }, [slides.length]);
+
+  const goPrev = useCallback(() => {
+    if (slides.length <= 1) return;
+    setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (isPaused || slides.length <= 1) return;
+    const interval = setInterval(goNext, 6000);
+    return () => clearInterval(interval);
+  }, [isPaused, goNext, slides.length]);
+
+  useEffect(() => {
+    if (current >= slides.length && slides.length > 0) {
+      setCurrent(0);
+    }
+  }, [slides.length, current]);
+
+  if (slides.length === 0) return null;
+
+  const slide = slides[current];
+
+  const slideContent = (
+    <div className="relative w-full overflow-hidden" style={{ height: "clamp(280px, 45vw, 520px)" }}>
+      {slides.map((s, idx) => (
+        <div
+          key={s.id}
+          className="absolute inset-0 transition-opacity duration-700 ease-in-out"
+          style={{ opacity: idx === current ? 1 : 0, zIndex: idx === current ? 1 : 0 }}
+        >
+          <img
+            src={s.imageUrl}
+            alt={s.title || ""}
+            className="w-full h-full object-cover"
+            loading={idx === 0 ? "eager" : "lazy"}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
+        </div>
+      ))}
+
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-6 sm:p-10 lg:p-14">
+        <div className="max-w-7xl mx-auto">
+          {slide?.title && (
+            <h2
+              className="text-white text-2xl sm:text-3xl lg:text-5xl font-bold tracking-tight leading-tight mb-2 drop-shadow-lg"
+              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}
+              data-testid="text-hero-carousel-title"
+            >
+              {slide.title}
+            </h2>
+          )}
+          {slide?.subtitle && (
+            <p
+              className="text-gray-200 text-sm sm:text-base lg:text-lg max-w-2xl mb-4 drop-shadow"
+              data-testid="text-hero-carousel-subtitle"
+            >
+              {slide.subtitle}
+            </p>
+          )}
+          {slide?.linkUrl && (
+            <span
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-gray-950 hover:brightness-110 transition-all shadow-lg"
+              style={{ backgroundColor: primaryColor }}
+              data-testid="btn-hero-cta"
+            >
+              {slide.linkText || "Learn More"}
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          )}
+        </div>
+      </div>
+
+      {slides.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goPrev(); }}
+            className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+            aria-label="Previous slide"
+            data-testid="btn-hero-prev"
+          >
+            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+          </button>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); goNext(); }}
+            className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white hover:bg-black/50 transition-all"
+            aria-label="Next slide"
+            data-testid="btn-hero-next"
+          >
+            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+          </button>
+
+          <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrent(idx); }}
+                className={`transition-all rounded-full ${
+                  idx === current
+                    ? "w-8 h-2.5"
+                    : "w-2.5 h-2.5 bg-white/40 hover:bg-white/60"
+                }`}
+                style={idx === current ? { backgroundColor: primaryColor } : undefined}
+                aria-label={`Go to slide ${idx + 1}`}
+                data-testid={`btn-hero-dot-${idx}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  if (slide?.linkUrl) {
+    const isExternal = slide.linkUrl.startsWith("http");
+    if (isExternal) {
+      return (
+        <a
+          href={slide.linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          data-testid="hero-carousel"
+        >
+          {slideContent}
+        </a>
+      );
+    }
+    return (
+      <Link
+        href={slide.linkUrl}
+        className="block"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        data-testid="hero-carousel"
+      >
+        {slideContent}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      data-testid="hero-carousel"
+    >
+      {slideContent}
+    </div>
+  );
+}
+
 export default function AudienceHome() {
   const { data: branding } = usePublicBranding();
   const { data: feed, isLoading } = useQuery({
@@ -94,8 +268,10 @@ export default function AudienceHome() {
 
   return (
     <div className="bg-white" data-testid="audience-home">
+      <HeroCarousel primaryColor={primaryColor} />
+
       <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-12 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
           <div className="flex flex-col lg:flex-row gap-8 items-start">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-4">

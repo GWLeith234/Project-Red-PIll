@@ -4,7 +4,7 @@ import pg from "pg";
 import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
-  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns,
+  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns, heroSlides,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -23,6 +23,7 @@ import {
   type Deal, type InsertDeal,
   type DealActivity, type InsertDealActivity,
   type OutboundCampaign, type InsertOutboundCampaign,
+  type HeroSlide, type InsertHeroSlide,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -130,6 +131,13 @@ export interface IStorage {
   deleteOutboundCampaign(id: string): Promise<void>;
   getConsentedSubscribers(type: "email" | "sms", podcastId?: string): Promise<Subscriber[]>;
   getConsentedContacts(type: "email" | "sms"): Promise<CompanyContact[]>;
+
+  getHeroSlides(): Promise<HeroSlide[]>;
+  getActiveHeroSlides(): Promise<HeroSlide[]>;
+  getHeroSlide(id: string): Promise<HeroSlide | undefined>;
+  createHeroSlide(slide: InsertHeroSlide): Promise<HeroSlide>;
+  updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined>;
+  deleteHeroSlide(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -533,6 +541,28 @@ export class DatabaseStorage implements IStorage {
   async getConsentedContacts(type: "email" | "sms") {
     const consentField = type === "email" ? companyContacts.marketingConsent : companyContacts.smsConsent;
     return db.select().from(companyContacts).where(and(eq(consentField, true), eq(companyContacts.status, "active")));
+  }
+
+  async getHeroSlides() {
+    return db.select().from(heroSlides).orderBy(heroSlides.displayOrder);
+  }
+  async getActiveHeroSlides() {
+    return db.select().from(heroSlides).where(eq(heroSlides.active, true)).orderBy(heroSlides.displayOrder);
+  }
+  async getHeroSlide(id: string) {
+    const [slide] = await db.select().from(heroSlides).where(eq(heroSlides.id, id));
+    return slide;
+  }
+  async createHeroSlide(slide: InsertHeroSlide) {
+    const [created] = await db.insert(heroSlides).values(slide).returning();
+    return created;
+  }
+  async updateHeroSlide(id: string, data: Partial<InsertHeroSlide>) {
+    const [updated] = await db.update(heroSlides).set(data).where(eq(heroSlides.id, id)).returning();
+    return updated;
+  }
+  async deleteHeroSlide(id: string) {
+    await db.delete(heroSlides).where(eq(heroSlides.id, id));
   }
 }
 

@@ -30,7 +30,7 @@ Preferred communication style: Simple, everyday language.
 - **Monetization** (`/monetization`): Revenue engine with advertiser management, CPM tracking, revenue breakdown
 - **Network** (`/network`): Podcast network management with show cards
 - **User Management** (`/users`): Admin user CRUD with role assignment and permission toggles
-- **Customize** (`/customize`): Branding management for logo, favicon, banner, colors, company name
+- **Customize** (`/customize`): Branding management for logo, favicon, banner, colors, company name, and hero carousel slide management (upload images, set titles/subtitles/links, reorder, enable/disable)
 - **Commercial CRM** (`/sales`): B2B sales CRM with Companies, Contacts, and Deals pipeline management for ad campaigns and sponsorships
 - **Subscriber CRM** (`/audience`): Subscriber audience management with smart cross-pollination suggestions
 - **Podcast Directory** (`/podcasts`): iHeart-inspired podcast discovery page with visual show cards grid, search, featured shows, numbered rankings, and subscriber counts
@@ -85,6 +85,8 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/metrics/latest`, `POST /api/metrics`
 - `GET/POST /api/alerts`, `PATCH /api/alerts/:id`
 - `GET/PUT /api/branding`
+- `GET/POST /api/hero-slides`, `PATCH/DELETE /api/hero-slides/:id` (permission-gated: customize.view, customize.edit)
+- `GET /api/public/hero-slides` (no auth: active hero carousel slides for public homepage)
 - `GET/PUT /api/settings` (permission-gated: settings.view, settings.edit)
 - `GET/POST /api/outbound-campaigns`, `GET/PATCH/DELETE /api/outbound-campaigns/:id` (auth-gated: campaign CRUD with audience filter)
 - `GET /api/outbound-campaigns/:id/recipients` (auth-gated: preview consented recipients)

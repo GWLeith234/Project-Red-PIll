@@ -7,7 +7,7 @@ import {
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema,
-  insertOutboundCampaignSchema,
+  insertOutboundCampaignSchema, insertHeroSlideSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -769,6 +769,34 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.upsertBranding(parsed.data);
     res.json(data);
+  });
+
+  app.get("/api/hero-slides", requirePermission("customize.view"), async (_req, res) => {
+    const slides = await storage.getHeroSlides();
+    res.json(slides);
+  });
+
+  app.post("/api/hero-slides", requirePermission("customize.edit"), async (req, res) => {
+    const parsed = insertHeroSlideSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const slide = await storage.createHeroSlide(parsed.data);
+    res.json(slide);
+  });
+
+  app.patch("/api/hero-slides/:id", requirePermission("customize.edit"), async (req, res) => {
+    const slide = await storage.updateHeroSlide(req.params.id, req.body);
+    if (!slide) return res.status(404).json({ message: "Slide not found" });
+    res.json(slide);
+  });
+
+  app.delete("/api/hero-slides/:id", requirePermission("customize.edit"), async (req, res) => {
+    await storage.deleteHeroSlide(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.get("/api/public/hero-slides", async (_req, res) => {
+    const slides = await storage.getActiveHeroSlides();
+    res.json(slides);
   });
 
   // ── Platform Settings ──

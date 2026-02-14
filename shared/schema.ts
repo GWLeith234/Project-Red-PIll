@@ -354,7 +354,20 @@ export const outboundCampaigns = pgTable("outbound_campaigns", {
   sentAt: timestamp("sent_at"),
 });
 
+export const heroSlides = pgTable("hero_slides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  imageUrl: text("image_url").notNull(),
+  title: text("title"),
+  subtitle: text("subtitle"),
+  linkUrl: text("link_url"),
+  linkText: text("link_text"),
+  displayOrder: integer("display_order").default(0).notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
+export const insertHeroSlideSchema = createInsertSchema(heroSlides).omit({ id: true, createdAt: true });
 export const insertOutboundCampaignSchema = createInsertSchema(outboundCampaigns).omit({ id: true, createdAt: true, sentAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true, updatedAt: true });
@@ -412,5 +425,7 @@ export type DealActivity = typeof dealActivities.$inferSelect;
 
 export type InsertOutboundCampaign = z.infer<typeof insertOutboundCampaignSchema>;
 export type OutboundCampaign = typeof outboundCampaigns.$inferSelect;
+export type InsertHeroSlide = z.infer<typeof insertHeroSlideSchema>;
+export type HeroSlide = typeof heroSlides.$inferSelect;
 
 export * from "./models/chat";
