@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   useEpisodes, useContentPieces, usePodcasts, useCreateEpisode,
-  useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
+  useQueueTranscription, useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
   useClipAssets, useUpdateClipAsset, useDeleteClipAsset,
   useScheduledPosts, useCreateScheduledPost, useUpdateScheduledPost, useDeleteScheduledPost,
   useNewsletterRuns, useSendNewsletter, useDeleteNewsletterRun,
@@ -538,6 +538,7 @@ function PipelineTab() {
   const { data: podcasts } = usePodcasts();
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>("");
   const { data: contentPieces, isLoading: contentLoading } = useContentPieces(selectedEpisodeId || undefined);
+  const queueTranscription = useQueueTranscription();
   const runPipeline = useRunFullPipeline();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -566,9 +567,11 @@ function PipelineTab() {
   const progress = selectedEpisode?.processingProgress || 0;
 
   const isProcessing = selectedEpisode?.processingStatus === "processing" || (runPipeline.isPending);
+  const transcriptReady = selectedEpisode?.transcriptStatus === "ready" || selectedEpisode?.transcriptStatus === "complete";
+  const transcriptProcessing = selectedEpisode?.transcriptStatus === "processing";
 
   useEffect(() => {
-    if (!isProcessing || !selectedEpisodeId) return;
+    if ((!isProcessing && !transcriptProcessing) || !selectedEpisodeId) return;
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
       queryClient.invalidateQueries({ predicate: (query) => {
@@ -577,7 +580,7 @@ function PipelineTab() {
       }});
     }, 3000);
     return () => clearInterval(interval);
-  }, [isProcessing, selectedEpisodeId, queryClient]);
+  }, [isProcessing, transcriptProcessing, selectedEpisodeId, queryClient]);
 
   function toggleContentType(type: string) {
     setContentTypes(prev =>
@@ -629,6 +632,40 @@ function PipelineTab() {
     seo: { icon: Search, title: "SEO Assets", color: "text-emerald-400" },
   };
 
+  const [episodeSearch, setEpisodeSearch] = useState("");
+  const [queueingId, setQueueingId] = useState<string | null>(null);
+
+  const filteredEpisodes = (episodes || []).filter((ep: any) => {
+    if (!episodeSearch) return true;
+    return ep.title?.toLowerCase().includes(episodeSearch.toLowerCase());
+  });
+
+  const queuedEpisodes = filteredEpisodes.filter((ep: any) =>
+    ep.processingStatus === "processing" || ep.processingStatus === "complete" || ep.processingStatus === "queued" ||
+    ep.transcriptStatus === "processing" || ep.transcriptStatus === "ready" || ep.transcriptStatus === "complete"
+  );
+  const pendingEpisodes = filteredEpisodes.filter((ep: any) =>
+    !queuedEpisodes.some((q: any) => q.id === ep.id)
+  );
+
+  function handleQueueEpisode(episodeId: string) {
+    setQueueingId(episodeId);
+    setSelectedEpisodeId(episodeId);
+    queueTranscription.mutate(
+      { episodeId },
+      {
+        onSuccess: () => {
+          toast({ title: "Queued for Transcription", description: "The episode is being transcribed. You can generate content once transcription completes." });
+          setQueueingId(null);
+        },
+        onError: (err: any) => {
+          toast({ title: "Queue Error", description: err.message, variant: "destructive" });
+          setQueueingId(null);
+        },
+      }
+    );
+  }
+
   return (
     <div className="grid grid-cols-12 gap-6">
       <div className="col-span-12 lg:col-span-4 space-y-4">
@@ -636,31 +673,127 @@ function PipelineTab() {
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-lg flex items-center gap-2">
               <Mic className="h-5 w-5 text-primary" />
-              Episode Selector
+              Episodes
             </CardTitle>
+            <CardDescription className="font-mono text-xs">Select or queue episodes for content generation</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Select value={selectedEpisodeId} onValueChange={setSelectedEpisodeId}>
-              <SelectTrigger data-testid="select-episode-pipeline">
-                <SelectValue placeholder="Select an episode..." />
-              </SelectTrigger>
-              <SelectContent>
-                {epLoading ? (
-                  <SelectItem value="loading" disabled>Loading...</SelectItem>
-                ) : (
-                  episodes?.map((ep: any) => (
-                    <SelectItem key={ep.id} value={ep.id}>
-                      <span className="flex items-center gap-2">
-                        {ep.title}
-                        <Badge variant="outline" className="text-[9px] ml-1">
-                          {ep.processingStatus || "pending"}
-                        </Badge>
-                      </span>
-                    </SelectItem>
-                  ))
+          <CardContent className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search episodes..."
+                value={episodeSearch}
+                onChange={(e) => setEpisodeSearch(e.target.value)}
+                className="pl-8 h-8 text-xs font-mono"
+                data-testid="input-search-episodes"
+              />
+            </div>
+
+            {epLoading ? (
+              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+            ) : (
+              <div className="space-y-1 max-h-[50vh] overflow-y-auto pr-1">
+                {queuedEpisodes.length > 0 && (
+                  <>
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pt-1 pb-1">In Queue / Processing</p>
+                    {queuedEpisodes.map((ep: any) => {
+                      const epPodcast = podcasts?.find((p: any) => p.id === ep.podcastId);
+                      const isActive = ep.id === selectedEpisodeId;
+                      const isCurrentlyProcessing = ep.processingStatus === "processing" || ep.transcriptStatus === "processing";
+                      return (
+                        <div
+                          key={ep.id}
+                          className={cn(
+                            "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all border",
+                            isActive ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-card/60 hover:border-border/50"
+                          )}
+                          onClick={() => setSelectedEpisodeId(ep.id)}
+                          data-testid={`episode-row-${ep.id}`}
+                        >
+                          <div className={cn(
+                            "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                            isCurrentlyProcessing ? "bg-primary/20" : "bg-emerald-500/20"
+                          )}>
+                            {isCurrentlyProcessing ? (
+                              <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{ep.title}</p>
+                            <p className="text-[10px] font-mono text-muted-foreground truncate">{epPodcast?.title || "Unknown"}</p>
+                          </div>
+                          <Badge variant="outline" className={cn(
+                            "font-mono text-[8px] uppercase shrink-0",
+                            isCurrentlyProcessing ? "border-primary/50 text-primary animate-pulse" : "border-emerald-500/50 text-emerald-500"
+                          )}>
+                            {isCurrentlyProcessing ? "Processing" : "Done"}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </>
                 )}
-              </SelectContent>
-            </Select>
+
+                {pendingEpisodes.length > 0 && (
+                  <>
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pt-3 pb-1">Available Episodes</p>
+                    {pendingEpisodes.map((ep: any) => {
+                      const epPodcast = podcasts?.find((p: any) => p.id === ep.podcastId);
+                      const isActive = ep.id === selectedEpisodeId;
+                      const isQueuing = queueingId === ep.id;
+                      return (
+                        <div
+                          key={ep.id}
+                          className={cn(
+                            "flex items-center gap-3 p-2.5 rounded-lg transition-all border group",
+                            isActive ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-card/60 hover:border-border/50"
+                          )}
+                          data-testid={`episode-row-${ep.id}`}
+                        >
+                          <div className="h-8 w-8 rounded-lg bg-muted/30 flex items-center justify-center shrink-0">
+                            {ep.episodeType === "video" ? <Film className="h-4 w-4 text-muted-foreground" /> : <Mic className="h-4 w-4 text-muted-foreground" />}
+                          </div>
+                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedEpisodeId(ep.id)}>
+                            <p className="text-xs font-medium truncate">{ep.title}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] font-mono text-muted-foreground truncate">{epPodcast?.title || "Unknown"}</p>
+                              {ep.duration && (
+                                <span className="text-[9px] font-mono text-muted-foreground/60 flex items-center gap-0.5">
+                                  <Clock className="h-2.5 w-2.5" /> {ep.duration}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2.5 text-[10px] font-mono uppercase tracking-wider opacity-70 group-hover:opacity-100 transition-opacity border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground shrink-0"
+                            onClick={(e) => { e.stopPropagation(); handleQueueEpisode(ep.id); }}
+                            disabled={isQueuing || queueTranscription.isPending}
+                            data-testid={`button-start-${ep.id}`}
+                          >
+                            {isQueuing ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <><Zap className="h-3 w-3 mr-1" />Start</>
+                            )}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                {filteredEpisodes.length === 0 && (
+                  <div className="text-center py-6">
+                    <Mic className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-xs text-muted-foreground font-mono">No episodes found</p>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -697,35 +830,65 @@ function PipelineTab() {
                   )}
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Content Types</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["article", "blog", "social", "clips", "newsletter", "seo"].map(type => (
-                      <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox
-                          checked={contentTypes.includes(type)}
-                          onCheckedChange={() => toggleContentType(type)}
-                          data-testid={`checkbox-${type}`}
-                        />
-                        <span className="capitalize font-mono text-xs">{type}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                {transcriptReady ? (
+                  <>
+                    <div className="space-y-2 pt-2">
+                      <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Content Types</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {["article", "blog", "social", "clips", "newsletter", "seo"].map(type => (
+                          <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <Checkbox
+                              checked={contentTypes.includes(type)}
+                              onCheckedChange={() => toggleContentType(type)}
+                              data-testid={`checkbox-${type}`}
+                            />
+                            <span className="capitalize font-mono text-xs">{type}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
 
-                <Button
-                  onClick={handleRunPipeline}
-                  disabled={runPipeline.isPending || contentTypes.length === 0}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider mt-2"
-                  data-testid="button-run-pipeline"
-                >
-                  {runPipeline.isPending ? (
-                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                  ) : (
-                    <Zap className="mr-2 h-3 w-3" />
-                  )}
-                  Run Full AI Pipeline
-                </Button>
+                    <Button
+                      onClick={handleRunPipeline}
+                      disabled={runPipeline.isPending || contentTypes.length === 0}
+                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider mt-2"
+                      data-testid="button-run-pipeline"
+                    >
+                      {runPipeline.isPending ? (
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Zap className="mr-2 h-3 w-3" />
+                      )}
+                      Generate Content
+                    </Button>
+                  </>
+                ) : transcriptProcessing ? (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                      <p className="text-xs font-mono font-medium text-primary">Transcription in Progress</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground font-mono">Content generation will be available once transcription completes.</p>
+                  </div>
+                ) : (
+                  <div className="bg-muted/20 border border-border/30 rounded-lg p-3 mt-2">
+                    <p className="text-xs text-muted-foreground font-mono mb-2">Start transcription first to enable content generation.</p>
+                    <Button
+                      onClick={() => handleQueueEpisode(selectedEpisodeId)}
+                      disabled={queueTranscription.isPending}
+                      variant="outline"
+                      className="w-full font-mono text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+                      data-testid="button-start-transcription"
+                    >
+                      {queueTranscription.isPending ? (
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Zap className="mr-2 h-3 w-3" />
+                      )}
+                      Start Transcription
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

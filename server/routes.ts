@@ -342,11 +342,54 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/ai-agent/queue-transcription", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { episodeId } = req.body;
+    if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
+
+    try {
+      const episode = await storage.getEpisode(episodeId);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+
+      if (episode.transcript && (episode.transcriptStatus === "ready" || episode.transcriptStatus === "complete")) {
+        return res.json({ message: "Transcript already available", status: "ready" });
+      }
+
+      if (episode.transcriptStatus === "processing") {
+        return res.json({ message: "Transcription already in progress", status: "processing" });
+      }
+
+      await storage.updateEpisode(episodeId, {
+        transcriptStatus: "processing",
+        processingStatus: "processing",
+        processingProgress: 2,
+        processingStep: "transcription",
+      } as any);
+
+      res.json({ message: "Episode queued for transcription", status: "queued" });
+
+      import("./ai-content-agent").then(({ backgroundTranscribe }) => {
+        backgroundTranscribe(episodeId).catch(err =>
+          console.error(`[Queue Transcription] Failed for ${episodeId}:`, err.message)
+        );
+      });
+    } catch (err: any) {
+      console.error("Queue transcription error:", err);
+      res.status(500).json({ message: err.message || "Failed to queue transcription" });
+    }
+  });
+
   app.post("/api/ai-agent/full-pipeline", requireAuth, requirePermission("content.edit"), async (req, res) => {
     const { episodeId, contentTypes } = req.body;
     if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
 
     try {
+      const episode = await storage.getEpisode(episodeId);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+
+      if (!episode.transcript && episode.transcriptStatus !== "ready" && episode.transcriptStatus !== "complete") {
+        return res.status(400).json({ message: "Transcript is not ready. Please complete transcription before generating content." });
+      }
+
       const { runFullContentPipeline } = await import("./ai-content-agent");
       const result = await runFullContentPipeline(episodeId, contentTypes);
       res.json(result);

@@ -513,6 +513,16 @@ export function useDeleteApiKey() {
   });
 }
 
+export function useQueueTranscription() {
+  return useMutation({
+    mutationFn: (data: { episodeId: string }) =>
+      apiRequest("/api/ai-agent/queue-transcription", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+    },
+  });
+}
+
 export function useRunFullPipeline() {
   return useMutation({
     mutationFn: (data: { episodeId: string; contentTypes?: string[] }) =>
