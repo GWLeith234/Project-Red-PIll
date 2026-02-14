@@ -982,3 +982,81 @@ export async function generateStoryFromText(
 
   return generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
 }
+
+export async function backgroundTranscribe(episodeId: string): Promise<void> {
+  const episode = await storage.getEpisode(episodeId);
+  if (!episode) return;
+
+  const mediaUrl = episode.audioUrl || episode.videoUrl;
+  if (!mediaUrl) return;
+  if (episode.transcript) return;
+
+  try {
+    console.log(`[BG Transcribe] Starting background transcription for episode ${episodeId}`);
+    await storage.updateEpisode(episodeId, {
+      transcriptStatus: "processing",
+      processingStatus: "processing",
+      processingProgress: 5,
+    } as any);
+
+    const audioBuffer = await fetchAudioBuffer(mediaUrl);
+    await storage.updateEpisode(episodeId, { processingProgress: 20 } as any);
+
+    const { splitAudioIntoChunks } = await import("./replit_integrations/audio/client");
+    const chunks = await splitAudioIntoChunks(audioBuffer);
+    await storage.updateEpisode(episodeId, { processingProgress: 30 } as any);
+
+    const { toFile } = await import("openai");
+    const transcriptParts: string[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const file = await toFile(chunks[i], `audio_chunk_${i}.mp3`);
+      const transcriptionResult = await openai.audio.transcriptions.create({
+        file,
+        model: "gpt-4o-mini-transcribe",
+        response_format: "json",
+      });
+      transcriptParts.push(transcriptionResult.text);
+      const progress = 30 + Math.round(((i + 1) / chunks.length) * 60);
+      await storage.updateEpisode(episodeId, { processingProgress: progress } as any);
+    }
+
+    const transcript = transcriptParts.join("\n\n");
+    await storage.updateEpisode(episodeId, {
+      transcript,
+      transcriptStatus: "ready",
+      processingStatus: "transcribed",
+      processingProgress: 95,
+    } as any);
+
+    console.log(`[BG Transcribe] Transcription complete for episode ${episodeId} (${transcript.length} chars)`);
+
+    try {
+      let podcastTitle: string | undefined;
+      const podcast = await storage.getPodcast(episode.podcastId);
+      if (podcast) podcastTitle = podcast.title;
+      const kwAnalysis = await analyzeTranscriptKeywords(transcript, episode.title, podcastTitle);
+      const allKeywords = [
+        ...kwAnalysis.topKeywords.sort((a, b) => b.trendingScore - a.trendingScore).map(k => k.keyword),
+        ...kwAnalysis.longTailKeywords.map(k => k.phrase),
+      ];
+      await storage.updateEpisode(episodeId, {
+        extractedKeywords: allKeywords,
+        keywordAnalysis: JSON.stringify(kwAnalysis),
+        processingProgress: 100,
+        processingStatus: "transcribed",
+      } as any);
+      console.log(`[BG Transcribe] Keyword analysis complete for episode ${episodeId}`);
+    } catch (kwErr: any) {
+      console.warn(`[BG Transcribe] Keyword analysis failed (non-fatal): ${kwErr.message}`);
+      await storage.updateEpisode(episodeId, { processingProgress: 100 } as any);
+    }
+  } catch (err: any) {
+    console.error(`[BG Transcribe] Failed for episode ${episodeId}: ${err.message}`);
+    await storage.updateEpisode(episodeId, {
+      transcriptStatus: "failed",
+      processingStatus: "failed",
+      processingProgress: 0,
+    } as any);
+  }
+}

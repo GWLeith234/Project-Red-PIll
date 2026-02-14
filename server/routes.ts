@@ -198,6 +198,15 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.createEpisode(parsed.data);
     res.status(201).json(data);
+
+    const mediaUrl = data.audioUrl || data.videoUrl;
+    if (mediaUrl && !data.transcript) {
+      import("./ai-content-agent").then(({ backgroundTranscribe }) => {
+        backgroundTranscribe(data.id).catch(err =>
+          console.error(`[BG Transcribe] Auto-transcription failed for ${data.id}:`, err.message)
+        );
+      });
+    }
   });
 
   app.patch("/api/episodes/:id", async (req, res) => {

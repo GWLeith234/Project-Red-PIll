@@ -938,6 +938,16 @@ function UploadTab() {
   const { data: episodes } = useEpisodes();
   const createEpisode = useCreateEpisode();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const hasProcessing = (episodes || []).some((ep: any) => ep.transcriptStatus === "processing");
+  useEffect(() => {
+    if (!hasProcessing) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [hasProcessing, queryClient]);
 
   const [form, setForm] = useState({
     title: "",
@@ -981,7 +991,13 @@ function UploadTab() {
     if (thumbnailPath) data.thumbnailUrl = thumbnailPath;
     createEpisode.mutate(data, {
       onSuccess: () => {
-        toast({ title: "Episode Created", description: `"${form.title}" has been added to the content factory.` });
+        const hasMedia = !!audioPath || !!videoPath;
+        toast({
+          title: "Episode Created",
+          description: hasMedia
+            ? `"${form.title}" has been added. Transcription is running in the background — you can continue working.`
+            : `"${form.title}" has been added to the content factory.`,
+        });
         setForm({ title: "", podcastId: "", description: "", duration: "", episodeType: "audio" });
         setAudioPath("");
         setVideoPath("");
@@ -1164,16 +1180,27 @@ function UploadTab() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className={cn("text-[9px] h-4 px-1",
-                            ep.processingStatus === "complete" ? "border-emerald-500/30 text-emerald-400" :
-                            ep.processingStatus === "processing" ? "border-blue-500/30 text-blue-400" :
+                            ep.transcriptStatus === "ready" ? "border-emerald-500/30 text-emerald-400" :
+                            ep.transcriptStatus === "processing" ? "border-blue-500/30 text-blue-400" :
+                            ep.transcriptStatus === "failed" ? "border-red-500/30 text-red-400" :
                             "border-border/50 text-muted-foreground"
                           )}>
-                            {ep.processingStatus === "complete" ? "Ready" : ep.processingStatus === "processing" ? `${ep.processingProgress}%` : "Pending"}
+                            {ep.transcriptStatus === "ready" ? "Transcribed" :
+                             ep.transcriptStatus === "processing" ? "Transcribing..." :
+                             ep.transcriptStatus === "failed" ? "Failed" : "Pending"}
                           </Badge>
                           <Badge variant="outline" className="text-[9px] h-4 px-1 border-border/30 text-muted-foreground">
                             {ep.episodeType}
                           </Badge>
                         </div>
+                        {ep.transcriptStatus === "processing" && (
+                          <div className="mt-1.5">
+                            <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${ep.processingProgress || 5}%` }} />
+                            </div>
+                            <p className="text-[9px] text-blue-400 font-mono mt-0.5">{ep.processingProgress || 5}% — running in background</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
