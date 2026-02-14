@@ -18,6 +18,7 @@ import {
   Briefcase,
   Bot,
   ChevronDown,
+  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
@@ -184,6 +185,17 @@ export function Sidebar() {
             />
           ))}
         </nav>
+
+        <div className="mt-4 mx-3 px-2">
+          <Link
+            href="/home"
+            className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 transition-colors"
+            data-testid="link-view-live-site"
+          >
+            <ExternalLink className="h-4 w-4" />
+            <span>View Live Site</span>
+          </Link>
+        </div>
 
         <div className="mt-6 mx-3 pt-4 border-t border-border/50">
           <h3 className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-[0.15em] mb-2 font-mono px-3">
