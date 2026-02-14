@@ -4,7 +4,7 @@ import pg from "pg";
 import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
-  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, adCreatives, outboundCampaigns, heroSlides,
+  subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, products, adCreatives, outboundCampaigns, heroSlides,
   socialAccounts, scheduledPosts, clipAssets, newsletterRuns, newsLayoutSections, crmLists,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
@@ -23,6 +23,7 @@ import {
   type CompanyContact, type InsertCompanyContact,
   type Deal, type InsertDeal,
   type DealActivity, type InsertDealActivity,
+  type Product, type InsertProduct,
   type AdCreative, type InsertAdCreative,
   type OutboundCampaign, type InsertOutboundCampaign,
   type HeroSlide, type InsertHeroSlide,
@@ -131,6 +132,12 @@ export interface IStorage {
   createDealActivity(activity: InsertDealActivity): Promise<DealActivity>;
   updateDealActivity(id: string, data: Partial<InsertDealActivity>): Promise<DealActivity | undefined>;
   deleteDealActivity(id: string): Promise<void>;
+
+  getProducts(status?: string): Promise<Product[]>;
+  getProduct(id: string): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<void>;
 
   getAdCreatives(dealId: string): Promise<AdCreative[]>;
   getAdCreative(id: string): Promise<AdCreative | undefined>;
@@ -554,6 +561,28 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteDealActivity(id: string) {
     await db.delete(dealActivities).where(eq(dealActivities.id, id));
+  }
+
+  async getProducts(status?: string) {
+    if (status) {
+      return db.select().from(products).where(eq(products.status, status)).orderBy(products.sortOrder);
+    }
+    return db.select().from(products).orderBy(products.sortOrder);
+  }
+  async getProduct(id: string) {
+    const [p] = await db.select().from(products).where(eq(products.id, id));
+    return p;
+  }
+  async createProduct(product: InsertProduct) {
+    const [created] = await db.insert(products).values(product).returning();
+    return created;
+  }
+  async updateProduct(id: string, data: Partial<InsertProduct>) {
+    const [updated] = await db.update(products).set({ ...data, updatedAt: new Date() }).where(eq(products.id, id)).returning();
+    return updated;
+  }
+  async deleteProduct(id: string) {
+    await db.delete(products).where(eq(products.id, id));
   }
 
   async getAdCreatives(dealId: string) {

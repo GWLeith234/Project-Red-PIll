@@ -314,6 +314,36 @@ export function useDeleteDealActivity() {
   });
 }
 
+export function useProducts(status?: string) {
+  const params = status ? `?status=${status}` : "";
+  return useQuery({ queryKey: ["/api/products", status], queryFn: () => apiRequest(`/api/products${params}`) });
+}
+
+export function useProduct(id: string) {
+  return useQuery({ queryKey: ["/api/products", id], queryFn: () => apiRequest(`/api/products/${id}`), enabled: !!id });
+}
+
+export function useCreateProduct() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/products", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/products"] }),
+  });
+}
+
+export function useUpdateProduct() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/products"] }),
+  });
+}
+
+export function useDeleteProduct() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/products/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/products"] }),
+  });
+}
+
 export function useAdCreatives(dealId: string) {
   return useQuery({ queryKey: ["/api/deals", dealId, "creatives"], queryFn: () => apiRequest(`/api/deals/${dealId}/creatives`), enabled: !!dealId });
 }

@@ -6,7 +6,7 @@ import {
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
   insertBrandingSchema, insertPlatformSettingsSchema, insertUserSchema, insertCommentSchema,
   insertSubscriberSchema, insertSubscriberPodcastSchema, insertCompanySchema,
-  insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertAdCreativeSchema,
+  insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
@@ -2809,6 +2809,39 @@ export async function registerRoutes(
 
   app.delete("/api/deal-activities/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
     await storage.deleteDealActivity(req.params.id);
+    res.status(204).send();
+  });
+
+  // ── Products (Revenue) ──
+  app.get("/api/products", requireAuth, requirePermission("monetization.view"), async (req, res) => {
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const data = await storage.getProducts(status);
+    res.json(data);
+  });
+
+  app.get("/api/products/:id", requireAuth, requirePermission("monetization.view"), async (req, res) => {
+    const data = await storage.getProduct(req.params.id);
+    if (!data) return res.status(404).json({ message: "Product not found" });
+    res.json(data);
+  });
+
+  app.post("/api/products", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    const parsed = insertProductSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.createProduct(parsed.data);
+    res.json(data);
+  });
+
+  app.patch("/api/products/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    const parsed = insertProductSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    const data = await storage.updateProduct(req.params.id, parsed.data);
+    if (!data) return res.status(404).json({ message: "Product not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/products/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    await storage.deleteProduct(req.params.id);
     res.status(204).send();
   });
 

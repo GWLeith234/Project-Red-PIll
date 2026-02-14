@@ -342,6 +342,38 @@ export const dealActivities = pgTable("deal_activities", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const PRODUCT_CATEGORIES = ["display_ads", "audio_ads", "video_ads", "sponsorship", "branded_content", "newsletter", "social_media", "events", "custom"] as const;
+export type ProductCategory = typeof PRODUCT_CATEGORIES[number];
+export const PRODUCT_STATUSES = ["active", "inactive", "archived"] as const;
+export type ProductStatus = typeof PRODUCT_STATUSES[number];
+export const RATE_MODELS = ["cpm", "cpc", "cpa", "flat_rate", "per_episode", "per_month", "custom"] as const;
+export type RateModel = typeof RATE_MODELS[number];
+
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("display_ads"),
+  description: text("description"),
+  rateModel: text("rate_model").notNull().default("cpm"),
+  wholesaleRate: real("wholesale_rate").notNull().default(0),
+  suggestedRetailRate: real("suggested_retail_rate").notNull().default(0),
+  minimumRate: real("minimum_rate").default(0),
+  overrideThresholdPercent: integer("override_threshold_percent").default(10),
+  fulfillmentRequirements: jsonb("fulfillment_requirements").default(sql`'[]'::jsonb`),
+  deliverables: text("deliverables"),
+  unitLabel: text("unit_label").default("impressions"),
+  minimumUnits: integer("minimum_units").default(0),
+  status: text("status").default("active").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;
+
 export const AD_CREATIVE_FORMATS = ["banner_728x90", "banner_300x250", "banner_320x50", "banner_970x250", "video_preroll", "video_midroll", "audio_spot", "native", "sponsored_content", "page_takeover", "custom"] as const;
 export type AdCreativeFormat = typeof AD_CREATIVE_FORMATS[number];
 export const AD_CREATIVE_STATUSES = ["draft", "review", "approved", "live", "paused", "expired"] as const;
