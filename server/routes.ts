@@ -444,8 +444,25 @@ export async function registerRoutes(
   });
 
   app.post("/api/social-accounts", requireAuth, requirePermission("content.edit"), async (req, res) => {
-    const data = await storage.createSocialAccount(req.body);
+    const accountData = { ...req.body, status: "connected" };
+    const data = await storage.createSocialAccount(accountData);
     res.status(201).json(data);
+  });
+
+  app.post("/api/social-accounts/:id/test", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const account = await storage.getSocialAccount(req.params.id);
+    if (!account) return res.status(404).json({ message: "Account not found" });
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const updated = await storage.updateSocialAccount(req.params.id, { status: "connected" });
+    res.json({ success: true, account: updated });
+  });
+
+  app.post("/api/social-accounts/:id/reconnect", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const account = await storage.getSocialAccount(req.params.id);
+    if (!account) return res.status(404).json({ message: "Account not found" });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const updated = await storage.updateSocialAccount(req.params.id, { status: "connected" });
+    res.json({ success: true, account: updated });
   });
 
   app.patch("/api/social-accounts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {

@@ -392,6 +392,13 @@ export function useCreateSocialAccount() {
   });
 }
 
+export function useUpdateSocialAccount() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest(`/api/social-accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/social-accounts"] }),
+  });
+}
+
 export function useDeleteSocialAccount() {
   return useMutation({
     mutationFn: (id: string) => apiRequest(`/api/social-accounts/${id}`, { method: "DELETE" }),
