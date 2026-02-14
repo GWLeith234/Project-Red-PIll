@@ -93,6 +93,8 @@ export const episodes = pgTable("episodes", {
   episodeType: text("episode_type").default("audio"),
   transcript: text("transcript"),
   transcriptStatus: text("transcript_status").default("pending"),
+  extractedKeywords: text("extracted_keywords").array().default(sql`ARRAY[]::text[]`),
+  keywordAnalysis: text("keyword_analysis"),
   publishedAt: timestamp("published_at").defaultNow(),
   processingStatus: text("processing_status").default("pending"),
   processingProgress: integer("processing_progress").default(0),

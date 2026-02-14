@@ -22,12 +22,130 @@ function estimateReadingTime(text: string): number {
   return Math.max(1, Math.ceil(words / 250));
 }
 
+export interface KeywordAnalysisResult {
+  topKeywords: Array<{
+    keyword: string;
+    relevanceScore: number;
+    trendingScore: number;
+    searchIntent: "informational" | "navigational" | "transactional" | "commercial";
+    competitionLevel: "low" | "medium" | "high";
+    recommendation: string;
+  }>;
+  longTailKeywords: Array<{
+    phrase: string;
+    relevanceScore: number;
+    trendingScore: number;
+  }>;
+  topicClusters: Array<{
+    topic: string;
+    keywords: string[];
+    contentAngle: string;
+  }>;
+  optimizationTips: string[];
+  suggestedTitle: string;
+  suggestedMetaDescription: string;
+}
+
+export async function analyzeTranscriptKeywords(
+  transcript: string,
+  episodeTitle: string,
+  podcastTitle?: string
+): Promise<KeywordAnalysisResult> {
+  const systemPrompt = `You are an expert SEO keyword analyst and content strategist. Analyze podcast transcripts to extract the most valuable keywords and phrases that are currently trending and have high search ranking potential.
+
+Your analysis should:
+1. Identify 10-15 top keywords/phrases that audiences are actively searching for
+2. Score each keyword for relevance to the content (1-100) and trending potential (1-100)
+3. Classify search intent for each keyword
+4. Assess competition level
+5. Find 5-8 long-tail keyword phrases (3-5 words) with high ranking potential
+6. Group keywords into topic clusters for content optimization
+7. Provide actionable SEO optimization tips specific to this content
+8. Suggest an optimized title and meta description using top ranking keywords
+
+Focus on keywords that:
+- Have high current search volume and trending momentum
+- Match the specific topics discussed in the episode
+- Can realistically rank with content optimization
+- Would attract the target audience
+
+Return JSON:
+{
+  "topKeywords": [
+    {
+      "keyword": "keyword or short phrase",
+      "relevanceScore": 85,
+      "trendingScore": 92,
+      "searchIntent": "informational",
+      "competitionLevel": "medium",
+      "recommendation": "Use in H2 heading and first paragraph"
+    }
+  ],
+  "longTailKeywords": [
+    {
+      "phrase": "longer search phrase people use",
+      "relevanceScore": 78,
+      "trendingScore": 80
+    }
+  ],
+  "topicClusters": [
+    {
+      "topic": "Main topic name",
+      "keywords": ["keyword1", "keyword2", "keyword3"],
+      "contentAngle": "Suggested angle to cover this topic cluster"
+    }
+  ],
+  "optimizationTips": [
+    "Specific actionable tip for optimizing content around these keywords"
+  ],
+  "suggestedTitle": "SEO-optimized title using top trending keywords",
+  "suggestedMetaDescription": "150-160 char meta description with primary keywords"
+}`;
+
+  const userPrompt = `Analyze this podcast transcript for the most valuable, currently trending keywords to optimize for maximum search visibility and audience growth.
+
+Episode Title: "${episodeTitle}"
+${podcastTitle ? `Podcast: "${podcastTitle}"` : ""}
+
+TRANSCRIPT:
+${transcript.slice(0, 12000)}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    response_format: { type: "json_object" },
+    max_tokens: 3000,
+  });
+
+  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+
+  return {
+    topKeywords: (parsed.topKeywords || []).slice(0, 15),
+    longTailKeywords: (parsed.longTailKeywords || []).slice(0, 8),
+    topicClusters: parsed.topicClusters || [],
+    optimizationTips: parsed.optimizationTips || [],
+    suggestedTitle: parsed.suggestedTitle || episodeTitle,
+    suggestedMetaDescription: parsed.suggestedMetaDescription || "",
+  };
+}
+
+function buildKeywordContext(trendingKeywords?: string[]): string {
+  if (!trendingKeywords || trendingKeywords.length === 0) return "";
+  return `\n\nTRENDING KEYWORDS TO OPTIMIZE FOR (incorporate naturally into your content, headings, and SEO fields):
+${trendingKeywords.slice(0, 15).map((k, i) => `${i + 1}. ${k}`).join("\n")}`;
+}
+
 export async function generateStoryFromTranscript(
   episodeId: string,
   transcript: string,
   episodeTitle: string,
-  podcastTitle?: string
+  podcastTitle?: string,
+  trendingKeywords?: string[]
 ): Promise<ContentPiece> {
+  const keywordContext = buildKeywordContext(trendingKeywords);
   const systemPrompt = `You are an expert editorial writer and SEO specialist for a media company. 
 Your job is to transform podcast episode transcripts into polished, engaging articles that drive search traffic.
 
@@ -39,6 +157,7 @@ Write in a professional journalistic style. The article should:
 - End with a strong conclusion or call-to-action
 - Be 800-1500 words
 - Feel like an original article, not a transcript summary
+${trendingKeywords?.length ? "- Strategically incorporate the provided trending keywords in headings, opening paragraphs, and throughout the article for maximum SEO impact" : ""}
 
 Return your response as JSON with these exact fields:
 {
@@ -53,7 +172,7 @@ Return your response as JSON with these exact fields:
   const userPrompt = `Transform this podcast episode transcript into a polished article.
 
 Episode Title: "${episodeTitle}"
-${podcastTitle ? `Podcast: "${podcastTitle}"` : ""}
+${podcastTitle ? `Podcast: "${podcastTitle}"` : ""}${keywordContext}
 
 TRANSCRIPT:
 ${transcript.slice(0, 15000)}`;
@@ -104,8 +223,10 @@ export async function generateBlogPost(
   episodeId: string,
   transcript: string,
   episodeTitle: string,
-  podcastTitle?: string
+  podcastTitle?: string,
+  trendingKeywords?: string[]
 ): Promise<ContentPiece> {
+  const keywordContext = buildKeywordContext(trendingKeywords);
   const systemPrompt = `You are a professional blog writer and SEO content strategist. Transform podcast transcripts into engaging, SEO-optimized blog posts that are longer and more detailed than news articles.
 
 The blog post should:
@@ -118,6 +239,7 @@ The blog post should:
 - End with a conclusion and call-to-action
 - Be written in an authoritative but accessible voice
 - Include internal linking suggestions
+${trendingKeywords?.length ? "- Strategically weave the provided trending keywords into headings, subheadings, and key paragraphs for SEO ranking" : ""}
 
 Return JSON:
 {
@@ -133,7 +255,7 @@ Return JSON:
     model: "gpt-4o",
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: `Write a detailed blog post from this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}\n\nTRANSCRIPT:\n${transcript.slice(0, 15000)}` },
+      { role: "user", content: `Write a detailed blog post from this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}${keywordContext}\n\nTRANSCRIPT:\n${transcript.slice(0, 15000)}` },
     ],
     response_format: { type: "json_object" },
     max_tokens: 4096,
@@ -165,8 +287,12 @@ export async function generateSocialPosts(
   episodeId: string,
   transcript: string,
   episodeTitle: string,
-  podcastTitle?: string
+  podcastTitle?: string,
+  trendingKeywords?: string[]
 ): Promise<ContentPiece[]> {
+  const keywordContext = trendingKeywords?.length
+    ? `\n\nTRENDING KEYWORDS/HASHTAGS TO INCORPORATE: ${trendingKeywords.slice(0, 10).join(", ")}`
+    : "";
   const systemPrompt = `You are a social media content strategist for a media company. Create platform-specific posts from podcast transcripts.
 
 Generate posts for each platform with the right tone, length, and format:
@@ -174,6 +300,7 @@ Generate posts for each platform with the right tone, length, and format:
 - LinkedIn: Professional, 1300 chars, thought leadership angle. Include 3-5 hashtags.
 - Facebook: Conversational, 500-800 chars, engaging question or story hook.
 - Google Business: Brief update, 300 chars, local business focus.
+${trendingKeywords?.length ? "- Use the provided trending keywords as hashtags and incorporate them naturally into post copy for maximum reach" : ""}
 
 Return JSON:
 {
@@ -209,7 +336,7 @@ Return JSON:
     model: "gpt-4o",
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: `Create social media posts from this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}\n\nTRANSCRIPT:\n${transcript.slice(0, 10000)}` },
+      { role: "user", content: `Create social media posts from this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}${keywordContext}\n\nTRANSCRIPT:\n${transcript.slice(0, 10000)}` },
     ],
     response_format: { type: "json_object" },
     max_tokens: 2048,
@@ -358,8 +485,10 @@ export async function generateSEOAssets(
   episodeId: string,
   transcript: string,
   episodeTitle: string,
-  podcastTitle?: string
+  podcastTitle?: string,
+  trendingKeywords?: string[]
 ): Promise<ContentPiece> {
+  const keywordContext = buildKeywordContext(trendingKeywords);
   const systemPrompt = `You are an SEO specialist. Generate comprehensive SEO assets from a podcast episode transcript.
 
 Create:
@@ -368,6 +497,7 @@ Create:
 - FAQ schema content (5-8 questions and answers from the episode)
 - Schema markup suggestions
 - Internal linking recommendations
+${trendingKeywords?.length ? "- Prioritize the provided trending keywords in all SEO fields, titles, and FAQ questions to maximize search ranking potential" : ""}
 
 Return JSON:
 {
@@ -383,7 +513,7 @@ Return JSON:
     model: "gpt-4o",
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: `Generate SEO assets for this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}\n\nTRANSCRIPT:\n${transcript.slice(0, 12000)}` },
+      { role: "user", content: `Generate SEO assets for this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}${keywordContext}\n\nTRANSCRIPT:\n${transcript.slice(0, 12000)}` },
     ],
     response_format: { type: "json_object" },
     max_tokens: 2048,
@@ -515,6 +645,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
   clips?: ClipAsset[];
   newsletterBlurb?: ContentPiece;
   seoAssets?: ContentPiece;
+  keywordAnalysis?: KeywordAnalysisResult;
   suggestions?: any;
   errors: string[];
 }> {
@@ -553,7 +684,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
       await storage.updateEpisode(episodeId, {
         transcript,
         transcriptStatus: "complete",
-        processingProgress: 20,
+        processingProgress: 10,
       } as any);
     } catch (err: any) {
       await storage.updateEpisode(episodeId, { transcriptStatus: "failed", processingStatus: "failed" } as any);
@@ -570,6 +701,32 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
   if (podcast) podcastTitle = podcast.title;
 
   const result: any = { errors: [] };
+
+  let trendingKeywords: string[] = [];
+  try {
+    await storage.updateEpisode(episodeId, { processingProgress: 12 } as any);
+    const kwAnalysis = await analyzeTranscriptKeywords(transcript, episode.title, podcastTitle);
+    result.keywordAnalysis = kwAnalysis;
+
+    trendingKeywords = kwAnalysis.topKeywords
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .map(k => k.keyword);
+
+    const allKeywords = [
+      ...trendingKeywords,
+      ...kwAnalysis.longTailKeywords.map(k => k.phrase),
+    ];
+
+    await storage.updateEpisode(episodeId, {
+      extractedKeywords: allKeywords,
+      keywordAnalysis: JSON.stringify(kwAnalysis),
+      processingProgress: 20,
+    } as any);
+  } catch (err: any) {
+    result.errors.push(`keyword_analysis: ${err.message}`);
+    await storage.updateEpisode(episodeId, { processingProgress: 20 } as any);
+  }
+
   let progressStep = 20;
   const stepSize = Math.floor(70 / contentTypes.length);
 
@@ -577,13 +734,13 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
     try {
       switch (contentType) {
         case "article":
-          result.article = await generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle);
+          result.article = await generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
           break;
         case "blog":
-          result.blog = await generateBlogPost(episodeId, transcript, episode.title, podcastTitle);
+          result.blog = await generateBlogPost(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
           break;
         case "social":
-          result.socialPosts = await generateSocialPosts(episodeId, transcript, episode.title, podcastTitle);
+          result.socialPosts = await generateSocialPosts(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
           break;
         case "clips":
           result.clips = await generateClipSuggestions(episodeId, transcript, episode.title, episode.duration || undefined);
@@ -592,7 +749,7 @@ export async function runFullContentPipeline(episodeId: string, contentTypes: st
           result.newsletterBlurb = await generateNewsletterBlurb(episodeId, transcript, episode.title, podcastTitle);
           break;
         case "seo":
-          result.seoAssets = await generateSEOAssets(episodeId, transcript, episode.title, podcastTitle);
+          result.seoAssets = await generateSEOAssets(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
           break;
       }
       progressStep += stepSize;
@@ -673,12 +830,31 @@ export async function transcribeAndGenerateStory(episodeId: string): Promise<{
   const podcast = await storage.getPodcast(episode.podcastId);
   if (podcast) podcastTitle = podcast.title;
 
+  let trendingKeywords: string[] = [];
+  try {
+    const kwAnalysis = await analyzeTranscriptKeywords(transcript, episode.title, podcastTitle);
+    trendingKeywords = kwAnalysis.topKeywords
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .map(k => k.keyword);
+
+    const allKeywords = [
+      ...trendingKeywords,
+      ...kwAnalysis.longTailKeywords.map(k => k.phrase),
+    ];
+
+    await storage.updateEpisode(episodeId, {
+      extractedKeywords: allKeywords,
+      keywordAnalysis: JSON.stringify(kwAnalysis),
+    } as any);
+  } catch {}
+
   try {
     const story = await generateStoryFromTranscript(
       episodeId,
       transcript,
       episode.title,
-      podcastTitle
+      podcastTitle,
+      trendingKeywords
     );
 
     await storage.updateEpisode(episodeId, {
@@ -710,5 +886,21 @@ export async function generateStoryFromText(
     } as any);
   }
 
-  return generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle);
+  let trendingKeywords: string[] = [];
+  try {
+    const kwAnalysis = await analyzeTranscriptKeywords(transcript, episode.title, podcastTitle);
+    trendingKeywords = kwAnalysis.topKeywords
+      .sort((a, b) => b.trendingScore - a.trendingScore)
+      .map(k => k.keyword);
+
+    await storage.updateEpisode(episodeId, {
+      extractedKeywords: [
+        ...trendingKeywords,
+        ...kwAnalysis.longTailKeywords.map(k => k.phrase),
+      ],
+      keywordAnalysis: JSON.stringify(kwAnalysis),
+    } as any);
+  } catch {}
+
+  return generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
 }

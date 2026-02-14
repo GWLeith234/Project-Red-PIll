@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,8 @@ import {
   ArrowRight, CheckCircle2, Loader2, Clock, Search, Upload, PenLine,
   Scissors, Play, ThumbsUp, ThumbsDown, Calendar, Plus, Trash2,
   Edit3, Eye, Building2, Wifi, WifiOff, Sparkles, Zap, Send,
-  ChevronRight, AlertTriangle, ImagePlus, Music, Film, X as XCloseIcon
+  ChevronRight, AlertTriangle, ImagePlus, Music, Film, X as XCloseIcon,
+  TrendingUp, Target, BarChart3, Lightbulb, Hash, RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -113,6 +115,235 @@ export default function ContentFactory() {
   );
 }
 
+function KeywordAnalysisCard({ episodeId }: { episodeId: string }) {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["/api/episodes", episodeId, "keyword-analysis"],
+    queryFn: async () => {
+      const res = await fetch(`/api/episodes/${episodeId}/keyword-analysis`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load");
+      return res.json();
+    },
+    enabled: !!episodeId,
+    staleTime: 30000,
+  });
+
+  const [isRunning, setIsRunning] = useState(false);
+  const { toast } = useToast();
+
+  async function runAnalysis() {
+    setIsRunning(true);
+    try {
+      const res = await fetch(`/api/episodes/${episodeId}/keyword-analysis`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message);
+      }
+      refetch();
+      toast({ title: "Keyword Analysis Complete", description: "Trending keywords have been identified." });
+    } catch (err: any) {
+      toast({ title: "Analysis Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="glass-panel border-border/50 col-span-1 md:col-span-2" data-testid="card-keyword-analysis">
+        <CardContent className="p-6"><Skeleton className="h-32 w-full" /></CardContent>
+      </Card>
+    );
+  }
+
+  const analysis = data?.analysis;
+  const hasAnalysis = data?.hasAnalysis;
+
+  if (!hasAnalysis) {
+    return (
+      <Card className="glass-panel border-border/50 col-span-1 md:col-span-2" data-testid="card-keyword-analysis">
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-display">Keyword Analysis</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4">
+            <Target className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground mb-3">Run keyword analysis to discover trending topics and optimize your content for search ranking.</p>
+            <Button
+              onClick={runAnalysis}
+              disabled={isRunning}
+              variant="outline"
+              size="sm"
+              className="font-mono text-xs"
+              data-testid="button-run-keyword-analysis"
+            >
+              {isRunning ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Search className="mr-2 h-3 w-3" />}
+              Analyze Keywords
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const topKeywords = analysis?.topKeywords || [];
+  const longTailKeywords = analysis?.longTailKeywords || [];
+  const topicClusters = analysis?.topicClusters || [];
+  const optimizationTips = analysis?.optimizationTips || [];
+
+  return (
+    <Card className="glass-panel border-primary/20 col-span-1 md:col-span-2" data-testid="card-keyword-analysis">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-display">Keyword Analysis</CardTitle>
+            <Badge variant="outline" className="font-mono text-[10px] border-emerald-500/50 text-emerald-500">{topKeywords.length} keywords</Badge>
+          </div>
+          <Button
+            onClick={runAnalysis}
+            disabled={isRunning}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            data-testid="button-rerun-keyword-analysis"
+          >
+            {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <BarChart3 className="h-3.5 w-3.5 text-primary" />
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Top Ranking Keywords</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {topKeywords.slice(0, 12).map((kw: any, i: number) => (
+              <div
+                key={i}
+                className="group relative inline-flex items-center gap-1 px-2 py-1 border rounded text-xs font-mono transition-all hover:border-primary/50 cursor-default"
+                style={{
+                  borderColor: kw.trendingScore >= 80 ? 'rgba(229, 193, 0, 0.5)' :
+                    kw.trendingScore >= 60 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148, 163, 184, 0.3)',
+                  backgroundColor: kw.trendingScore >= 80 ? 'rgba(229, 193, 0, 0.08)' :
+                    kw.trendingScore >= 60 ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
+                }}
+                data-testid={`keyword-${i}`}
+              >
+                {kw.trendingScore >= 80 && <TrendingUp className="h-2.5 w-2.5 text-[#E5C100]" />}
+                <span className="text-foreground">{kw.keyword}</span>
+                <span className={cn(
+                  "text-[9px] font-bold",
+                  kw.trendingScore >= 80 ? "text-[#E5C100]" : kw.trendingScore >= 60 ? "text-emerald-500" : "text-muted-foreground"
+                )}>{kw.trendingScore}</span>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 w-48 p-2 bg-popover border border-border rounded shadow-lg text-[10px]">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">Relevance</span>
+                    <span className="font-bold">{kw.relevanceScore}/100</span>
+                  </div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">Trending</span>
+                    <span className="font-bold">{kw.trendingScore}/100</span>
+                  </div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">Intent</span>
+                    <span className="capitalize">{kw.searchIntent}</span>
+                  </div>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-muted-foreground">Competition</span>
+                    <Badge variant="outline" className={cn(
+                      "text-[8px] h-4 px-1",
+                      kw.competitionLevel === "low" ? "text-emerald-500 border-emerald-500/50" :
+                      kw.competitionLevel === "high" ? "text-red-400 border-red-400/50" :
+                      "text-amber-400 border-amber-400/50"
+                    )}>{kw.competitionLevel}</Badge>
+                  </div>
+                  <p className="text-muted-foreground mt-1 border-t border-border pt-1">{kw.recommendation}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {longTailKeywords.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Hash className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Long-Tail Phrases</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {longTailKeywords.map((lt: any, i: number) => (
+                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/5 border border-emerald-500/20 rounded text-[11px] font-mono text-emerald-500" data-testid={`longtail-${i}`}>
+                  {lt.phrase}
+                  <span className="text-[9px] text-emerald-400/70">{lt.trendingScore}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {topicClusters.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Target className="h-3.5 w-3.5 text-violet-500" />
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Topic Clusters</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {topicClusters.slice(0, 4).map((cluster: any, i: number) => (
+                <div key={i} className="p-2 border border-border/50 rounded bg-card/30 space-y-1" data-testid={`cluster-${i}`}>
+                  <span className="text-xs font-semibold text-foreground">{cluster.topic}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {cluster.keywords?.map((kw: string, ki: number) => (
+                      <span key={ki} className="text-[9px] px-1.5 py-0.5 bg-violet-500/10 border border-violet-500/20 rounded text-violet-400 font-mono">{kw}</span>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{cluster.contentAngle}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {optimizationTips.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Lightbulb className="h-3.5 w-3.5 text-amber-400" />
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Optimization Tips</span>
+            </div>
+            <div className="space-y-1.5">
+              {optimizationTips.slice(0, 5).map((tip: string, i: number) => (
+                <div key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground" data-testid={`tip-${i}`}>
+                  <CheckCircle2 className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+                  <span>{tip}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {analysis?.suggestedTitle && (
+          <div className="border-t border-border/50 pt-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Suggested SEO Title</span>
+            </div>
+            <p className="text-xs font-medium text-foreground bg-primary/5 border border-primary/20 rounded px-2.5 py-1.5" data-testid="text-suggested-title">{analysis.suggestedTitle}</p>
+            {analysis.suggestedMetaDescription && (
+              <p className="text-[10px] text-muted-foreground italic" data-testid="text-suggested-meta">{analysis.suggestedMetaDescription}</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PipelineTab() {
   const { data: episodes, isLoading: epLoading } = useEpisodes();
   const { data: podcasts } = usePodcasts();
@@ -128,6 +359,7 @@ function PipelineTab() {
 
   const pipelineSteps = [
     { label: "Transcription", key: "transcription" },
+    { label: "Keyword Analysis", key: "keywords" },
     { label: "Article", key: "article" },
     { label: "Blog", key: "blog" },
     { label: "Social", key: "social" },
@@ -319,6 +551,7 @@ function PipelineTab() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <KeywordAnalysisCard episodeId={selectedEpisodeId} />
             {Object.entries(typeConfig).map(([type, config]) => {
               const items = grouped[type] || [];
               const Icon = config.icon;

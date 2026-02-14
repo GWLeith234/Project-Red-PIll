@@ -297,6 +297,60 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/episodes/:id/keyword-analysis", requireAuth, requirePermission("content.view"), async (req, res) => {
+    try {
+      const episode = await storage.getEpisode(req.params.id);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+
+      if (episode.keywordAnalysis) {
+        try {
+          const analysis = JSON.parse(episode.keywordAnalysis as string);
+          return res.json({
+            hasAnalysis: true,
+            extractedKeywords: episode.extractedKeywords || [],
+            analysis,
+          });
+        } catch {
+          return res.json({ hasAnalysis: false, extractedKeywords: episode.extractedKeywords || [], analysis: null });
+        }
+      }
+
+      res.json({ hasAnalysis: false, extractedKeywords: episode.extractedKeywords || [], analysis: null });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/episodes/:id/keyword-analysis", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const episode = await storage.getEpisode(req.params.id);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+      if (!episode.transcript) return res.status(400).json({ message: "Episode has no transcript. Run transcription first." });
+
+      const { analyzeTranscriptKeywords } = await import("./ai-content-agent");
+      const podcast = await storage.getPodcast(episode.podcastId);
+      const kwAnalysis = await analyzeTranscriptKeywords(episode.transcript, episode.title, podcast?.title);
+
+      const allKeywords = [
+        ...kwAnalysis.topKeywords.map(k => k.keyword),
+        ...kwAnalysis.longTailKeywords.map(k => k.phrase),
+      ];
+
+      await storage.updateEpisode(req.params.id, {
+        extractedKeywords: allKeywords,
+        keywordAnalysis: JSON.stringify(kwAnalysis),
+      } as any);
+
+      res.json({
+        hasAnalysis: true,
+        extractedKeywords: allKeywords,
+        analysis: kwAnalysis,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.post("/api/ai-agent/smart-suggestions", requireAuth, requirePermission("content.edit"), async (req, res) => {
     const { episodeId } = req.body;
     if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
