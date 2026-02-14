@@ -1498,7 +1498,7 @@ export async function registerRoutes(
       defaultLanguage: "en",
       autoPublishContent: false,
       contentTypes: ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
-      defaultPlatforms: ["TikTok", "Reels", "Shorts", "Twitter", "LinkedIn"],
+      defaultPlatforms: ["TikTok", "Reels", "Shorts", "X", "LinkedIn"],
       aiQuality: "balanced",
       emailNotifications: true,
       alertThreshold: "all",
@@ -1517,6 +1517,123 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.upsertSettings(parsed.data);
     res.json(data);
+  });
+
+  app.post("/api/settings/smart-defaults", requirePermission("settings.edit"), async (req, res) => {
+    const companyLocation = typeof req.body?.companyLocation === "string" ? req.body.companyLocation : "";
+    const browserTimezone = typeof req.body?.browserTimezone === "string" ? req.body.browserTimezone : "";
+    const browserLanguage = typeof req.body?.browserLanguage === "string" ? req.body.browserLanguage : "en";
+    const accounts = await storage.getSocialAccounts();
+    const connectedPlatforms = accounts.filter(a => a.status === "connected").map(a => a.platform);
+
+    const LOCATION_TIMEZONE_MAP: Record<string, { timezone: string; dateFormat: string; language: string }> = {
+      "US": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "USA": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "United States": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "New York": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Los Angeles": { timezone: "America/Los_Angeles", dateFormat: "MM/DD/YYYY", language: "en" },
+      "California": { timezone: "America/Los_Angeles", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Chicago": { timezone: "America/Chicago", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Denver": { timezone: "America/Denver", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Colorado": { timezone: "America/Denver", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Texas": { timezone: "America/Chicago", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Florida": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Alaska": { timezone: "America/Anchorage", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Hawaii": { timezone: "Pacific/Honolulu", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Canada": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Toronto": { timezone: "America/New_York", dateFormat: "MM/DD/YYYY", language: "en" },
+      "Vancouver": { timezone: "America/Los_Angeles", dateFormat: "MM/DD/YYYY", language: "en" },
+      "UK": { timezone: "Europe/London", dateFormat: "DD/MM/YYYY", language: "en" },
+      "London": { timezone: "Europe/London", dateFormat: "DD/MM/YYYY", language: "en" },
+      "United Kingdom": { timezone: "Europe/London", dateFormat: "DD/MM/YYYY", language: "en" },
+      "France": { timezone: "Europe/Paris", dateFormat: "DD/MM/YYYY", language: "fr" },
+      "Paris": { timezone: "Europe/Paris", dateFormat: "DD/MM/YYYY", language: "fr" },
+      "Germany": { timezone: "Europe/Berlin", dateFormat: "DD/MM/YYYY", language: "de" },
+      "Berlin": { timezone: "Europe/Berlin", dateFormat: "DD/MM/YYYY", language: "de" },
+      "Spain": { timezone: "Europe/Paris", dateFormat: "DD/MM/YYYY", language: "es" },
+      "Madrid": { timezone: "Europe/Paris", dateFormat: "DD/MM/YYYY", language: "es" },
+      "Portugal": { timezone: "Europe/London", dateFormat: "DD/MM/YYYY", language: "pt" },
+      "Brazil": { timezone: "America/New_York", dateFormat: "DD/MM/YYYY", language: "pt" },
+      "Japan": { timezone: "Asia/Tokyo", dateFormat: "YYYY-MM-DD", language: "ja" },
+      "Tokyo": { timezone: "Asia/Tokyo", dateFormat: "YYYY-MM-DD", language: "ja" },
+      "China": { timezone: "Asia/Shanghai", dateFormat: "YYYY-MM-DD", language: "zh" },
+      "Shanghai": { timezone: "Asia/Shanghai", dateFormat: "YYYY-MM-DD", language: "zh" },
+      "Dubai": { timezone: "Asia/Dubai", dateFormat: "DD/MM/YYYY", language: "en" },
+      "UAE": { timezone: "Asia/Dubai", dateFormat: "DD/MM/YYYY", language: "en" },
+      "Australia": { timezone: "Australia/Sydney", dateFormat: "DD/MM/YYYY", language: "en" },
+      "Sydney": { timezone: "Australia/Sydney", dateFormat: "DD/MM/YYYY", language: "en" },
+      "New Zealand": { timezone: "Pacific/Auckland", dateFormat: "DD/MM/YYYY", language: "en" },
+    };
+
+    let timezone = browserTimezone || "America/New_York";
+    let dateFormat = "MM/DD/YYYY";
+    let language = browserLanguage?.split("-")[0] || "en";
+
+    if (companyLocation) {
+      const loc = companyLocation.trim();
+      for (const [key, val] of Object.entries(LOCATION_TIMEZONE_MAP)) {
+        if (loc.toLowerCase().includes(key.toLowerCase())) {
+          timezone = val.timezone;
+          dateFormat = val.dateFormat;
+          language = val.language;
+          break;
+        }
+      }
+    }
+
+    const PLATFORM_TO_DIST: Record<string, string[]> = {
+      x: ["X"],
+      facebook: ["Facebook"],
+      instagram: ["Reels"],
+      linkedin: ["LinkedIn"],
+      tiktok: ["TikTok"],
+      google_business: [],
+    };
+    let defaultPlatforms = ["TikTok", "Reels", "Shorts", "X", "LinkedIn"];
+    if (connectedPlatforms.length > 0) {
+      const suggested = new Set<string>(["Shorts"]);
+      connectedPlatforms.forEach(p => {
+        const mapped = PLATFORM_TO_DIST[p];
+        if (mapped) mapped.forEach(d => suggested.add(d));
+      });
+      defaultPlatforms = Array.from(suggested);
+    }
+
+    const hasVideoFocused = connectedPlatforms.some(p => ["tiktok", "instagram"].includes(p));
+    let contentTypes = ["video_clip", "article", "social_post", "newsletter", "seo_asset"];
+    const aiQuality = hasVideoFocused ? "premium" : "balanced";
+
+    const smartSettings: Record<string, any> = {
+      companyLocation: companyLocation || null,
+      timezone,
+      dateFormat,
+      defaultLanguage: language,
+      defaultPlatforms,
+      contentTypes,
+      aiQuality,
+      autoPublishContent: false,
+      emailNotifications: true,
+      alertThreshold: connectedPlatforms.length >= 4 ? "important" : "all",
+      weeklyDigest: true,
+      revenueAlerts: true,
+      processingAlerts: true,
+      sessionTimeoutMinutes: 10080,
+      maxLoginAttempts: 5,
+      requireStrongPasswords: true,
+      twoFactorEnabled: false,
+    };
+
+    const reasons: Record<string, string> = {
+      timezone: companyLocation ? `Based on "${companyLocation}" location` : "Detected from your browser",
+      dateFormat: companyLocation ? `Standard format for ${companyLocation}` : "Based on detected timezone region",
+      defaultLanguage: companyLocation ? `Primary language for ${companyLocation}` : "Detected from your browser",
+      defaultPlatforms: connectedPlatforms.length > 0 ? `Based on ${connectedPlatforms.length} connected account(s)` : "Default recommended platforms",
+      contentTypes: "All content types recommended for maximum reach",
+      aiQuality: hasVideoFocused ? "Premium recommended for video-focused distribution" : "Balanced quality for general content",
+      alertThreshold: connectedPlatforms.length >= 4 ? "Important-only recommended with many connected platforms" : "All alerts for full visibility",
+    };
+
+    res.json({ settings: smartSettings, reasons });
   });
 
   // ── Subscribers CRM ──

@@ -4,7 +4,8 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import {
   Globe, Zap, FileText, Bell, Shield,
-  Save, Loader2, AlertTriangle,
+  Save, Loader2, AlertTriangle, Sparkles, MapPin,
+  CheckCircle2, ArrowRight, Lightbulb,
 } from "lucide-react";
 
 const TIMEZONES = [
@@ -232,8 +233,12 @@ export default function Settings() {
   const { hasPermission } = useAuth();
   const { toast } = useToast();
   const canEdit = hasPermission("settings.edit");
+  const [smartLoading, setSmartLoading] = useState(false);
+  const [smartReasons, setSmartReasons] = useState<Record<string, string>>({});
+  const [smartApplied, setSmartApplied] = useState(false);
 
   const [form, setForm] = useState({
+    companyLocation: "",
     timezone: "America/New_York",
     dateFormat: "MM/DD/YYYY",
     defaultLanguage: "en",
@@ -255,12 +260,13 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
       setForm({
+        companyLocation: settings.companyLocation || "",
         timezone: settings.timezone || "America/New_York",
         dateFormat: settings.dateFormat || "MM/DD/YYYY",
         defaultLanguage: settings.defaultLanguage || "en",
         autoPublishContent: settings.autoPublishContent ?? false,
         contentTypes: settings.contentTypes || ["video_clip", "article", "social_post", "newsletter", "seo_asset"],
-        defaultPlatforms: settings.defaultPlatforms || ["TikTok", "Reels", "Shorts", "Twitter", "LinkedIn"],
+        defaultPlatforms: (settings.defaultPlatforms || ["TikTok", "Reels", "Shorts", "X", "LinkedIn"]).map((p: string) => p === "Twitter" ? "X" : p),
         aiQuality: settings.aiQuality || "balanced",
         emailNotifications: settings.emailNotifications ?? true,
         alertThreshold: settings.alertThreshold || "all",
@@ -280,6 +286,8 @@ export default function Settings() {
     updateSettings.mutate(form, {
       onSuccess: () => {
         toast({ title: "Settings Saved", description: "Platform settings have been updated." });
+        setSmartApplied(false);
+        setSmartReasons({});
       },
       onError: (err: any) => {
         toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -287,10 +295,58 @@ export default function Settings() {
     });
   };
 
+  const handleSmartDefaults = async () => {
+    setSmartLoading(true);
+    try {
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const browserLanguage = navigator.language;
+      const res = await fetch("/api/settings/smart-defaults", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyLocation: form.companyLocation,
+          browserTimezone,
+          browserLanguage,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to get smart defaults");
+      const { settings: smart, reasons } = await res.json();
+      setForm(f => ({
+        ...f,
+        timezone: smart.timezone,
+        dateFormat: smart.dateFormat,
+        defaultLanguage: smart.defaultLanguage,
+        defaultPlatforms: smart.defaultPlatforms,
+        contentTypes: smart.contentTypes,
+        aiQuality: smart.aiQuality,
+        alertThreshold: smart.alertThreshold,
+        autoPublishContent: smart.autoPublishContent,
+      }));
+      setSmartReasons(reasons);
+      setSmartApplied(true);
+      toast({ title: "Smart Defaults Applied", description: "Settings have been optimized. Review and save to confirm." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSmartLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  function SmartBadge({ field }: { field: string }) {
+    if (!smartApplied || !smartReasons[field]) return null;
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-emerald-400 font-mono animate-in fade-in slide-in-from-left-2 duration-300">
+        <Sparkles className="h-3 w-3" />
+        <span>{smartReasons[field]}</span>
       </div>
     );
   }
@@ -304,17 +360,30 @@ export default function Settings() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Configure your platform preferences and security policies</p>
         </div>
-        {canEdit && (
-          <button
-            onClick={handleSave}
-            disabled={updateSettings.isPending}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
-            data-testid="button-save-settings"
-          >
-            {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Changes
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {canEdit && (
+            <button
+              onClick={handleSmartDefaults}
+              disabled={smartLoading}
+              className="flex items-center gap-2 bg-card border border-primary/30 text-primary px-4 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/10 transition-colors disabled:opacity-50"
+              data-testid="button-smart-defaults"
+            >
+              {smartLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Smart Defaults
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={handleSave}
+              disabled={updateSettings.isPending}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+              data-testid="button-save-settings"
+            >
+              {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save Changes
+            </button>
+          )}
+        </div>
       </div>
 
       {!canEdit && (
@@ -324,47 +393,101 @@ export default function Settings() {
         </div>
       )}
 
+      {smartApplied && (
+        <div className="border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300" data-testid="smart-defaults-banner">
+          <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-emerald-400 font-medium">Smart defaults applied</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Settings have been optimized based on your location, browser, and connected accounts. Review the changes below and click <strong>Save Changes</strong> to confirm.</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-general">
           <SectionHeader icon={Globe} title="General" description="Regional and display preferences" />
 
-          <SelectField
-            label="Timezone"
-            value={form.timezone}
-            options={TIMEZONES.map(tz => ({ value: tz, label: tz.replace(/_/g, ' ') }))}
-            onChange={(v) => setForm(f => ({ ...f, timezone: v }))}
-            testId="timezone"
-            disabled={!canEdit}
-          />
-          <SelectField
-            label="Date Format"
-            value={form.dateFormat}
-            options={DATE_FORMATS.map(df => ({ value: df, label: df }))}
-            onChange={(v) => setForm(f => ({ ...f, dateFormat: v }))}
-            testId="date-format"
-            disabled={!canEdit}
-          />
-          <SelectField
-            label="Default Language"
-            value={form.defaultLanguage}
-            options={LANGUAGES}
-            onChange={(v) => setForm(f => ({ ...f, defaultLanguage: v }))}
-            testId="language"
-            disabled={!canEdit}
-          />
+          <div data-testid="company-location">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="h-3 w-3" />
+                Company Location
+              </span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.companyLocation}
+                onChange={(e) => setForm(f => ({ ...f, companyLocation: e.target.value }))}
+                placeholder="e.g. New York, USA"
+                disabled={!canEdit}
+                className="flex-1 bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50"
+                data-testid="input-company-location"
+              />
+              {canEdit && form.companyLocation && (
+                <button
+                  onClick={handleSmartDefaults}
+                  disabled={smartLoading}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50"
+                  data-testid="button-detect-location"
+                >
+                  {smartLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Lightbulb className="h-3 w-3" />}
+                  Detect
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Used to auto-detect timezone, date format, and language</p>
+          </div>
+
+          <div>
+            <SelectField
+              label="Timezone"
+              value={form.timezone}
+              options={TIMEZONES.map(tz => ({ value: tz, label: tz.replace(/_/g, ' ') }))}
+              onChange={(v) => setForm(f => ({ ...f, timezone: v }))}
+              testId="timezone"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="timezone" />
+          </div>
+          <div>
+            <SelectField
+              label="Date Format"
+              value={form.dateFormat}
+              options={DATE_FORMATS.map(df => ({ value: df, label: df }))}
+              onChange={(v) => setForm(f => ({ ...f, dateFormat: v }))}
+              testId="date-format"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="dateFormat" />
+          </div>
+          <div>
+            <SelectField
+              label="Default Language"
+              value={form.defaultLanguage}
+              options={LANGUAGES}
+              onChange={(v) => setForm(f => ({ ...f, defaultLanguage: v }))}
+              testId="language"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="defaultLanguage" />
+          </div>
         </div>
 
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-content-pipeline">
           <SectionHeader icon={Zap} title="Content Pipeline" description="AI content generation defaults" />
 
-          <RadioGroup
-            label="AI Processing Quality"
-            options={AI_QUALITY_OPTIONS}
-            value={form.aiQuality}
-            onChange={(v) => setForm(f => ({ ...f, aiQuality: v }))}
-            testId="ai-quality"
-            disabled={!canEdit}
-          />
+          <div>
+            <RadioGroup
+              label="AI Processing Quality"
+              options={AI_QUALITY_OPTIONS}
+              value={form.aiQuality}
+              onChange={(v) => setForm(f => ({ ...f, aiQuality: v }))}
+              testId="ai-quality"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="aiQuality" />
+          </div>
 
           <ToggleField
             label="Auto-Publish Content"
@@ -379,36 +502,45 @@ export default function Settings() {
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-content-types">
           <SectionHeader icon={FileText} title="Content Types" description="Types of content to generate from episodes" />
 
-          <CheckboxGroup
-            label="Enabled Content Types"
-            options={CONTENT_TYPE_OPTIONS}
-            selected={form.contentTypes}
-            onChange={(v) => setForm(f => ({ ...f, contentTypes: v }))}
-            testId="content-types"
-            disabled={!canEdit}
-          />
+          <div>
+            <CheckboxGroup
+              label="Enabled Content Types"
+              options={CONTENT_TYPE_OPTIONS}
+              selected={form.contentTypes}
+              onChange={(v) => setForm(f => ({ ...f, contentTypes: v }))}
+              testId="content-types"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="contentTypes" />
+          </div>
 
-          <CheckboxGroup
-            label="Distribution Platforms"
-            options={PLATFORM_OPTIONS}
-            selected={form.defaultPlatforms}
-            onChange={(v) => setForm(f => ({ ...f, defaultPlatforms: v }))}
-            testId="platforms"
-            disabled={!canEdit}
-          />
+          <div>
+            <CheckboxGroup
+              label="Distribution Platforms"
+              options={PLATFORM_OPTIONS}
+              selected={form.defaultPlatforms}
+              onChange={(v) => setForm(f => ({ ...f, defaultPlatforms: v }))}
+              testId="platforms"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="defaultPlatforms" />
+          </div>
         </div>
 
         <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-notifications">
           <SectionHeader icon={Bell} title="Notifications" description="Alert and notification preferences" />
 
-          <SelectField
-            label="Alert Level"
-            value={form.alertThreshold}
-            options={ALERT_THRESHOLD_OPTIONS}
-            onChange={(v) => setForm(f => ({ ...f, alertThreshold: v }))}
-            testId="alert-threshold"
-            disabled={!canEdit}
-          />
+          <div>
+            <SelectField
+              label="Alert Level"
+              value={form.alertThreshold}
+              options={ALERT_THRESHOLD_OPTIONS}
+              onChange={(v) => setForm(f => ({ ...f, alertThreshold: v }))}
+              testId="alert-threshold"
+              disabled={!canEdit}
+            />
+            <SmartBadge field="alertThreshold" />
+          </div>
 
           <div className="space-y-0">
             <ToggleField

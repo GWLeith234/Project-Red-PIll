@@ -192,7 +192,7 @@ export const platformSettings = pgTable("platform_settings", {
   defaultLanguage: text("default_language").default("en"),
   autoPublishContent: boolean("auto_publish_content").default(false),
   contentTypes: text("content_types").array().default(sql`ARRAY['video_clip','article','social_post','newsletter','seo_asset']::text[]`),
-  defaultPlatforms: text("default_platforms").array().default(sql`ARRAY['TikTok','Reels','Shorts','Twitter','LinkedIn']::text[]`),
+  defaultPlatforms: text("default_platforms").array().default(sql`ARRAY['TikTok','Reels','Shorts','X','LinkedIn']::text[]`),
   aiQuality: text("ai_quality").default("balanced"),
   emailNotifications: boolean("email_notifications").default(true),
   alertThreshold: text("alert_threshold").default("all"),
