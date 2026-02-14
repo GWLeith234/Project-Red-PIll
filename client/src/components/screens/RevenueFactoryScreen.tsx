@@ -23,7 +23,7 @@ export default function RevenueFactoryScreen() {
 
   const revenueStats = useMemo(() => {
     const wonDeals = allDeals.filter((d: any) => d.stage === "closed_won");
-    const totalRevenue = wonDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0);
+    const totalRevenue = wonDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0);
     const activeAdvs = advs.filter((a: any) => a.status === "active");
     const totalAdSpend = advs.reduce((sum: number, a: any) => sum + (Number(a.monthlySpend) || 0), 0);
     const activeCamps = camps.filter((c: any) => c.status === "active");
@@ -37,7 +37,7 @@ export default function RevenueFactoryScreen() {
     const stageColors: Record<string, string> = { lead: "hsl(var(--chart-1))", discovery: "hsl(var(--chart-2))", qualified: "hsl(var(--chart-3))", proposal: "hsl(var(--chart-4))", negotiation: "hsl(var(--primary))", closed_won: "hsl(var(--accent))", closed_lost: "hsl(var(--destructive))" };
     return stageOrder.map(s => {
       const stageDeals = allDeals.filter((d: any) => d.stage === s);
-      return { name: stageLabelsMap[s] || s, value: stageDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0), count: stageDeals.length, color: stageColors[s] || COLORS[0] };
+      return { name: stageLabelsMap[s] || s, value: stageDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0), count: stageDeals.length, color: stageColors[s] || COLORS[0] };
     }).filter(s => s.count > 0);
   }, [allDeals]);
 
@@ -140,7 +140,7 @@ export default function RevenueFactoryScreen() {
             <div key={d.id} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`deal-item-${d.id}`}>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium truncate">{d.title || "Untitled Deal"}</p>
-                <p className="text-[9px] font-mono text-muted-foreground">{fmtCurrency(Number(d.totalValue) || 0)}</p>
+                <p className="text-[9px] font-mono text-muted-foreground">{fmtCurrency(Number(d.value) || 0)}</p>
               </div>
               <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0 ml-2",
                 d.stage === "closed_won" ? "bg-accent/10 text-accent border-accent/20" :

@@ -1415,7 +1415,7 @@ export async function registerRoutes(
       const allPodcasts = await storage.getPodcasts();
       const allContent = await storage.getContentPieces();
       const publishedArticles = allContent
-        .filter((c) => (c.type === "article" || c.type === "blog") && c.status === "ready")
+        .filter((c) => (c.type === "article" || c.type === "blog") && (c.status === "ready" || c.status === "published" || c.status === "approved"))
         .sort((a, b) => {
           const da = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
           const db2 = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
@@ -1554,7 +1554,7 @@ export async function registerRoutes(
       const allContent = await storage.getContentPieces();
       const allEpisodes = await storage.getEpisodes();
 
-      const publishedArticles = allContent.filter((c) => (c.type === "article" || c.type === "blog") && c.status === "ready");
+      const publishedArticles = allContent.filter((c) => (c.type === "article" || c.type === "blog") && (c.status === "ready" || c.status === "published" || c.status === "approved"));
       const videoEpisodes = allEpisodes.filter((e) => (e.episodeType === "video" || e.episodeType === "both") && e.publishedAt);
 
       const suggestions: any[] = [];
@@ -2576,7 +2576,7 @@ export async function registerRoutes(
       allEpisodes.map(e => storage.getContentPieces(e.id))
     );
     const articles = allContent.flat()
-      .filter(c => c.type === "article" && c.status === "ready")
+      .filter(c => c.type === "article" && (c.status === "ready" || c.status === "published" || c.status === "approved"))
       .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
     res.json({
       podcast: {
@@ -2641,7 +2641,7 @@ export async function registerRoutes(
         });
 
         const content = await storage.getContentPieces(ep.id);
-        const articles = content.filter(c => c.type === "article" && c.status === "ready");
+        const articles = content.filter(c => c.type === "article" && (c.status === "ready" || c.status === "published" || c.status === "approved"));
         for (const a of articles) {
           allArticles.push({
             id: a.id,
@@ -2711,7 +2711,7 @@ export async function registerRoutes(
         }
 
         const content = await storage.getContentPieces(ep.id);
-        const articles = content.filter(c => c.type === "article" && c.status === "ready");
+        const articles = content.filter(c => c.type === "article" && (c.status === "ready" || c.status === "published" || c.status === "approved"));
         for (const a of articles) {
           if (a.title.toLowerCase().includes(q) || a.description?.toLowerCase().includes(q)) {
             matchingArticles.push({
@@ -3442,13 +3442,13 @@ export async function registerRoutes(
       const stage = d.stage || "unknown";
       if (!acc[stage]) acc[stage] = { count: 0, value: 0 };
       acc[stage].count += 1;
-      acc[stage].value += Number(d.totalValue || 0);
+      acc[stage].value += Number(d.value || 0);
       return acc;
     }, {});
 
-    const totalDealValue = deals.reduce((acc: number, d: any) => acc + Number(d.totalValue || 0), 0);
+    const totalDealValue = deals.reduce((acc: number, d: any) => acc + Number(d.value || 0), 0);
     const wonDeals = deals.filter((d: any) => d.stage === "closed_won");
-    const wonDealValue = wonDeals.reduce((acc: number, d: any) => acc + Number(d.totalValue || 0), 0);
+    const wonDealValue = wonDeals.reduce((acc: number, d: any) => acc + Number(d.value || 0), 0);
 
     const contentByType = contentPieces.reduce((acc: Record<string, number>, c: any) => {
       acc[c.type] = (acc[c.type] || 0) + 1;

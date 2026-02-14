@@ -24,7 +24,7 @@ export default function CRMScreen() {
   const dealStats = useMemo(() => {
     const openStages = ["lead", "discovery", "qualified", "proposal", "negotiation"];
     const openDeals = allDeals.filter((d: any) => openStages.includes(d.stage));
-    const openValue = openDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0);
+    const openValue = openDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0);
     const closedWon = allDeals.filter((d: any) => d.stage === "closed_won").length;
     const closedLost = allDeals.filter((d: any) => d.stage === "closed_lost").length;
     const winRate = (closedWon + closedLost) > 0 ? Math.round((closedWon / (closedWon + closedLost)) * 100) : 0;
@@ -36,7 +36,7 @@ export default function CRMScreen() {
     const stageColors: Record<string, string> = { lead: "hsl(var(--chart-1))", discovery: "hsl(var(--chart-2))", qualified: "hsl(var(--chart-3))", proposal: "hsl(var(--chart-4))", negotiation: "hsl(var(--primary))", closed_won: "hsl(var(--accent))", closed_lost: "hsl(var(--destructive))" };
     return stageOrder.map(s => {
       const stageDeals = allDeals.filter((d: any) => d.stage === s);
-      return { name: stageLabels[s] || s, count: stageDeals.length, value: stageDeals.reduce((sum: number, d: any) => sum + (Number(d.totalValue) || 0), 0), color: stageColors[s] || COLORS[0] };
+      return { name: stageLabels[s] || s, count: stageDeals.length, value: stageDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0), color: stageColors[s] || COLORS[0] };
     }).filter(s => s.count > 0);
   }, [allDeals]);
 
@@ -132,7 +132,7 @@ export default function CRMScreen() {
             <div key={d.id} className="flex items-center justify-between p-2 rounded-lg border border-border/30 bg-card/20 hover:bg-card/40 transition-colors" data-testid={`crm-deal-${d.id}`}>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium truncate">{d.title || "Untitled"}</p>
-                <p className="text-[9px] font-mono text-muted-foreground">{companyMap[d.companyId] || "—"} · {fmtCurrency(Number(d.totalValue) || 0)}</p>
+                <p className="text-[9px] font-mono text-muted-foreground">{companyMap[d.companyId] || "—"} · {fmtCurrency(Number(d.value) || 0)}</p>
               </div>
               <Badge variant="outline" className={cn("text-[9px] font-mono shrink-0 ml-2",
                 d.stage === "closed_won" ? "bg-accent/10 text-accent border-accent/20" :
