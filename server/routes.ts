@@ -784,10 +784,18 @@ export async function registerRoutes(
   });
 
   app.patch("/api/moderation/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
-    const { title, body, seoTitle, seoDescription, seoKeywords, summary } = req.body;
-    const updated = await storage.updateContentPiece(req.params.id, {
-      title, body, seoTitle, seoDescription, seoKeywords, summary,
-    });
+    const { title, body, description, coverImage, seoTitle, seoDescription, seoKeywords, summary, readingTime } = req.body;
+    const updateData: Record<string, any> = {};
+    if (title !== undefined) updateData.title = title;
+    if (body !== undefined) updateData.body = body;
+    if (description !== undefined) updateData.description = description;
+    if (coverImage !== undefined) updateData.coverImage = coverImage;
+    if (seoTitle !== undefined) updateData.seoTitle = seoTitle;
+    if (seoDescription !== undefined) updateData.seoDescription = seoDescription;
+    if (seoKeywords !== undefined) updateData.seoKeywords = seoKeywords;
+    if (summary !== undefined) updateData.summary = summary;
+    if (readingTime !== undefined) updateData.readingTime = readingTime;
+    const updated = await storage.updateContentPiece(req.params.id, updateData);
     if (!updated) return res.status(404).json({ message: "Content not found" });
     res.json(updated);
   });
