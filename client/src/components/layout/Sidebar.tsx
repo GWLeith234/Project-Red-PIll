@@ -29,6 +29,7 @@ import {
   Mail,
   Menu,
   X,
+  MessageSquareHeart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -292,6 +293,23 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="border-t border-border/50 px-3 py-2">
+        <Link
+          href="/analytics?section=nps"
+          onClick={onNavigate}
+          className={cn(
+            "flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
+            location === "/analytics" && new URLSearchParams(searchString).get("section") === "nps"
+              ? "bg-sidebar-primary/10 text-primary border-l-2 border-primary"
+              : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          )}
+          data-testid="link-nav-nps-feedback"
+        >
+          <MessageSquareHeart className="mr-3 h-4 w-4 flex-shrink-0" />
+          <span className="truncate">NPS Feedback</span>
+        </Link>
       </div>
 
       <div className="border-t border-border px-3 py-3">
