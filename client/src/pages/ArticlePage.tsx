@@ -275,7 +275,7 @@ export default function ArticlePage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Article not found</h1>
           <p className="text-gray-500 mb-4">This article doesn't exist or has been removed.</p>
-          <Link href={`/news/${params.podcastId}`} className="text-blue-600 hover:underline text-sm">Back to News</Link>
+          <Link href="/news" className="text-blue-600 hover:underline text-sm">Back to News</Link>
         </div>
       </div>
     );
@@ -290,7 +290,7 @@ export default function ArticlePage() {
       <nav className="border-b border-gray-100 bg-gray-50/50">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
-            <Link href={`/news/${params.podcastId}`} className="hover:text-gray-900 cursor-pointer">{podcast?.title || "News"}</Link>
+            <Link href="/news" className="hover:text-gray-900 cursor-pointer">{podcast?.title || "News"}</Link>
             <ChevronRight className="h-3 w-3" />
             <span className="text-gray-900 font-medium truncate max-w-[300px]">{article.title}</span>
           </div>
@@ -456,7 +456,7 @@ export default function ArticlePage() {
                       <p className="text-gray-500 text-xs">{podcast?.title}</p>
                     </div>
                   </div>
-                  <Link href={`/news/${params.podcastId}`}>
+                  <Link href="/news">
                     <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-50" data-testid="button-more-stories">
                       More Stories
                     </Button>
@@ -498,7 +498,7 @@ export default function ArticlePage() {
                 <p className="text-xs text-gray-500 leading-relaxed">
                   {podcast?.subscribers ? `${(podcast.subscribers / 1000).toFixed(0)}K subscribers` : ""}
                 </p>
-                <Link href={`/news/${params.podcastId}`}>
+                <Link href="/news">
                   <Button variant="outline" size="sm" className="w-full mt-3 text-xs border-gray-300" data-testid="button-sidebar-all-stories">
                     View All Stories
                   </Button>

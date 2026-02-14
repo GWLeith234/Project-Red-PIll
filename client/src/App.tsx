@@ -3,7 +3,6 @@ import Dashboard from "@/pages/Dashboard";
 import ContentFactory from "@/pages/ContentFactory";
 import Monetization from "@/pages/Monetization";
 import Network from "@/pages/Network";
-import NewsPage from "@/pages/NewsPage";
 import ArticlePage from "@/pages/ArticlePage";
 import EpisodePage from "@/pages/EpisodePage";
 import PodcastDirectory from "@/pages/PodcastDirectory";
@@ -109,7 +108,6 @@ function App() {
           <Route path="/news">{() => <AudienceLayout><PublicNewsPage /></AudienceLayout>}</Route>
           <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
           <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
-          <Route path="/news/:id">{() => <AudienceLayout><NewsPage /></AudienceLayout>}</Route>
           <Route>
             <ProtectedRoutes />
           </Route>

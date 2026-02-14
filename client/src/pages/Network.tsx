@@ -160,7 +160,7 @@ export default function Network() {
               </CardContent>
 
               <CardFooter className="bg-card/30 p-4 flex gap-2 border-t border-border/50">
-                <Link href={`/news/${show.id}`} className="flex-1">
+                <Link href="/news" className="flex-1">
                   <Button className="w-full bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 hover:text-blue-300 text-xs h-8" data-testid={`button-news-${show.id}`}>
                     <Newspaper className="mr-2 h-3 w-3" />
                     News Page

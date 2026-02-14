@@ -50,7 +50,6 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
   const logoUrl = branding?.logoUrl;
   const primaryColor = branding?.primaryColor || "#E5C100";
 
-  const firstPodcastId = podcasts?.[0]?.id;
 
   const isActivePath = (path: string) => {
     if (path === "home") return location === "/home";
@@ -167,17 +166,15 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                     )}
                 </div>
 
-                {firstPodcastId && (
-                  <Link
-                    href={`/news/${firstPodcastId}`}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
-                      ${isActivePath("news") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
-                    data-testid="nav-news"
-                  >
-                    <Newspaper className="h-4 w-4" />
-                    News
-                  </Link>
-                )}
+                <Link
+                  href="/news"
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
+                    ${isActivePath("news") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  data-testid="nav-news"
+                >
+                  <Newspaper className="h-4 w-4" />
+                  News
+                </Link>
               </nav>
 
               <div className="flex items-center gap-2">
