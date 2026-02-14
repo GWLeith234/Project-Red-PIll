@@ -15,6 +15,7 @@ import {
   useDeals, useDeal, useCreateDeal, useUpdateDeal, useDeleteDeal,
   useDealActivities, useCreateDealActivity, usePodcasts, useAnalyzeSocial,
   useAnalyzeWebsite,
+  useProducts,
   useAdCreatives, useCreateAdCreative, useUpdateAdCreative, useDeleteAdCreative,
   useOutboundCampaigns, useCreateOutboundCampaign, useDeleteOutboundCampaign, useSendOutboundCampaign,
   useCrmLists, useCreateCrmList, useDeleteCrmList, downloadCsvExport,
@@ -32,12 +33,14 @@ import {
   Plus, DollarSign, Calendar, Upload, Briefcase, TrendingUp,
   Target, X, CheckCircle, XCircle, AlertCircle, Clock,
   Send, FileText, MessageSquare, Download, ListFilter, Save, Filter,
-  Image, Film, Headphones, LayoutTemplate, Eye, BarChart3, ExternalLink,
+  Image, Film, Headphones, LayoutTemplate, Eye, BarChart3, ExternalLink, Package, ShieldCheck,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useUpload } from "@/hooks/use-upload";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
+import type { Product } from "@shared/schema";
 
 const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
 
@@ -565,6 +568,15 @@ function ContactForm({ onSubmit, initialData, companies, onCancel }: {
   );
 }
 
+function getRateModelShortLabel(model: string) {
+  const labels: Record<string, string> = { cpm: "CPM", cpc: "CPC", cpa: "CPA", flat_rate: "Flat", per_episode: "/ep", per_month: "/mo", custom: "Custom" };
+  return labels[model] || model;
+}
+
+function getCategoryShortLabel(cat: string) {
+  return cat.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCancel }: {
   onSubmit: (data: any) => void;
   initialData?: any;
@@ -573,6 +585,10 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
   podcasts: any[];
   onCancel: () => void;
 }) {
+  const { data: products } = useProducts("active");
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const [form, setForm] = useState({
     title: initialData?.title || "",
     description: initialData?.description || "",
@@ -586,18 +602,88 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
     startDate: initialData?.startDate ? new Date(initialData.startDate).toISOString().split("T")[0] : "",
     closeDate: initialData?.closeDate ? new Date(initialData.closeDate).toISOString().split("T")[0] : "",
     podcastId: initialData?.podcastId || "",
+    productId: initialData?.productId || "",
+    productRate: initialData?.productRate?.toString() || "",
+    productQuantity: initialData?.productQuantity?.toString() || "",
     notes: initialData?.notes || "",
   });
   const { toast } = useToast();
+
+  const selectedProduct = products?.find((p: Product) => p.id === form.productId);
+  const [rateWarning, setRateWarning] = useState("");
 
   const filteredContacts = form.companyId
     ? contacts.filter((c: any) => c.companyId === form.companyId)
     : contacts;
 
+  function handleProductChange(productId: string) {
+    if (productId === "none") {
+      setForm(f => ({ ...f, productId: "", productRate: "", productQuantity: "" }));
+      setRateWarning("");
+      return;
+    }
+    const product = products?.find((p: Product) => p.id === productId);
+    if (product) {
+      const qty = form.productQuantity || (product.minimumUnits ? String(product.minimumUnits) : "1");
+      const dealValue = product.suggestedRetailRate * (parseInt(qty) || 1);
+      setForm(f => ({
+        ...f,
+        productId,
+        productRate: String(product.suggestedRetailRate),
+        productQuantity: qty,
+        value: String(dealValue),
+      }));
+      setRateWarning("");
+    }
+  }
+
+  function handleRateChange(newRate: string) {
+    setForm(f => ({ ...f, productRate: newRate }));
+    if (selectedProduct && newRate) {
+      const rate = parseFloat(newRate);
+      const suggestedRate = selectedProduct.suggestedRetailRate;
+      const thresholdPct = selectedProduct.overrideThresholdPercent || 10;
+      const minAllowed = suggestedRate * (1 - thresholdPct / 100);
+      const minimumRate = selectedProduct.minimumRate || 0;
+
+      if (!isAdmin && rate < minAllowed) {
+        setRateWarning(`Rate is below your override threshold (${thresholdPct}% off). Minimum allowed: $${minAllowed.toFixed(2)}`);
+      } else if (rate < minimumRate) {
+        setRateWarning(`Rate is below the absolute minimum of $${minimumRate.toFixed(2)}`);
+      } else if (rate < suggestedRate) {
+        const discountPct = ((suggestedRate - rate) / suggestedRate * 100).toFixed(1);
+        setRateWarning(isAdmin ? `${discountPct}% below suggested retail (admin override)` : "");
+      } else {
+        setRateWarning("");
+      }
+
+      const qty = parseInt(form.productQuantity) || 1;
+      setForm(f => ({ ...f, productRate: newRate, value: String(rate * qty) }));
+    }
+  }
+
+  function handleQuantityChange(newQty: string) {
+    setForm(f => ({ ...f, productQuantity: newQty }));
+    const rate = parseFloat(form.productRate) || 0;
+    const qty = parseInt(newQty) || 0;
+    if (rate && qty) {
+      setForm(f => ({ ...f, productQuantity: newQty, value: String(rate * qty) }));
+    }
+  }
+
   const handleSubmit = () => {
     if (!form.title.trim() || !form.companyId) {
       toast({ title: "Required Fields", description: "Title and company are required.", variant: "destructive" });
       return;
+    }
+    if (selectedProduct && !isAdmin) {
+      const rate = parseFloat(form.productRate) || 0;
+      const thresholdPct = selectedProduct.overrideThresholdPercent || 10;
+      const minAllowed = selectedProduct.suggestedRetailRate * (1 - thresholdPct / 100);
+      if (rate < minAllowed) {
+        toast({ title: "Rate Override Exceeded", description: `Your rate ($${rate.toFixed(2)}) is below the allowed threshold. Minimum: $${minAllowed.toFixed(2)}`, variant: "destructive" });
+        return;
+      }
     }
     onSubmit({
       ...form,
@@ -605,6 +691,9 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
       probability: form.probability ? parseInt(form.probability) : 50,
       contactId: form.contactId || null,
       podcastId: form.podcastId || null,
+      productId: form.productId || null,
+      productRate: form.productRate ? parseFloat(form.productRate) : null,
+      productQuantity: form.productQuantity ? parseInt(form.productQuantity) : null,
       startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
       closeDate: form.closeDate ? new Date(form.closeDate).toISOString() : null,
     });
@@ -655,11 +744,117 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="p-4 rounded-lg border border-primary/20 bg-primary/5 space-y-4">
+        <label className="text-xs font-mono uppercase tracking-wider text-primary flex items-center gap-2">
+          <Package className="h-3.5 w-3.5" />
+          Product
+        </label>
+        <Select value={form.productId || "none"} onValueChange={handleProductChange}>
+          <SelectTrigger data-testid="select-deal-product">
+            <SelectValue placeholder="Select a product from catalog" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No Product</SelectItem>
+            {products?.map((p: Product) => (
+              <SelectItem key={p.id} value={p.id}>
+                <span className="flex items-center gap-2">
+                  {p.name}
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {getCategoryShortLabel(p.category)} | ${p.suggestedRetailRate.toFixed(2)} {getRateModelShortLabel(p.rateModel)}
+                  </span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {selectedProduct && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono p-2 rounded bg-card/50 border border-border/30">
+              <span>Wholesale: <span className="text-foreground font-semibold">${selectedProduct.wholesaleRate.toFixed(2)}</span></span>
+              <span>Suggested Retail: <span className="text-primary font-semibold">${selectedProduct.suggestedRetailRate.toFixed(2)}</span></span>
+              <span>Model: <span className="text-foreground">{getRateModelShortLabel(selectedProduct.rateModel)}</span></span>
+              {(selectedProduct.overrideThresholdPercent ?? 0) > 0 && (
+                <span className="flex items-center gap-1 text-amber-400">
+                  <ShieldCheck className="h-3 w-3" />
+                  {selectedProduct.overrideThresholdPercent}% override
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Rate ($) per {selectedProduct.unitLabel || "unit"}
+                </label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.productRate}
+                  onChange={e => handleRateChange(e.target.value)}
+                  placeholder={selectedProduct.suggestedRetailRate.toFixed(2)}
+                  data-testid="input-deal-product-rate"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Quantity ({selectedProduct.unitLabel || "units"})
+                </label>
+                <Input
+                  type="number"
+                  min={selectedProduct.minimumUnits || 0}
+                  value={form.productQuantity}
+                  onChange={e => handleQuantityChange(e.target.value)}
+                  placeholder={String(selectedProduct.minimumUnits || 1)}
+                  data-testid="input-deal-product-quantity"
+                />
+                {(selectedProduct.minimumUnits ?? 0) > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Min: {selectedProduct.minimumUnits?.toLocaleString()}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Deal Value ($)</label>
+                <Input
+                  type="number"
+                  value={form.value}
+                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
+                  className="font-bold"
+                  data-testid="input-deal-value"
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5">Auto-calculated from rate x quantity</p>
+              </div>
+            </div>
+
+            {rateWarning && (
+              <div className={cn(
+                "flex items-center gap-2 text-xs p-2 rounded",
+                rateWarning.includes("admin override") ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                rateWarning.includes("below") ? "bg-red-500/10 text-red-400 border border-red-500/20" :
+                "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              )} data-testid="text-rate-warning">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                {rateWarning}
+              </div>
+            )}
+
+            {selectedProduct.deliverables && (
+              <div className="text-xs text-muted-foreground">
+                <span className="font-mono uppercase tracking-wider">Deliverables:</span> {selectedProduct.deliverables}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {!selectedProduct && (
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Value ($)</label>
-          <Input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} placeholder="25000" data-testid="input-deal-value" />
+          <Input type="number" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} placeholder="25000" data-testid="input-deal-value-manual" />
         </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Stage</label>
           <Select value={form.stage} onValueChange={v => setForm(f => ({ ...f, stage: v }))}>
@@ -686,9 +881,6 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Priority</label>
           <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
@@ -702,9 +894,26 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Probability (%)</label>
           <Input type="number" min="0" max="100" value={form.probability} onChange={e => setForm(f => ({ ...f, probability: e.target.value }))} placeholder="50" data-testid="input-deal-probability" />
+        </div>
+        <div>
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Podcast</label>
+          <Select value={form.podcastId || "none"} onValueChange={v => setForm(f => ({ ...f, podcastId: v === "none" ? "" : v }))}>
+            <SelectTrigger data-testid="select-deal-podcast">
+              <SelectValue placeholder="Select a podcast" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Podcast</SelectItem>
+              {podcasts.map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -717,21 +926,6 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Close Date</label>
           <Input type="date" value={form.closeDate} onChange={e => setForm(f => ({ ...f, closeDate: e.target.value }))} data-testid="input-deal-close-date" />
         </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Podcast</label>
-        <Select value={form.podcastId || "none"} onValueChange={v => setForm(f => ({ ...f, podcastId: v === "none" ? "" : v }))}>
-          <SelectTrigger data-testid="select-deal-podcast">
-            <SelectValue placeholder="Select a podcast" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No Podcast</SelectItem>
-            {podcasts.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div>
@@ -753,6 +947,7 @@ function CompanyDetail({ companyId, onBack }: { companyId: string; onBack: () =>
   const { data: company, isLoading } = useCompany(companyId);
   const { data: contacts } = useContacts(companyId);
   const { data: deals } = useDeals(companyId);
+  const { data: allProducts } = useProducts();
   const [editing, setEditing] = useState(false);
   const updateCompany = useUpdateCompany();
   const { toast } = useToast();
@@ -941,6 +1136,14 @@ function CompanyDetail({ companyId, onBack }: { companyId: string; onBack: () =>
                           {sc.label}
                         </Badge>
                         <span className="text-xs text-muted-foreground">{DEAL_TYPE_LABELS[d.dealType] || d.dealType}</span>
+                        {d.productId && (() => {
+                          const prod = allProducts?.find((p: Product) => p.id === d.productId);
+                          return prod ? (
+                            <Badge variant="outline" className="text-[9px] font-mono bg-primary/10 text-primary border-primary/20">
+                              <Package className="h-2.5 w-2.5 mr-1" />{prod.name}
+                            </Badge>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                     <div className="text-right">
@@ -1102,6 +1305,7 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
   const { data: deal, isLoading } = useDeal(dealId);
   const { data: activities } = useDealActivities(dealId);
   const { data: podcasts } = usePodcasts();
+  const { data: allProducts } = useProducts();
   const updateDeal = useUpdateDeal();
   const createActivity = useCreateDealActivity();
   const [editing, setEditing] = useState(false);
@@ -1261,6 +1465,64 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
           )}
         </CardContent>
       </Card>
+
+      {deal.productId && (() => {
+        const linkedProduct = allProducts?.find((p: Product) => p.id === deal.productId);
+        if (!linkedProduct) return null;
+        return (
+          <Card className="glass-panel border-border/50 border-l-[3px] border-l-primary" data-testid="deal-product-card">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-display text-lg flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                Linked Product
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h4 className="font-semibold text-foreground">{linkedProduct.name}</h4>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">{getCategoryShortLabel(linkedProduct.category)} | {getRateModelShortLabel(linkedProduct.rateModel)}</p>
+                  {linkedProduct.description && <p className="text-sm text-muted-foreground mt-1">{linkedProduct.description}</p>}
+                </div>
+                <div className="text-right space-y-1">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-[10px] font-mono text-muted-foreground uppercase">Rate</p>
+                      <p className="font-bold text-primary">${(deal.productRate || linkedProduct.suggestedRetailRate).toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono text-muted-foreground uppercase">Qty</p>
+                      <p className="font-bold">{deal.productQuantity?.toLocaleString() || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono text-muted-foreground uppercase">Suggested</p>
+                      <p className="font-bold text-muted-foreground">${linkedProduct.suggestedRetailRate.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  {deal.productRate && deal.productRate < linkedProduct.suggestedRetailRate && (
+                    <p className="text-[10px] font-mono text-amber-400">
+                      {((linkedProduct.suggestedRetailRate - deal.productRate) / linkedProduct.suggestedRetailRate * 100).toFixed(1)}% below retail
+                    </p>
+                  )}
+                </div>
+              </div>
+              {Array.isArray(linkedProduct.fulfillmentRequirements) && (linkedProduct.fulfillmentRequirements as string[]).length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/30">
+                  <p className="text-[10px] font-mono text-muted-foreground uppercase mb-2">Fulfillment Requirements</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(linkedProduct.fulfillmentRequirements as string[]).map((req, i) => (
+                      <Badge key={i} variant="outline" className="font-mono text-[10px] bg-card/50 border-border/50">
+                        <CheckCircle className="h-2.5 w-2.5 mr-1 text-primary" />
+                        {req}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <Card className="glass-panel border-border/50">
         <CardHeader>

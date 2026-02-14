@@ -2762,16 +2762,36 @@ export async function registerRoutes(
     res.json({ ...deal, activities, company, contact });
   });
 
-  app.post("/api/deals", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+  app.post("/api/deals", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
     const parsed = insertDealSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    if (parsed.data.productId && parsed.data.productRate != null) {
+      const product = await storage.getProduct(parsed.data.productId);
+      if (product && req.user?.role !== "admin") {
+        const thresholdPct = product.overrideThresholdPercent || 10;
+        const minAllowed = product.suggestedRetailRate * (1 - thresholdPct / 100);
+        if (parsed.data.productRate < minAllowed) {
+          return res.status(403).json({ message: `Rate $${parsed.data.productRate.toFixed(2)} exceeds your override threshold. Minimum allowed: $${minAllowed.toFixed(2)}` });
+        }
+      }
+    }
     const data = await storage.createDeal(parsed.data);
     res.status(201).json(data);
   });
 
-  app.patch("/api/deals/:id", requireAuth, requirePermission("sales.edit"), async (req, res) => {
+  app.patch("/api/deals/:id", requireAuth, requirePermission("sales.edit"), async (req: any, res) => {
     const parsed = insertDealSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.flatten() });
+    if (parsed.data.productId && parsed.data.productRate != null) {
+      const product = await storage.getProduct(parsed.data.productId);
+      if (product && req.user?.role !== "admin") {
+        const thresholdPct = product.overrideThresholdPercent || 10;
+        const minAllowed = product.suggestedRetailRate * (1 - thresholdPct / 100);
+        if (parsed.data.productRate < minAllowed) {
+          return res.status(403).json({ message: `Rate $${parsed.data.productRate.toFixed(2)} exceeds your override threshold. Minimum allowed: $${minAllowed.toFixed(2)}` });
+        }
+      }
+    }
     const data = await storage.updateDeal(req.params.id, parsed.data);
     if (!data) return res.status(404).json({ message: "Deal not found" });
     res.json(data);
