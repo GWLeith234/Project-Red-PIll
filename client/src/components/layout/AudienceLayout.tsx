@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search } from "lucide-react";
 
 function usePublicPodcasts() {
   return useQuery({
@@ -50,7 +50,9 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
   const firstPodcastId = podcasts?.[0]?.id;
 
   const isActivePath = (path: string) => {
+    if (path === "home") return location === "/home";
     if (path === "podcasts") return location === "/podcasts";
+    if (path === "search") return location === "/search";
     if (path === "shows") return location.startsWith("/show/") || location.startsWith("/listen/") || location.startsWith("/news/");
     if (path === "news") return location.startsWith("/news/");
     if (path === "episodes") return location.startsWith("/listen/");
@@ -63,7 +65,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         <div className="border-b border-gray-800">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-16">
-              <Link href="/" className="flex items-center gap-3 group" data-testid="link-masthead-home">
+              <Link href="/home" className="flex items-center gap-3 group" data-testid="link-masthead-home">
                 {logoUrl ? (
                   <img src={logoUrl} alt={platformName} className="h-9 max-w-[180px] object-contain" data-testid="img-masthead-logo" />
                 ) : (
@@ -77,6 +79,16 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
               </Link>
 
               <nav className="hidden lg:flex items-center gap-1" data-testid="audience-nav-desktop">
+                <Link
+                  href="/home"
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
+                    ${isActivePath("home") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  data-testid="nav-home"
+                >
+                  <Home className="h-4 w-4" />
+                  Home
+                </Link>
+
                 <Link
                   href="/podcasts"
                   className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors rounded-lg
@@ -156,6 +168,14 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
               </nav>
 
               <div className="flex items-center gap-2">
+                <Link
+                  href="/search"
+                  className={`hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors rounded-lg
+                    ${isActivePath("search") ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800/50"}`}
+                  data-testid="nav-search"
+                >
+                  <Search className="h-4 w-4" />
+                </Link>
                 <a
                   href="#subscribe"
                   onClick={(e) => {
@@ -239,9 +259,30 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         )}
       </header>
 
-      <main className="flex-1">
+      <main className="flex-1 pb-16 lg:pb-0">
         {children}
       </main>
+
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-950 border-t border-gray-800 safe-area-bottom print:hidden" data-testid="mobile-tab-bar">
+        <div className="flex items-center justify-around h-14">
+          {[
+            { href: "/home", icon: Home, label: "Home", path: "home" },
+            { href: "/podcasts", icon: Radio, label: "Podcasts", path: "podcasts" },
+            { href: "/search", icon: Search, label: "Search", path: "search" },
+          ].map(({ href, icon: Icon, label, path }) => (
+            <Link
+              key={path}
+              href={href}
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
+                ${isActivePath(path) ? "text-white" : "text-gray-500"}`}
+              data-testid={`tab-${path}`}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
 
       <footer className="bg-gray-950 text-gray-400 print:hidden" data-testid="audience-footer">
         <div className="max-w-7xl mx-auto px-4 py-12">

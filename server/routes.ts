@@ -1126,6 +1126,125 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/public/feed", async (req, res) => {
+    const allPodcasts = await storage.getPodcasts();
+    const activePodcasts = allPodcasts.filter(p => p.status === "active");
+
+    const allEpisodes: any[] = [];
+    const allArticles: any[] = [];
+
+    for (const podcast of activePodcasts) {
+      const episodes = await storage.getEpisodes(podcast.id);
+      const published = episodes.filter(e => e.processingStatus === "complete");
+
+      for (const ep of published) {
+        allEpisodes.push({
+          id: ep.id,
+          title: ep.title,
+          description: ep.description,
+          duration: ep.duration,
+          videoUrl: ep.videoUrl,
+          thumbnailUrl: ep.thumbnailUrl,
+          episodeType: ep.episodeType || "audio",
+          publishedAt: ep.publishedAt,
+          podcastId: podcast.id,
+          podcastTitle: podcast.title,
+          podcastHost: podcast.host,
+          podcastCoverImage: podcast.coverImage,
+        });
+
+        const content = await storage.getContentPieces(ep.id);
+        const articles = content.filter(c => c.type === "article" && c.status === "ready");
+        for (const a of articles) {
+          allArticles.push({
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            coverImage: a.coverImage,
+            readingTime: a.readingTime,
+            authorId: a.authorId,
+            publishedAt: a.publishedAt,
+            podcastId: podcast.id,
+            podcastTitle: podcast.title,
+            episodeId: ep.id,
+          });
+        }
+      }
+    }
+
+    allEpisodes.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+    allArticles.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+
+    res.json({
+      episodes: allEpisodes.slice(0, 20),
+      articles: allArticles.slice(0, 20),
+      podcasts: activePodcasts.map(p => ({
+        id: p.id,
+        title: p.title,
+        host: p.host,
+        description: p.description,
+        coverImage: p.coverImage,
+        subscribers: p.subscribers,
+      })),
+    });
+  });
+
+  app.get("/api/public/search", async (req, res) => {
+    const q = (req.query.q as string || "").toLowerCase().trim();
+    if (!q) return res.json({ episodes: [], articles: [], podcasts: [] });
+
+    const allPodcasts = await storage.getPodcasts();
+    const activePodcasts = allPodcasts.filter(p => p.status === "active");
+
+    const matchingPodcasts = activePodcasts.filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      p.host?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q)
+    ).map(p => ({
+      id: p.id, title: p.title, host: p.host, description: p.description,
+      coverImage: p.coverImage, subscribers: p.subscribers,
+    }));
+
+    const matchingEpisodes: any[] = [];
+    const matchingArticles: any[] = [];
+
+    for (const podcast of activePodcasts) {
+      const episodes = await storage.getEpisodes(podcast.id);
+      const published = episodes.filter(e => e.processingStatus === "complete");
+
+      for (const ep of published) {
+        if (ep.title.toLowerCase().includes(q) || ep.description?.toLowerCase().includes(q)) {
+          matchingEpisodes.push({
+            id: ep.id, title: ep.title, description: ep.description,
+            duration: ep.duration, episodeType: ep.episodeType || "audio",
+            thumbnailUrl: ep.thumbnailUrl, publishedAt: ep.publishedAt,
+            podcastId: podcast.id, podcastTitle: podcast.title,
+            podcastCoverImage: podcast.coverImage,
+          });
+        }
+
+        const content = await storage.getContentPieces(ep.id);
+        const articles = content.filter(c => c.type === "article" && c.status === "ready");
+        for (const a of articles) {
+          if (a.title.toLowerCase().includes(q) || a.description?.toLowerCase().includes(q)) {
+            matchingArticles.push({
+              id: a.id, title: a.title, description: a.description,
+              coverImage: a.coverImage, readingTime: a.readingTime,
+              publishedAt: a.publishedAt, podcastId: podcast.id,
+              podcastTitle: podcast.title, episodeId: ep.id,
+            });
+          }
+        }
+      }
+    }
+
+    res.json({
+      podcasts: matchingPodcasts.slice(0, 10),
+      episodes: matchingEpisodes.slice(0, 15),
+      articles: matchingArticles.slice(0, 15),
+    });
+  });
+
   // ── Public Author Profile (no auth) ──
   app.get("/api/public/authors/:id", async (req, res) => {
     const author = await storage.getAuthorPublicProfile(req.params.id);
