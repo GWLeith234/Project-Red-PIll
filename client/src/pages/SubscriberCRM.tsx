@@ -140,14 +140,14 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
                 data-testid="input-social-url"
               />
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1 text-[#0A66C2] border-[#0A66C2]/30" onClick={() => setSocialUrl("https://linkedin.com/in/")} data-testid="button-linkedin-template">
-                  <Linkedin className="h-3 w-3 mr-1" /> LinkedIn
+                <Button size="sm" variant="outline" className="flex-1 text-[#0A66C2] border-[#0A66C2]/30" onClick={() => setSocialUrl("https://linkedin.com/in/")} title="LinkedIn" data-testid="button-linkedin-template">
+                  <Linkedin className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 border-border" onClick={() => setSocialUrl("https://x.com/")} data-testid="button-twitter-template">
-                  <Twitter className="h-3 w-3 mr-1" /> X
+                <Button size="sm" variant="outline" className="flex-1 border-border" onClick={() => setSocialUrl("https://x.com/")} title="X" data-testid="button-twitter-template">
+                  <Twitter className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 text-[#1877F2] border-[#1877F2]/30" onClick={() => setSocialUrl("https://facebook.com/")} data-testid="button-facebook-template">
-                  <Facebook className="h-3 w-3 mr-1" /> Facebook
+                <Button size="sm" variant="outline" className="flex-1 text-[#1877F2] border-[#1877F2]/30" onClick={() => setSocialUrl("https://facebook.com/")} title="Facebook" data-testid="button-facebook-template">
+                  <Facebook className="h-4 w-4" />
                 </Button>
               </div>
               <Button
@@ -229,15 +229,15 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
         <div className="grid grid-cols-3 gap-4">
           <div className="flex items-center gap-2">
             <Linkedin className="h-4 w-4 text-[#0A66C2] shrink-0" />
-            <Input value={form.linkedinUrl} onChange={e => setForm(f => ({ ...f, linkedinUrl: e.target.value }))} placeholder="LinkedIn URL" className="text-xs" data-testid="input-linkedin" />
+            <Input value={form.linkedinUrl} onChange={e => setForm(f => ({ ...f, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/..." className="text-xs" data-testid="input-linkedin" />
           </div>
           <div className="flex items-center gap-2">
             <Twitter className="h-4 w-4 shrink-0" />
-            <Input value={form.twitterUrl} onChange={e => setForm(f => ({ ...f, twitterUrl: e.target.value }))} placeholder="X (Twitter) URL" className="text-xs" data-testid="input-twitter" />
+            <Input value={form.twitterUrl} onChange={e => setForm(f => ({ ...f, twitterUrl: e.target.value }))} placeholder="https://x.com/..." className="text-xs" data-testid="input-twitter" />
           </div>
           <div className="flex items-center gap-2">
             <Facebook className="h-4 w-4 text-[#1877F2] shrink-0" />
-            <Input value={form.facebookUrl} onChange={e => setForm(f => ({ ...f, facebookUrl: e.target.value }))} placeholder="Facebook URL" className="text-xs" data-testid="input-facebook" />
+            <Input value={form.facebookUrl} onChange={e => setForm(f => ({ ...f, facebookUrl: e.target.value }))} placeholder="https://facebook.com/..." className="text-xs" data-testid="input-facebook" />
           </div>
         </div>
       </div>
@@ -424,18 +424,18 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
 
           <div className="flex gap-3 mt-3">
             {sub.linkedinUrl && (
-              <a href={sub.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[#0A66C2] text-xs flex items-center gap-1 hover:underline">
-                <Linkedin className="h-3 w-3" /> LinkedIn
+              <a href={sub.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[#0A66C2] hover:opacity-70 transition-opacity" title="LinkedIn">
+                <Linkedin className="h-4 w-4" />
               </a>
             )}
             {sub.twitterUrl && (
-              <a href={sub.twitterUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1 hover:underline text-muted-foreground">
-                <Twitter className="h-3 w-3" /> X
+              <a href={sub.twitterUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:opacity-70 transition-opacity" title="X">
+                <Twitter className="h-4 w-4" />
               </a>
             )}
             {sub.facebookUrl && (
-              <a href={sub.facebookUrl} target="_blank" rel="noopener noreferrer" className="text-[#1877F2] text-xs flex items-center gap-1 hover:underline">
-                <Facebook className="h-3 w-3" /> Facebook
+              <a href={sub.facebookUrl} target="_blank" rel="noopener noreferrer" className="text-[#1877F2] hover:opacity-70 transition-opacity" title="Facebook">
+                <Facebook className="h-4 w-4" />
               </a>
             )}
           </div>

@@ -326,9 +326,8 @@ function ProfileCard() {
                 </Button>
                 <Dialog open={showLinkedinDialog} onOpenChange={setShowLinkedinDialog}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="bg-[#0A66C2] hover:bg-[#004182] text-white" data-testid="button-import-linkedin">
-                      <Linkedin className="h-3 w-3 mr-1" />
-                      Import LinkedIn
+                    <Button size="sm" className="bg-[#0A66C2] hover:bg-[#004182] text-white" title="Import LinkedIn" data-testid="button-import-linkedin">
+                      <Linkedin className="h-3.5 w-3.5" />
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">
@@ -396,7 +395,7 @@ function ProfileCard() {
           </Badge>
           {displayProfile?.linkedinUrl && (
             <a href={displayProfile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[#0A66C2] hover:underline text-xs flex items-center gap-1 font-mono" data-testid="link-linkedin">
-              <Linkedin className="h-3 w-3" /> LinkedIn Profile
+              <Linkedin className="h-4 w-4" />
             </a>
           )}
         </div>

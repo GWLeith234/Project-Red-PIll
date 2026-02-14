@@ -101,11 +101,11 @@ export default function AuthorProfile() {
                     href={author.linkedinUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-[#0A66C2] hover:underline"
+                    className="inline-flex items-center text-[#0A66C2] hover:opacity-70 transition-opacity"
+                    title="LinkedIn"
                     data-testid="link-author-linkedin"
                   >
-                    <Linkedin className="h-4 w-4" />
-                    LinkedIn
+                    <Linkedin className="h-5 w-5" />
                   </a>
                 )}
                 <span className="text-sm text-gray-400">
