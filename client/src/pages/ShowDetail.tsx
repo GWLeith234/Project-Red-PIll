@@ -184,6 +184,11 @@ export default function ShowDetail() {
         </div>
       </div>
 
+      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
+      </div>
+
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0">
