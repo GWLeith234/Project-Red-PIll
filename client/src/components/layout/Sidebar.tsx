@@ -196,7 +196,7 @@ export function Sidebar() {
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-border text-sidebar-foreground font-sans fixed left-0 top-0 z-30">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <div className="flex items-center border-b border-border px-4 py-2.5">
         <div className="flex-1 min-w-0">
           {branding?.logoUrl ? (
             <Link href="/" className="flex items-center h-8" data-testid="sidebar-logo">
@@ -208,19 +208,6 @@ export function Sidebar() {
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground group-hover:text-gold">Logo</span>
             </Link>
           )}
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center border border-primary/50 text-primary font-bold text-[9px]" title={user?.displayName || user?.username}>
-            {(user?.displayName || user?.username || "??").slice(0, 2).toUpperCase()}
-          </div>
-          <button
-            onClick={logout}
-            className="p-1 hover:bg-muted rounded-sm transition-colors text-muted-foreground hover:text-foreground"
-            title="Sign out"
-            data-testid="button-logout"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
         </div>
       </div>
       
@@ -269,6 +256,29 @@ export function Sidebar() {
         </div>
       </div>
 
+      <div className="border-t border-border px-3 py-3">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/50 text-primary font-bold text-[10px] flex-shrink-0" data-testid="sidebar-user-avatar">
+            {(user?.displayName || user?.username || "??").slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate leading-tight" data-testid="sidebar-user-name">
+              {user?.displayName || user?.username || "User"}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider" data-testid="sidebar-user-role">
+              {user?.role || "user"}
+            </p>
+          </div>
+          <button
+            onClick={logout}
+            className="p-1.5 hover:bg-muted rounded-sm transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
+            title="Sign out"
+            data-testid="button-logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

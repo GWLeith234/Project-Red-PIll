@@ -2020,8 +2020,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <ProfileCard />
-
       {showCustomizer && (
         <WidgetCustomizer
           activeWidgets={activeWidgets}
