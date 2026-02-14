@@ -96,7 +96,13 @@ export default function CampaignBuilderPage() {
     const sent = campaigns.filter((c: any) => c.status === "sent").length;
     const totalRecipients = campaigns.reduce((s: number, c: any) => s + (c.recipientCount || 0), 0);
     const totalSent = campaigns.reduce((s: number, c: any) => s + (c.sentCount || 0), 0);
-    return { total, drafts, sent, totalRecipients, totalSent };
+    const totalOpens = campaigns.reduce((s: number, c: any) => s + (c.openCount || 0), 0);
+    const totalClicks = campaigns.reduce((s: number, c: any) => s + (c.clickCount || 0), 0);
+    const totalBounces = campaigns.reduce((s: number, c: any) => s + (c.bounceCount || 0), 0);
+    const avgDeliveryRate = sent > 0 ? campaigns.filter((c: any) => c.status === "sent").reduce((s: number, c: any) => s + (c.deliveryRate || 0), 0) / sent : 0;
+    const avgOpenRate = sent > 0 ? campaigns.filter((c: any) => c.status === "sent").reduce((s: number, c: any) => s + (c.openRate || 0), 0) / sent : 0;
+    const avgClickRate = sent > 0 ? campaigns.filter((c: any) => c.status === "sent").reduce((s: number, c: any) => s + (c.clickToOpenRate || 0), 0) / sent : 0;
+    return { total, drafts, sent, totalRecipients, totalSent, totalOpens, totalClicks, totalBounces, avgDeliveryRate, avgOpenRate, avgClickRate };
   }, [campaigns]);
 
   const filteredCampaigns = useMemo(() => {
@@ -226,6 +232,50 @@ export default function CampaignBuilderPage() {
           </Card>
         ))}
       </div>
+
+      {stats.sent > 0 && (
+        <Card className="glass-panel border-border/50" data-testid="campaign-kpi-dashboard">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-display font-semibold uppercase tracking-wider">Campaign Performance</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+              {[
+                { label: "Avg Delivery Rate", value: `${stats.avgDeliveryRate.toFixed(1)}%`, color: "text-accent", bgColor: "bg-accent/10", icon: Send },
+                { label: "Avg Open Rate", value: `${stats.avgOpenRate.toFixed(1)}%`, color: "text-chart-1", bgColor: "bg-chart-1/10", icon: Eye },
+                { label: "Avg Click Rate", value: `${stats.avgClickRate.toFixed(1)}%`, color: "text-chart-2", bgColor: "bg-chart-2/10", icon: MousePointerClick },
+                { label: "Total Opens", value: stats.totalOpens.toLocaleString(), color: "text-chart-1", bgColor: "bg-chart-1/10", icon: Eye },
+                { label: "Total Clicks", value: stats.totalClicks.toLocaleString(), color: "text-chart-2", bgColor: "bg-chart-2/10", icon: MousePointerClick },
+                { label: "Total Bounces", value: stats.totalBounces.toLocaleString(), color: "text-destructive", bgColor: "bg-destructive/10", icon: AlertCircle },
+              ].map((kpi) => (
+                <div key={kpi.label} className="text-center" data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s+/g, "-")}`}>
+                  <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center mx-auto mb-2", kpi.bgColor)}>
+                    <kpi.icon className={cn("h-5 w-5", kpi.color)} />
+                  </div>
+                  <p className={cn("text-xl font-bold font-display", kpi.color)}>{kpi.value}</p>
+                  <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">{kpi.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {[
+                { label: "Delivery", value: stats.avgDeliveryRate, color: "bg-accent" },
+                { label: "Opens", value: stats.avgOpenRate, color: "bg-chart-1" },
+                { label: "Clicks", value: stats.avgClickRate, color: "bg-chart-2" },
+              ].map((bar) => (
+                <div key={bar.label} data-testid={`bar-${bar.label.toLowerCase()}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{bar.label}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{bar.value.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={bar.value} className="h-2 bg-muted/30" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {campaigns.length === 0 && !isLoading && (
         <div>
