@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { and } from "drizzle-orm";
@@ -40,6 +40,7 @@ export interface IStorage {
   getPodcast(id: string): Promise<Podcast | undefined>;
   createPodcast(podcast: InsertPodcast): Promise<Podcast>;
   updatePodcast(id: string, data: Partial<InsertPodcast>): Promise<Podcast | undefined>;
+  incrementPodcastSubscribers(id: string): Promise<void>;
   deletePodcast(id: string): Promise<void>;
 
   getEpisodes(podcastId?: string): Promise<Episode[]>;
@@ -163,6 +164,9 @@ export class DatabaseStorage implements IStorage {
   async updatePodcast(id: string, data: Partial<InsertPodcast>) {
     const [updated] = await db.update(podcasts).set(data).where(eq(podcasts.id, id)).returning();
     return updated;
+  }
+  async incrementPodcastSubscribers(id: string) {
+    await db.update(podcasts).set({ subscribers: sql`COALESCE(${podcasts.subscribers}, 0) + 1` }).where(eq(podcasts.id, id));
   }
   async deletePodcast(id: string) {
     await db.delete(podcasts).where(eq(podcasts.id, id));

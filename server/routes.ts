@@ -1043,6 +1043,7 @@ export async function registerRoutes(
         const links = await storage.getSubscriberPodcasts(existing.id);
         if (!links.find(l => l.podcastId === podcastId)) {
           await storage.addSubscriberToPodcast({ subscriberId: existing.id, podcastId });
+          await storage.incrementPodcastSubscribers(podcastId);
         }
       }
       return res.json({ message: "Subscribed successfully", alreadyExisted: true });
@@ -1056,6 +1057,7 @@ export async function registerRoutes(
     });
     if (podcastId) {
       await storage.addSubscriberToPodcast({ subscriberId: sub.id, podcastId });
+      await storage.incrementPodcastSubscribers(podcastId);
     }
     res.status(201).json({ message: "Subscribed successfully", alreadyExisted: false });
   });

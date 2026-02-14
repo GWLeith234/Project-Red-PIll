@@ -354,6 +354,15 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
                 <Phone className="h-4 w-4 text-primary/70" /> {sub.phone}
               </div>
             )}
+            {sub.source && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Globe className="h-4 w-4 text-primary/70" />
+                <span>Source: </span>
+                <Badge variant="outline" className="text-[10px] font-mono bg-chart-1/10 text-chart-1 border-chart-1/20" data-testid="badge-detail-source">
+                  {sub.source.replace(/_/g, " ")}
+                </Badge>
+              </div>
+            )}
             {(sub.city || sub.state) && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4 text-primary/70" /> {[sub.city, sub.state, sub.country].filter(Boolean).join(", ")}
@@ -631,6 +640,11 @@ export default function SubscriberCRM() {
                         {sub.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {sub.email}</span>}
                         {sub.company && <span className="flex items-center gap-1"><Building className="h-3 w-3" /> {sub.company}</span>}
                         {sub.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {sub.phone}</span>}
+                        {sub.source && sub.source !== "manual" && (
+                          <Badge variant="outline" className="text-[9px] font-mono bg-chart-1/10 text-chart-1 border-chart-1/20" data-testid={`badge-source-${sub.id}`}>
+                            <Globe className="h-2 w-2 mr-1" />{sub.source.replace(/_/g, " ")}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
