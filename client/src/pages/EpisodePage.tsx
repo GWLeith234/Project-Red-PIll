@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar, EpisodeSubscribeWidget } from "@/components/SubscriberWidgets";
+import { useSubscription } from "@/hooks/use-subscription";
 
 function formatDuration(duration: string | null) {
   if (!duration) return "";
@@ -209,6 +210,7 @@ function SuggestedEpisodes({ episodeId, currentPodcastId }: { episodeId: string;
 
 export default function EpisodePage() {
   const params = useParams<{ podcastId: string; episodeId: string }>();
+  const { isSubscribed, recommendations, subscriberName } = useSubscription(params.podcastId);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/public/episodes", params.episodeId],
@@ -313,6 +315,9 @@ export default function EpisodePage() {
               podcastId={podcast?.id}
               podcastTitle={podcast?.title}
               source="episode_inline"
+              isSubscribed={isSubscribed}
+              recommendations={recommendations}
+              subscriberName={subscriberName}
             />
 
             {articles.length > 0 && (
@@ -368,6 +373,9 @@ export default function EpisodePage() {
                 podcastTitle={podcast?.title}
                 podcastImage={podcast?.coverImage}
                 source="episode_bottom"
+                isSubscribed={isSubscribed}
+                recommendations={recommendations}
+                subscriberName={subscriberName}
               />
             </div>
 
@@ -402,6 +410,9 @@ export default function EpisodePage() {
                 podcastTitle={podcast?.title}
                 podcastImage={podcast?.coverImage}
                 source="episode_sidebar"
+                isSubscribed={isSubscribed}
+                recommendations={recommendations}
+                subscriberName={subscriberName}
               />
 
               <div className="border border-gray-100 bg-gray-50 rounded-lg p-4">
@@ -464,6 +475,9 @@ export default function EpisodePage() {
         podcastId={podcast?.id}
         podcastTitle={podcast?.title}
         source="episode_sticky"
+        isSubscribed={isSubscribed}
+        recommendations={recommendations}
+        subscriberName={subscriberName}
       />
     </div>
   );

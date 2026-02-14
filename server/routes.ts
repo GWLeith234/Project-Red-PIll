@@ -1552,6 +1552,104 @@ export async function registerRoutes(
     res.json({ message: "Campaign sent", sentCount, failedCount, recipientCount: recipients.length });
   });
 
+  // ── Public Subscription Check + Smart Recommendations (no auth) ──
+  app.post("/api/public/check-subscription", async (req, res) => {
+    const { email, podcastId } = req.body;
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      return res.status(400).json({ message: "Valid email is required" });
+    }
+    const subscriber = await storage.getSubscriberByEmail(email.trim().toLowerCase());
+    if (!subscriber) {
+      return res.json({ subscribed: false, subscribedPodcastIds: [], recommendations: [] });
+    }
+    const podcastLinks = await storage.getSubscriberPodcasts(subscriber.id);
+    const subscribedPodcastIds = podcastLinks.map(l => l.podcastId);
+    const isSubscribedToThis = podcastId ? subscribedPodcastIds.includes(podcastId) : false;
+
+    const allPodcasts = await storage.getPodcasts();
+    const subscribedPodcasts = allPodcasts.filter(p => subscribedPodcastIds.includes(p.id));
+    const otherPodcasts = allPodcasts.filter(p => !subscribedPodcastIds.includes(p.id) && p.status === "active");
+
+    const subInterests = (subscriber.interests || []).map(i => i.toLowerCase());
+    const subTags = (subscriber.tags || []).map(t => t.toLowerCase());
+
+    const subscribedKeywords = subscribedPodcasts.flatMap(sp => {
+      const words = ((sp.description || "") + " " + (sp.title || "")).toLowerCase().split(/\s+/).filter(w => w.length > 4);
+      return words;
+    });
+    const keywordFreq = new Map<string, number>();
+    subscribedKeywords.forEach(w => keywordFreq.set(w, (keywordFreq.get(w) || 0) + 1));
+    const topKeywords = [...keywordFreq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([w]) => w);
+
+    const recommendations = otherPodcasts.map(podcast => {
+      let score = 0;
+      const reasons: string[] = [];
+
+      const podcastText = [podcast.title, podcast.host || "", podcast.description || ""].join(" ").toLowerCase();
+
+      for (const interest of subInterests) {
+        if (podcastText.includes(interest)) {
+          score += 20;
+          reasons.push(`Matches your interest in "${interest}"`);
+        }
+      }
+      for (const tag of subTags) {
+        if (podcastText.includes(tag)) {
+          score += 12;
+          reasons.push(`Related to "${tag}"`);
+        }
+      }
+
+      let kwMatches = 0;
+      for (const kw of topKeywords) {
+        if (podcastText.includes(kw)) kwMatches++;
+      }
+      if (kwMatches >= 3) {
+        score += Math.min(kwMatches * 5, 25);
+        const similar = subscribedPodcasts.find(sp => {
+          const spText = ((sp.description || "") + " " + sp.title).toLowerCase();
+          return topKeywords.filter(kw => spText.includes(kw) && podcastText.includes(kw)).length >= 2;
+        });
+        if (similar) reasons.push(`Similar to "${similar.title}"`);
+      }
+
+      if (podcast.subscribers && podcast.subscribers > 50000) {
+        score += 8;
+        reasons.push("Popular show");
+      }
+      if (podcast.growthPercent && podcast.growthPercent > 5) {
+        score += 10;
+        reasons.push("Trending now");
+      }
+
+      if (reasons.length === 0 && score === 0) {
+        score = 10;
+        reasons.push("Discover something new");
+      }
+
+      return {
+        id: podcast.id,
+        title: podcast.title,
+        host: podcast.host,
+        coverImage: podcast.coverImage,
+        subscribers: podcast.subscribers,
+        growthPercent: podcast.growthPercent,
+        description: podcast.description,
+        score: Math.min(score, 100),
+        reasons: reasons.slice(0, 3),
+      };
+    });
+
+    recommendations.sort((a, b) => b.score - a.score);
+
+    res.json({
+      subscribed: isSubscribedToThis,
+      subscribedPodcastIds,
+      subscriberName: subscriber.firstName || null,
+      recommendations: recommendations.slice(0, 6),
+    });
+  });
+
   // ── Public Subscribe (no auth - for visitor widgets on story/episode pages) ──
   app.post("/api/public/subscribe", async (req, res) => {
     const { email, firstName, lastName, podcastId, source, marketingConsent, smsConsent } = req.body;

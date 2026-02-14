@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Clock, Play, Users, Headphones, Video, FileText, ChevronRight, Calendar, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
+import { useSubscription } from "@/hooks/use-subscription";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -36,6 +37,7 @@ type TabId = "episodes" | "articles" | "about";
 export default function ShowDetail() {
   const params = useParams<{ podcastId: string }>();
   const [activeTab, setActiveTab] = useState<TabId>("episodes");
+  const { isSubscribed, recommendations, subscriberName } = useSubscription(params.podcastId);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/public/shows", params.podcastId],
@@ -202,6 +204,9 @@ export default function ShowDetail() {
                 podcastTitle={podcast.title}
                 podcastImage={podcast.coverImage}
                 source="show_detail_sidebar"
+                isSubscribed={isSubscribed}
+                recommendations={recommendations}
+                subscriberName={subscriberName}
               />
             </div>
           </aside>
@@ -212,6 +217,9 @@ export default function ShowDetail() {
         podcastId={podcast.id}
         podcastTitle={podcast.title}
         source="show_detail_sticky"
+        isSubscribed={isSubscribed}
+        recommendations={recommendations}
+        subscriberName={subscriberName}
       />
     </div>
   );

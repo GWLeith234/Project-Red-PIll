@@ -5,6 +5,7 @@ import { Mic, ChevronRight, Clock, Mail, Facebook, Linkedin, Link2, Printer, Mes
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
+import { useSubscription } from "@/hooks/use-subscription";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -244,6 +245,7 @@ function CommentSection({ articleId }: { articleId: string }) {
 
 export default function ArticlePage() {
   const params = useParams<{ podcastId: string; articleId: string }>();
+  const { isSubscribed, recommendations, subscriberName } = useSubscription(params.podcastId);
 
   const { data: article, isLoading: articleLoading, error: articleError } = useQuery({
     queryKey: ["/api/content-pieces", params.articleId],
@@ -391,6 +393,9 @@ export default function ArticlePage() {
                               podcastId={podcast?.id}
                               podcastTitle={podcast?.title}
                               source="article_inline"
+                              isSubscribed={isSubscribed}
+                              recommendations={recommendations}
+                              subscriberName={subscriberName}
                             />
                           </div>
                         </>
@@ -455,6 +460,9 @@ export default function ArticlePage() {
                 podcastTitle={podcast?.title}
                 podcastImage={podcast?.coverImage}
                 source="article_sidebar"
+                isSubscribed={isSubscribed}
+                recommendations={recommendations}
+                subscriberName={subscriberName}
               />
 
               <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
@@ -494,6 +502,9 @@ export default function ArticlePage() {
         podcastId={podcast?.id}
         podcastTitle={podcast?.title}
         source="article_sticky"
+        isSubscribed={isSubscribed}
+        recommendations={recommendations}
+        subscriberName={subscriberName}
       />
     </div>
   );

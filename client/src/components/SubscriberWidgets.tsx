@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { Mail, Check, Loader2, Mic, Headphones, Bell, Sparkles, ArrowRight } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Mail, Check, Loader2, Mic, Headphones, Bell, Sparkles, ArrowRight, TrendingUp, Users, Star } from "lucide-react";
+import { Link } from "wouter";
+import { setSubscriberEmail } from "@/hooks/use-subscription";
 
 async function publicSubscribe(data: { email: string; firstName?: string; lastName?: string; podcastId?: string; source?: string; marketingConsent?: boolean; smsConsent?: boolean }) {
   const res = await fetch("/api/public/subscribe", {
@@ -15,11 +17,215 @@ async function publicSubscribe(data: { email: string; firstName?: string; lastNa
   return res.json();
 }
 
-export function InlineSubscribeWidget({ podcastId, podcastTitle, source = "article_inline" }: {
+interface Recommendation {
+  id: string;
+  title: string;
+  host: string;
+  coverImage: string | null;
+  subscribers: number | null;
+  growthPercent: number | null;
+  description: string | null;
+  score: number;
+  reasons: string[];
+}
+
+function formatSubs(count: number | null) {
+  if (!count) return null;
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(0)}K`;
+  return count.toString();
+}
+
+export function RecommendedShowsInline({ recommendations, subscriberName }: {
+  recommendations: Recommendation[];
+  subscriberName?: string | null;
+}) {
+  if (recommendations.length === 0) return null;
+  return (
+    <div className="my-8 border-2 border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50 p-6" data-testid="widget-recommendations-inline">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="h-10 w-10 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+          <Sparkles className="h-5 w-5 text-amber-600" />
+        </div>
+        <div>
+          <h3 className="text-gray-900 font-bold text-lg">
+            {subscriberName ? `${subscriberName}, you might also enjoy` : "Recommended for you"}
+          </h3>
+          <p className="text-gray-500 text-sm">Based on your listening interests</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {recommendations.slice(0, 4).map((rec) => (
+          <Link key={rec.id} href={`/show/${rec.id}`} className="block" data-testid={`link-recommended-${rec.id}`}>
+            <div className="group flex gap-3 p-3 bg-white rounded-lg border border-amber-100 hover:border-amber-300 hover:shadow-sm transition-all">
+              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                {rec.coverImage ? (
+                  <img src={rec.coverImage} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gray-900 flex items-center justify-center">
+                    <Mic className="h-6 w-6 text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-amber-700 truncate transition-colors" data-testid={`text-recommended-title-${rec.id}`}>
+                  {rec.title}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{rec.host}</p>
+                {rec.reasons[0] && (
+                  <p className="text-[10px] text-amber-600 font-medium mt-1 truncate">{rec.reasons[0]}</p>
+                )}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function RecommendedShowsSidebar({ recommendations, subscriberName }: {
+  recommendations: Recommendation[];
+  subscriberName?: string | null;
+}) {
+  if (recommendations.length === 0) return null;
+  return (
+    <div className="border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5" data-testid="widget-recommendations-sidebar">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className="h-4 w-4 text-amber-600" />
+        <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">For You</h3>
+      </div>
+      <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+        {subscriberName ? `${subscriberName}, shows we think you'll love` : "Shows picked for your interests"}
+      </p>
+      <div className="space-y-3">
+        {recommendations.slice(0, 4).map((rec, idx) => (
+          <Link key={rec.id} href={`/show/${rec.id}`} className="block" data-testid={`sidebar-recommended-${rec.id}`}>
+            <div className="group flex gap-3 items-start hover:bg-white/60 rounded-lg p-1.5 -m-1.5 transition-colors">
+              <div className="relative flex-shrink-0">
+                <div className="h-11 w-11 rounded-lg overflow-hidden bg-gray-100">
+                  {rec.coverImage ? (
+                    <img src={rec.coverImage} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-gray-900 flex items-center justify-center">
+                      <Mic className="h-5 w-5 text-white" />
+                    </div>
+                  )}
+                </div>
+                <span className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-amber-500 text-[9px] text-white font-bold flex items-center justify-center">
+                  {idx + 1}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-amber-700 truncate transition-colors">
+                  {rec.title}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate">{rec.host}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {rec.reasons[0] && (
+                    <span className="text-[10px] text-amber-600 font-medium truncate">{rec.reasons[0]}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function RecommendedShowsEpisode({ recommendations, subscriberName }: {
+  recommendations: Recommendation[];
+  subscriberName?: string | null;
+}) {
+  if (recommendations.length === 0) return null;
+  return (
+    <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 text-center" data-testid="widget-recommendations-episode">
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <div className="h-12 w-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+          <Star className="h-6 w-6 text-amber-400" />
+        </div>
+      </div>
+      <h3 className="text-white font-bold text-xl mb-1">
+        {subscriberName ? `${subscriberName}, explore more shows` : "Shows you'll love"}
+      </h3>
+      <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
+        Handpicked recommendations based on your listening history and interests.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
+        {recommendations.slice(0, 4).map((rec) => (
+          <Link key={rec.id} href={`/show/${rec.id}`} className="block" data-testid={`episode-recommended-${rec.id}`}>
+            <div className="group flex gap-3 p-3 bg-gray-800/80 rounded-lg border border-gray-700/50 hover:border-amber-500/30 hover:bg-gray-800 transition-all text-left">
+              <div className="h-12 w-12 rounded-lg overflow-hidden flex-shrink-0">
+                {rec.coverImage ? (
+                  <img src={rec.coverImage} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gray-700 flex items-center justify-center">
+                    <Mic className="h-5 w-5 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white group-hover:text-amber-400 truncate transition-colors">
+                  {rec.title}
+                </p>
+                <p className="text-[10px] text-gray-400 truncate">{rec.host}</p>
+                {rec.reasons[0] && (
+                  <p className="text-[10px] text-amber-500/80 font-medium mt-0.5 truncate">{rec.reasons[0]}</p>
+                )}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function StickyRecommendationBar({ recommendations, subscriberName }: {
+  recommendations: Recommendation[];
+  subscriberName?: string | null;
+}) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed || recommendations.length === 0) return null;
+  const top = recommendations[0];
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-500 to-orange-500 shadow-2xl print:hidden" data-testid="widget-sticky-recommendation">
+      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-4">
+        <Sparkles className="h-5 w-5 text-gray-900 flex-shrink-0" />
+        <p className="text-gray-900 text-sm flex-1 truncate">
+          <span className="font-semibold">{subscriberName ? `${subscriberName}, check out:` : "You might enjoy:"}</span>
+          <span className="ml-1.5">{top.title} by {top.host}</span>
+          {top.reasons[0] && <span className="text-gray-800/70 ml-1">— {top.reasons[0]}</span>}
+        </p>
+        <Link href={`/show/${top.id}`}>
+          <button className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold text-sm rounded-lg transition-colors flex items-center gap-1.5 flex-shrink-0" data-testid="button-sticky-recommendation">
+            <Headphones className="h-3.5 w-3.5" />
+            Listen
+          </button>
+        </Link>
+        <button
+          onClick={() => setDismissed(true)}
+          className="text-gray-800/70 hover:text-gray-900 text-xs flex-shrink-0"
+          data-testid="button-dismiss-sticky-recommendation"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function InlineSubscribeWidget({ podcastId, podcastTitle, source = "article_inline", isSubscribed, recommendations, subscriberName }: {
   podcastId?: string;
   podcastTitle?: string;
   source?: string;
+  isSubscribed?: boolean;
+  recommendations?: Recommendation[];
+  subscriberName?: string | null;
 }) {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [consent, setConsent] = useState(false);
@@ -28,9 +234,21 @@ export function InlineSubscribeWidget({ podcastId, podcastTitle, source = "artic
 
   const subscribe = useMutation({
     mutationFn: publicSubscribe,
-    onSuccess: () => setSuccess(true),
+    onSuccess: () => {
+      setSuccess(true);
+      if (email) {
+        setSubscriberEmail(email.trim(), firstName.trim() || undefined);
+        queryClient.invalidateQueries({ queryKey: ["/api/public/check-subscription"] });
+      }
+    },
     onError: (err: Error) => setError(err.message),
   });
+
+  if (isSubscribed && recommendations && recommendations.length > 0) {
+    return <RecommendedShowsInline recommendations={recommendations} subscriberName={subscriberName} />;
+  }
+
+  if (isSubscribed) return null;
 
   if (success) {
     return (
@@ -107,12 +325,16 @@ export function InlineSubscribeWidget({ podcastId, podcastTitle, source = "artic
   );
 }
 
-export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, source = "sidebar" }: {
+export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, source = "sidebar", isSubscribed, recommendations, subscriberName }: {
   podcastId?: string;
   podcastTitle?: string;
   podcastImage?: string;
   source?: string;
+  isSubscribed?: boolean;
+  recommendations?: Recommendation[];
+  subscriberName?: string | null;
 }) {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -120,9 +342,21 @@ export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
 
   const subscribe = useMutation({
     mutationFn: publicSubscribe,
-    onSuccess: () => setSuccess(true),
+    onSuccess: () => {
+      setSuccess(true);
+      if (email) {
+        setSubscriberEmail(email.trim());
+        queryClient.invalidateQueries({ queryKey: ["/api/public/check-subscription"] });
+      }
+    },
     onError: (err: Error) => setError(err.message),
   });
+
+  if (isSubscribed && recommendations && recommendations.length > 0) {
+    return <RecommendedShowsSidebar recommendations={recommendations} subscriberName={subscriberName} />;
+  }
+
+  if (isSubscribed) return null;
 
   if (success) {
     return (
@@ -189,11 +423,15 @@ export function SidebarSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
   );
 }
 
-export function StickyBottomSubscribeBar({ podcastId, podcastTitle, source = "sticky_bar" }: {
+export function StickyBottomSubscribeBar({ podcastId, podcastTitle, source = "sticky_bar", isSubscribed, recommendations, subscriberName }: {
   podcastId?: string;
   podcastTitle?: string;
   source?: string;
+  isSubscribed?: boolean;
+  recommendations?: Recommendation[];
+  subscriberName?: string | null;
 }) {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -202,9 +440,21 @@ export function StickyBottomSubscribeBar({ podcastId, podcastTitle, source = "st
 
   const subscribe = useMutation({
     mutationFn: publicSubscribe,
-    onSuccess: () => setSuccess(true),
+    onSuccess: () => {
+      setSuccess(true);
+      if (email) {
+        setSubscriberEmail(email.trim());
+        queryClient.invalidateQueries({ queryKey: ["/api/public/check-subscription"] });
+      }
+    },
     onError: (err: Error) => setError(err.message),
   });
+
+  if (isSubscribed && recommendations && recommendations.length > 0) {
+    return <StickyRecommendationBar recommendations={recommendations} subscriberName={subscriberName} />;
+  }
+
+  if (isSubscribed) return null;
 
   if (dismissed || success) return null;
 
@@ -266,12 +516,16 @@ export function StickyBottomSubscribeBar({ podcastId, podcastTitle, source = "st
   );
 }
 
-export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, source = "episode_page" }: {
+export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, source = "episode_page", isSubscribed, recommendations, subscriberName }: {
   podcastId?: string;
   podcastTitle?: string;
   podcastImage?: string;
   source?: string;
+  isSubscribed?: boolean;
+  recommendations?: Recommendation[];
+  subscriberName?: string | null;
 }) {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [consent, setConsent] = useState(false);
@@ -280,9 +534,21 @@ export function EpisodeSubscribeWidget({ podcastId, podcastTitle, podcastImage, 
 
   const subscribe = useMutation({
     mutationFn: publicSubscribe,
-    onSuccess: () => setSuccess(true),
+    onSuccess: () => {
+      setSuccess(true);
+      if (email) {
+        setSubscriberEmail(email.trim(), firstName.trim() || undefined);
+        queryClient.invalidateQueries({ queryKey: ["/api/public/check-subscription"] });
+      }
+    },
     onError: (err: Error) => setError(err.message),
   });
+
+  if (isSubscribed && recommendations && recommendations.length > 0) {
+    return <RecommendedShowsEpisode recommendations={recommendations} subscriberName={subscriberName} />;
+  }
+
+  if (isSubscribed) return null;
 
   if (success) {
     return (

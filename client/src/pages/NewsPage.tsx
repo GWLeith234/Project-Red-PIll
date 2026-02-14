@@ -3,6 +3,7 @@ import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Clock } from "lucide-react";
 import { SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
+import { useSubscription } from "@/hooks/use-subscription";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -16,6 +17,7 @@ function timeAgo(dateStr: string) {
 
 export default function NewsPage() {
   const params = useParams<{ id: string }>();
+  const { isSubscribed, recommendations, subscriberName } = useSubscription(params.id);
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/podcasts", params.id, "articles"],
     queryFn: async () => {
@@ -143,6 +145,9 @@ export default function NewsPage() {
                 podcastTitle={podcast.title}
                 podcastImage={podcast.coverImage}
                 source="news_sidebar"
+                isSubscribed={isSubscribed}
+                recommendations={recommendations}
+                subscriberName={subscriberName}
               />
 
               <div className="border border-gray-100 bg-gray-50 p-4 rounded-lg">
@@ -173,6 +178,9 @@ export default function NewsPage() {
         podcastId={podcast.id}
         podcastTitle={podcast.title}
         source="news_sticky"
+        isSubscribed={isSubscribed}
+        recommendations={recommendations}
+        subscriberName={subscriberName}
       />
     </div>
   );
