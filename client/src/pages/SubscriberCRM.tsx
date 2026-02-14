@@ -26,12 +26,13 @@ import {
 import {
   UserPlus, Search, Mail, Phone, MapPin, Linkedin, Twitter, Facebook,
   Loader2, Zap, X, ChevronRight, Star, TrendingUp, Users, ArrowLeft,
-  Pencil, Trash2, Globe, Building, Tag, StickyNote, Sparkles, Radio,
+  Pencil, Edit3, Trash2, Globe, Building, Tag, StickyNote, Sparkles, Radio,
   Send, FileText, MessageSquare, Plus, Calendar, Download, ListFilter, Save, Filter,
   Headphones, Clock, Play, Mic, CheckCircle2,
   BarChart2, Eye, MousePointerClick, AlertTriangle
 } from "lucide-react";
 import { SortableList } from "@/components/ui/sortable-list";
+import CampaignBuilder, { CampaignBlock, serializeBlocks, deserializeBlocks } from "@/components/CampaignBuilder";
 
 function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
   onSubmit: (data: any) => void;
@@ -670,12 +671,13 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
   );
 }
 
-function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, statusColor, companies }: {
+function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, onEditInBuilder, statusColor, companies }: {
   campaignId: string;
   campaign: any;
   onBack: () => void;
   onSend: (id: string) => void;
   onDelete: (id: string, name: string) => void;
+  onEditInBuilder?: (campaign: any) => void;
   statusColor: (status: string) => string;
   companies?: any[];
 }) {
@@ -820,6 +822,16 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, status
             <div className="flex items-center gap-2">
               {c.status === "draft" && (
                 <>
+                  {onEditInBuilder && (
+                    <Button
+                      size="sm" variant="outline"
+                      className="text-xs font-mono border-chart-1/30 text-chart-1 hover:bg-chart-1/10"
+                      onClick={() => onEditInBuilder(c)}
+                      data-testid="button-campaign-detail-edit-builder"
+                    >
+                      <Edit3 className="h-3 w-3 mr-1" /> Edit in Builder
+                    </Button>
+                  )}
                   <Button
                     size="sm" variant="outline"
                     className="text-xs font-mono border-primary/30 text-primary hover:bg-primary/10"
@@ -1069,6 +1081,13 @@ export default function SubscriberCRM() {
   const [showListsPanel, setShowListsPanel] = useState(false);
   const [listName, setListName] = useState("");
   const [campaignForm, setCampaignForm] = useState({ name: "", type: "email" as "email" | "sms", subject: "", body: "", podcastFilter: "", companyId: "" });
+  const [builderMode, setBuilderMode] = useState(false);
+  const [builderBlocks, setBuilderBlocks] = useState<CampaignBlock[]>([]);
+  const [builderCampaignName, setBuilderCampaignName] = useState("");
+  const [builderCampaignSubject, setBuilderCampaignSubject] = useState("");
+  const [builderCampaignType, setBuilderCampaignType] = useState<"email" | "sms">("email");
+  const [builderEditingId, setBuilderEditingId] = useState<string | null>(null);
+  const updateCampaign = useUpdateOutboundCampaign();
   const { data: subscribers, isLoading } = useSubscribers(filterPodcast);
   const { data: podcasts } = usePodcasts();
   const { data: companies } = useCompanies();
@@ -1191,6 +1210,56 @@ export default function SubscriberCRM() {
     }
   };
 
+  const openBuilder = (existingCampaign?: any) => {
+    if (existingCampaign) {
+      setBuilderCampaignName(existingCampaign.name);
+      setBuilderCampaignSubject(existingCampaign.subject || "");
+      setBuilderCampaignType(existingCampaign.type || "email");
+      setBuilderBlocks(deserializeBlocks(existingCampaign.body || ""));
+      setBuilderEditingId(existingCampaign.id);
+    } else {
+      setBuilderCampaignName("");
+      setBuilderCampaignSubject("");
+      setBuilderCampaignType("email");
+      setBuilderBlocks([]);
+      setBuilderEditingId(null);
+    }
+    setBuilderMode(true);
+  };
+
+  const handleBuilderSave = async () => {
+    if (!builderCampaignName.trim()) {
+      toast({ title: "Name Required", description: "Please enter a campaign name.", variant: "destructive" });
+      return;
+    }
+    const body = serializeBlocks(builderBlocks);
+    try {
+      if (builderEditingId) {
+        await updateCampaign.mutateAsync({
+          id: builderEditingId,
+          name: builderCampaignName,
+          subject: builderCampaignSubject,
+          body,
+        });
+        toast({ title: "Campaign Updated" });
+      } else {
+        await createCampaign.mutateAsync({
+          name: builderCampaignName,
+          type: builderCampaignType,
+          audience: "subscribers",
+          subject: builderCampaignSubject,
+          body,
+          podcastFilter: null,
+          companyId: null,
+        });
+        toast({ title: "Campaign Created" });
+      }
+      setBuilderMode(false);
+    } catch (err: any) {
+      toast({ title: "Save Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const handleCreateCampaign = async () => {
     if (!campaignForm.name.trim() || !campaignForm.body.trim()) {
       toast({ title: "Required Fields", description: "Name and body are required.", variant: "destructive" });
@@ -1253,6 +1322,25 @@ export default function SubscriberCRM() {
     );
   }
 
+  if (builderMode) {
+    return (
+      <div className="animate-in fade-in duration-300 -m-6">
+        <CampaignBuilder
+          campaignName={builderCampaignName}
+          campaignSubject={builderCampaignSubject}
+          campaignType={builderCampaignType}
+          blocks={builderBlocks}
+          onNameChange={setBuilderCampaignName}
+          onSubjectChange={setBuilderCampaignSubject}
+          onBlocksChange={setBuilderBlocks}
+          onSave={handleBuilderSave}
+          onBack={() => setBuilderMode(false)}
+          isSaving={createCampaign.isPending || updateCampaign.isPending}
+        />
+      </div>
+    );
+  }
+
   if (showAddForm) {
     return (
       <div className="animate-in fade-in duration-300">
@@ -1289,115 +1377,10 @@ export default function SubscriberCRM() {
             Add Subscriber
           </Button>
         ) : (
-          <Dialog open={showCampaignDialog} onOpenChange={setShowCampaignDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-new-campaign">
-                <Plus className="mr-2 h-3 w-3" />
-                New Campaign
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="font-display flex items-center gap-2">
-                  <Send className="h-5 w-5 text-primary" />
-                  Compose Campaign
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Campaign Name *</label>
-                    <Input
-                      value={campaignForm.name}
-                      onChange={(e) => setCampaignForm(f => ({ ...f, name: e.target.value }))}
-                      placeholder="Q1 Newsletter Blast"
-                      data-testid="input-campaign-name"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Customer</label>
-                    <Select value={campaignForm.companyId || "none"} onValueChange={(v) => setCampaignForm(f => ({ ...f, companyId: v === "none" ? "" : v }))}>
-                      <SelectTrigger data-testid="select-campaign-company">
-                        <SelectValue placeholder="Select customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No Customer</SelectItem>
-                        {(companies || []).map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            <span className="flex items-center gap-2">
-                              <Building className="h-3 w-3 text-muted-foreground" />
-                              {c.name}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Type *</label>
-                    <Select value={campaignForm.type} onValueChange={(v) => setCampaignForm(f => ({ ...f, type: v as "email" | "sms" }))}>
-                      <SelectTrigger data-testid="select-campaign-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="email"><span className="flex items-center gap-2"><Mail className="h-3 w-3" /> Email</span></SelectItem>
-                        <SelectItem value="sms"><span className="flex items-center gap-2"><MessageSquare className="h-3 w-3" /> SMS</span></SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Podcast Filter</label>
-                    <Select value={campaignForm.podcastFilter || "all"} onValueChange={(v) => setCampaignForm(f => ({ ...f, podcastFilter: v === "all" ? "" : v }))}>
-                      <SelectTrigger data-testid="select-campaign-podcast">
-                        <SelectValue placeholder="All Subscribers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Subscribers</SelectItem>
-                        {(podcasts || []).map((p: any) => (
-                          <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {campaignForm.type === "email" && (
-                  <div>
-                    <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Subject *</label>
-                    <Input
-                      value={campaignForm.subject}
-                      onChange={(e) => setCampaignForm(f => ({ ...f, subject: e.target.value }))}
-                      placeholder="Your weekly podcast digest"
-                      data-testid="input-campaign-subject"
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Body *</label>
-                  <Textarea
-                    value={campaignForm.body}
-                    onChange={(e) => setCampaignForm(f => ({ ...f, body: e.target.value }))}
-                    placeholder="Write your message content here..."
-                    className="min-h-[120px]"
-                    data-testid="input-campaign-body"
-                  />
-                </div>
-                <Button
-                  onClick={handleCreateCampaign}
-                  disabled={createCampaign.isPending}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                  data-testid="button-save-campaign"
-                >
-                  {createCampaign.isPending ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
-                  ) : (
-                    <><FileText className="h-4 w-4 mr-2" /> Create Campaign</>
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-new-campaign">
+            <Plus className="mr-2 h-3 w-3" />
+            New Campaign
+          </Button>
         )}
       </div>
 
@@ -1678,6 +1661,7 @@ export default function SubscriberCRM() {
               onBack={() => setSelectedCampaignId(null)}
               onSend={handleSendCampaign}
               onDelete={(id, name) => { handleDeleteCampaign(id, name); setSelectedCampaignId(null); }}
+              onEditInBuilder={(c) => { setSelectedCampaignId(null); openBuilder(c); }}
               statusColor={statusColor}
               companies={companies || []}
             />
@@ -1772,7 +1756,7 @@ export default function SubscriberCRM() {
                 <Send className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
                 <h3 className="text-lg font-display font-semibold text-muted-foreground mb-1">No Campaigns Yet</h3>
                 <p className="text-sm text-muted-foreground/70 mb-4">Create your first outbound campaign to reach your subscribers.</p>
-                <Button onClick={() => setShowCampaignDialog(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="button-create-first-campaign">
+                <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground" data-testid="button-create-first-campaign">
                   <Plus className="mr-2 h-4 w-4" /> Create First Campaign
                 </Button>
               </CardContent>
