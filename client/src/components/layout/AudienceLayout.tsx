@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search } from "lucide-react";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 
 function usePublicPodcasts() {
   return useQuery({
@@ -283,6 +284,8 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
           ))}
         </div>
       </nav>
+
+      <PWAInstallPrompt />
 
       <footer className="bg-gray-950 text-gray-400 print:hidden" data-testid="audience-footer">
         <div className="max-w-7xl mx-auto px-4 py-12">
