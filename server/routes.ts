@@ -3153,6 +3153,121 @@ export async function registerRoutes(
     });
   });
 
+  // ── Admin Dashboard Stats ──
+  app.get("/api/admin/dashboard-stats", requireAuth, requirePermission("analytics.view"), async (req, res) => {
+    const [users, subscribers, podcasts, contentPieces, deals, companies, campaigns, outboundCampaigns, products, advertisers, episodes] = await Promise.all([
+      storage.getUsers(),
+      storage.getSubscribers(),
+      storage.getPodcasts(),
+      storage.getContentPieces(),
+      storage.getDeals(),
+      storage.getCompanies(),
+      storage.getCampaigns(),
+      storage.getOutboundCampaigns(),
+      storage.getProducts(),
+      storage.getAdvertisers(),
+      storage.getEpisodes(),
+    ]);
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const usersByRole = users.reduce((acc: Record<string, number>, u: any) => {
+      acc[u.role] = (acc[u.role] || 0) + 1;
+      return acc;
+    }, {});
+
+    const recentUsers = users.filter((u: any) => new Date(u.createdAt) > thirtyDaysAgo);
+    const weekUsers = users.filter((u: any) => new Date(u.createdAt) > sevenDaysAgo);
+
+    const dealsByStage = deals.reduce((acc: Record<string, { count: number; value: number }>, d: any) => {
+      const stage = d.stage || "unknown";
+      if (!acc[stage]) acc[stage] = { count: 0, value: 0 };
+      acc[stage].count += 1;
+      acc[stage].value += Number(d.totalValue || 0);
+      return acc;
+    }, {});
+
+    const totalDealValue = deals.reduce((acc: number, d: any) => acc + Number(d.totalValue || 0), 0);
+    const wonDeals = deals.filter((d: any) => d.stage === "closed_won");
+    const wonDealValue = wonDeals.reduce((acc: number, d: any) => acc + Number(d.totalValue || 0), 0);
+
+    const contentByType = contentPieces.reduce((acc: Record<string, number>, c: any) => {
+      acc[c.type] = (acc[c.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    const contentByStatus = contentPieces.reduce((acc: Record<string, number>, c: any) => {
+      acc[c.status] = (acc[c.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const recentContent = contentPieces.filter((c: any) => new Date(c.createdAt) > thirtyDaysAgo);
+    const recentSubscribers = subscribers.filter((s: any) => new Date(s.createdAt) > thirtyDaysAgo);
+    const weekSubscribers = subscribers.filter((s: any) => new Date(s.createdAt) > sevenDaysAgo);
+
+    const totalListeners = podcasts.reduce((acc: number, p: any) => acc + (p.subscribers || 0), 0);
+    const activePodcasts = podcasts.filter((p: any) => p.status === "active").length;
+
+    const activeProducts = products.filter((p: any) => p.status === "active").length;
+    const activeAdvertisers = advertisers.filter((a: any) => a.status === "Active").length;
+    const totalAdSpend = advertisers.reduce((acc: number, a: any) => acc + (a.monthlySpend || 0), 0);
+
+    const activeCampaigns = campaigns.filter((c: any) => c.status === "active" || c.status === "running").length;
+
+    res.json({
+      users: {
+        total: users.length,
+        byRole: usersByRole,
+        recentSignups: recentUsers.length,
+        weekSignups: weekUsers.length,
+        recentUsers: recentUsers.slice(0, 5).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName,
+          role: u.role,
+          createdAt: u.createdAt,
+        })),
+      },
+      deals: {
+        total: deals.length,
+        byStage: dealsByStage,
+        totalValue: totalDealValue,
+        wonValue: wonDealValue,
+        wonCount: wonDeals.length,
+      },
+      content: {
+        total: contentPieces.length,
+        byType: contentByType,
+        byStatus: contentByStatus,
+        recentCount: recentContent.length,
+        episodes: episodes.length,
+      },
+      subscribers: {
+        total: subscribers.length,
+        recentCount: recentSubscribers.length,
+        weekCount: weekSubscribers.length,
+      },
+      network: {
+        totalPodcasts: podcasts.length,
+        activePodcasts,
+        totalListeners,
+        totalEpisodes: episodes.length,
+      },
+      commercial: {
+        companies: companies.length,
+        advertisers: advertisers.length,
+        activeAdvertisers,
+        totalAdSpend,
+        activeCampaigns,
+        activeProducts,
+        totalProducts: products.length,
+        outboundCampaigns: outboundCampaigns.length,
+      },
+    });
+  });
+
   // ── Object Storage (file uploads) ──
   registerObjectStorageRoutes(app);
 

@@ -701,6 +701,10 @@ export function useWebsiteAnalytics() {
   return useQuery({ queryKey: ["/api/analytics/website"], queryFn: () => apiRequest("/api/analytics/website") });
 }
 
+export function useAdminDashboardStats() {
+  return useQuery({ queryKey: ["/api/admin/dashboard-stats"], queryFn: () => apiRequest("/api/admin/dashboard-stats") });
+}
+
 export function downloadCsvExport(entity: string, params: Record<string, string> = {}) {
   const query = new URLSearchParams(params).toString();
   const url = `/api/export/${entity}${query ? `?${query}` : ""}`;

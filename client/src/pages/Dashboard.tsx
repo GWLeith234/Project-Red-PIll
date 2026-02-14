@@ -6,7 +6,8 @@ import {
   ExternalLink, Settings, TrendingUp, Clock, ChevronRight, Linkedin, Camera,
   GripVertical, Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload,
   Radio, Headphones, Newspaper, Bell, Target, BarChart3, PieChart as PieChartIcon,
-  Mic, Mail, Building2, Megaphone, ChevronDown, ChevronUp, LayoutGrid
+  Mic, Mail, Building2, Megaphone, ChevronDown, ChevronUp, LayoutGrid,
+  Shield, UserPlus, Briefcase, Package, Server, Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { Link } from "wouter";
 import {
   useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles,
   useProfile, useUpdateProfile, useAnalyzeLinkedIn, usePodcasts, useSubscribers,
-  useAdvertisers
+  useAdvertisers, useAdminDashboardStats
 } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +77,14 @@ const WIDGET_CATEGORIES = [
       { id: "podcasts", label: "Podcast Network", icon: Radio, size: "md" },
       { id: "subscribers", label: "Subscriber Overview", icon: Users, size: "md" },
       { id: "advertisers", label: "Advertiser Pipeline", icon: Megaphone, size: "md" },
+    ],
+  },
+  {
+    label: "Admin",
+    widgets: [
+      { id: "user_stats", label: "User Statistics", icon: Shield, size: "md" },
+      { id: "deal_pipeline", label: "Deal Pipeline", icon: Briefcase, size: "md" },
+      { id: "system_overview", label: "System Overview", icon: Server, size: "lg" },
     ],
   },
   {
@@ -1005,6 +1014,336 @@ function AlertsWidget() {
   );
 }
 
+function UserStatsWidget() {
+  const { data: stats, isLoading } = useAdminDashboardStats();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const users = stats?.users || {};
+  const byRole = users.byRole || {};
+  const recentUsers = users.recentUsers || [];
+  const ROLE_COLORS: Record<string, string> = {
+    admin: "hsl(var(--primary))",
+    editor: "hsl(var(--accent))",
+    viewer: "hsl(var(--chart-2))",
+  };
+
+  const roleData = Object.entries(byRole).map(([role, count]) => ({
+    name: role.charAt(0).toUpperCase() + role.slice(1),
+    value: count as number,
+    color: ROLE_COLORS[role] || "hsl(var(--muted-foreground))",
+  }));
+
+  return (
+    <Card className="glass-panel border-border/50" data-testid="widget-user-stats">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            User Statistics
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">{users.total || 0} total platform users</CardDescription>
+        </div>
+        <Link href="/users">
+          <Button variant="ghost" size="sm" className="text-xs font-mono text-muted-foreground hover:text-primary" data-testid="link-view-users">
+            Manage <ChevronRight className="h-3 w-3 ml-1" />
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-2xl font-bold font-display" data-testid="text-total-users">{users.total || 0}</p>
+            <p className="text-[10px] font-mono text-muted-foreground uppercase">Total</p>
+          </div>
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-2xl font-bold font-display text-accent" data-testid="text-recent-signups">{users.recentSignups || 0}</p>
+            <p className="text-[10px] font-mono text-accent uppercase">30d Signups</p>
+          </div>
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-2xl font-bold font-display text-primary" data-testid="text-week-signups">{users.weekSignups || 0}</p>
+            <p className="text-[10px] font-mono text-primary uppercase">7d Signups</p>
+          </div>
+        </div>
+
+        {roleData.length > 0 && (
+          <div className="mb-4">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Users by Role</p>
+            <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted/30">
+              {roleData.map((r) => (
+                <div
+                  key={r.name}
+                  className="h-full transition-all"
+                  style={{ width: `${(r.value / (users.total || 1)) * 100}%`, backgroundColor: r.color }}
+                  title={`${r.name}: ${r.value}`}
+                />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {roleData.map((r) => (
+                <span key={r.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} />
+                  {r.name}: {r.value}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recentUsers.length > 0 && (
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Recent Signups</p>
+            <div className="space-y-2">
+              {recentUsers.map((u: any) => (
+                <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-card/40 transition-colors" data-testid={`user-recent-${u.id}`}>
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <UserPlus className="h-3.5 w-3.5 text-primary/60" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{u.displayName || u.username}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">@{u.username}</p>
+                  </div>
+                  <Badge variant="outline" className={cn(
+                    "text-[9px] font-mono shrink-0",
+                    u.role === "admin" ? "bg-primary/10 text-primary border-primary/20" :
+                    u.role === "editor" ? "bg-accent/10 text-accent border-accent/20" :
+                    "bg-muted/50 text-muted-foreground"
+                  )}>
+                    {u.role}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DealPipelineWidget() {
+  const { data: stats, isLoading } = useAdminDashboardStats();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const deals = stats?.deals || {};
+  const byStage = deals.byStage || {};
+  const commercial = stats?.commercial || {};
+
+  const stageOrder = ["discovery", "proposal", "negotiation", "closed_won", "closed_lost"];
+  const stageLabels: Record<string, string> = {
+    discovery: "Discovery",
+    proposal: "Proposal",
+    negotiation: "Negotiation",
+    closed_won: "Won",
+    closed_lost: "Lost",
+  };
+  const stageColors: Record<string, string> = {
+    discovery: "hsl(var(--chart-1))",
+    proposal: "hsl(var(--chart-2))",
+    negotiation: "hsl(var(--primary))",
+    closed_won: "hsl(var(--accent))",
+    closed_lost: "hsl(var(--destructive))",
+  };
+
+  const stageData = stageOrder
+    .filter(s => byStage[s])
+    .map(s => ({
+      stage: stageLabels[s] || s,
+      count: byStage[s]?.count || 0,
+      value: byStage[s]?.value || 0,
+      color: stageColors[s] || "hsl(var(--muted-foreground))",
+    }));
+
+  const fmtCurrency = (n: number) => {
+    if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
+    return `$${n}`;
+  };
+
+  return (
+    <Card className="glass-panel border-border/50" data-testid="widget-deal-pipeline">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            Deal Pipeline
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">{deals.total || 0} deals &middot; {fmtCurrency(deals.totalValue || 0)} pipeline</CardDescription>
+        </div>
+        <Link href="/sales">
+          <Button variant="ghost" size="sm" className="text-xs font-mono text-muted-foreground hover:text-primary" data-testid="link-view-deals">
+            View All <ChevronRight className="h-3 w-3 ml-1" />
+          </Button>
+        </Link>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-xl font-bold font-display" data-testid="text-total-deals">{deals.total || 0}</p>
+            <p className="text-[10px] font-mono text-muted-foreground uppercase">Total Deals</p>
+          </div>
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-xl font-bold font-display text-accent" data-testid="text-won-deals">{deals.wonCount || 0}</p>
+            <p className="text-[10px] font-mono text-accent uppercase">Won</p>
+          </div>
+          <div className="p-3 bg-card/30 border border-border/30 rounded-lg text-center">
+            <p className="text-xl font-bold font-display text-primary" data-testid="text-won-value">{fmtCurrency(deals.wonValue || 0)}</p>
+            <p className="text-[10px] font-mono text-primary uppercase">Won Value</p>
+          </div>
+        </div>
+
+        {stageData.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Pipeline Stages</p>
+            {stageData.map((s) => (
+              <div key={s.stage} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-muted-foreground flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
+                    {s.stage}
+                  </span>
+                  <span className="font-mono font-semibold">{s.count} &middot; {fmtCurrency(s.value)}</span>
+                </div>
+                <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(s.count / Math.max(deals.total || 1, 1)) * 100}%`, backgroundColor: s.color }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <Briefcase className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-muted-foreground text-sm">No deals in pipeline</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-border/30">
+          <div className="flex items-center gap-2 text-xs">
+            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground font-mono">{commercial.companies || 0} Companies</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Package className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground font-mono">{commercial.activeProducts || 0}/{commercial.totalProducts || 0} Products</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SystemOverviewWidget() {
+  const { data: stats, isLoading } = useAdminDashboardStats();
+  if (isLoading) return <Card className="glass-panel border-border/50"><CardContent className="pt-6"><Skeleton className="h-48 w-full" /></CardContent></Card>;
+
+  const content = stats?.content || {};
+  const network = stats?.network || {};
+  const subscribers = stats?.subscribers || {};
+  const commercial = stats?.commercial || {};
+  const users = stats?.users || {};
+
+  const metrics = [
+    { label: "Users", value: users.total || 0, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Subscribers", value: subscribers.total || 0, icon: Mail, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Podcasts", value: network.totalPodcasts || 0, icon: Radio, color: "text-chart-1", bg: "bg-chart-1/10" },
+    { label: "Episodes", value: network.totalEpisodes || 0, icon: Mic, color: "text-chart-2", bg: "bg-chart-2/10" },
+    { label: "Content", value: content.total || 0, icon: Layers, color: "text-chart-3", bg: "bg-chart-3/10" },
+    { label: "Advertisers", value: commercial.advertisers || 0, icon: Megaphone, color: "text-chart-4", bg: "bg-chart-4/10" },
+    { label: "Ad Campaigns", value: commercial.activeCampaigns || 0, icon: Target, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Outbound", value: commercial.outboundCampaigns || 0, icon: Send, color: "text-accent", bg: "bg-accent/10" },
+  ];
+
+  const contentByType = content.byType || {};
+  const typeEntries = Object.entries(contentByType)
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+    .slice(0, 6);
+  const TYPE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
+
+  return (
+    <Card className="glass-panel border-border/50" data-testid="widget-system-overview">
+      <CardHeader>
+        <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+          <Server className="h-5 w-5 text-primary" />
+          System Overview
+        </CardTitle>
+        <CardDescription className="font-mono text-xs">Platform-wide statistics at a glance</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-4 gap-3 mb-5">
+          {metrics.map((m) => {
+            const Ic = m.icon;
+            return (
+              <div key={m.label} className="p-2.5 bg-card/30 border border-border/30 rounded-lg text-center group hover:border-primary/20 transition-colors" data-testid={`metric-system-${m.label.toLowerCase()}`}>
+                <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center mx-auto mb-1.5", m.bg)}>
+                  <Ic className={cn("h-3.5 w-3.5", m.color)} />
+                </div>
+                <p className="text-lg font-bold font-display">{formatCount(m.value)}</p>
+                <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">{m.label}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Content by Type</p>
+            {typeEntries.length > 0 ? (
+              <div className="space-y-2">
+                {typeEntries.map(([type, count], i) => (
+                  <div key={type} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono text-muted-foreground capitalize">{type.replace(/_/g, " ")}</span>
+                      <span className="font-mono font-semibold">{count as number}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${((count as number) / Math.max(content.total || 1, 1)) * 100}%`, backgroundColor: TYPE_COLORS[i % TYPE_COLORS.length] }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No content yet</p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Growth Indicators</p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-2.5 bg-card/30 border border-border/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-3.5 w-3.5 text-accent" />
+                  <span className="text-xs text-muted-foreground font-mono">New Users (30d)</span>
+                </div>
+                <span className="text-sm font-bold font-display text-accent">{users.recentSignups || 0}</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 bg-card/30 border border-border/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs text-muted-foreground font-mono">New Subs (30d)</span>
+                </div>
+                <span className="text-sm font-bold font-display text-primary">{subscribers.recentCount || 0}</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 bg-card/30 border border-border/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-3.5 w-3.5 text-chart-3" />
+                  <span className="text-xs text-muted-foreground font-mono">Content (30d)</span>
+                </div>
+                <span className="text-sm font-bold font-display text-chart-3">{content.recentCount || 0}</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 bg-card/30 border border-border/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Headphones className="h-3.5 w-3.5 text-chart-2" />
+                  <span className="text-xs text-muted-foreground font-mono">Podcast Listeners</span>
+                </div>
+                <span className="text-sm font-bold font-display text-chart-2">{formatCount(network.totalListeners || 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function WidgetCustomizer({
   activeWidgets,
   widgetOrder,
@@ -1158,6 +1497,12 @@ function renderWidget(id: string, metrics: any, metricsLoading: boolean) {
       return <AdvertisersWidget key={id} />;
     case "alerts":
       return <AlertsWidget key={id} />;
+    case "user_stats":
+      return <UserStatsWidget key={id} />;
+    case "deal_pipeline":
+      return <DealPipelineWidget key={id} />;
+    case "system_overview":
+      return <SystemOverviewWidget key={id} />;
     default:
       return null;
   }
@@ -1187,7 +1532,7 @@ export default function Dashboard() {
   const activeWidgets = rawWidgets.length > 0 ? rawWidgets : DEFAULT_WIDGETS;
 
   const allWidgetIds = ALL_WIDGETS.map(w => w.id);
-  const widgetOrder = [...new Set([...activeWidgets, ...allWidgetIds])];
+  const widgetOrder = Array.from(new Set([...activeWidgets, ...allWidgetIds]));
 
   const toggleWidget = async (id: string) => {
     const current = [...activeWidgets];
