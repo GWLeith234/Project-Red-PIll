@@ -38,8 +38,8 @@ Preferred communication style: Simple, everyday language.
 - **Network Management**: Podcast network and show management.
 - **User Management**: Admin CRUD for users with role and permission assignment.
 - **Customization**: Branding management (logo, favicon, colors), company name, and hero carousel slide management.
-- **Commercial CRM**: B2B sales CRM for companies, contacts, and deals related to ad campaigns.
-- **Subscriber CRM**: Audience management with cross-pollination suggestions.
+- **Commercial CRM**: B2B sales CRM for companies, contacts, and deals related to ad campaigns. Deals support multi-product line items with per-item rate override threshold enforcement. Deals moving to "closed_won" auto-create campaigns.
+- **Subscriber CRM**: Audience management with cross-pollination suggestions. Campaign builder with email cadence designer (timeline-based step sequencing), KPI dashboard (delivery/open/click rates), and email step composer with reordering.
 - **Public News/Podcast Directory**: Configurable public-facing news homepage and iHeart-inspired podcast discovery page with search and rankings.
 - **Show/Episode Pages**: Unified show hubs and public episode detail pages with media players and related content.
 - **AI Content Agent**: Moderation queue for AI-generated stories with editing and approval workflows.
