@@ -524,7 +524,7 @@ export default function Analytics() {
   const [, navigate] = useLocation();
   const params = new URLSearchParams(searchString);
   const sectionParam = params.get("section") as SectionKey | null;
-  const validSection = SECTION_TABS.find(t => t.key === sectionParam) ? sectionParam! : "content";
+  const validSection: SectionKey = SECTION_TABS.find(t => t.key === sectionParam) ? sectionParam! : "content";
 
   const [activeSection, setActiveSection] = useState<SectionKey>(validSection);
   const subtabs = SECTION_SUBTABS[activeSection];

@@ -53,14 +53,12 @@ const navGroups: NavGroup[] = [
       { name: "AI Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
       { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
-      { name: "Analytics", href: "/analytics?section=content", icon: BarChart3, permission: "analytics.view" },
     ],
   },
   {
     label: "Revenue Factory",
     items: [
       { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
-      { name: "Analytics", href: "/analytics?section=revenue", icon: BarChart3, permission: "analytics.view" },
     ],
   },
   {
@@ -69,7 +67,6 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Commercial", href: "/sales", icon: Briefcase, permission: "sales.view" },
       { name: "Subscriber", href: "/audience", icon: Users, permission: "audience.view" },
-      { name: "Analytics", href: "/analytics?section=crm", icon: BarChart3, permission: "analytics.view" },
     ],
   },
   {
@@ -77,7 +74,12 @@ const navGroups: NavGroup[] = [
     items: [
       { name: "Podcasts", href: "/network", icon: Network, permission: "network.view" },
       { name: "View Live Site", href: "/home", icon: ExternalLink, permission: "dashboard.view" },
-      { name: "Analytics", href: "/analytics?section=audience", icon: BarChart3, permission: "analytics.view" },
+    ],
+  },
+  {
+    label: "Analytics",
+    items: [
+      { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },
     ],
   },
   {
@@ -86,21 +88,24 @@ const navGroups: NavGroup[] = [
       { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
       { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },
       { name: "Settings", href: "/settings", icon: Settings, permission: "settings.view" },
-      { name: "Analytics", href: "/analytics?section=admin", icon: BarChart3, permission: "analytics.view" },
     ],
   },
 ];
 
 function isItemActive(item: NavItem, location: string, searchString: string): boolean {
   if (!item.href.includes("?")) {
+    if (item.href === "/analytics") {
+      return location === "/analytics";
+    }
     return location === item.href;
   }
   const [itemPath, itemQuery] = item.href.split("?");
   if (location !== itemPath) return false;
   const itemParams = new URLSearchParams(itemQuery);
   const currentParams = new URLSearchParams(searchString);
-  for (const [key, val] of itemParams.entries()) {
-    if (currentParams.get(key) !== val) return false;
+  const entries = Array.from(itemParams.entries());
+  for (let i = 0; i < entries.length; i++) {
+    if (currentParams.get(entries[i][0]) !== entries[i][1]) return false;
   }
   return true;
 }
