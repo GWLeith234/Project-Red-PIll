@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Play, Clock, Users, Headphones, Video, FileText, ChevronRight, ArrowRight, Zap, ChevronLeft, Bookmark, TrendingUp, Newspaper } from "lucide-react";
+import { ArticlePreviewPopup } from "@/components/ArticlePreviewPopup";
 import { useReadLater } from "@/hooks/use-read-later";
 import type { HeroSlide } from "@shared/schema";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
@@ -206,34 +207,35 @@ function ArticleCardCompact({ article }: { article: any }) {
   const saved = isSaved(article.id);
 
   return (
-    <div className="relative group" data-testid={`card-article-${article.id}`}>
-      <Link href={`/news/${article.podcastId}/article/${article.id}`} className="block">
-        <div className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all overflow-hidden">
-          {article.coverImage && (
-            <div className="aspect-[16/9] overflow-hidden bg-gray-100">
-              <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-          )}
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{article.podcastTitle}</span>
-            </div>
-            <h3 className="font-bold text-gray-900 text-sm leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 pr-6" data-testid={`text-art-title-${article.id}`}>
-              {article.title}
-            </h3>
-            <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-              {article.readingTime && <span>{article.readingTime} min read</span>}
-              {article.publishedAt && (
-                <>
-                  <span className="text-gray-200">|</span>
-                  <span>{timeAgo(article.publishedAt)}</span>
-                </>
-              )}
+    <ArticlePreviewPopup article={article} podcastId={article.podcastId}>
+      <div className="relative group" data-testid={`card-article-${article.id}`}>
+        <Link href={`/news/${article.podcastId}/article/${article.id}`} className="block">
+          <div className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all overflow-hidden">
+            {article.coverImage && (
+              <div className="aspect-[16/9] overflow-hidden bg-gray-100">
+                <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              </div>
+            )}
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{article.podcastTitle}</span>
+              </div>
+              <h3 className="font-bold text-gray-900 text-sm leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 pr-6" data-testid={`text-art-title-${article.id}`}>
+                {article.title}
+              </h3>
+              <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                {article.readingTime && <span>{article.readingTime} min read</span>}
+                {article.publishedAt && (
+                  <>
+                    <span className="text-gray-200">|</span>
+                    <span>{timeAgo(article.publishedAt)}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </Link>
-      <button
+        </Link>
+        <button
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -251,7 +253,8 @@ function ArticleCardCompact({ article }: { article: any }) {
       >
         <Bookmark className={`h-4 w-4 ${saved ? "fill-amber-600" : ""}`} />
       </button>
-    </div>
+      </div>
+    </ArticlePreviewPopup>
   );
 }
 

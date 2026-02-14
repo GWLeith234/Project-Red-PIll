@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Clock, Play, Users, Headphones, Video, FileText, ChevronRight, Calendar, BookOpen } from "lucide-react";
+import { ArticlePreviewPopup } from "@/components/ArticlePreviewPopup";
 import { useState } from "react";
 import { SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -342,45 +343,46 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
   return (
     <div className="space-y-4" data-testid="articles-list">
       {articles.map((article: any) => (
-        <Link
-          key={article.id}
-          href={`/news/${podcastId}/article/${article.id}`}
-          className="block"
-          data-testid={`card-article-${article.id}`}
-        >
-          <article className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-5 cursor-pointer">
-            <div className="flex gap-5">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-amber-600 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
-                  {article.title}
-                </h3>
-                {article.description && (
-                  <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">
-                    {article.description}
-                  </p>
+        <ArticlePreviewPopup key={article.id} article={article} podcastId={podcastId}>
+          <Link
+            href={`/news/${podcastId}/article/${article.id}`}
+            className="block"
+            data-testid={`card-article-${article.id}`}
+          >
+            <article className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-5 cursor-pointer">
+              <div className="flex gap-5">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-amber-600 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
+                    {article.title}
+                  </h3>
+                  {article.description && (
+                    <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">
+                      {article.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                    {article.publishedAt && (
+                      <span>{timeAgo(article.publishedAt)}</span>
+                    )}
+                    {article.readingTime && (
+                      <span>{article.readingTime} min read</span>
+                    )}
+                    <span className="text-amber-600 font-medium">Read more &rarr;</span>
+                  </div>
+                </div>
+                {article.coverImage && (
+                  <div className="flex-shrink-0">
+                    <img
+                      src={article.coverImage}
+                      alt=""
+                      className="w-[140px] h-[90px] object-cover rounded-xl bg-gray-100"
+                    />
+                  </div>
                 )}
-                <div className="flex items-center gap-3 text-xs text-gray-400">
-                  {article.publishedAt && (
-                    <span>{timeAgo(article.publishedAt)}</span>
-                  )}
-                  {article.readingTime && (
-                    <span>{article.readingTime} min read</span>
-                  )}
-                  <span className="text-amber-600 font-medium">Read more &rarr;</span>
-                </div>
               </div>
-              {article.coverImage && (
-                <div className="flex-shrink-0">
-                  <img
-                    src={article.coverImage}
-                    alt=""
-                    className="w-[140px] h-[90px] object-cover rounded-xl bg-gray-100"
-                  />
-                </div>
-              )}
-            </div>
-          </article>
-        </Link>
+            </article>
+          </Link>
+        </ArticlePreviewPopup>
       ))}
     </div>
   );

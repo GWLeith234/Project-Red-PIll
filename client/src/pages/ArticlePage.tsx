@@ -10,6 +10,7 @@ import { AdPlaceholder } from "@/components/AdPlaceholder";
 import { useReadLater } from "@/hooks/use-read-later";
 import { useReadingProgress } from "@/hooks/use-reading-progress";
 import { useReadingHistory } from "@/hooks/use-reading-history";
+import { ArticlePreviewPopup } from "@/components/ArticlePreviewPopup";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -485,35 +486,36 @@ function RecommendedArticles({ currentArticleId, podcastId }: { currentArticleId
   return (
     <div data-testid="recommended-articles">
       {filtered.slice(0, 4).map((rec: any) => (
-        <Link
-          key={rec.id}
-          href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
-          className="flex gap-3 py-3 border-b border-gray-100 last:border-0 group cursor-pointer"
-          data-testid={`recommended-article-${rec.id}`}
-        >
-          {rec.coverImage ? (
-            <img src={rec.coverImage} alt="" className="h-16 w-16 rounded-lg object-cover bg-gray-100 shrink-0 group-hover:opacity-80 transition-opacity" />
-          ) : (
-            <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-              <Mic className="h-5 w-5 text-gray-400" />
+        <ArticlePreviewPopup key={rec.id} article={rec} podcastId={podcastId}>
+          <Link
+            href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
+            className="flex gap-3 py-3 border-b border-gray-100 last:border-0 group cursor-pointer"
+            data-testid={`recommended-article-${rec.id}`}
+          >
+            {rec.coverImage ? (
+              <img src={rec.coverImage} alt="" className="h-16 w-16 rounded-lg object-cover bg-gray-100 shrink-0 group-hover:opacity-80 transition-opacity" />
+            ) : (
+              <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                <Mic className="h-5 w-5 text-gray-400" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+                {rec.title}
+              </h4>
+              <div className="flex items-center gap-2 mt-1">
+                {rec.podcastTitle && (
+                  <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
+                )}
+                {rec.readingTime && (
+                  <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                    <Clock className="h-3 w-3" /> {rec.readingTime} min
+                  </span>
+                )}
+              </div>
             </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
-              {rec.title}
-            </h4>
-            <div className="flex items-center gap-2 mt-1">
-              {rec.podcastTitle && (
-                <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
-              )}
-              {rec.readingTime && (
-                <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
-                  <Clock className="h-3 w-3" /> {rec.readingTime} min
-                </span>
-              )}
-            </div>
-          </div>
-        </Link>
+          </Link>
+        </ArticlePreviewPopup>
       ))}
     </div>
   );
@@ -548,37 +550,38 @@ function RecommendedArticlesBottom({ currentArticleId, podcastId }: { currentArt
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.slice(0, 6).map((rec: any) => (
-          <Link
-            key={rec.id}
-            href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
-            className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer"
-            data-testid={`recommended-bottom-${rec.id}`}
-          >
-            {rec.coverImage ? (
-              <div className="h-32 overflow-hidden">
-                <img src={rec.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <ArticlePreviewPopup key={rec.id} article={rec} podcastId={podcastId}>
+            <Link
+              href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
+              className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer block"
+              data-testid={`recommended-bottom-${rec.id}`}
+            >
+              {rec.coverImage ? (
+                <div className="h-32 overflow-hidden">
+                  <img src={rec.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                </div>
+              ) : (
+                <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
+                  <Mic className="h-8 w-8 text-gray-300" />
+                </div>
+              )}
+              <div className="p-3">
+                <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+                  {rec.title}
+                </h4>
+                <div className="flex items-center gap-2 mt-2">
+                  {rec.podcastTitle && (
+                    <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
+                  )}
+                  {rec.readingTime && (
+                    <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                      <Clock className="h-3 w-3" /> {rec.readingTime} min
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
-                <Mic className="h-8 w-8 text-gray-300" />
-              </div>
-            )}
-            <div className="p-3">
-              <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
-                {rec.title}
-              </h4>
-              <div className="flex items-center gap-2 mt-2">
-                {rec.podcastTitle && (
-                  <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
-                )}
-                {rec.readingTime && (
-                  <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
-                    <Clock className="h-3 w-3" /> {rec.readingTime} min
-                  </span>
-                )}
-              </div>
-            </div>
-          </Link>
+            </Link>
+          </ArticlePreviewPopup>
         ))}
       </div>
     </div>
