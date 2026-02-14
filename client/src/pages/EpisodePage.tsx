@@ -6,6 +6,7 @@ import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, 
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar, EpisodeSubscribeWidget } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function formatDuration(duration: string | null) {
   if (!duration) return "";
@@ -263,6 +264,11 @@ export default function EpisodePage() {
         </div>
       </nav>
 
+      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
+      </div>
+
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 max-w-[720px]">
@@ -365,6 +371,11 @@ export default function EpisodePage() {
               </div>
             )}
 
+            <div className="flex justify-center my-8">
+              <AdPlaceholder width={728} height={90} label="Mid-Content Leaderboard" className="hidden md:flex" />
+              <AdPlaceholder width={300} height={250} label="Mid-Content Rectangle" className="md:hidden" />
+            </div>
+
             <SuggestedEpisodes episodeId={episode.id} currentPodcastId={params.podcastId} />
 
             <div className="mt-10">
@@ -405,6 +416,8 @@ export default function EpisodePage() {
 
           <aside className="hidden lg:block w-[300px] shrink-0 print:hidden" data-testid="episode-sidebar">
             <div className="sticky top-20 space-y-6">
+              <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
+
               <SidebarSubscribeWidget
                 podcastId={podcast?.id}
                 podcastTitle={podcast?.title}
@@ -442,6 +455,8 @@ export default function EpisodePage() {
                   </Button>
                 </Link>
               </div>
+
+              <AdPlaceholder width={300} height={600} label="Sidebar Half Page" />
 
               {episode.publishedAt && (
                 <div className="border border-gray-100 bg-gray-50 rounded-lg p-4">

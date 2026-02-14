@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
 import { Mic, Headphones, Video, FileText, Clock, Search, Users } from "lucide-react";
 import { useState, useEffect } from "react";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -67,6 +68,11 @@ export default function SearchPage() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-8">

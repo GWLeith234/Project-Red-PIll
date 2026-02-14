@@ -5,6 +5,7 @@ import { Mic, Clock, Play, Users, Headphones, Video, FileText, ChevronRight, Cal
 import { useState } from "react";
 import { SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -199,6 +200,8 @@ export default function ShowDetail() {
 
           <aside className="hidden lg:block w-[300px] shrink-0 print:hidden">
             <div className="sticky top-32 space-y-6">
+              <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
+
               <SidebarSubscribeWidget
                 podcastId={podcast.id}
                 podcastTitle={podcast.title}
@@ -208,6 +211,8 @@ export default function ShowDetail() {
                 recommendations={recommendations}
                 subscriberName={subscriberName}
               />
+
+              <AdPlaceholder width={300} height={600} label="Sidebar Half Page" />
             </div>
           </aside>
         </div>

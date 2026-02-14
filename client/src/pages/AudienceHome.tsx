@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Play, Clock, Users, Headphones, Video, FileText, ChevronRight, ArrowRight, Zap, ChevronLeft } from "lucide-react";
 import type { HeroSlide } from "@shared/schema";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -351,6 +352,11 @@ export default function AudienceHome() {
         </div>
       </div>
 
+      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 py-10">
         {latestEpisodes.length > 0 && (
           <section className="mb-14" data-testid="section-latest-episodes">
@@ -415,6 +421,11 @@ export default function AudienceHome() {
           </section>
         )}
 
+        <div className="flex justify-center my-8">
+          <AdPlaceholder width={728} height={90} label="Mid-Content Leaderboard" className="hidden md:flex" />
+          <AdPlaceholder width={320} height={100} label="Mid-Content Mobile" className="md:hidden" />
+        </div>
+
         {latestArticles.length > 0 && (
           <section className="mb-14" data-testid="section-latest-articles">
             <div className="flex items-center justify-between mb-6">
@@ -462,6 +473,11 @@ export default function AudienceHome() {
             </div>
           </section>
         )}
+
+        <div className="flex justify-center my-8">
+          <AdPlaceholder width={728} height={90} label="Bottom Leaderboard" className="hidden md:flex" />
+          <AdPlaceholder width={320} height={100} label="Bottom Mobile" className="md:hidden" />
+        </div>
 
         {podcasts.length > 0 && (
           <section data-testid="section-our-shows">

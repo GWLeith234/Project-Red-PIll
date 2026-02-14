@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Clock } from "lucide-react";
 import { SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -81,6 +82,11 @@ export default function NewsPage() {
         </div>
       </div>
 
+      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
+      </div>
+
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0">
@@ -140,6 +146,8 @@ export default function NewsPage() {
 
           <aside className="hidden lg:block w-[300px] shrink-0" data-testid="news-sidebar">
             <div className="sticky top-20 space-y-6">
+              <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
+
               <SidebarSubscribeWidget
                 podcastId={podcast.id}
                 podcastTitle={podcast.title}
@@ -149,6 +157,8 @@ export default function NewsPage() {
                 recommendations={recommendations}
                 subscriberName={subscriberName}
               />
+
+              <AdPlaceholder width={300} height={600} label="Sidebar Half Page" />
 
               <div className="border border-gray-100 bg-gray-50 p-4 rounded-lg">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About the Show</h3>

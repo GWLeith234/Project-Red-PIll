@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Mic, Users, TrendingUp, Headphones, Search } from "lucide-react";
 import { useState } from "react";
+import { AdPlaceholder } from "@/components/AdPlaceholder";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -52,6 +53,11 @@ export default function PodcastDirectory() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="flex justify-center py-4 bg-gray-50/50 border-b border-gray-100">
+        <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
+        <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -133,6 +139,11 @@ export default function PodcastDirectory() {
                 </div>
               </div>
             )}
+
+            <div className="flex justify-center my-8">
+              <AdPlaceholder width={728} height={90} label="Mid-Content Leaderboard" className="hidden md:flex" />
+              <AdPlaceholder width={320} height={100} label="Mid-Content Mobile" className="md:hidden" />
+            </div>
 
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-8" data-testid="text-all-shows-heading">
