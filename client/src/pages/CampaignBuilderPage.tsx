@@ -197,7 +197,7 @@ export default function CampaignBuilderPage() {
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
       <div className="flex items-center justify-between border-b border-border/50 pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground" data-testid="text-campaigns-title">Campaign Builder</h1>
+          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground" data-testid="text-campaigns-title">AI Campaign Builder</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">Drag-and-Drop Email Builder & Outreach Engine</p>
         </div>
         <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider gap-2" data-testid="button-new-campaign">

@@ -49,10 +49,10 @@ const navGroups: NavGroup[] = [
   {
     label: "Content Factory",
     items: [
-      { name: "Pipeline Generator", href: "/content", icon: Factory, permission: "content.view" },
-      { name: "Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
-      { name: "Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
-      { name: "AI Content Agent", href: "/moderation", icon: Bot, permission: "content.edit" },
+      { name: "AI Content Generator", href: "/content", icon: Factory, permission: "content.view" },
+      { name: "AI Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
+      { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
+      { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
     ],
   },
   {

@@ -1688,7 +1688,7 @@ function AgentActivityWidget() {
 
         <div className="pt-2 border-t border-border/30">
           <Link href="/content" className="flex items-center justify-center gap-1.5 text-xs text-primary font-mono hover:underline" data-testid="link-view-pipeline">
-            Open Pipeline Generator <ChevronRight className="h-3 w-3" />
+            Open AI Content Generator <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
       </CardContent>

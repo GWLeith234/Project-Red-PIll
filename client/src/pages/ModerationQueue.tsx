@@ -189,7 +189,7 @@ export default function ModerationQueue() {
         <div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-foreground flex items-center gap-3" data-testid="text-page-title">
             <Bot className="w-8 h-8 text-primary" />
-            AI Content Agent
+            AI Content Editor
           </h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">Review, edit &amp; approve AI-generated content before publishing</p>
         </div>
