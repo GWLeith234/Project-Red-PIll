@@ -56,7 +56,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Revenue",
+    label: "Revenue Factory",
     items: [
       { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
     ],
