@@ -32,9 +32,21 @@ export function useAdvertisers() {
   return useQuery({ queryKey: ["/api/advertisers"], queryFn: () => apiRequest("/api/advertisers") });
 }
 
-export function useCampaigns(advertiserId?: string) {
-  const url = advertiserId ? `/api/campaigns?advertiserId=${advertiserId}` : "/api/campaigns";
-  return useQuery({ queryKey: ["/api/campaigns", advertiserId], queryFn: () => apiRequest(url) });
+export function useCampaigns(filters?: { advertiserId?: string; companyId?: string; dealId?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.advertiserId) params.set("advertiserId", filters.advertiserId);
+  if (filters?.companyId) params.set("companyId", filters.companyId);
+  if (filters?.dealId) params.set("dealId", filters.dealId);
+  const url = params.toString() ? `/api/campaigns?${params}` : "/api/campaigns";
+  return useQuery({ queryKey: ["/api/campaigns", filters], queryFn: () => apiRequest(url) });
+}
+
+export function useDealCampaign(dealId: string | undefined) {
+  return useQuery({
+    queryKey: ["/api/campaigns", "deal", dealId],
+    queryFn: () => apiRequest(`/api/campaigns?dealId=${dealId}`),
+    enabled: !!dealId,
+  });
 }
 
 export function useMetrics() {

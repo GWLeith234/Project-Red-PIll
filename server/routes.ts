@@ -803,8 +803,11 @@ export async function registerRoutes(
 
   // ── Campaigns ──
   app.get("/api/campaigns", async (req, res) => {
-    const advertiserId = req.query.advertiserId as string | undefined;
-    const data = await storage.getCampaigns(advertiserId);
+    const filters: any = {};
+    if (req.query.advertiserId) filters.advertiserId = req.query.advertiserId;
+    if (req.query.companyId) filters.companyId = req.query.companyId;
+    if (req.query.dealId) filters.dealId = req.query.dealId;
+    const data = await storage.getCampaigns(Object.keys(filters).length ? filters : undefined);
     res.json(data);
   });
 
@@ -2794,6 +2797,23 @@ export async function registerRoutes(
     }
     const data = await storage.updateDeal(req.params.id, parsed.data);
     if (!data) return res.status(404).json({ message: "Deal not found" });
+
+    if (parsed.data.stage === "closed_won") {
+      const existingCampaign = await storage.getCampaignByDealId(data.id);
+      if (!existingCampaign) {
+        const company = await storage.getCompany(data.companyId);
+        await storage.createCampaign({
+          companyId: data.companyId,
+          dealId: data.id,
+          name: `${data.title} — ${company?.name || "Campaign"}`,
+          budget: data.value || 0,
+          status: "scheduled",
+          startDate: data.startDate || new Date(),
+          endDate: data.closeDate || undefined,
+        });
+      }
+    }
+
     res.json(data);
   });
 

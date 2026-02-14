@@ -71,7 +71,8 @@ export interface IStorage {
   createAdvertiser(advertiser: InsertAdvertiser): Promise<Advertiser>;
   updateAdvertiser(id: string, data: Partial<InsertAdvertiser>): Promise<Advertiser | undefined>;
 
-  getCampaigns(advertiserId?: string): Promise<Campaign[]>;
+  getCampaigns(filters?: { advertiserId?: string; companyId?: string; dealId?: string }): Promise<Campaign[]>;
+  getCampaignByDealId(dealId: string): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined>;
 
@@ -317,11 +318,21 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getCampaigns(advertiserId?: string) {
-    if (advertiserId) {
-      return db.select().from(campaigns).where(eq(campaigns.advertiserId, advertiserId));
+  async getCampaigns(filters?: { advertiserId?: string; companyId?: string; dealId?: string }) {
+    if (filters?.dealId) {
+      return db.select().from(campaigns).where(eq(campaigns.dealId, filters.dealId));
+    }
+    if (filters?.companyId) {
+      return db.select().from(campaigns).where(eq(campaigns.companyId, filters.companyId));
+    }
+    if (filters?.advertiserId) {
+      return db.select().from(campaigns).where(eq(campaigns.advertiserId, filters.advertiserId));
     }
     return db.select().from(campaigns);
+  }
+  async getCampaignByDealId(dealId: string) {
+    const [campaign] = await db.select().from(campaigns).where(eq(campaigns.dealId, dealId)).limit(1);
+    return campaign;
   }
   async createCampaign(campaign: InsertCampaign) {
     const [created] = await db.insert(campaigns).values(campaign).returning();

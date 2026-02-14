@@ -133,15 +133,18 @@ export const advertisers = pgTable("advertisers", {
 
 export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  advertiserId: varchar("advertiser_id").notNull(),
+  advertiserId: varchar("advertiser_id"),
+  companyId: varchar("company_id"),
+  dealId: varchar("deal_id"),
   name: text("name").notNull(),
   budget: real("budget").default(0),
   spent: real("spent").default(0),
   impressions: integer("impressions").default(0),
   clicks: integer("clicks").default(0),
-  status: text("status").default("active"),
+  status: text("status").default("scheduled"),
   startDate: timestamp("start_date").defaultNow(),
   endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const metrics = pgTable("metrics", {

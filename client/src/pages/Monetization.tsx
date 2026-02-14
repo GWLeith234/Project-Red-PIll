@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import {
-  DollarSign, Users, Target, Briefcase, Plus, Download, Loader2, UserPlus,
-  Package, Edit3, Trash2, Tag, Layers, ShieldCheck, AlertTriangle, CheckCircle2, Archive
+  DollarSign, Users, Target, Briefcase, Plus, Download, Loader2,
+  Package, Edit3, Trash2, Tag, Layers, ShieldCheck, AlertTriangle, CheckCircle2, Archive,
+  Play, Clock, Pause, Building2
 } from "lucide-react";
-import { useAdvertisers, useMetrics, useCreateAdvertiser, useCreateCampaign, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/lib/api";
+import { useMetrics, useCampaigns, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { PRODUCT_CATEGORIES, RATE_MODELS, type Product } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
