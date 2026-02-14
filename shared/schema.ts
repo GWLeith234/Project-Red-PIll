@@ -354,6 +354,69 @@ export const outboundCampaigns = pgTable("outbound_campaigns", {
   sentAt: timestamp("sent_at"),
 });
 
+export const SOCIAL_PLATFORMS = ["x", "facebook", "linkedin", "google_business", "instagram", "tiktok"] as const;
+export type SocialPlatform = typeof SOCIAL_PLATFORMS[number];
+
+export const socialAccounts = pgTable("social_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platform: text("platform").notNull(),
+  accountName: text("account_name").notNull(),
+  accountUrl: text("account_url"),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  status: text("status").default("disconnected").notNull(),
+  lastPostedAt: timestamp("last_posted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const SCHEDULED_POST_STATUSES = ["draft", "scheduled", "publishing", "published", "failed"] as const;
+export type ScheduledPostStatus = typeof SCHEDULED_POST_STATUSES[number];
+
+export const scheduledPosts = pgTable("scheduled_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contentPieceId: varchar("content_piece_id").notNull(),
+  platform: text("platform").notNull(),
+  socialAccountId: varchar("social_account_id"),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  publishedAt: timestamp("published_at"),
+  status: text("status").default("scheduled").notNull(),
+  postText: text("post_text"),
+  hashtags: text("hashtags").array().default(sql`ARRAY[]::text[]`),
+  mediaUrls: text("media_urls").array().default(sql`ARRAY[]::text[]`),
+  aiSuggestion: text("ai_suggestion"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const clipAssets = pgTable("clip_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  episodeId: varchar("episode_id").notNull(),
+  title: text("title").notNull(),
+  hookText: text("hook_text"),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  duration: text("duration"),
+  transcriptExcerpt: text("transcript_excerpt"),
+  viralScore: integer("viral_score").default(0),
+  status: text("status").default("suggested").notNull(),
+  clipUrl: text("clip_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  platform: text("platform"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const newsletterRuns = pgTable("newsletter_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  period: text("period").notNull(),
+  body: text("body"),
+  contentPieceIds: text("content_piece_ids").array().default(sql`ARRAY[]::text[]`),
+  status: text("status").default("draft").notNull(),
+  outboundCampaignId: varchar("outbound_campaign_id"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const heroSlides = pgTable("hero_slides", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   imageUrl: text("image_url").notNull(),
@@ -367,6 +430,10 @@ export const heroSlides = pgTable("hero_slides", {
 });
 
 // Insert schemas
+export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true });
+export const insertScheduledPostSchema = createInsertSchema(scheduledPosts).omit({ id: true, createdAt: true });
+export const insertClipAssetSchema = createInsertSchema(clipAssets).omit({ id: true, createdAt: true });
+export const insertNewsletterRunSchema = createInsertSchema(newsletterRuns).omit({ id: true, createdAt: true });
 export const insertHeroSlideSchema = createInsertSchema(heroSlides).omit({ id: true, createdAt: true });
 export const insertOutboundCampaignSchema = createInsertSchema(outboundCampaigns).omit({ id: true, createdAt: true, sentAt: true });
 export const insertCompanySchema = createInsertSchema(companies).omit({ id: true, createdAt: true, updatedAt: true });
@@ -427,5 +494,13 @@ export type InsertOutboundCampaign = z.infer<typeof insertOutboundCampaignSchema
 export type OutboundCampaign = typeof outboundCampaigns.$inferSelect;
 export type InsertHeroSlide = z.infer<typeof insertHeroSlideSchema>;
 export type HeroSlide = typeof heroSlides.$inferSelect;
+export type InsertSocialAccount = z.infer<typeof insertSocialAccountSchema>;
+export type SocialAccount = typeof socialAccounts.$inferSelect;
+export type InsertScheduledPost = z.infer<typeof insertScheduledPostSchema>;
+export type ScheduledPost = typeof scheduledPosts.$inferSelect;
+export type InsertClipAsset = z.infer<typeof insertClipAssetSchema>;
+export type ClipAsset = typeof clipAssets.$inferSelect;
+export type InsertNewsletterRun = z.infer<typeof insertNewsletterRunSchema>;
+export type NewsletterRun = typeof newsletterRuns.$inferSelect;
 
 export * from "./models/chat";

@@ -309,6 +309,114 @@ export function useUpdateSettings() {
   });
 }
 
+export function useRunFullPipeline() {
+  return useMutation({
+    mutationFn: (data: { episodeId: string; contentTypes?: string[] }) =>
+      apiRequest("/api/ai-agent/full-pipeline", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clip-assets"] });
+    },
+  });
+}
+
+export function useSmartSuggestions() {
+  return useMutation({
+    mutationFn: (data: { episodeId: string }) =>
+      apiRequest("/api/ai-agent/smart-suggestions", { method: "POST", body: JSON.stringify(data) }),
+  });
+}
+
+export function useGenerateNewsletter() {
+  return useMutation({
+    mutationFn: (data: { month: string; year: string }) =>
+      apiRequest("/api/ai-agent/generate-newsletter", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/newsletter-runs"] }),
+  });
+}
+
+export function useClipAssets(episodeId?: string) {
+  const url = episodeId ? `/api/clip-assets?episodeId=${episodeId}` : "/api/clip-assets";
+  return useQuery({ queryKey: ["/api/clip-assets", episodeId], queryFn: () => apiRequest(url) });
+}
+
+export function useUpdateClipAsset() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/clip-assets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/clip-assets"] }),
+  });
+}
+
+export function useDeleteClipAsset() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/clip-assets/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/clip-assets"] }),
+  });
+}
+
+export function useScheduledPosts(platform?: string) {
+  const url = platform ? `/api/scheduled-posts?platform=${platform}` : "/api/scheduled-posts";
+  return useQuery({ queryKey: ["/api/scheduled-posts", platform], queryFn: () => apiRequest(url) });
+}
+
+export function useCreateScheduledPost() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/scheduled-posts", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] }),
+  });
+}
+
+export function useUpdateScheduledPost() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: any) => apiRequest(`/api/scheduled-posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] }),
+  });
+}
+
+export function useDeleteScheduledPost() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/scheduled-posts/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] }),
+  });
+}
+
+export function useSocialAccounts() {
+  return useQuery({ queryKey: ["/api/social-accounts"], queryFn: () => apiRequest("/api/social-accounts") });
+}
+
+export function useCreateSocialAccount() {
+  return useMutation({
+    mutationFn: (data: any) => apiRequest("/api/social-accounts", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/social-accounts"] }),
+  });
+}
+
+export function useDeleteSocialAccount() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/social-accounts/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/social-accounts"] }),
+  });
+}
+
+export function useNewsletterRuns() {
+  return useQuery({ queryKey: ["/api/newsletter-runs"], queryFn: () => apiRequest("/api/newsletter-runs") });
+}
+
+export function useSendNewsletter() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/newsletter-runs/${id}/send`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/newsletter-runs"] }),
+  });
+}
+
+export function useDeleteNewsletterRun() {
+  return useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/newsletter-runs/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/newsletter-runs"] }),
+  });
+}
+
 export function useModerationQueue() {
   return useQuery({ queryKey: ["/api/moderation/queue"], queryFn: () => apiRequest("/api/moderation/queue") });
 }

@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### Pages
 - **Login** (`/login`): Authentication page with first-time admin setup flow
 - **Dashboard** (`/`): Command Center with KPI cards, revenue charts, alerts, processing status
-- **Content Factory** (`/content`): AI content multiplication pipeline showing episode processing stages
+- **Content Factory** (`/content`): Comprehensive AI content production pipeline with 6 tabs: Pipeline (episode processing + full AI content suite generation), Upload (drag-and-drop audio/video upload), Clips (OpusClip-style viral clip factory with AI-suggested moments), Schedule (content scheduling with platform targeting), Social (connected accounts management for X/Facebook/LinkedIn/Google Business), Newsletter (monthly digest auto-generator)
 - **Monetization** (`/monetization`): Revenue engine with advertiser management, CPM tracking, revenue breakdown
 - **Network** (`/network`): Podcast network management with show cards
 - **User Management** (`/users`): Admin user CRUD with role assignment and permission toggles
@@ -87,6 +87,13 @@ Preferred communication style: Simple, everyday language.
 - `GET/PUT /api/branding`
 - `GET/POST /api/hero-slides`, `PATCH/DELETE /api/hero-slides/:id` (permission-gated: customize.view, customize.edit)
 - `GET /api/public/hero-slides` (no auth: active hero carousel slides for public homepage)
+- `POST /api/ai-agent/full-pipeline` (permission-gated: content.edit - runs full AI content pipeline for an episode)
+- `POST /api/ai-agent/smart-suggestions` (permission-gated: content.edit - AI distribution recommendations)
+- `POST /api/ai-agent/generate-newsletter` (permission-gated: content.edit - generates monthly newsletter)
+- `GET /api/clip-assets`, `GET/PATCH/DELETE /api/clip-assets/:id` (permission-gated: content.view, content.edit)
+- `GET/POST /api/scheduled-posts`, `PATCH/DELETE /api/scheduled-posts/:id` (permission-gated: content.view, content.edit)
+- `GET/POST /api/social-accounts`, `PATCH/DELETE /api/social-accounts/:id` (permission-gated: content.view, content.edit)
+- `GET /api/newsletter-runs`, `GET /api/newsletter-runs/:id`, `POST /api/newsletter-runs/:id/send`, `DELETE /api/newsletter-runs/:id` (permission-gated: content.view, content.edit)
 - `GET/PUT /api/settings` (permission-gated: settings.view, settings.edit)
 - `GET/POST /api/outbound-campaigns`, `GET/PATCH/DELETE /api/outbound-campaigns/:id` (auth-gated: campaign CRUD with audience filter)
 - `GET /api/outbound-campaigns/:id/recipients` (auth-gated: preview consented recipients)

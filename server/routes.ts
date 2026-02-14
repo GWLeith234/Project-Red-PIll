@@ -283,6 +283,172 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/ai-agent/full-pipeline", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { episodeId, contentTypes } = req.body;
+    if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
+
+    try {
+      const { runFullContentPipeline } = await import("./ai-content-agent");
+      const result = await runFullContentPipeline(episodeId, contentTypes);
+      res.json(result);
+    } catch (err: any) {
+      console.error("Full pipeline error:", err);
+      res.status(500).json({ message: err.message || "Content pipeline failed" });
+    }
+  });
+
+  app.post("/api/ai-agent/smart-suggestions", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { episodeId } = req.body;
+    if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
+
+    try {
+      const episode = await storage.getEpisode(episodeId);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+      if (!episode.transcript) return res.status(400).json({ message: "Episode has no transcript" });
+
+      const { generateSmartSuggestions } = await import("./ai-content-agent");
+      const suggestions = await generateSmartSuggestions(episodeId, episode.transcript, episode.title);
+      res.json(suggestions);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/ai-agent/generate-newsletter", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const { month, year } = req.body;
+    if (!month || !year) return res.status(400).json({ message: "month and year are required" });
+
+    try {
+      const { generateMonthlyNewsletter } = await import("./ai-content-agent");
+      const newsletter = await generateMonthlyNewsletter(month, year);
+
+      const run = await storage.createNewsletterRun({
+        title: newsletter.title,
+        period: `${month} ${year}`,
+        body: newsletter.body,
+        contentPieceIds: newsletter.contentPieceIds,
+        status: "draft",
+      });
+
+      res.json(run);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Clip Assets ──
+  app.get("/api/clip-assets", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const episodeId = req.query.episodeId as string | undefined;
+    const data = await storage.getClipAssets(episodeId);
+    res.json(data);
+  });
+
+  app.get("/api/clip-assets/:id", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getClipAsset(req.params.id);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.patch("/api/clip-assets/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const data = await storage.updateClipAsset(req.params.id, req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/clip-assets/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteClipAsset(req.params.id);
+    res.status(204).end();
+  });
+
+  // ── Scheduled Posts ──
+  app.get("/api/scheduled-posts", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const platform = req.query.platform as string | undefined;
+    const data = await storage.getScheduledPosts(platform);
+    res.json(data);
+  });
+
+  app.post("/api/scheduled-posts", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const data = await storage.createScheduledPost(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/scheduled-posts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const data = await storage.updateScheduledPost(req.params.id, req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/scheduled-posts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteScheduledPost(req.params.id);
+    res.status(204).end();
+  });
+
+  // ── Social Accounts ──
+  app.get("/api/social-accounts", requireAuth, requirePermission("content.view"), async (_req, res) => {
+    const data = await storage.getSocialAccounts();
+    res.json(data);
+  });
+
+  app.post("/api/social-accounts", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const data = await storage.createSocialAccount(req.body);
+    res.status(201).json(data);
+  });
+
+  app.patch("/api/social-accounts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const data = await storage.updateSocialAccount(req.params.id, req.body);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.delete("/api/social-accounts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteSocialAccount(req.params.id);
+    res.status(204).end();
+  });
+
+  // ── Newsletter Runs ──
+  app.get("/api/newsletter-runs", requireAuth, requirePermission("content.view"), async (_req, res) => {
+    const data = await storage.getNewsletterRuns();
+    res.json(data);
+  });
+
+  app.get("/api/newsletter-runs/:id", requireAuth, requirePermission("content.view"), async (req, res) => {
+    const data = await storage.getNewsletterRun(req.params.id);
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json(data);
+  });
+
+  app.post("/api/newsletter-runs/:id/send", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    const run = await storage.getNewsletterRun(req.params.id);
+    if (!run) return res.status(404).json({ message: "Not found" });
+
+    try {
+      const user = (req as any).user;
+      const campaign = await storage.createOutboundCampaign({
+        name: run.title,
+        type: "email",
+        audience: "subscribers",
+        status: "draft",
+        subject: run.title,
+        body: run.body || "",
+        createdBy: user?.id,
+      });
+
+      await storage.updateNewsletterRun(req.params.id, {
+        outboundCampaignId: campaign.id,
+        status: "sending",
+      });
+
+      res.json({ newsletter: run, campaign });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/newsletter-runs/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    await storage.deleteNewsletterRun(req.params.id);
+    res.status(204).end();
+  });
+
   app.get("/api/moderation/queue", requireAuth, requirePermission("content.edit"), async (_req, res) => {
     const items = await storage.getContentPiecesByStatus("review", "article");
     const episodeIds = [...new Set(items.map(i => i.episodeId))];

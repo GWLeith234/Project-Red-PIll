@@ -5,6 +5,7 @@ import { and } from "drizzle-orm";
 import {
   users, podcasts, episodes, contentPieces, advertisers, campaigns, metrics, alerts, branding, platformSettings, comments,
   subscribers, subscriberPodcasts, companies, companyContacts, deals, dealActivities, outboundCampaigns, heroSlides,
+  socialAccounts, scheduledPosts, clipAssets, newsletterRuns,
   type User, type InsertUser,
   type Podcast, type InsertPodcast,
   type Episode, type InsertEpisode,
@@ -24,6 +25,10 @@ import {
   type DealActivity, type InsertDealActivity,
   type OutboundCampaign, type InsertOutboundCampaign,
   type HeroSlide, type InsertHeroSlide,
+  type SocialAccount, type InsertSocialAccount,
+  type ScheduledPost, type InsertScheduledPost,
+  type ClipAsset, type InsertClipAsset,
+  type NewsletterRun, type InsertNewsletterRun,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -138,6 +143,30 @@ export interface IStorage {
   createHeroSlide(slide: InsertHeroSlide): Promise<HeroSlide>;
   updateHeroSlide(id: string, data: Partial<InsertHeroSlide>): Promise<HeroSlide | undefined>;
   deleteHeroSlide(id: string): Promise<void>;
+
+  getSocialAccounts(): Promise<SocialAccount[]>;
+  getSocialAccount(id: string): Promise<SocialAccount | undefined>;
+  createSocialAccount(account: InsertSocialAccount): Promise<SocialAccount>;
+  updateSocialAccount(id: string, data: Partial<InsertSocialAccount>): Promise<SocialAccount | undefined>;
+  deleteSocialAccount(id: string): Promise<void>;
+
+  getScheduledPosts(platform?: string): Promise<ScheduledPost[]>;
+  getScheduledPost(id: string): Promise<ScheduledPost | undefined>;
+  createScheduledPost(post: InsertScheduledPost): Promise<ScheduledPost>;
+  updateScheduledPost(id: string, data: Partial<InsertScheduledPost>): Promise<ScheduledPost | undefined>;
+  deleteScheduledPost(id: string): Promise<void>;
+
+  getClipAssets(episodeId?: string): Promise<ClipAsset[]>;
+  getClipAsset(id: string): Promise<ClipAsset | undefined>;
+  createClipAsset(clip: InsertClipAsset): Promise<ClipAsset>;
+  updateClipAsset(id: string, data: Partial<InsertClipAsset>): Promise<ClipAsset | undefined>;
+  deleteClipAsset(id: string): Promise<void>;
+
+  getNewsletterRuns(): Promise<NewsletterRun[]>;
+  getNewsletterRun(id: string): Promise<NewsletterRun | undefined>;
+  createNewsletterRun(run: InsertNewsletterRun): Promise<NewsletterRun>;
+  updateNewsletterRun(id: string, data: Partial<InsertNewsletterRun>): Promise<NewsletterRun | undefined>;
+  deleteNewsletterRun(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -563,6 +592,88 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteHeroSlide(id: string) {
     await db.delete(heroSlides).where(eq(heroSlides.id, id));
+  }
+
+  async getSocialAccounts() {
+    return db.select().from(socialAccounts).orderBy(desc(socialAccounts.createdAt));
+  }
+  async getSocialAccount(id: string) {
+    const [account] = await db.select().from(socialAccounts).where(eq(socialAccounts.id, id));
+    return account;
+  }
+  async createSocialAccount(account: InsertSocialAccount) {
+    const [created] = await db.insert(socialAccounts).values(account).returning();
+    return created;
+  }
+  async updateSocialAccount(id: string, data: Partial<InsertSocialAccount>) {
+    const [updated] = await db.update(socialAccounts).set(data).where(eq(socialAccounts.id, id)).returning();
+    return updated;
+  }
+  async deleteSocialAccount(id: string) {
+    await db.delete(socialAccounts).where(eq(socialAccounts.id, id));
+  }
+
+  async getScheduledPosts(platform?: string) {
+    if (platform) {
+      return db.select().from(scheduledPosts).where(eq(scheduledPosts.platform, platform)).orderBy(scheduledPosts.scheduledAt);
+    }
+    return db.select().from(scheduledPosts).orderBy(scheduledPosts.scheduledAt);
+  }
+  async getScheduledPost(id: string) {
+    const [post] = await db.select().from(scheduledPosts).where(eq(scheduledPosts.id, id));
+    return post;
+  }
+  async createScheduledPost(post: InsertScheduledPost) {
+    const [created] = await db.insert(scheduledPosts).values(post).returning();
+    return created;
+  }
+  async updateScheduledPost(id: string, data: Partial<InsertScheduledPost>) {
+    const [updated] = await db.update(scheduledPosts).set(data).where(eq(scheduledPosts.id, id)).returning();
+    return updated;
+  }
+  async deleteScheduledPost(id: string) {
+    await db.delete(scheduledPosts).where(eq(scheduledPosts.id, id));
+  }
+
+  async getClipAssets(episodeId?: string) {
+    if (episodeId) {
+      return db.select().from(clipAssets).where(eq(clipAssets.episodeId, episodeId)).orderBy(desc(clipAssets.viralScore));
+    }
+    return db.select().from(clipAssets).orderBy(desc(clipAssets.createdAt));
+  }
+  async getClipAsset(id: string) {
+    const [clip] = await db.select().from(clipAssets).where(eq(clipAssets.id, id));
+    return clip;
+  }
+  async createClipAsset(clip: InsertClipAsset) {
+    const [created] = await db.insert(clipAssets).values(clip).returning();
+    return created;
+  }
+  async updateClipAsset(id: string, data: Partial<InsertClipAsset>) {
+    const [updated] = await db.update(clipAssets).set(data).where(eq(clipAssets.id, id)).returning();
+    return updated;
+  }
+  async deleteClipAsset(id: string) {
+    await db.delete(clipAssets).where(eq(clipAssets.id, id));
+  }
+
+  async getNewsletterRuns() {
+    return db.select().from(newsletterRuns).orderBy(desc(newsletterRuns.createdAt));
+  }
+  async getNewsletterRun(id: string) {
+    const [run] = await db.select().from(newsletterRuns).where(eq(newsletterRuns.id, id));
+    return run;
+  }
+  async createNewsletterRun(run: InsertNewsletterRun) {
+    const [created] = await db.insert(newsletterRuns).values(run).returning();
+    return created;
+  }
+  async updateNewsletterRun(id: string, data: Partial<InsertNewsletterRun>) {
+    const [updated] = await db.update(newsletterRuns).set(data).where(eq(newsletterRuns.id, id)).returning();
+    return updated;
+  }
+  async deleteNewsletterRun(id: string) {
+    await db.delete(newsletterRuns).where(eq(newsletterRuns.id, id));
   }
 }
 

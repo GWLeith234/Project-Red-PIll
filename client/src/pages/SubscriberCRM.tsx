@@ -141,7 +141,7 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
                   <Linkedin className="h-3 w-3 mr-1" /> LinkedIn
                 </Button>
                 <Button size="sm" variant="outline" className="flex-1 border-border" onClick={() => setSocialUrl("https://x.com/")} data-testid="button-twitter-template">
-                  <Twitter className="h-3 w-3 mr-1" /> X / Twitter
+                  <Twitter className="h-3 w-3 mr-1" /> X
                 </Button>
                 <Button size="sm" variant="outline" className="flex-1 text-[#1877F2] border-[#1877F2]/30" onClick={() => setSocialUrl("https://facebook.com/")} data-testid="button-facebook-template">
                   <Facebook className="h-3 w-3 mr-1" /> Facebook
@@ -230,7 +230,7 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
           </div>
           <div className="flex items-center gap-2">
             <Twitter className="h-4 w-4 shrink-0" />
-            <Input value={form.twitterUrl} onChange={e => setForm(f => ({ ...f, twitterUrl: e.target.value }))} placeholder="X / Twitter URL" className="text-xs" data-testid="input-twitter" />
+            <Input value={form.twitterUrl} onChange={e => setForm(f => ({ ...f, twitterUrl: e.target.value }))} placeholder="X (Twitter) URL" className="text-xs" data-testid="input-twitter" />
           </div>
           <div className="flex items-center gap-2">
             <Facebook className="h-4 w-4 text-[#1877F2] shrink-0" />
@@ -401,7 +401,7 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
             )}
             {sub.twitterUrl && (
               <a href={sub.twitterUrl} target="_blank" rel="noopener noreferrer" className="text-xs flex items-center gap-1 hover:underline text-muted-foreground">
-                <Twitter className="h-3 w-3" /> X / Twitter
+                <Twitter className="h-3 w-3" /> X
               </a>
             )}
             {sub.facebookUrl && (
