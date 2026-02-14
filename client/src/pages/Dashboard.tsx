@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import {
@@ -7,7 +7,8 @@ import {
   Eye, EyeOff, Pencil, Check, X, Loader2, ImagePlus, Upload,
   Radio, Headphones, Newspaper, Bell, Target, BarChart3, PieChart as PieChartIcon,
   Mic, Mail, Building2, Megaphone, LayoutGrid,
-  Shield, UserPlus, Briefcase, Package, Server, Send
+  Shield, UserPlus, Briefcase, Package, Server, Send,
+  Bot, CalendarClock, FileText, Scissors, CheckCircle2, CircleDot, CircleDashed, Film
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,9 @@ import { Link } from "wouter";
 import {
   useMetrics, useAlerts, useEpisodes, useContentPieces, useTrendingArticles,
   useProfile, useUpdateProfile, useAnalyzeLinkedIn, usePodcasts, useSubscribers,
-  useAdvertisers, useAdminDashboardStats
+  useAdvertisers, useAdminDashboardStats, useScheduledPosts, useOutboundCampaigns
 } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -67,6 +69,7 @@ const WIDGET_CATEGORIES = [
   {
     label: "Content",
     widgets: [
+      { id: "agent_activity", label: "Agent Activity Hub", icon: Bot, size: "lg" },
       { id: "trending", label: "Trending Articles", icon: Newspaper, size: "lg" },
       { id: "processing", label: "AI Content Engine", icon: Zap, size: "md" },
       { id: "content_stats", label: "Content Breakdown", icon: BarChart3, size: "md" },
@@ -100,6 +103,7 @@ const ALL_WIDGETS = WIDGET_CATEGORIES.flatMap(c => c.widgets);
 
 const DEFAULT_WIDGETS = [
   "kpi_revenue", "kpi_listeners", "kpi_content", "kpi_adFill",
+  "agent_activity",
   "revenue_chart", "revenue_composition",
   "trending", "processing", "podcasts", "alerts",
 ];
@@ -1345,6 +1349,233 @@ function SystemOverviewWidget() {
   );
 }
 
+function AgentActivityWidget() {
+  const { data: episodes } = useEpisodes();
+  const { data: scheduledPosts } = useScheduledPosts();
+  const { data: contentPieces } = useContentPieces();
+  const { data: outboundCampaigns } = useOutboundCampaigns();
+  const { data: podcasts } = usePodcasts();
+  const queryClient = useQueryClient();
+
+  const processingEps = (episodes || []).filter((ep: any) =>
+    ep.processingStatus === "processing" || ep.transcriptStatus === "processing"
+  );
+
+  const queuedEps = (episodes || []).filter((ep: any) =>
+    ep.processingStatus === "pending" || ep.processingStatus === "queued"
+  );
+
+  const scheduledItems = (scheduledPosts || []).filter((sp: any) => sp.status === "scheduled");
+  const draftContent = (contentPieces || []).filter((cp: any) => cp.status === "draft" || cp.status === "pending_review");
+  const activeCampaigns = (outboundCampaigns || []).filter((c: any) => c.status === "scheduled" || c.status === "sending");
+
+  useEffect(() => {
+    if (processingEps.length === 0) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [processingEps.length, queryClient]);
+
+  const stepLabels: Record<string, string> = {
+    transcription: "Transcribing", keywords: "Keywords", article: "Article",
+    blog: "Blog", social: "Social", clips: "Clips", newsletter: "Newsletter", seo: "SEO",
+  };
+  const allSteps = ["transcription", "keywords", "article", "blog", "social", "clips", "newsletter", "seo"];
+
+  const totalInProgress = processingEps.length;
+  const totalQueued = queuedEps.length;
+  const totalScheduled = scheduledItems.length + activeCampaigns.length;
+  const totalDrafts = draftContent.length;
+  const hasActivity = totalInProgress > 0 || totalQueued > 0 || totalScheduled > 0 || totalDrafts > 0;
+
+  return (
+    <Card className={cn("glass-panel border-border/50 relative overflow-hidden", totalInProgress > 0 && "border-blue-500/30")} data-testid="widget-agent-activity">
+      {totalInProgress > 0 && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-primary to-blue-500 animate-pulse" />
+      )}
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="font-display tracking-wide text-lg flex items-center gap-2">
+              <div className="relative">
+                <Bot className="h-5 w-5 text-primary" />
+                {totalInProgress > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse border border-background" />
+                )}
+              </div>
+              Agent Activity Hub
+            </CardTitle>
+            <CardDescription className="font-mono text-xs">Live platform operations &amp; AI workload</CardDescription>
+          </div>
+          {hasActivity && (
+            <div className="flex items-center gap-1.5">
+              {totalInProgress > 0 && (
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 font-mono text-[10px] animate-pulse">
+                  {totalInProgress} active
+                </Badge>
+              )}
+              {totalQueued > 0 && (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 font-mono text-[10px]">
+                  {totalQueued} queued
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-4 gap-2">
+          <div className="text-center p-2.5 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+            <div className="flex items-center justify-center mb-1">
+              <Loader2 className={cn("h-4 w-4 text-blue-400", totalInProgress > 0 && "animate-spin")} />
+            </div>
+            <p className="text-lg font-bold font-display text-blue-400">{totalInProgress}</p>
+            <p className="text-[9px] font-mono text-blue-400/70 uppercase tracking-wider">In Progress</p>
+          </div>
+          <div className="text-center p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+            <div className="flex items-center justify-center mb-1">
+              <CircleDashed className="h-4 w-4 text-amber-400" />
+            </div>
+            <p className="text-lg font-bold font-display text-amber-400">{totalQueued}</p>
+            <p className="text-[9px] font-mono text-amber-400/70 uppercase tracking-wider">Queued</p>
+          </div>
+          <div className="text-center p-2.5 bg-violet-500/5 border border-violet-500/20 rounded-lg">
+            <div className="flex items-center justify-center mb-1">
+              <CalendarClock className="h-4 w-4 text-violet-400" />
+            </div>
+            <p className="text-lg font-bold font-display text-violet-400">{totalScheduled}</p>
+            <p className="text-[9px] font-mono text-violet-400/70 uppercase tracking-wider">Scheduled</p>
+          </div>
+          <div className="text-center p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
+            <div className="flex items-center justify-center mb-1">
+              <FileText className="h-4 w-4 text-emerald-400" />
+            </div>
+            <p className="text-lg font-bold font-display text-emerald-400">{totalDrafts}</p>
+            <p className="text-[9px] font-mono text-emerald-400/70 uppercase tracking-wider">Drafts</p>
+          </div>
+        </div>
+
+        {processingEps.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+              <CircleDot className="h-3 w-3 animate-pulse" />
+              Active Jobs
+            </p>
+            {processingEps.slice(0, 4).map((ep: any) => {
+              const podcast = (podcasts || []).find((p: any) => p.id === ep.podcastId);
+              const currentStep = ep.processingStep || "transcription";
+              const currentStepIdx = Math.max(0, allSteps.indexOf(currentStep));
+              return (
+                <div key={ep.id} className="p-2.5 border border-blue-500/15 bg-blue-500/5 rounded-lg space-y-2" data-testid={`agent-job-${ep.id}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {ep.episodeType === "video" ? (
+                        <Film className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                      ) : (
+                        <Mic className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate">{ep.title}</p>
+                        <p className="text-[9px] text-muted-foreground font-mono">{podcast?.title || ""}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-mono text-blue-400 tabular-nums shrink-0 ml-2 font-bold">{ep.processingProgress || 0}%</span>
+                  </div>
+                  <div className="h-1 w-full bg-muted/30 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${ep.processingProgress || 0}%`, background: "linear-gradient(90deg, hsl(217 91% 60%), hsl(199 89% 48%))" }} />
+                  </div>
+                  <div className="flex items-center gap-0.5 flex-wrap">
+                    {allSteps.map((step, i) => {
+                      const isDone = i < currentStepIdx;
+                      const isActive = step === currentStep;
+                      return (
+                        <span key={step} className={cn(
+                          "text-[8px] font-mono px-1 py-0.5 rounded",
+                          isDone && "text-emerald-400",
+                          isActive && "text-blue-400 font-semibold animate-pulse",
+                          !isDone && !isActive && "text-muted-foreground/30"
+                        )}>
+                          {isDone && <CheckCircle2 className="inline h-2 w-2 mr-0.5 -mt-px" />}
+                          {isActive && <Loader2 className="inline h-2 w-2 mr-0.5 -mt-px animate-spin" />}
+                          {stepLabels[step]}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {processingEps.length > 4 && (
+              <p className="text-[10px] text-muted-foreground font-mono text-center">+ {processingEps.length - 4} more jobs</p>
+            )}
+          </div>
+        )}
+
+        {scheduledItems.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+              <CalendarClock className="h-3 w-3" />
+              Upcoming Scheduled Content
+            </p>
+            {scheduledItems.slice(0, 3).map((sp: any) => (
+              <div key={sp.id} className="flex items-center justify-between p-2 border border-violet-500/15 bg-violet-500/5 rounded-lg" data-testid={`scheduled-item-${sp.id}`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Send className="h-3 w-3 text-violet-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">{sp.title || sp.content?.slice(0, 50) || "Scheduled Post"}</p>
+                    <p className="text-[9px] text-muted-foreground font-mono">{sp.platform || "social"}</p>
+                  </div>
+                </div>
+                <span className="text-[9px] font-mono text-violet-400/80 shrink-0 ml-2">
+                  {sp.scheduledAt ? new Date(sp.scheduledAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""}
+                </span>
+              </div>
+            ))}
+            {scheduledItems.length > 3 && (
+              <Link href="/content" className="text-[10px] text-violet-400 font-mono flex items-center gap-1 justify-center hover:underline">
+                View all {scheduledItems.length} scheduled <ChevronRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+        )}
+
+        {activeCampaigns.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <Mail className="h-3 w-3" />
+              Active Email Campaigns
+            </p>
+            {activeCampaigns.slice(0, 3).map((c: any) => (
+              <div key={c.id} className="flex items-center justify-between p-2 border border-primary/15 bg-primary/5 rounded-lg" data-testid={`campaign-item-${c.id}`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Megaphone className="h-3 w-3 text-primary shrink-0" />
+                  <p className="text-xs font-medium truncate">{c.name || c.subject || "Campaign"}</p>
+                </div>
+                <Badge variant="outline" className="text-[9px] font-mono border-primary/20 text-primary shrink-0">{c.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!hasActivity && (
+          <div className="text-center py-6">
+            <Bot className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">All agents idle</p>
+            <p className="text-[10px] text-muted-foreground/60 font-mono mt-1">No active jobs, queued tasks, or scheduled content</p>
+          </div>
+        )}
+
+        <div className="pt-2 border-t border-border/30">
+          <Link href="/content" className="flex items-center justify-center gap-1.5 text-xs text-primary font-mono hover:underline" data-testid="link-view-pipeline">
+            Open Pipeline Generator <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function WidgetCustomizer({
   activeWidgets,
   widgetOrder,
@@ -1458,6 +1689,8 @@ function renderWidget(id: string, metrics: any, metricsLoading: boolean) {
       return <RevenueCompositionWidget key={id} />;
     case "trending":
       return <TrendingWidget key={id} />;
+    case "agent_activity":
+      return <AgentActivityWidget key={id} />;
     case "processing":
       return <ProcessingWidget key={id} />;
     case "content_stats":
