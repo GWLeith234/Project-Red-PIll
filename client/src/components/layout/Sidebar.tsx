@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -91,9 +91,24 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-function NavGroupSection({ group, location, hasPermission, collapsed, onToggle }: {
+function isItemActive(item: NavItem, location: string, searchString: string): boolean {
+  if (!item.href.includes("?")) {
+    return location === item.href;
+  }
+  const [itemPath, itemQuery] = item.href.split("?");
+  if (location !== itemPath) return false;
+  const itemParams = new URLSearchParams(itemQuery);
+  const currentParams = new URLSearchParams(searchString);
+  for (const [key, val] of itemParams.entries()) {
+    if (currentParams.get(key) !== val) return false;
+  }
+  return true;
+}
+
+function NavGroupSection({ group, location, searchString, hasPermission, collapsed, onToggle }: {
   group: NavGroup;
   location: string;
+  searchString: string;
   hasPermission: (p: string) => boolean;
   collapsed: boolean;
   onToggle: () => void;
@@ -101,7 +116,7 @@ function NavGroupSection({ group, location, hasPermission, collapsed, onToggle }
   const visibleItems = group.items.filter(item => hasPermission(item.permission));
   if (visibleItems.length === 0) return null;
 
-  const hasActiveChild = visibleItems.some(item => item.href === location);
+  const hasActiveChild = visibleItems.some(item => isItemActive(item, location, searchString));
   const isUngrouped = !group.label;
   const isCollapsed = collapsed && !hasActiveChild;
   const groupId = `nav-group-${group.label.toLowerCase().replace(/\s+/g, "-")}`;
@@ -139,7 +154,7 @@ function NavGroupSection({ group, location, hasPermission, collapsed, onToggle }
         )}
       >
         {visibleItems.map((item) => {
-          const isActive = location === item.href;
+          const isActive = isItemActive(item, location, searchString);
           return (
             <Link
               key={item.href}
@@ -170,6 +185,7 @@ function NavGroupSection({ group, location, hasPermission, collapsed, onToggle }
 
 export function Sidebar() {
   const [location] = useLocation();
+  const searchString = useSearch();
   const { data: branding } = useBranding();
   const { user, logout, hasPermission } = useAuth();
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -200,6 +216,7 @@ export function Sidebar() {
               key={group.label || "home"}
               group={group}
               location={location}
+              searchString={searchString}
               hasPermission={hasPermission}
               collapsed={!!collapsedGroups[group.label]}
               onToggle={() => toggleGroup(group.label)}

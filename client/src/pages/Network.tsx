@@ -42,7 +42,7 @@ export default function Network() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Podcast Network</h1>
+          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Podcasts</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">
             Managing {podcasts?.length || 0} Shows | Total Reach: {
               podcasts ? (podcasts.reduce((acc: number, p: any) => acc + (p.subscribers || 0), 0) / 1000000).toFixed(1) + "M" : "..."

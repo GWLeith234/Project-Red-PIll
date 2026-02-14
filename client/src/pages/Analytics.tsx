@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,10 +10,11 @@ import {
   BarChart3, Mail, MousePointerClick, Eye, Send, AlertTriangle,
   TrendingUp, Users, Globe, Clock, ArrowUpRight, ArrowDownRight,
   Smartphone, Monitor, Tablet, FileText, Radio, Layers,
-  Activity, Target, Zap,
+  Activity, Target, Zap, Factory, DollarSign, Briefcase, Headphones, Shield,
 } from "lucide-react";
 import { useEmailCampaignAnalytics, useWebsiteAnalytics } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useSearch, useLocation } from "wouter";
 
 function KpiCard({ icon: Icon, label, value, subValue, trend, trendUp, color, testId }: {
   icon: any; label: string; value: string; subValue?: string; trend?: string; trendUp?: boolean; color: string; testId: string;
@@ -477,8 +478,71 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+const SECTION_TABS = [
+  { key: "content", label: "Content Factory", icon: Factory },
+  { key: "revenue", label: "Revenue Factory", icon: DollarSign },
+  { key: "crm", label: "CRM", icon: Briefcase },
+  { key: "audience", label: "Audience", icon: Headphones },
+  { key: "admin", label: "Admin", icon: Shield },
+] as const;
+
+type SectionKey = (typeof SECTION_TABS)[number]["key"];
+
+const SECTION_SUBTABS: Record<SectionKey, { key: string; label: string; icon: any }[]> = {
+  content: [
+    { key: "email", label: "Email Campaigns", icon: Mail },
+    { key: "website", label: "Website & App", icon: Globe },
+  ],
+  revenue: [
+    { key: "email", label: "Email Campaigns", icon: Mail },
+    { key: "website", label: "Website & App", icon: Globe },
+  ],
+  crm: [
+    { key: "email", label: "Email Campaigns", icon: Mail },
+    { key: "website", label: "Website & App", icon: Globe },
+  ],
+  audience: [
+    { key: "website", label: "Website & App", icon: Globe },
+    { key: "email", label: "Email Campaigns", icon: Mail },
+  ],
+  admin: [
+    { key: "website", label: "Website & App", icon: Globe },
+    { key: "email", label: "Email Campaigns", icon: Mail },
+  ],
+};
+
+const SECTION_DESCRIPTIONS: Record<SectionKey, string> = {
+  content: "Content production, publishing, and engagement metrics",
+  revenue: "Revenue performance, ad delivery, and monetization analytics",
+  crm: "Campaign delivery, subscriber engagement, and conversion rates",
+  audience: "Listener growth, website traffic, and audience demographics",
+  admin: "Platform usage, system health, and operational metrics",
+};
+
 export default function Analytics() {
-  const [activeTab, setActiveTab] = useState<"email" | "website">("email");
+  const searchString = useSearch();
+  const [, navigate] = useLocation();
+  const params = new URLSearchParams(searchString);
+  const sectionParam = params.get("section") as SectionKey | null;
+  const validSection = SECTION_TABS.find(t => t.key === sectionParam) ? sectionParam! : "content";
+
+  const [activeSection, setActiveSection] = useState<SectionKey>(validSection);
+  const subtabs = SECTION_SUBTABS[activeSection];
+  const [activeSubTab, setActiveSubTab] = useState(subtabs[0].key);
+
+  useEffect(() => {
+    const newSection = SECTION_TABS.find(t => t.key === sectionParam) ? sectionParam! : "content";
+    if (newSection !== activeSection) {
+      setActiveSection(newSection);
+      setActiveSubTab(SECTION_SUBTABS[newSection][0].key);
+    }
+  }, [sectionParam]);
+
+  const handleSectionChange = (section: SectionKey) => {
+    setActiveSection(section);
+    setActiveSubTab(SECTION_SUBTABS[section][0].key);
+    navigate(`/analytics?section=${section}`);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500" data-testid="analytics-page">
@@ -487,25 +551,22 @@ export default function Analytics() {
           <h1 className="text-3xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-analytics-title">
             Analytics
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Performance insights across email campaigns, website traffic, and audience growth</p>
+          <p className="text-sm text-muted-foreground mt-1">{SECTION_DESCRIPTIONS[activeSection]}</p>
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-border">
-        {[
-          { key: "email" as const, label: "Email Campaigns", icon: Mail },
-          { key: "website" as const, label: "Website & App", icon: Globe },
-        ].map(tab => (
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {SECTION_TABS.map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleSectionChange(tab.key)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors font-display",
-              activeTab === tab.key
+              "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors font-display whitespace-nowrap",
+              activeSection === tab.key
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
-            data-testid={`tab-${tab.key}`}
+            data-testid={`tab-section-${tab.key}`}
           >
             <tab.icon className="h-4 w-4" />
             {tab.label}
@@ -513,8 +574,27 @@ export default function Analytics() {
         ))}
       </div>
 
-      {activeTab === "email" && <EmailCampaignSection />}
-      {activeTab === "website" && <WebsiteAnalyticsSection />}
+      <div className="flex gap-1">
+        {subtabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveSubTab(tab.key)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-sm transition-colors",
+              activeSubTab === tab.key
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+            )}
+            data-testid={`tab-${tab.key}`}
+          >
+            <tab.icon className="h-3.5 w-3.5" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSubTab === "email" && <EmailCampaignSection />}
+      {activeSubTab === "website" && <WebsiteAnalyticsSection />}
     </div>
   );
 }
