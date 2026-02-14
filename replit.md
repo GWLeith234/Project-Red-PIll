@@ -86,6 +86,9 @@ Preferred communication style: Simple, everyday language.
 - `GET/POST /api/alerts`, `PATCH /api/alerts/:id`
 - `GET/PUT /api/branding`
 - `GET/PUT /api/settings` (permission-gated: settings.view, settings.edit)
+- `GET/POST /api/outbound-campaigns`, `GET/PATCH/DELETE /api/outbound-campaigns/:id` (auth-gated: campaign CRUD with audience filter)
+- `GET /api/outbound-campaigns/:id/recipients` (auth-gated: preview consented recipients)
+- `POST /api/outbound-campaigns/:id/send` (auth-gated: sends campaign to consented recipients via SendGrid/Twilio)
 
 ### Database
 - **Database**: PostgreSQL (required, connection via `DATABASE_URL` environment variable)
@@ -96,10 +99,10 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Models
 - **users**: id, username, password, email, displayName, role (admin/editor/viewer), permissions (text array), status (active/inactive), profilePhoto, bio, title, linkedinUrl, dashboardWidgets (text array - toggleable dashboard sections), createdAt, lastLoginAt
-- **subscribers**: id, firstName, lastName, email, phone, address, city, state, zip, country, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, title, company, interests (text array), tags (text array), notes, source, status, createdAt, updatedAt
+- **subscribers**: id, firstName, lastName, email, phone, address, city, state, zip, country, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, title, company, interests (text array), tags (text array), notes, source, status, marketingConsent, marketingConsentAt, smsConsent, smsConsentAt, createdAt, updatedAt
 - **subscriberPodcasts**: id, subscriberId, podcastId, subscribedAt (join table for subscriber-podcast relationships)
 - **companies**: id, name, industry, website, phone, email, address, city, state, zip, country, logo, description, slogan, timezone, brandColors (text array), annualRevenue, employeeCount, companyType (advertiser/sponsor/partner), status, notes, createdAt, updatedAt
-- **companyContacts**: id, companyId, firstName, lastName, email, phone, title, department, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, isPrimary, tags (text array), notes, status, createdAt, updatedAt
+- **companyContacts**: id, companyId, firstName, lastName, email, phone, title, department, profilePhoto, linkedinUrl, twitterUrl, facebookUrl, bio, isPrimary, tags (text array), notes, status, marketingConsent, marketingConsentAt, smsConsent, smsConsentAt, createdAt, updatedAt
 - **deals**: id, companyId, contactId, title, description, value, stage (lead/qualified/proposal/negotiation/closed_won/closed_lost), dealType (ad_campaign/sponsorship/partnership), priority, probability, startDate, closeDate, podcastId, notes, status, createdAt, updatedAt
 - **dealActivities**: id, dealId, activityType (note/call/meeting/email/content_upload), title, description, fileUrl, fileType, contentStatus (draft/review/approved/live), createdBy, createdAt
 - **podcasts**: id, title, host, description, coverImage, subscribers, growthPercent, multiplicationFactor, status
@@ -109,6 +112,7 @@ Preferred communication style: Simple, everyday language.
 - **campaigns**: linked to advertisers
 - **metrics**: platform-wide KPIs
 - **alerts**: system notifications
+- **outboundCampaigns**: id, name, type (email/sms), audience (subscribers/contacts), status (draft/sending/sent/failed), subject, body, podcastFilter, recipientCount, sentCount, failedCount, createdBy, createdAt, scheduledAt, sentAt
 - **platformSettings**: timezone, dateFormat, defaultLanguage, autoPublishContent, contentTypes (array), defaultPlatforms (array), aiQuality, emailNotifications, alertThreshold, weeklyDigest, revenueAlerts, processingAlerts, sessionTimeoutMinutes, maxLoginAttempts, requireStrongPasswords, twoFactorEnabled, updatedAt
 
 ### Storage Layer
