@@ -312,19 +312,19 @@ export default function Customize() {
 
   return (
     <div className="space-y-8" data-testid="page-customize">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold text-primary tracking-tight" data-testid="heading-customize">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight" data-testid="heading-customize">
             CUSTOMIZE BRANDING
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Manage your platform's logo, favicon, banner, colors, and identity
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="flex items-center gap-2 px-4 py-2 border border-border text-sm text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+            className="flex items-center justify-center gap-2 px-4 py-2 border border-border text-sm text-muted-foreground hover:text-primary hover:border-primary transition-colors flex-1 sm:flex-none"
             data-testid="btn-toggle-preview"
           >
             {showPreview ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -333,7 +333,7 @@ export default function Customize() {
           <button
             onClick={handleSave}
             disabled={updateBranding.isPending}
-            className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex-1 sm:flex-none"
             data-testid="btn-save-branding"
           >
             {updateBranding.isPending ? (
@@ -355,7 +355,7 @@ export default function Customize() {
           Enter your company website and we'll automatically extract your brand colors, logo, name, and tagline
         </p>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
             <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -371,7 +371,7 @@ export default function Customize() {
           <button
             onClick={handleAnalyze}
             disabled={analyzing || !websiteUrl.trim()}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50 w-full sm:w-auto"
             data-testid="button-analyze-website"
           >
             {analyzing ? (
@@ -493,7 +493,7 @@ export default function Customize() {
         <div className="border border-primary/30 bg-card/80 backdrop-blur-sm p-6 space-y-4" data-testid="section-preview">
           <h2 className="text-xs font-mono uppercase tracking-widest text-primary mb-4">Live Preview</h2>
           <div className="bg-background border border-border p-4">
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
               {form.logoUrl ? (
                 <img src={form.logoUrl} alt="Logo" className="h-10 max-w-[200px] object-contain" />
               ) : (
@@ -699,7 +699,7 @@ function HeroCarouselManager() {
 
   return (
     <div className="border border-primary/30 bg-card/30 p-5" data-testid="section-hero-carousel">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-2">
           <Layers className="h-5 w-5 text-primary" />
           <h2 className="text-sm font-mono uppercase tracking-widest text-primary font-semibold">Hero Carousel</h2>
@@ -707,7 +707,7 @@ function HeroCarouselManager() {
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors w-full sm:w-auto justify-center"
           data-testid="btn-add-hero-slide"
         >
           <Plus className="h-4 w-4" />
@@ -759,12 +759,12 @@ function HeroCarouselManager() {
                 />
               ) : (
                 <div
-                  className={`flex items-center gap-4 border p-3 transition-all ${
+                  className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 border p-3 transition-all ${
                     slide.active ? "border-border bg-card/50" : "border-border/50 bg-card/20 opacity-60"
                   }`}
                   data-testid={`hero-slide-${slide.id}`}
                 >
-                  <div className="w-40 h-20 flex-shrink-0 border border-border/50 overflow-hidden bg-background">
+                  <div className="w-full sm:w-40 h-32 sm:h-20 flex-shrink-0 border border-border/50 overflow-hidden bg-background">
                     <img src={slide.imageUrl} alt={slide.title || ""} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -785,7 +785,7 @@ function HeroCarouselManager() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
                     <button
                       onClick={() => updateMutation.mutate({ id: slide.id, data: { active: !slide.active } })}
                       className={`p-2 border transition-all ${

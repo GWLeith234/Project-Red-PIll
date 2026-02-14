@@ -62,12 +62,12 @@ export default function RevenueFactoryScreen() {
 
   const isLoading = advLoading || campLoading || dealsLoading || prodLoading;
   if (isLoading) {
-    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+    return <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(80px,1fr)] lg:grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full min-h-[80px] w-full rounded-lg" />)}</div>;
   }
 
   return (
-    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-revenue-factory">
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-revenue">
+    <div className="grid grid-cols-2 lg:grid-cols-12 auto-rows-auto lg:grid-rows-3 gap-3 h-full" data-testid="screen-revenue-factory">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-revenue">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Revenue</span>
           <DollarSign className="h-4 w-4 text-accent/60" />
@@ -76,7 +76,7 @@ export default function RevenueFactoryScreen() {
         <span className="text-[9px] font-mono uppercase text-accent">{wonDeals.length} deals closed</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-advertisers">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-advertisers">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Advertisers</span>
           <Megaphone className="h-4 w-4 text-primary/60" />
@@ -85,7 +85,7 @@ export default function RevenueFactoryScreen() {
         <span className="text-[9px] font-mono uppercase text-primary">{fmtCurrency(totalAdSpend)} ad spend</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-campaigns">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-campaigns">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Campaigns</span>
           <Target className="h-4 w-4 text-chart-2/60" />
@@ -94,7 +94,7 @@ export default function RevenueFactoryScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-2">{camps.length} total</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-products">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-products">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Products</span>
           <Package className="h-4 w-4 text-chart-3/60" />
@@ -103,7 +103,7 @@ export default function RevenueFactoryScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-3">{prods.length} total</span>
       </div>
 
-      <div className="col-span-5 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-revenue-by-stage">
+      <div className="col-span-2 lg:col-span-5 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-revenue-by-stage">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" /> Revenue by Deal Stage
@@ -129,7 +129,7 @@ export default function RevenueFactoryScreen() {
         </div>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-deal-pipeline">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-deal-pipeline">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Briefcase className="h-3.5 w-3.5" /> Deal Pipeline
@@ -153,7 +153,7 @@ export default function RevenueFactoryScreen() {
         </div>
       </div>
 
-      <div className="col-span-3 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-revenue-breakdown">
+      <div className="col-span-2 lg:col-span-3 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-revenue-breakdown">
         <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-3">
           <TrendingUp className="h-3.5 w-3.5" /> Revenue Breakdown
         </h3>

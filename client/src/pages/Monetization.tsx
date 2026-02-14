@@ -256,12 +256,12 @@ function ProductsTab() {
       </div>
 
       <Card className="glass-panel border-border/50">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle className="font-display">Product Catalog</CardTitle>
             <CardDescription className="font-mono text-xs">Manage your media products, rates, and fulfillment requirements</CardDescription>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[130px] font-mono text-xs" data-testid="select-product-status-filter">
                 <SelectValue />
@@ -294,19 +294,19 @@ function ProductsTab() {
                   style={{ borderLeftWidth: 3, borderLeftColor: p.status === "active" ? "hsl(var(--primary))" : p.status === "inactive" ? "hsl(45, 90%, 50%)" : "hsl(var(--muted-foreground))" }}
                   data-testid={`card-product-${p.id}`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary border border-primary/20 mt-0.5">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary border border-primary/20 mt-0.5 shrink-0">
                         {getCategoryIcon(p.category)}
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-foreground" data-testid={`text-product-name-${p.id}`}>{p.name}</h3>
                           <Badge variant="outline" className={`${getStatusColor(p.status)} uppercase font-mono text-[10px]`} data-testid={`badge-product-status-${p.id}`}>
                             {p.status}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono flex-wrap">
                           <span>{getCategoryLabel(p.category)}</span>
                           <span>|</span>
                           <span>{getRateModelLabel(p.rateModel)}</span>
@@ -318,7 +318,7 @@ function ProductsTab() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-6 flex-wrap">
                       <div className="text-right space-y-1">
                         <div className="flex items-center gap-3">
                           <div>
@@ -471,7 +471,7 @@ function ProductsTab() {
                 <DollarSign className="h-3.5 w-3.5" />
                 Pricing & Rates
               </h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="font-mono text-xs uppercase tracking-wider">Wholesale Rate ($) *</Label>
                   <Input type="number" step="0.01" min="0" placeholder="0.00" value={form.wholesaleRate} onChange={(e) => setForm({ ...form, wholesaleRate: e.target.value })} required data-testid="input-product-wholesale" />
@@ -653,7 +653,8 @@ function ProductPerformanceTab() {
           {productStats.length === 0 ? (
             <p className="text-muted-foreground text-sm">No products yet. Add products in the Products tab.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-x-auto">
+              <div className="min-w-[700px]">
               <div className="grid grid-cols-8 gap-4 text-xs font-mono uppercase tracking-wider text-muted-foreground px-4 pb-2 border-b border-border/30">
                 <div className="col-span-2">Product</div>
                 <div className="text-right">Deals</div>
@@ -681,6 +682,7 @@ function ProductPerformanceTab() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
         </CardContent>
@@ -728,7 +730,7 @@ export default function Monetization() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Monetization</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">Ad Server: ONLINE | Yield Optimization: ACTIVE</p>
@@ -736,7 +738,7 @@ export default function Monetization() {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="bg-card/50 border border-border/50 p-1">
+        <TabsList className="bg-card/50 border border-border/50 p-1 w-full overflow-x-auto flex-wrap sm:flex-nowrap">
           <TabsTrigger value="overview" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-revenue-overview">
             <DollarSign className="mr-2 h-3.5 w-3.5" />
             Overview
@@ -802,7 +804,7 @@ export default function Monetization() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
-            <Card className="col-span-2 glass-panel border-border/50">
+            <Card className="md:col-span-2 glass-panel border-border/50">
               <CardHeader>
                 <CardTitle className="font-display">Real-Time CPM Performance</CardTitle>
                 <CardDescription className="font-mono text-xs">Dynamic pricing fluctuations over last 24h</CardDescription>

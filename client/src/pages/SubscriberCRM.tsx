@@ -222,7 +222,7 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
         <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Address</label>
         <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 Main Street" data-testid="input-address" />
       </div>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="City" data-testid="input-city" />
         <Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} placeholder="State" data-testid="input-state" />
         <Input value={form.zip} onChange={e => setForm(f => ({ ...f, zip: e.target.value }))} placeholder="ZIP" data-testid="input-zip" />
@@ -231,7 +231,7 @@ function SubscriberForm({ onSubmit, initialData, podcasts, onCancel }: {
 
       <div className="border-t border-border/50 pt-4">
         <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2 block">Social Profiles</label>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="flex items-center gap-2">
             <Linkedin className="h-4 w-4 text-[#0A66C2] shrink-0" />
             <Input value={form.linkedinUrl} onChange={e => setForm(f => ({ ...f, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/..." className="text-xs" data-testid="input-linkedin" />
@@ -855,7 +855,7 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, onEdit
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
           <Card key={kpi.label} className="glass-panel border-border/50" data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s+/g, "-")}`}>
             <CardContent className="p-4">
@@ -869,8 +869,8 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, onEdit
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="sm:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
               <BarChart2 className="h-4 w-4 text-primary" /> Email Cadence
@@ -1006,7 +1006,7 @@ function CampaignDetail({ campaignId, campaign, onBack, onSend, onDelete, onEdit
                 data-testid="input-email-step-body"
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Day Number</label>
                 <Input
@@ -1362,22 +1362,22 @@ export default function SubscriberCRM() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Subscriber</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">
+          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-foreground">Subscriber</h1>
+          <p className="text-muted-foreground mt-1 font-mono text-xs sm:text-sm">
             {activeTab === "subscribers"
               ? `${filteredSubscribers.length} subscriber${filteredSubscribers.length !== 1 ? "s" : ""} | Cross-Pollination Engine Active`
               : `${(campaignsList || []).length} campaign${(campaignsList || []).length !== 1 ? "s" : ""}`}
           </p>
         </div>
         {activeTab === "subscribers" ? (
-          <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-add-subscriber">
+          <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider w-full sm:w-auto" data-testid="button-add-subscriber">
             <UserPlus className="mr-2 h-3 w-3" />
             Add Subscriber
           </Button>
         ) : (
-          <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-new-campaign">
+          <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider w-full sm:w-auto" data-testid="button-new-campaign">
             <Plus className="mr-2 h-3 w-3" />
             New Campaign
           </Button>
@@ -1415,7 +1415,7 @@ export default function SubscriberCRM() {
 
       {activeTab === "subscribers" && (
         <>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1426,31 +1426,33 @@ export default function SubscriberCRM() {
                 data-testid="input-search-subscribers"
               />
             </div>
-            <Select value={filterPodcast || "all"} onValueChange={(v) => setFilterPodcast(v === "all" ? undefined : v)}>
-              <SelectTrigger className="w-[220px]" data-testid="select-filter-podcast">
-                <SelectValue placeholder="All Podcasts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Podcasts</SelectItem>
-                {(podcasts || []).map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-filters">
-              <Filter className="h-3 w-3 mr-1" />
-              Filters
-              {activeFilterCount > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowListsPanel(!showListsPanel)} className={cn("font-mono text-xs", showListsPanel && "bg-primary/10 border-primary/30")} data-testid="button-toggle-lists">
-              <ListFilter className="h-3 w-3 mr-1" />
-              Lists
-              {(savedLists || []).length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{(savedLists || []).length}</Badge>}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExportCsv} className="font-mono text-xs" data-testid="button-export-subscribers">
-              <Download className="h-3 w-3 mr-1" />
-              CSV
-            </Button>
+            <div className="flex flex-wrap gap-2 sm:gap-4">
+              <Select value={filterPodcast || "all"} onValueChange={(v) => setFilterPodcast(v === "all" ? undefined : v)}>
+                <SelectTrigger className="w-full sm:w-[220px]" data-testid="select-filter-podcast">
+                  <SelectValue placeholder="All Podcasts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Podcasts</SelectItem>
+                  {(podcasts || []).map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-filters">
+                <Filter className="h-3 w-3 mr-1" />
+                Filters
+                {activeFilterCount > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{activeFilterCount}</Badge>}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowListsPanel(!showListsPanel)} className={cn("font-mono text-xs", showListsPanel && "bg-primary/10 border-primary/30")} data-testid="button-toggle-lists">
+                <ListFilter className="h-3 w-3 mr-1" />
+                Lists
+                {(savedLists || []).length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">{(savedLists || []).length}</Badge>}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCsv} className="font-mono text-xs" data-testid="button-export-subscribers">
+                <Download className="h-3 w-3 mr-1" />
+                CSV
+              </Button>
+            </div>
           </div>
 
           {showFilters && (
@@ -1465,7 +1467,7 @@ export default function SubscriberCRM() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Source</label>
                   <Select value={filterSource} onValueChange={setFilterSource}>

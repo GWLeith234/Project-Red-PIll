@@ -201,7 +201,7 @@ export default function CampaignBuilderPage() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-foreground" data-testid="text-campaigns-title">AI Campaign Builder</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">Drag-and-Drop Email Builder & Outreach Engine</p>
@@ -240,7 +240,7 @@ export default function CampaignBuilderPage() {
               <BarChart3 className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-display font-semibold uppercase tracking-wider">Campaign Performance</h3>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
               {[
                 { label: "Avg Delivery Rate", value: `${stats.avgDeliveryRate.toFixed(1)}%`, color: "text-accent", bgColor: "bg-accent/10", icon: Send },
                 { label: "Avg Open Rate", value: `${stats.avgOpenRate.toFixed(1)}%`, color: "text-chart-1", bgColor: "bg-chart-1/10", icon: Eye },
@@ -258,7 +258,7 @@ export default function CampaignBuilderPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { label: "Delivery", value: stats.avgDeliveryRate, color: "bg-accent" },
                 { label: "Opens", value: stats.avgOpenRate, color: "bg-chart-1" },

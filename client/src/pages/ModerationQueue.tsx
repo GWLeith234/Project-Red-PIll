@@ -196,7 +196,7 @@ export default function ModerationQueue() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" data-testid="moderation-queue-page">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-foreground flex items-center gap-3" data-testid="text-page-title">
             <Bot className="w-8 h-8 text-primary" />
@@ -244,8 +244,8 @@ export default function ModerationQueue() {
         })}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="relative w-full sm:flex-1 sm:max-w-sm">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search content..."
@@ -255,6 +255,7 @@ export default function ModerationQueue() {
             data-testid="input-search-moderation"
           />
         </div>
+        <div className="w-full sm:w-auto overflow-x-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-card/50 border border-border/50 p-1 h-auto">
             {CONTENT_TABS.map(tab => {
@@ -277,6 +278,7 @@ export default function ModerationQueue() {
             })}
           </TabsList>
         </Tabs>
+        </div>
       </div>
 
       {isLoading ? (
@@ -533,7 +535,7 @@ function LiveSitePreviewDialog({ item, onClose, onShipNow, onSchedule, shipping 
                   </div>
                   <h1 className="text-2xl font-bold text-gray-900 mb-3">{item.title}</h1>
                   <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4 mb-4">
-                    <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                       <div>
                         <p className="text-xs text-gray-500 uppercase font-medium">Start</p>
                         <p className="text-lg font-mono font-bold text-gray-900">{item.startTime}</p>

@@ -20,7 +20,7 @@ export default function AdminScreen() {
   const { data: stats, isLoading } = useAdminDashboardStats();
 
   if (isLoading) {
-    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+    return <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(80px,1fr)] lg:grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full min-h-[80px] w-full rounded-lg" />)}</div>;
   }
 
   const users = stats?.users || {};
@@ -40,8 +40,8 @@ export default function AdminScreen() {
   }, [byRole]);
 
   return (
-    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-admin">
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-users">
+    <div className="grid grid-cols-2 lg:grid-cols-12 auto-rows-auto lg:grid-rows-3 gap-3 h-full" data-testid="screen-admin">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-users">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Users</span>
           <Users className="h-4 w-4 text-primary/60" />
@@ -54,7 +54,7 @@ export default function AdminScreen() {
         </div>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-content-library">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-content-library">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Content Library</span>
           <Layers className="h-4 w-4 text-accent/60" />
@@ -63,7 +63,7 @@ export default function AdminScreen() {
         <span className="text-[9px] font-mono uppercase text-accent">{content.episodes || 0} episodes</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-network">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-network">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Network</span>
           <Radio className="h-4 w-4 text-chart-2/60" />
@@ -72,7 +72,7 @@ export default function AdminScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-2">{formatCount(network.totalListeners || 0)} listeners</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-commercial">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-commercial">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Commercial</span>
           <Building2 className="h-4 w-4 text-chart-3/60" />
@@ -81,7 +81,7 @@ export default function AdminScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-3">{commercial.advertisers || 0} advertisers</span>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-users-by-role">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-users-by-role">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <PieChartIcon className="h-3.5 w-3.5" /> Users by Role
@@ -115,7 +115,7 @@ export default function AdminScreen() {
         </div>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-recent-signups">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-recent-signups">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <UserPlus className="h-3.5 w-3.5" /> Recent Signups
@@ -142,7 +142,7 @@ export default function AdminScreen() {
         </div>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-platform-health">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-platform-health">
         <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-3">
           <Activity className="h-3.5 w-3.5" /> Platform Health
         </h3>

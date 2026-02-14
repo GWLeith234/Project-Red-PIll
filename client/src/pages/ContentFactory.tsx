@@ -198,9 +198,9 @@ export default function ContentFactory() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-3">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">AI Content Generator</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-foreground">AI Content Generator</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">AI-Powered Content Production Pipeline</p>
         </div>
       </div>
@@ -208,7 +208,7 @@ export default function ContentFactory() {
       <ProcessingQueue />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-card/50 border border-border/50 p-1 h-auto flex-wrap" data-testid="tabs-content-factory">
+        <TabsList className="bg-card/50 border border-border/50 p-1 h-auto flex-wrap w-full overflow-x-auto" data-testid="tabs-content-factory">
           <TabsTrigger value="pipeline" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-pipeline">
             <Zap className="mr-1.5 h-3 w-3" /> Pipeline
           </TabsTrigger>
@@ -663,7 +663,7 @@ function PipelineTab() {
     <div className="space-y-6">
       <Card className="glass-panel border-border/50">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Mic className="h-5 w-5 text-primary" />
               <CardTitle className="font-display text-lg">Select Episode</CardTitle>
@@ -893,7 +893,7 @@ function PipelineTab() {
                 <p className="text-[10px] text-muted-foreground font-mono">Content generation will be available once transcription completes.</p>
               </div>
             ) : (
-              <div className="flex items-center justify-between bg-muted/20 border border-border/30 rounded-lg p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20 border border-border/30 rounded-lg p-4">
                 <p className="text-xs text-muted-foreground font-mono">Start transcription first to enable content generation.</p>
                 <Button
                   onClick={() => handleQueueEpisode(selectedEpisodeId)}
@@ -981,7 +981,7 @@ function PipelineTab() {
       )}
 
       <Dialog open={!!previewPiece} onOpenChange={(open) => { if (!open) { setPreviewPiece(null); setEditMode(false); } }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto glass-panel" data-testid="dialog-content-preview">
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto glass-panel" data-testid="dialog-content-preview">
           <DialogHeader>
             <DialogTitle className="font-display text-lg flex items-center gap-2">
               {previewPiece?.title}
@@ -1033,7 +1033,7 @@ function PipelineTab() {
                   data-testid="input-edit-summary"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">SEO Title</Label>
                   <Input
@@ -1095,7 +1095,7 @@ function PipelineTab() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-2 border-t border-border/50">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/50">
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -1307,7 +1307,7 @@ function UploadTab() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="font-mono text-xs uppercase tracking-wider">Episode Title *</Label>
                   <Input
@@ -1344,7 +1344,7 @@ function UploadTab() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="font-mono text-xs uppercase tracking-wider">Duration</Label>
                   <Input
@@ -1375,7 +1375,7 @@ function UploadTab() {
 
               <div>
                 <Label className="font-mono text-xs uppercase tracking-wider mb-3 block">Media Files</Label>
-                <div className={cn("grid gap-4", form.episodeType === "both" ? "grid-cols-3" : "grid-cols-2")}>
+                <div className={cn("grid gap-4", form.episodeType === "both" ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
                   {showAudio && (
                     <FileDropzone
                       label="Audio File"
@@ -1561,7 +1561,7 @@ function ClipsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold font-display flex items-center gap-2">
             <Scissors className="h-6 w-6 text-primary" />
@@ -1569,9 +1569,9 @@ function ClipsTab() {
           </h2>
           <p className="text-muted-foreground font-mono text-xs mt-1">AI-detected viral moments from your episodes</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Select value={filterEpisodeId} onValueChange={setFilterEpisodeId}>
-            <SelectTrigger className="w-[220px]" data-testid="select-clips-episode">
+            <SelectTrigger className="w-full sm:w-[220px]" data-testid="select-clips-episode">
               <SelectValue placeholder="All Episodes" />
             </SelectTrigger>
             <SelectContent>
@@ -1749,7 +1749,7 @@ function NewsletterTab() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="glass-panel border-border/50">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -1800,7 +1800,7 @@ function NewsletterTab() {
             <div className="space-y-1.5">
               <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Month</Label>
               <Select value={month} onValueChange={setMonth}>
-                <SelectTrigger className="w-[160px] bg-background/80 backdrop-blur" data-testid="select-newsletter-month">
+                <SelectTrigger className="w-full sm:w-[160px] bg-background/80 backdrop-blur" data-testid="select-newsletter-month">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1813,7 +1813,7 @@ function NewsletterTab() {
             <div className="space-y-1.5">
               <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Year</Label>
               <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-[110px] bg-background/80 backdrop-blur" data-testid="select-newsletter-year">
+                <SelectTrigger className="w-full sm:w-[110px] bg-background/80 backdrop-blur" data-testid="select-newsletter-year">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

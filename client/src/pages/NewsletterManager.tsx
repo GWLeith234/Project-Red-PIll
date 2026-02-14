@@ -279,7 +279,7 @@ export default function NewsletterManager() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-foreground" data-testid="text-newsletters-title">
             Newsletter Manager

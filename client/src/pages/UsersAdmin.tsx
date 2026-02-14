@@ -142,14 +142,14 @@ export default function UsersAdmin() {
 
   return (
     <div data-testid="users-admin-page" className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold text-primary tracking-tight" data-testid="text-page-title">User Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight" data-testid="text-page-title">User Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage team members, roles, and permissions</p>
         </div>
         <button
           onClick={() => { setShowForm(true); setEditingUser(null); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 transition-all shadow-sm shadow-primary/20"
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 w-full sm:w-auto justify-center"
           data-testid="button-add-user"
         >
           <UserPlus className="h-4 w-4" />
@@ -184,14 +184,14 @@ export default function UsersAdmin() {
           </button>
         ))}
 
-        <div className="ml-auto relative">
+        <div className="w-full sm:w-auto sm:ml-auto relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search users..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-card/50 border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 w-56 transition-all"
+            className="pl-8 pr-3 py-1.5 bg-card/50 border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 w-full sm:w-56 transition-all"
             data-testid="input-search-users"
           />
         </div>
@@ -246,7 +246,7 @@ export default function UsersAdmin() {
         </div>
       ) : (
         <div className="border border-border rounded-xl bg-card/30 backdrop-blur-sm overflow-hidden">
-          <div className="grid grid-cols-[1fr_1fr_100px_90px_100px_70px] gap-3 px-5 py-2.5 border-b border-border bg-muted/20 text-[11px] font-mono uppercase tracking-widest text-muted-foreground/70">
+          <div className="hidden sm:grid grid-cols-[1fr_1fr_100px_90px_100px_70px] gap-3 px-5 py-2.5 border-b border-border bg-muted/20 text-[11px] font-mono uppercase tracking-widest text-muted-foreground/70">
             <span>User</span>
             <span>Email</span>
             <span>Role</span>
@@ -267,12 +267,12 @@ export default function UsersAdmin() {
                 className={`border-b border-border/60 last:border-b-0 transition-colors ${isExpanded ? "bg-muted/10" : "hover:bg-muted/5"}`}
                 data-testid={`row-user-${u.id}`}
               >
-                <div className="grid grid-cols-[1fr_1fr_100px_90px_100px_70px] gap-3 px-5 py-3 items-center">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_100px_90px_100px_70px] gap-3 px-5 py-3 items-start sm:items-center">
+                  <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
                     <div className={`h-9 w-9 rounded-full bg-gradient-to-br ${AVATAR_COLORS[u.role] || AVATAR_COLORS.viewer} flex items-center justify-center text-xs font-bold shrink-0 shadow-sm`}>
                       {(u.displayName || u.username).slice(0, 2).toUpperCase()}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-medium text-foreground truncate" data-testid={`text-username-${u.id}`}>
                           {u.displayName || u.username}
@@ -283,37 +283,65 @@ export default function UsersAdmin() {
                       </div>
                       <p className="text-xs text-muted-foreground/60 truncate">@{u.username}</p>
                     </div>
+                    <div className="flex items-center gap-0.5 sm:hidden ml-auto">
+                      <button
+                        onClick={() => setExpandedUser(isExpanded ? null : u.id)}
+                        className="p-1.5 hover:bg-muted/80 rounded-md transition-colors text-muted-foreground/60 hover:text-foreground"
+                        title="View permissions"
+                      >
+                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => { setEditingUser(u); setShowForm(false); }}
+                        className="p-1.5 hover:bg-muted/80 rounded-md transition-colors text-muted-foreground/60 hover:text-foreground"
+                        title="Edit user"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      {!isCurrentUser && (
+                        <button
+                          onClick={() => setDeleteConfirm(u.id)}
+                          className="p-1.5 hover:bg-red-500/10 rounded-md transition-colors text-muted-foreground/60 hover:text-red-400"
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <span className="text-sm text-muted-foreground truncate">{u.email || <span className="text-muted-foreground/30 italic">No email</span>}</span>
+                  <div className="flex flex-wrap items-center gap-2 sm:contents pl-12 sm:pl-0">
+                    <span className="text-sm text-muted-foreground truncate sm:block hidden">{u.email || <span className="text-muted-foreground/30 italic">No email</span>}</span>
+                    <span className="text-xs text-muted-foreground truncate block sm:hidden">{u.email || ""}</span>
 
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border w-fit ${roleConf.color}`}
-                    data-testid={`text-role-${u.id}`}
-                  >
-                    <RoleIcon className="h-3 w-3" />
-                    {roleConf.label}
-                  </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md border w-fit ${roleConf.color}`}
+                      data-testid={`text-role-${u.id}`}
+                    >
+                      <RoleIcon className="h-3 w-3" />
+                      {roleConf.label}
+                    </span>
 
-                  <span data-testid={`text-status-${u.id}`}>
-                    {u.status === "active" ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-red-400/70">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-400/70" />
-                        Inactive
-                      </span>
-                    )}
-                  </span>
+                    <span data-testid={`text-status-${u.id}`}>
+                      {u.status === "active" ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-red-400/70">
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-400/70" />
+                          Inactive
+                        </span>
+                      )}
+                    </span>
 
-                  <span className="text-xs text-muted-foreground/60">
-                    {formatRelativeDate(u.lastLoginAt)}
-                  </span>
+                    <span className="text-xs text-muted-foreground/60 hidden sm:inline">
+                      {formatRelativeDate(u.lastLoginAt)}
+                    </span>
+                  </div>
 
-                  <div className="flex items-center justify-end gap-0.5">
+                  <div className="hidden sm:flex items-center justify-end gap-0.5">
                     <button
                       onClick={() => setExpandedUser(isExpanded ? null : u.id)}
                       className="p-1.5 hover:bg-muted/80 rounded-md transition-colors text-muted-foreground/60 hover:text-foreground"
@@ -344,7 +372,7 @@ export default function UsersAdmin() {
                 </div>
 
                 {deleteConfirm === u.id && (
-                  <div className="mx-5 mb-3 p-3 bg-red-500/5 border border-red-500/20 rounded-lg flex items-center justify-between">
+                  <div className="mx-5 mb-3 p-3 bg-red-500/5 border border-red-500/20 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <p className="text-sm text-red-400">
                       Delete <span className="font-medium">{u.displayName || u.username}</span>? This cannot be undone.
                     </p>
@@ -377,7 +405,7 @@ export default function UsersAdmin() {
                         <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Full Access</span>
                       )}
                     </div>
-                    <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
                       {PERMISSION_GROUPS.map(group => (
                         <div key={group.label}>
                           <p className="text-[11px] font-medium text-foreground/60 uppercase tracking-wider mb-1.5">{group.label}</p>
@@ -477,7 +505,7 @@ function UserForm({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {!user && (
             <div>
               <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
@@ -541,7 +569,7 @@ function UserForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
               <Shield className="h-3 w-3" />
@@ -611,7 +639,7 @@ function UserForm({
           </button>
 
           {showPerms && (
-            <div className="mt-3 grid grid-cols-3 gap-4 p-4 border border-border/50 bg-muted/5 rounded-lg">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 border border-border/50 bg-muted/5 rounded-lg">
               {PERMISSION_GROUPS.map(group => (
                 <div key={group.label} className="space-y-1.5">
                   <p className="text-[11px] font-medium text-foreground/60 uppercase tracking-wider">{group.label}</p>

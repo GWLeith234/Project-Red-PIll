@@ -255,7 +255,7 @@ function CompanyForm({ onSubmit, initialData, onCancel }: {
         <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Address</label>
         <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 Main Street" data-testid="input-company-address" />
       </div>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="City" data-testid="input-company-city" />
         <Input value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} placeholder="State" data-testid="input-company-state" />
         <Input value={form.zip} onChange={e => setForm(f => ({ ...f, zip: e.target.value }))} placeholder="ZIP" data-testid="input-company-zip" />
@@ -518,7 +518,7 @@ function ContactForm({ onSubmit, initialData, companies, onCancel }: {
 
       <div className="border-t border-border/50 pt-4">
         <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2 block">Social Profiles</label>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="flex items-center gap-2">
             <Linkedin className="h-4 w-4 text-[#0A66C2] shrink-0" />
             <Input value={form.linkedinUrl} onChange={e => setForm(f => ({ ...f, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/..." className="text-xs" data-testid="input-contact-linkedin" />
@@ -837,7 +837,7 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
                         <label className="text-[10px] font-mono text-muted-foreground mb-0.5 block">Rate ($)</label>
                         <Input type="number" step="0.01" min="0" value={item.rate} onChange={e => updateLineItem(item.id, "rate", e.target.value)} className="h-8 text-xs" data-testid={`input-line-item-rate-${idx}`} />
@@ -893,7 +893,7 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Stage</label>
           <Select value={form.stage} onValueChange={v => setForm(f => ({ ...f, stage: v }))}>
@@ -1454,7 +1454,7 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
             </Button>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div className="p-3 bg-card/30 border border-border/50 rounded-sm text-center">
               <p className="text-xs font-mono uppercase text-muted-foreground">Value</p>
               <p className="text-xl font-bold font-display text-primary" data-testid="text-deal-value">{formatCurrency(deal.value)}</p>
@@ -1524,7 +1524,7 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
                   {linkedProduct.description && <p className="text-sm text-muted-foreground mt-1">{linkedProduct.description}</p>}
                 </div>
                 <div className="text-right space-y-1">
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                     <div>
                       <p className="text-[10px] font-mono text-muted-foreground uppercase">Rate</p>
                       <p className="font-bold text-primary">${(deal.productRate || linkedProduct.suggestedRetailRate).toFixed(2)}</p>
@@ -1880,7 +1880,7 @@ function AdCreativesSection({ dealId }: { dealId: string }) {
         </div>
 
         {creatives?.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
             <div className="p-3 bg-card/30 border border-border/50 rounded-sm text-center">
               <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Target</p>
               <p className="text-lg font-display font-bold text-foreground">{totalTarget.toLocaleString()}</p>
@@ -1983,7 +1983,7 @@ function AdCreativesSection({ dealId }: { dealId: string }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Target Impressions</Label>
                 <Input
@@ -2276,7 +2276,7 @@ function CompaniesTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -2571,7 +2571,7 @@ function ContactsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -2858,13 +2858,13 @@ function DealsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <div className="text-sm text-muted-foreground font-mono">
             <span className="text-foreground font-semibold">{(deals || []).length}</span> deals • Pipeline: <span className="text-primary font-semibold">{formatCurrency(totalValue)}</span> • Won: <span className="text-green-400 font-semibold">{formatCurrency(wonValue)}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className={cn("font-mono text-xs", showFilters && "bg-primary/10 border-primary/30")} data-testid="button-toggle-deal-filters">
             <Filter className="h-3 w-3 mr-1" /> Filters
           </Button>
@@ -2959,7 +2959,7 @@ function DealsTab() {
       )}
 
       {isLoading ? (
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <Skeleton className="h-8 w-full" />
@@ -2969,7 +2969,7 @@ function DealsTab() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {DEAL_STAGES.map(stage => {
             const sc = STAGE_CONFIG[stage];
             const stageDeals = dealsByStage[stage];
@@ -3203,7 +3203,7 @@ export default function CommercialCRM() {
       </div>
 
       <Tabs defaultValue="companies" className="w-full">
-        <TabsList className="bg-card/50 border border-border/50" data-testid="crm-tabs">
+        <TabsList className="bg-card/50 border border-border/50 w-full overflow-x-auto" data-testid="crm-tabs">
           <TabsTrigger value="companies" className="font-mono text-xs uppercase tracking-wider data-[state=active]:text-primary" data-testid="tab-companies">
             <Building2 className="h-3 w-3 mr-1" /> Companies
           </TabsTrigger>

@@ -54,12 +54,12 @@ export default function CRMScreen() {
 
   const isLoading = compLoading || contLoading || dealsLoading;
   if (isLoading) {
-    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+    return <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(80px,1fr)] lg:grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full min-h-[80px] w-full rounded-lg" />)}</div>;
   }
 
   return (
-    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-crm">
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-companies">
+    <div className="grid grid-cols-2 lg:grid-cols-12 auto-rows-auto lg:grid-rows-3 gap-3 h-full" data-testid="screen-crm">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-companies">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Companies</span>
           <Building2 className="h-4 w-4 text-primary/60" />
@@ -68,7 +68,7 @@ export default function CRMScreen() {
         <span className="text-[9px] font-mono uppercase text-primary">{comps.filter((c: any) => c.status === "active").length} active</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-contacts">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-contacts">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Contacts</span>
           <Users className="h-4 w-4 text-accent/60" />
@@ -77,7 +77,7 @@ export default function CRMScreen() {
         <span className="text-[9px] font-mono uppercase text-accent">{comps.length} companies</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-deals">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-active-deals">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Active Deals</span>
           <Briefcase className="h-4 w-4 text-chart-2/60" />
@@ -86,7 +86,7 @@ export default function CRMScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-2">{fmtCurrency(openValue)} pipeline</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-win-rate">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-win-rate">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Win Rate</span>
           <Trophy className="h-4 w-4 text-accent/60" />
@@ -95,7 +95,7 @@ export default function CRMScreen() {
         <span className="text-[9px] font-mono uppercase text-accent">{closedWon}W / {closedLost}L</span>
       </div>
 
-      <div className="col-span-5 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-deal-funnel">
+      <div className="col-span-2 lg:col-span-5 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-deal-funnel">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" /> Deal Funnel
@@ -121,7 +121,7 @@ export default function CRMScreen() {
         </div>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-recent-deals">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-recent-deals">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" /> Recent Deals
@@ -145,7 +145,7 @@ export default function CRMScreen() {
         </div>
       </div>
 
-      <div className="col-span-3 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-pipeline-summary">
+      <div className="col-span-2 lg:col-span-3 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-pipeline-summary">
         <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5 mb-3">
           <Layers className="h-3.5 w-3.5" /> Pipeline Summary
         </h3>

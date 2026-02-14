@@ -78,27 +78,27 @@ export default function Dashboard() {
   const activeScreenData = SCREENS[currentIdx];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)] animate-in fade-in duration-500" data-testid="command-center">
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+    <div className="flex flex-col h-[calc(100vh-5rem)] lg:h-[calc(100vh-2rem)] animate-in fade-in duration-500" data-testid="command-center">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 flex-shrink-0 gap-3">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold font-display tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold font-display tracking-tight text-foreground flex items-center gap-2">
               Command Center
               <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/30 px-1.5 py-0.5 rounded-sm uppercase tracking-widest">Live</span>
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" data-testid="button-prev-screen">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-prev-screen">
             <ChevronRight className="h-4 w-4 rotate-180" />
           </button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 overflow-x-auto flex-1 sm:flex-initial" style={{ scrollbarWidth: "none" }}>
             {SCREENS.map((screen) => (
               <button
                 key={screen.key}
                 onClick={() => setActiveScreen(screen.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all",
+                  "flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all whitespace-nowrap flex-shrink-0",
                   activeScreen === screen.key
                     ? "bg-primary/15 text-primary border border-primary/30"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
@@ -106,17 +106,17 @@ export default function Dashboard() {
                 data-testid={`button-screen-${screen.key}`}
               >
                 <screen.icon className="h-3 w-3" />
-                {screen.label}
+                <span className="hidden sm:inline">{screen.label}</span>
               </button>
             ))}
           </div>
-          <button onClick={goNext} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" data-testid="button-next-screen">
+          <button onClick={goNext} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-next-screen">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-4 relative overflow-hidden" style={{ aspectRatio: "16/9" }} data-testid="screen-viewport">
+      <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-3 sm:p-4 relative overflow-auto lg:overflow-hidden lg:aspect-video" data-testid="screen-viewport">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
@@ -147,7 +147,7 @@ export default function Dashboard() {
         <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider">
           {activeScreenData.label} &middot; Screen {currentIdx + 1} of {SCREENS.length}
         </p>
-        <p className="text-[10px] font-mono text-muted-foreground/50">
+        <p className="text-[10px] font-mono text-muted-foreground/50 hidden sm:block">
           Use arrow keys or click to navigate
         </p>
       </div>

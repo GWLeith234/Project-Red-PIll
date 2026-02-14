@@ -43,12 +43,12 @@ export default function AudienceScreen() {
 
   const isLoading = subLoading || podLoading || campLoading;
   if (isLoading) {
-    return <div className="grid grid-cols-4 grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full w-full rounded-lg" />)}</div>;
+    return <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(80px,1fr)] lg:grid-rows-3 gap-3 h-full">{Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-full min-h-[80px] w-full rounded-lg" />)}</div>;
   }
 
   return (
-    <div className="grid grid-cols-12 grid-rows-3 gap-3 h-full" data-testid="screen-audience">
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-subscribers">
+    <div className="grid grid-cols-2 lg:grid-cols-12 auto-rows-auto lg:grid-rows-3 gap-3 h-full" data-testid="screen-audience">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-total-subscribers">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Total Subscribers</span>
           <Mail className="h-4 w-4 text-primary/60" />
@@ -57,7 +57,7 @@ export default function AudienceScreen() {
         <span className="text-[9px] font-mono uppercase text-primary">{subs.filter((s: any) => s.status === "active").length} active</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-podcast-listeners">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-podcast-listeners">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Podcast Listeners</span>
           <Headphones className="h-4 w-4 text-accent/60" />
@@ -66,7 +66,7 @@ export default function AudienceScreen() {
         <span className="text-[9px] font-mono uppercase text-accent">{pods.length} shows</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-email-campaigns">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-email-campaigns">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Email Campaigns</span>
           <Send className="h-4 w-4 text-chart-2/60" />
@@ -75,7 +75,7 @@ export default function AudienceScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-2">{formatCount(totalSent)} sent</span>
       </div>
 
-      <div className="col-span-3 row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-engagement">
+      <div className="col-span-1 lg:col-span-3 lg:row-span-1 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col justify-between" data-testid="card-engagement">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Engagement</span>
           <Activity className="h-4 w-4 text-chart-3/60" />
@@ -84,7 +84,7 @@ export default function AudienceScreen() {
         <span className="text-[9px] font-mono uppercase text-chart-3">open rate</span>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-subscriber-sources">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-subscriber-sources">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <PieChartIcon className="h-3.5 w-3.5" /> Subscriber Sources
@@ -118,7 +118,7 @@ export default function AudienceScreen() {
         </div>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-network-shows">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-network-shows">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Radio className="h-3.5 w-3.5" /> Network Shows
@@ -139,7 +139,7 @@ export default function AudienceScreen() {
         </div>
       </div>
 
-      <div className="col-span-4 row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-campaign-performance">
+      <div className="col-span-2 lg:col-span-4 lg:row-span-2 border border-border/50 bg-card/40 rounded-lg p-4 flex flex-col" data-testid="card-campaign-performance">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Megaphone className="h-3.5 w-3.5" /> Campaign Performance

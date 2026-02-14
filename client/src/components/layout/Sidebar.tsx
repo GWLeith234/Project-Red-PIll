@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
@@ -27,6 +27,8 @@ import {
   Kanban,
   ListTodo,
   Mail,
+  Menu,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -123,13 +125,14 @@ function isItemActive(item: NavItem, location: string, searchString: string): bo
   return true;
 }
 
-function NavGroupSection({ group, location, searchString, hasPermission, collapsed, onToggle }: {
+function NavGroupSection({ group, location, searchString, hasPermission, collapsed, onToggle, onNavigate }: {
   group: NavGroup;
   location: string;
   searchString: string;
   hasPermission: (p: string) => boolean;
   collapsed: boolean;
   onToggle: () => void;
+  onNavigate?: () => void;
 }) {
   const visibleItems = group.items.filter(item => hasPermission(item.permission));
   if (visibleItems.length === 0) return null;
@@ -177,6 +180,7 @@ function NavGroupSection({ group, location, searchString, hasPermission, collaps
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "group flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
                 isActive
@@ -201,7 +205,22 @@ function NavGroupSection({ group, location, searchString, hasPermission, collaps
   );
 }
 
-export function Sidebar() {
+const MobileSidebarContext = createContext<{ open: boolean; setOpen: (v: boolean) => void }>({ open: false, setOpen: () => {} });
+
+export function useMobileSidebar() {
+  return useContext(MobileSidebarContext);
+}
+
+export function MobileSidebarProvider({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <MobileSidebarContext.Provider value={{ open, setOpen }}>
+      {children}
+    </MobileSidebarContext.Provider>
+  );
+}
+
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [location] = useLocation();
   const searchString = useSearch();
   const { data: branding } = useBranding();
@@ -213,15 +232,15 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-border text-sidebar-foreground font-sans fixed left-0 top-0 z-30">
+    <>
       <div className="flex items-center border-b border-border px-4 py-2.5">
         <div className="flex-1 min-w-0">
           {branding?.logoUrl ? (
-            <Link href="/" className="flex items-center h-8" data-testid="sidebar-logo">
+            <Link href="/" className="flex items-center h-8" data-testid="sidebar-logo" onClick={onNavigate}>
               <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-6 max-w-[120px] object-contain" />
             </Link>
           ) : (
-            <Link href="/customize" className="border border-dashed border-muted-foreground/50 rounded-sm px-2 py-1 flex items-center hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group" data-testid="sidebar-logo-placeholder">
+            <Link href="/customize" className="border border-dashed border-muted-foreground/50 rounded-sm px-2 py-1 flex items-center hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group" data-testid="sidebar-logo-placeholder" onClick={onNavigate}>
               <ImageIcon className="h-3 w-3 text-muted-foreground mr-1.5 group-hover:text-gold" />
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground group-hover:text-gold">Logo</span>
             </Link>
@@ -240,6 +259,7 @@ export function Sidebar() {
               hasPermission={hasPermission}
               collapsed={!!collapsedGroups[group.label]}
               onToggle={() => toggleGroup(group.label)}
+              onNavigate={onNavigate}
             />
           ))}
         </nav>
@@ -297,6 +317,75 @@ export function Sidebar() {
           </button>
         </div>
       </div>
+    </>
+  );
+}
+
+export function MobileHeader() {
+  const { open, setOpen } = useMobileSidebar();
+  const { data: branding } = useBranding();
+
+  return (
+    <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-sidebar border-b border-border h-14 flex items-center px-4 gap-3" data-testid="mobile-header">
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
+        data-testid="button-mobile-menu-toggle"
+      >
+        {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        {branding?.logoUrl ? (
+          <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-5 max-w-[100px] object-contain" />
+        ) : (
+          <span className="text-sm font-display font-bold text-foreground truncate">
+            {branding?.companyName || "MediaTech Empire"}
+          </span>
+        )}
+      </div>
     </div>
+  );
+}
+
+export function Sidebar() {
+  const { open, setOpen } = useMobileSidebar();
+  const [location] = useLocation();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location, setOpen]);
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  return (
+    <>
+      <div className="hidden lg:flex h-screen w-64 flex-col bg-sidebar border-r border-border text-sidebar-foreground font-sans fixed left-0 top-0 z-30">
+        <SidebarContent />
+      </div>
+
+      {open && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+          data-testid="mobile-sidebar-overlay"
+        />
+      )}
+      <div
+        className={cn(
+          "lg:hidden fixed top-14 left-0 bottom-0 z-50 w-72 bg-sidebar border-r border-border text-sidebar-foreground font-sans flex flex-col transition-transform duration-300 ease-in-out",
+          open ? "translate-x-0" : "-translate-x-full"
+        )}
+        data-testid="mobile-sidebar"
+      >
+        <SidebarContent onNavigate={() => setOpen(false)} />
+      </div>
+    </>
   );
 }

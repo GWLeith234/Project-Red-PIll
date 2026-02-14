@@ -307,7 +307,7 @@ export default function SchedulerPage() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
         <div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Content Calendar</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">Schedule, visualize, and optimize your content distribution</p>
@@ -462,7 +462,8 @@ export default function SchedulerPage() {
               </div>
             </CardHeader>
             <CardContent className="p-2 sm:p-4">
-              <div className="grid grid-cols-7 gap-px bg-border/30 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+              <div className="grid grid-cols-7 gap-px bg-border/30 rounded-lg overflow-hidden min-w-[700px]">
                 {DAY_NAMES.map(day => (
                   <div key={day} className="bg-card/50 p-2 text-center">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{day}</span>
@@ -544,6 +545,7 @@ export default function SchedulerPage() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             </CardContent>
           </Card>

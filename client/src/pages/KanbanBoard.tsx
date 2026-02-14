@@ -331,7 +331,7 @@ function CreateTaskDialog({
               data-testid="input-task-description"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Priority</Label>
               <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
@@ -545,7 +545,7 @@ function TaskDetailDialog({
                 data-testid="input-edit-task-description"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Status</Label>
                 <Select value={editForm.status || ""} onValueChange={v => setEditForm((f: any) => ({ ...f, status: v }))}>
@@ -574,7 +574,7 @@ function TaskDetailDialog({
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Assignee</Label>
                 <Select value={editForm.assigneeId || ""} onValueChange={v => setEditForm((f: any) => ({ ...f, assigneeId: v }))}>
@@ -607,7 +607,7 @@ function TaskDetailDialog({
                 data-testid="input-edit-task-tags"
               />
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <Button
                 onClick={() => {
                   updateMutation.mutate({
@@ -831,9 +831,9 @@ export default function KanbanBoard() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" data-testid="kanban-board">
-      <div className="flex items-center justify-between border-b border-border/50 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Kanban Board</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-foreground">Kanban Board</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">Content Production Pipeline</p>
         </div>
         <div className="flex items-center gap-2">
@@ -843,8 +843,8 @@ export default function KanbanBoard() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap" data-testid="filter-bar">
-        <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap" data-testid="filter-bar">
+        <div className="relative flex-1 min-w-[200px] sm:max-w-[300px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -855,7 +855,7 @@ export default function KanbanBoard() {
           />
         </div>
         <Select value={filterPriority} onValueChange={setFilterPriority}>
-          <SelectTrigger className="w-[140px]" data-testid="select-filter-priority">
+          <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-filter-priority">
             <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
@@ -868,7 +868,7 @@ export default function KanbanBoard() {
           </SelectContent>
         </Select>
         <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-          <SelectTrigger className="w-[160px]" data-testid="select-filter-assignee">
+          <SelectTrigger className="w-full sm:w-[160px]" data-testid="select-filter-assignee">
             <User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
@@ -908,7 +908,7 @@ export default function KanbanBoard() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4" data-testid="kanban-columns">
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 sm:mx-0 sm:px-0" data-testid="kanban-columns">
             {COLUMNS.map(column => (
               <KanbanColumn
                 key={column.id}

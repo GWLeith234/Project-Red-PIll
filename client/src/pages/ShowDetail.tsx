@@ -414,7 +414,7 @@ function AboutTab({ podcast, episodeCount, articleCount }: { podcast: any; episo
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
           <p className="text-2xl font-bold text-gray-900">{episodeCount}</p>
           <p className="text-gray-500 text-xs mt-1">Episodes</p>

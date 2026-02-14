@@ -223,7 +223,7 @@ function CheckboxGroup({ label, options, selected, onChange, testId, disabled }:
   return (
     <div data-testid={testId}>
       <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">{label}</label>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {options.map(o => (
           <label
             key={o.value}
@@ -520,14 +520,14 @@ export default function Settings() {
 
   return (
     <div className="space-y-6" data-testid="settings-page">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-settings-title">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-settings-title">
             Platform Settings
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Configure your platform preferences and security policies</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           {canEdit && (
             <button
               onClick={handleSmartDefaults}
@@ -571,7 +571,7 @@ export default function Settings() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-general">
+        <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5" data-testid="section-general">
           <SectionHeader icon={Globe} title="General" description="Company identity and regional preferences" />
 
           <div data-testid="company-name">
@@ -717,7 +717,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-content-pipeline">
+        <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5" data-testid="section-content-pipeline">
           <SectionHeader icon={Zap} title="Content Pipeline" description="AI content generation and processing defaults" />
 
           <div>
@@ -743,7 +743,7 @@ export default function Settings() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div data-testid="article-word-count">
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
                 <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" />Article Word Count</span>
@@ -817,7 +817,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-content-types">
+        <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5" data-testid="section-content-types">
           <SectionHeader icon={FileText} title="Content & SEO" description="Content types, SEO, and distribution" />
 
           <div>
@@ -865,7 +865,7 @@ export default function Settings() {
           />
         </div>
 
-        <div className="border border-border bg-card/50 p-6 space-y-5" data-testid="section-notifications">
+        <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5" data-testid="section-notifications">
           <SectionHeader icon={Bell} title="Notifications" description="Alert preferences and delivery settings" />
 
           <div>
@@ -1005,7 +1005,7 @@ export default function Settings() {
 
         <SocialConnectionsSection canEdit={canEdit} />
 
-        <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-security">
+        <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5 lg:col-span-2" data-testid="section-security">
           <SectionHeader icon={Shield} title="Security" description="Authentication, access control, and data policies" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1315,20 +1315,22 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
   const isLoading = accountsLoading || podcastsLoading;
 
   return (
-    <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-social-connections">
-      <div className="flex items-start gap-3 mb-2">
-        <div className="h-10 w-10 border border-primary/30 bg-primary/5 flex items-center justify-center flex-shrink-0">
-          <Wifi className="h-5 w-5 text-primary" />
+    <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5 lg:col-span-2" data-testid="section-social-connections">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-2">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="h-10 w-10 border border-primary/30 bg-primary/5 flex items-center justify-center flex-shrink-0">
+            <Wifi className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-display font-bold text-primary uppercase tracking-wider">
+              Social Connections
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Manage social media platform connections per podcast or company-wide
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h2 className="text-lg font-display font-bold text-primary uppercase tracking-wider">
-            Social Connections
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Manage social media platform connections per podcast or company-wide
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <div className="flex items-center gap-2 text-xs font-mono">
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -1342,10 +1344,10 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 p-3 border border-border/50 bg-card/30 rounded-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border border-border/50 bg-card/30 rounded-sm">
         <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Show for:</Label>
         <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-          <SelectTrigger className="w-[250px]" data-testid="select-social-owner-filter">
+          <SelectTrigger className="w-full sm:w-[250px]" data-testid="select-social-owner-filter">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1479,28 +1481,32 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
             {allAccounts.map((acc: any) => {
               const status = getStatusIndicator(acc.status);
               return (
-                <div key={acc.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`social-account-row-${acc.id}`}>
-                  <div className={cn("p-1.5 rounded-sm", acc.platform === "facebook" ? "text-blue-500" : acc.platform === "instagram" ? "text-pink-500" : acc.platform === "linkedin" ? "text-[#0A66C2]" : acc.platform === "google_business" ? "text-emerald-500" : "text-foreground")}>
-                    {getSocialPlatformIcon(acc.platform, "h-4 w-4")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono truncate">{acc.accountName}</span>
-                      <Badge variant="outline" className="text-[9px] font-mono bg-card/50 border-border/30 shrink-0">
-                        {getSocialPlatformLabel(acc.platform)}
-                      </Badge>
+                <div key={acc.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 py-2.5" data-testid={`social-account-row-${acc.id}`}>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={cn("p-1.5 rounded-sm", acc.platform === "facebook" ? "text-blue-500" : acc.platform === "instagram" ? "text-pink-500" : acc.platform === "linkedin" ? "text-[#0A66C2]" : acc.platform === "google_business" ? "text-emerald-500" : "text-foreground")}>
+                      {getSocialPlatformIcon(acc.platform, "h-4 w-4")}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono truncate">{acc.accountName}</span>
+                        <Badge variant="outline" className="text-[9px] font-mono bg-card/50 border-border/30 shrink-0">
+                          {getSocialPlatformLabel(acc.platform)}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[9px] font-mono shrink-0">
-                    {getOwnerLabel(acc)}
-                  </Badge>
-                  <div className={cn("h-2 w-2 rounded-full shrink-0", status.color)} />
-                  <span className={cn("text-[10px] font-mono shrink-0", status.textColor)}>{status.label}</span>
-                  {canEdit && (
-                    <Button variant="ghost" size="sm" onClick={() => openDetailDialog(acc)} className="h-6 w-6 p-0" data-testid={`button-detail-${acc.id}`}>
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2 sm:gap-3 pl-10 sm:pl-0">
+                    <Badge variant="outline" className="text-[9px] font-mono shrink-0">
+                      {getOwnerLabel(acc)}
+                    </Badge>
+                    <div className={cn("h-2 w-2 rounded-full shrink-0", status.color)} />
+                    <span className={cn("text-[10px] font-mono shrink-0", status.textColor)}>{status.label}</span>
+                    {canEdit && (
+                      <Button variant="ghost" size="sm" onClick={() => openDetailDialog(acc)} className="h-6 w-6 p-0" data-testid={`button-detail-${acc.id}`}>
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1709,7 +1715,7 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
                   )}
 
                   {canEdit && !editMode && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1785,8 +1791,8 @@ function ApiKeyManagement({ canEdit }: { canEdit: boolean }) {
   const revokedKeys = keys?.filter((k: any) => k.revokedAt) || [];
 
   return (
-    <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-api-keys">
-      <div className="flex items-start justify-between">
+    <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5 lg:col-span-2" data-testid="section-api-keys">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <SectionHeader icon={Key} title="API Keys" description="Manage programmatic access to the platform" />
         {canEdit && (
           <Button
@@ -1954,10 +1960,10 @@ function AuditLogViewer() {
   }
 
   return (
-    <div className="border border-border bg-card/50 p-6 space-y-5 lg:col-span-2" data-testid="section-audit-log">
-      <div className="flex items-start justify-between">
+    <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5 lg:col-span-2" data-testid="section-audit-log">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <SectionHeader icon={ScrollText} title="Audit Log" description="Track all user actions and system events" />
-        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground flex-shrink-0">
           <Database className="h-3 w-3" />
           {total} total entries
         </div>
@@ -1975,8 +1981,8 @@ function AuditLogViewer() {
         </div>
       ) : (
         <>
-          <div className="border border-border/50 rounded-sm overflow-hidden">
-            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 bg-card/30 border-b border-border/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          <div className="border border-border/50 rounded-sm overflow-hidden overflow-x-auto">
+            <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2 bg-card/30 border-b border-border/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground min-w-[500px]">
               <span>Time</span>
               <span>Details</span>
               <span>User</span>
@@ -1987,14 +1993,23 @@ function AuditLogViewer() {
               {logs.map((log: any) => {
                 const badge = getActionBadge(log.action);
                 return (
-                  <div key={log.id} className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-4 py-2.5 items-center text-sm" data-testid={`audit-log-${log.id}`}>
-                    <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                  <div key={log.id} className="flex flex-col gap-2 px-4 py-2.5 sm:grid sm:grid-cols-[auto_1fr_auto_auto_auto] sm:gap-3 sm:items-center text-sm" data-testid={`audit-log-${log.id}`}>
+                    <div className="flex items-center justify-between sm:contents">
+                      <span className="text-[10px] font-mono text-muted-foreground whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <div className="flex items-center gap-2 sm:hidden">
+                        <Badge variant="outline" className={cn("text-[9px] font-mono", badge.color)}>{badge.label}</Badge>
+                        <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
+                          {getResourceIcon(log.resource)}
+                          <span>{log.resource}</span>
+                        </div>
+                      </div>
+                    </div>
                     <span className="text-xs truncate text-foreground/80">{log.details || "—"}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[100px]">{log.userName || "System"}</span>
-                    <Badge variant="outline" className={cn("text-[9px] font-mono", badge.color)}>{badge.label}</Badge>
-                    <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
+                    <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[100px] hidden sm:block">{log.userName || "System"}</span>
+                    <Badge variant="outline" className={cn("text-[9px] font-mono hidden sm:inline-flex", badge.color)}>{badge.label}</Badge>
+                    <div className="hidden sm:flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
                       {getResourceIcon(log.resource)}
                       <span>{log.resource}</span>
                     </div>
