@@ -1364,7 +1364,7 @@ export default function SubscriberCRM() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Subscriber CRM</h1>
+          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Subscriber</h1>
           <p className="text-muted-foreground mt-1 font-mono text-sm">
             {activeTab === "subscribers"
               ? `${filteredSubscribers.length} subscriber${filteredSubscribers.length !== 1 ? "s" : ""} | Cross-Pollination Engine Active`

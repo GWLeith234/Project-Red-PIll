@@ -65,8 +65,8 @@ const navGroups: NavGroup[] = [
     label: "CRM",
     icon: ContactRound,
     items: [
-      { name: "Commercial CRM", href: "/sales", icon: Briefcase, permission: "sales.view" },
-      { name: "Subscriber CRM", href: "/audience", icon: Users, permission: "audience.view" },
+      { name: "Commercial", href: "/sales", icon: Briefcase, permission: "sales.view" },
+      { name: "Subscriber", href: "/audience", icon: Users, permission: "audience.view" },
     ],
   },
   {

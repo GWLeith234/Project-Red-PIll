@@ -242,7 +242,7 @@ function EmailCampaignSection() {
       {campaigns.length === 0 && (
         <div className="border border-dashed border-border bg-card/30 p-8 text-center">
           <Mail className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No email campaigns found. Create campaigns in the Subscriber CRM to see delivery analytics here.</p>
+          <p className="text-sm text-muted-foreground">No email campaigns found. Create campaigns in the Subscriber section to see delivery analytics here.</p>
         </div>
       )}
     </div>
