@@ -136,6 +136,12 @@ export default function SchedulerPage() {
   const [draggedPost, setDraggedPost] = useState<any>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [autoScheduleResult, setAutoScheduleResult] = useState<any>(null);
+  const [smartFillOpen, setSmartFillOpen] = useState(false);
+  const [smartFillMode, setSmartFillMode] = useState<"review" | "auto">("review");
+  const [smartFillRange, setSmartFillRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
   const [form, setForm] = useState({
     contentPieceId: "",
     platform: "",
@@ -240,15 +246,32 @@ export default function SchedulerPage() {
   }
 
   function handleAutoSchedule() {
+    const startDate = smartFillRange.from
+      ? smartFillRange.from.toISOString()
+      : new Date(currentYear, currentMonth, 1).toISOString();
+    const endDate = smartFillRange.to
+      ? smartFillRange.to.toISOString()
+      : undefined;
+    const isAuto = smartFillMode === "auto";
+
     autoSchedule.mutate(
-      { contentPieceIds: [], startDate: new Date(currentYear, currentMonth, 1).toISOString() },
+      { contentPieceIds: [], startDate, endDate, autoCreate: isAuto },
       {
         onSuccess: (data: any) => {
-          setAutoScheduleResult(data);
-          if (data.scheduledItems?.length > 0) {
-            toast({ title: "AI Schedule Ready", description: `${data.scheduledItems.length} slots suggested. Review and confirm below.` });
+          setSmartFillOpen(false);
+          if (isAuto && data.autoCreated) {
+            toast({
+              title: "Content Calendar Ready!",
+              description: `${data.createdCount} posts auto-scheduled and awaiting your review. Check the calendar for pending items.`,
+            });
+            setAutoScheduleResult(null);
           } else {
-            toast({ title: "No Gaps Found", description: data.strategy || "Your schedule looks full!" });
+            setAutoScheduleResult(data);
+            if (data.scheduledItems?.length > 0) {
+              toast({ title: "AI Schedule Ready", description: `${data.scheduledItems.length} slots suggested. Review and confirm below.` });
+            } else {
+              toast({ title: "No Gaps Found", description: data.strategy || "Your schedule looks full!" });
+            }
           }
         },
         onError: (err: any) => toast({ title: "Auto-Schedule Error", description: err.message, variant: "destructive" }),
@@ -366,7 +389,14 @@ export default function SchedulerPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            onClick={handleAutoSchedule}
+            onClick={() => {
+              setSmartFillRange({
+                from: new Date(currentYear, currentMonth, 1),
+                to: new Date(currentYear, currentMonth + 1, 0),
+              });
+              setSmartFillMode("review");
+              setSmartFillOpen(true);
+            }}
             disabled={autoSchedule.isPending}
             variant="outline"
             className="font-mono text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
@@ -1015,6 +1045,112 @@ export default function SchedulerPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={smartFillOpen} onOpenChange={setSmartFillOpen}>
+        <DialogContent className="glass-panel border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              AI Smart Fill
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs">
+              Let AI analyze your calendar and fill scheduling gaps automatically
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label className="font-mono text-xs uppercase tracking-wider">Date Range</Label>
+              <div className="flex justify-center">
+                <CalendarPicker
+                  mode="range"
+                  selected={smartFillRange}
+                  onSelect={(range: any) => {
+                    if (range) setSmartFillRange({ from: range.from, to: range.to });
+                  }}
+                  numberOfMonths={1}
+                />
+              </div>
+              {smartFillRange.from && smartFillRange.to && (
+                <p className="text-center text-[11px] font-mono text-muted-foreground">
+                  {smartFillRange.from.toLocaleDateString(undefined, { month: "short", day: "numeric" })} — {smartFillRange.to.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <Label className="font-mono text-xs uppercase tracking-wider">Schedule Mode</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSmartFillMode("review")}
+                  className={cn(
+                    "rounded-lg p-3 border text-left transition-all",
+                    smartFillMode === "review"
+                      ? "bg-primary/10 border-primary/50 ring-1 ring-primary/30"
+                      : "bg-background/50 border-border/40 hover:border-primary/30"
+                  )}
+                  data-testid="smartfill-mode-review"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Edit3 className={cn("h-4 w-4", smartFillMode === "review" ? "text-primary" : "text-muted-foreground")} />
+                    <span className="font-mono text-xs font-semibold">Review First</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-snug">
+                    AI suggests posts for you to review and accept individually
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSmartFillMode("auto")}
+                  className={cn(
+                    "rounded-lg p-3 border text-left transition-all",
+                    smartFillMode === "auto"
+                      ? "bg-primary/10 border-primary/50 ring-1 ring-primary/30"
+                      : "bg-background/50 border-border/40 hover:border-primary/30"
+                  )}
+                  data-testid="smartfill-mode-auto"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Zap className={cn("h-4 w-4", smartFillMode === "auto" ? "text-primary" : "text-muted-foreground")} />
+                    <span className="font-mono text-xs font-semibold">Auto Schedule</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-snug">
+                    AI creates posts automatically and notifies you when ready to moderate
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {smartFillMode === "auto" && (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5">
+                <p className="text-[11px] text-amber-400 font-mono leading-snug">
+                  Auto mode will create scheduled posts with "pending review" status. You'll be notified when the content calendar is ready for moderation.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setSmartFillOpen(false)} className="font-mono text-xs" data-testid="button-cancel-smart-fill">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAutoSchedule}
+              disabled={autoSchedule.isPending || !smartFillRange.from || !smartFillRange.to}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider"
+              data-testid="button-run-smart-fill"
+            >
+              {autoSchedule.isPending ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : smartFillMode === "auto" ? (
+                <Zap className="mr-2 h-3 w-3" />
+              ) : (
+                <Sparkles className="mr-2 h-3 w-3" />
+              )}
+              {autoSchedule.isPending ? "Generating..." : smartFillMode === "auto" ? "Auto Schedule" : "Generate Suggestions"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

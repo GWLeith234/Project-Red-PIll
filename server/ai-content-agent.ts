@@ -585,7 +585,8 @@ Return JSON:
 export async function generateAutoSchedule(
   contentPieceIds: string[],
   existingPosts: any[],
-  startDate: string
+  startDate: string,
+  endDate?: string
 ): Promise<any> {
   const contentPieces = await storage.getContentPieces();
   const piecesToSchedule = contentPieces.filter((p: ContentPiece) =>
@@ -644,7 +645,7 @@ Return JSON:
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `Schedule the following content pieces starting from ${startDate}.
+        content: `Schedule the following content pieces from ${startDate}${endDate ? ` to ${endDate}` : ""}.
 
 CONTENT TO SCHEDULE:
 ${piecesToSchedule.slice(0, 10).map((p: ContentPiece) => `- ID: ${p.id}, Type: ${p.type}, Title: "${p.title}"`).join("\n")}
@@ -652,6 +653,7 @@ ${piecesToSchedule.slice(0, 10).map((p: ContentPiece) => `- ID: ${p.id}, Type: $
 EXISTING SCHEDULE (avoid conflicts):
 ${existingSchedule.length > 0 ? existingSchedule.map((s: any) => `- ${s.date} on ${s.platform} (${s.status})`).join("\n") : "No existing posts scheduled."}
 
+${endDate ? `IMPORTANT: Only schedule content within the date range ${startDate} to ${endDate}. Do not schedule outside this window.` : ""}
 Find gaps and schedule content to ensure consistent delivery across all channels.`
       },
     ],

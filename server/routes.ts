@@ -502,14 +502,39 @@ export async function registerRoutes(
   });
 
   app.post("/api/ai-agent/auto-schedule", requireAuth, requirePermission("content.edit"), async (req, res) => {
-    const { contentPieceIds = [], startDate } = req.body;
+    const { contentPieceIds = [], startDate, endDate, autoCreate } = req.body;
     if (!Array.isArray(contentPieceIds)) return res.status(400).json({ message: "contentPieceIds must be an array" });
     const resolvedStart = startDate && !isNaN(Date.parse(startDate)) ? startDate : new Date().toISOString();
+    const resolvedEnd = endDate && !isNaN(Date.parse(endDate)) ? endDate : undefined;
+    if (resolvedEnd && new Date(resolvedEnd) < new Date(resolvedStart)) {
+      return res.status(400).json({ message: "End date must be after start date" });
+    }
     try {
       const existingPosts = await storage.getScheduledPosts();
       const { generateAutoSchedule } = await import("./ai-content-agent");
-      const result = await generateAutoSchedule(contentPieceIds, existingPosts, resolvedStart);
-      res.json(result);
+      const result = await generateAutoSchedule(contentPieceIds, existingPosts, resolvedStart, resolvedEnd);
+
+      if (autoCreate && result.scheduledItems?.length > 0) {
+        let createdCount = 0;
+        for (const item of result.scheduledItems) {
+          try {
+            await storage.createScheduledPost({
+              contentPieceId: item.contentPieceId,
+              platform: item.platform,
+              scheduledAt: new Date(item.scheduledAt),
+              postText: item.postText || "",
+              hashtags: [],
+              status: "pending_review",
+            });
+            createdCount++;
+          } catch (e: any) {
+            console.error("Auto-create post error:", e);
+          }
+        }
+        res.json({ ...result, autoCreated: createdCount > 0, createdCount });
+      } else {
+        res.json(result);
+      }
     } catch (err: any) {
       console.error("Auto-schedule error:", err);
       res.status(500).json({ message: err.message || "Auto-scheduling failed" });
