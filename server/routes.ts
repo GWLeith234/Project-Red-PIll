@@ -4053,6 +4053,53 @@ export async function registerRoutes(
     }
   });
 
+  // ── Read Later ──
+  app.get("/api/read-later", requireAuth, async (req, res) => {
+    const userId = (req as any).session?.userId;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const items = await storage.getReadLaterItems(userId);
+    const enriched = await Promise.all(items.map(async (item) => {
+      const piece = await storage.getContentPiece(item.contentPieceId);
+      if (!piece) return null;
+      const episode = await storage.getEpisode(piece.episodeId);
+      const podcast = episode ? await storage.getPodcast(episode.podcastId) : undefined;
+      return {
+        ...item,
+        title: piece.title,
+        description: piece.description,
+        coverImage: piece.coverImage,
+        readingTime: piece.readingTime,
+        podcastId: episode?.podcastId || "",
+        podcastTitle: podcast?.title || "",
+        publishedAt: piece.publishedAt,
+      };
+    }));
+    res.json(enriched.filter(Boolean));
+  });
+
+  app.post("/api/read-later", requireAuth, async (req, res) => {
+    const userId = (req as any).session?.userId;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    const { contentPieceId } = req.body;
+    if (!contentPieceId) return res.status(400).json({ message: "contentPieceId is required" });
+    const item = await storage.addReadLaterItem({ userId, contentPieceId });
+    res.json(item);
+  });
+
+  app.delete("/api/read-later/:contentPieceId", requireAuth, async (req, res) => {
+    const userId = (req as any).session?.userId;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    await storage.removeReadLaterItem(userId, req.params.contentPieceId);
+    res.json({ ok: true });
+  });
+
+  app.delete("/api/read-later", requireAuth, async (req, res) => {
+    const userId = (req as any).session?.userId;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+    await storage.clearReadLaterItems(userId);
+    res.json({ ok: true });
+  });
+
   // ── NPS Surveys ──
   app.get("/api/nps", requireAuth, async (req, res) => {
     const surveys = await storage.getNpsSurveys();

@@ -1,85 +1,81 @@
-import { useState, useCallback, useEffect } from "react";
-
-const STORAGE_KEY = "mediatech_read_later";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export interface ReadLaterArticle {
   id: string;
+  userId: string;
+  contentPieceId: string;
+  savedAt: string;
   title: string;
   description?: string | null;
   coverImage?: string | null;
   podcastId: string;
   podcastTitle?: string;
-  readingTime?: string | null;
+  readingTime?: number | null;
   publishedAt?: string | null;
-  savedAt: string;
-}
-
-function loadSavedArticles(): ReadLaterArticle[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-}
-
-function persistArticles(articles: ReadLaterArticle[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(articles));
-  } catch {}
 }
 
 export function useReadLater() {
-  const [savedArticles, setSavedArticles] = useState<ReadLaterArticle[]>(loadSavedArticles);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        setSavedArticles(loadSavedArticles());
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  const { data: savedArticles = [] } = useQuery<ReadLaterArticle[]>({
+    queryKey: ["/api/read-later"],
+    retry: false,
+    staleTime: 30000,
+  });
 
-  const isSaved = useCallback(
-    (articleId: string) => savedArticles.some((a) => a.id === articleId),
-    [savedArticles]
-  );
-
-  const saveArticle = useCallback((article: Omit<ReadLaterArticle, "savedAt">) => {
-    setSavedArticles((prev) => {
-      if (prev.some((a) => a.id === article.id)) return prev;
-      const next = [{ ...article, savedAt: new Date().toISOString() }, ...prev];
-      persistArticles(next);
-      return next;
-    });
-  }, []);
-
-  const removeArticle = useCallback((articleId: string) => {
-    setSavedArticles((prev) => {
-      const next = prev.filter((a) => a.id !== articleId);
-      persistArticles(next);
-      return next;
-    });
-  }, []);
-
-  const toggleArticle = useCallback(
-    (article: Omit<ReadLaterArticle, "savedAt">) => {
-      if (isSaved(article.id)) {
-        removeArticle(article.id);
-      } else {
-        saveArticle(article);
-      }
+  const addMutation = useMutation({
+    mutationFn: async (contentPieceId: string) => {
+      const res = await apiRequest("POST", "/api/read-later", { contentPieceId });
+      return res.json();
     },
-    [isSaved, saveArticle, removeArticle]
-  );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/read-later"] });
+    },
+  });
 
-  const clearAll = useCallback(() => {
-    setSavedArticles([]);
-    persistArticles([]);
-  }, []);
+  const removeMutation = useMutation({
+    mutationFn: async (contentPieceId: string) => {
+      const res = await apiRequest("DELETE", `/api/read-later/${contentPieceId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/read-later"] });
+    },
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/read-later");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/read-later"] });
+    },
+  });
+
+  const isSaved = (articleId: string) =>
+    savedArticles.some((a) => a.contentPieceId === articleId);
+
+  const saveArticle = (article: { id: string; [key: string]: any }) => {
+    addMutation.mutate(article.id);
+  };
+
+  const removeArticle = (contentPieceId: string) => {
+    removeMutation.mutate(contentPieceId);
+  };
+
+  const toggleArticle = (article: { id: string; [key: string]: any }) => {
+    if (isSaved(article.id)) {
+      removeArticle(article.id);
+    } else {
+      saveArticle(article);
+    }
+  };
+
+  const clearAll = () => {
+    clearMutation.mutate();
+  };
 
   return {
     savedArticles,

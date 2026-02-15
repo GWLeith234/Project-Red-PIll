@@ -75,9 +75,9 @@ export default function ReadLater() {
             <div className="space-y-4" data-testid="read-later-list">
               {savedArticles.map((article) => (
                 <div
-                  key={article.id}
+                  key={article.contentPieceId}
                   className="group bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md transition-all hover:border-gray-200"
-                  data-testid={`saved-article-${article.id}`}
+                  data-testid={`saved-article-${article.contentPieceId}`}
                 >
                   <div className="flex gap-4">
                     {article.coverImage && (
@@ -89,9 +89,9 @@ export default function ReadLater() {
                     )}
                     <div className="flex-1 min-w-0">
                       <Link
-                        href={`/news/${article.podcastId}/article/${article.id}`}
+                        href={`/news/${article.podcastId}/article/${article.contentPieceId}`}
                         className="block"
-                        data-testid={`link-saved-article-${article.id}`}
+                        data-testid={`link-saved-article-${article.contentPieceId}`}
                       >
                         <h3 className="font-bold text-gray-900 text-base leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 mb-1">
                           {article.title}
@@ -113,18 +113,18 @@ export default function ReadLater() {
                     </div>
                     <div className="flex flex-col items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => removeArticle(article.id)}
+                        onClick={() => removeArticle(article.contentPieceId)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         title="Remove from Read Later"
-                        data-testid={`button-remove-${article.id}`}
+                        data-testid={`button-remove-${article.contentPieceId}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                      <Link href={`/news/${article.podcastId}/article/${article.id}`}>
+                      <Link href={`/news/${article.podcastId}/article/${article.contentPieceId}`}>
                         <button
                           className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                           title="Read now"
-                          data-testid={`button-read-${article.id}`}
+                          data-testid={`button-read-${article.contentPieceId}`}
                         >
                           <ChevronRight className="h-4 w-4" />
                         </button>
