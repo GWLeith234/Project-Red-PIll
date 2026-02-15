@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, real, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, real, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -80,6 +80,7 @@ export const podcasts = pgTable("podcasts", {
   growthPercent: real("growth_percent").default(0),
   multiplicationFactor: integer("multiplication_factor").default(50),
   status: text("status").default("active"),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const episodes = pgTable("episodes", {
@@ -100,7 +101,10 @@ export const episodes = pgTable("episodes", {
   processingStatus: text("processing_status").default("pending"),
   processingProgress: integer("processing_progress").default(0),
   processingStep: text("processing_step"),
-});
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("episodes_podcast_id_idx").on(table.podcastId),
+]);
 
 export const contentPieces = pgTable("content_pieces", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -124,7 +128,12 @@ export const contentPieces = pgTable("content_pieces", {
   moderatedAt: timestamp("moderated_at"),
   publishedAt: timestamp("published_at").defaultNow(),
   sortOrder: integer("sort_order").default(0),
-});
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("content_pieces_episode_id_idx").on(table.episodeId),
+  index("content_pieces_status_idx").on(table.status),
+  index("content_pieces_type_idx").on(table.type),
+]);
 
 export const advertisers = pgTable("advertisers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -132,6 +141,7 @@ export const advertisers = pgTable("advertisers", {
   monthlySpend: real("monthly_spend").default(0),
   type: text("type").default("Direct"),
   status: text("status").default("Active"),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const campaigns = pgTable("campaigns", {
@@ -148,7 +158,11 @@ export const campaigns = pgTable("campaigns", {
   startDate: timestamp("start_date").defaultNow(),
   endDate: timestamp("end_date"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("campaigns_deal_id_idx").on(table.dealId),
+  index("campaigns_company_id_idx").on(table.companyId),
+]);
 
 export const metrics = pgTable("metrics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -167,6 +181,7 @@ export const alerts = pgTable("alerts", {
   type: text("type").default("info"),
   read: boolean("read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const branding = pgTable("branding", {
@@ -263,11 +278,12 @@ export const comments = pgTable("comments", {
   authorName: text("author_name").notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const subscribers = pgTable("subscribers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  firstName: text("first_name").notNull(),
+  firstName: text("first_name"),
   lastName: text("last_name"),
   email: text("email").notNull(),
   phone: text("phone"),
@@ -294,14 +310,18 @@ export const subscribers = pgTable("subscribers", {
   smsConsentAt: timestamp("sms_consent_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("subscribers_email_idx").on(table.email),
+]);
 
 export const subscriberPodcasts = pgTable("subscriber_podcasts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   subscriberId: varchar("subscriber_id").notNull(),
   podcastId: varchar("podcast_id").notNull(),
   subscribedAt: timestamp("subscribed_at").defaultNow(),
-});
+}, (table) => [
+  index("subscriber_podcasts_composite_idx").on(table.subscriberId, table.podcastId),
+]);
 
 export const companies = pgTable("companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -353,7 +373,9 @@ export const companyContacts = pgTable("company_contacts", {
   smsConsentAt: timestamp("sms_consent_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("company_contacts_company_id_idx").on(table.companyId),
+]);
 
 export const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
 export type DealStage = typeof DEAL_STAGES[number];
@@ -381,7 +403,10 @@ export const deals = pgTable("deals", {
   status: text("status").default("active").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("deals_company_id_idx").on(table.companyId),
+  index("deals_stage_idx").on(table.stage),
+]);
 
 export const dealActivities = pgTable("deal_activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -394,7 +419,9 @@ export const dealActivities = pgTable("deal_activities", {
   contentStatus: text("content_status"),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("deal_activities_deal_id_idx").on(table.dealId),
+]);
 
 export const dealLineItems = pgTable("deal_line_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -407,7 +434,9 @@ export const dealLineItems = pgTable("deal_line_items", {
   notes: text("notes"),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("deal_line_items_deal_id_idx").on(table.dealId),
+]);
 
 export const PRODUCT_CATEGORIES = ["display_ads", "audio_ads", "video_ads", "sponsorship", "branded_content", "newsletter", "social_media", "events", "custom"] as const;
 export type ProductCategory = typeof PRODUCT_CATEGORIES[number];
@@ -468,7 +497,10 @@ export const adCreatives = pgTable("ad_creatives", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("ad_creatives_deal_id_idx").on(table.dealId),
+  index("ad_creatives_format_idx").on(table.format),
+]);
 
 export const OUTBOUND_CAMPAIGN_TYPES = ["email", "sms"] as const;
 export type OutboundCampaignType = typeof OUTBOUND_CAMPAIGN_TYPES[number];
@@ -542,6 +574,7 @@ export const socialAccounts = pgTable("social_accounts", {
   ownerType: text("owner_type").default("company").notNull(),
   podcastId: varchar("podcast_id"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const SCHEDULED_POST_STATUSES = ["draft", "scheduled", "publishing", "published", "failed"] as const;
@@ -560,7 +593,10 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   mediaUrls: text("media_urls").array().default(sql`ARRAY[]::text[]`),
   aiSuggestion: text("ai_suggestion"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("scheduled_posts_content_piece_id_idx").on(table.contentPieceId),
+]);
 
 export const clipAssets = pgTable("clip_assets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -577,6 +613,7 @@ export const clipAssets = pgTable("clip_assets", {
   thumbnailUrl: text("thumbnail_url"),
   platform: text("platform"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const newsletterSchedules = pgTable("newsletter_schedules", {
@@ -623,6 +660,7 @@ export const heroSlides = pgTable("hero_slides", {
   displayOrder: integer("display_order").default(0).notNull(),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const newsLayoutSections = pgTable("news_layout_sections", {
@@ -638,6 +676,7 @@ export const newsLayoutSections = pgTable("news_layout_sections", {
   showImages: boolean("show_images").default(true),
   layout: text("layout").default("full_width"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const crmLists = pgTable("crm_lists", {

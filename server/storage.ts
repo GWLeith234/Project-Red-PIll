@@ -1,4 +1,4 @@
-import { eq, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, gte, lte, count, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { and } from "drizzle-orm";
@@ -257,6 +257,13 @@ export interface IStorage {
   getNpsSurveys(): Promise<NpsSurvey[]>;
   createNpsSurvey(survey: InsertNpsSurvey): Promise<NpsSurvey>;
   getNpsSurveysByUser(userId: string): Promise<NpsSurvey[]>;
+
+  getSubscribersPaginated(limit: number, offset: number): Promise<{ data: Subscriber[]; total: number }>;
+  getCompaniesPaginated(limit: number, offset: number): Promise<{ data: Company[]; total: number }>;
+  getContactsPaginated(limit: number, offset: number, companyId?: string): Promise<{ data: CompanyContact[]; total: number }>;
+  getDealsPaginated(limit: number, offset: number, companyId?: string, stage?: string): Promise<{ data: Deal[]; total: number }>;
+  getContentPiecesPaginated(limit: number, offset: number, episodeId?: string): Promise<{ data: ContentPiece[]; total: number }>;
+  getEpisodesPaginated(limit: number, offset: number, podcastId?: string): Promise<{ data: Episode[]; total: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -298,7 +305,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updatePodcast(id: string, data: Partial<InsertPodcast>) {
-    const [updated] = await db.update(podcasts).set(data).where(eq(podcasts.id, id)).returning();
+    const [updated] = await db.update(podcasts).set({ ...data, updatedAt: new Date() }).where(eq(podcasts.id, id)).returning();
     return updated;
   }
   async incrementPodcastSubscribers(id: string) {
@@ -323,7 +330,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateEpisode(id: string, data: Partial<InsertEpisode>) {
-    const [updated] = await db.update(episodes).set(data).where(eq(episodes.id, id)).returning();
+    const [updated] = await db.update(episodes).set({ ...data, updatedAt: new Date() }).where(eq(episodes.id, id)).returning();
     return updated;
   }
 
@@ -348,24 +355,25 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(contentPieces).where(eq(contentPieces.status, status)).orderBy(desc(contentPieces.publishedAt));
   }
   async getArticlesForPodcast(podcastId: string) {
-    const eps = await db.select().from(episodes).where(eq(episodes.podcastId, podcastId));
-    if (eps.length === 0) return [];
-    const epIds = eps.map(e => e.id);
-    const all = await db.select().from(contentPieces).where(eq(contentPieces.type, "article")).orderBy(desc(contentPieces.publishedAt));
-    return all.filter(cp => epIds.includes(cp.episodeId));
+    const results = await db.select({ contentPiece: contentPieces })
+      .from(contentPieces)
+      .innerJoin(episodes, eq(contentPieces.episodeId, episodes.id))
+      .where(and(eq(episodes.podcastId, podcastId), eq(contentPieces.type, "article")))
+      .orderBy(desc(contentPieces.publishedAt));
+    return results.map(r => r.contentPiece);
   }
   async createContentPiece(piece: InsertContentPiece) {
     const [created] = await db.insert(contentPieces).values(piece).returning();
     return created;
   }
   async updateContentPiece(id: string, data: Partial<InsertContentPiece>) {
-    const [updated] = await db.update(contentPieces).set(data).where(eq(contentPieces.id, id)).returning();
+    const [updated] = await db.update(contentPieces).set({ ...data, updatedAt: new Date() }).where(eq(contentPieces.id, id)).returning();
     return updated;
   }
   async reorderContentPieces(pieceIds: string[]) {
-    for (let i = 0; i < pieceIds.length; i++) {
-      await db.update(contentPieces).set({ sortOrder: i }).where(eq(contentPieces.id, pieceIds[i]));
-    }
+    if (pieceIds.length === 0) return;
+    const cases = pieceIds.map((id, i) => sql`WHEN id = ${id} THEN ${i}`);
+    await db.execute(sql`UPDATE content_pieces SET sort_order = CASE ${sql.join(cases, sql` `)} END WHERE id IN (${sql.join(pieceIds.map(id => sql`${id}`), sql`, `)})`);
   }
 
   async getAdvertisers() {
@@ -380,7 +388,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateAdvertiser(id: string, data: Partial<InsertAdvertiser>) {
-    const [updated] = await db.update(advertisers).set(data).where(eq(advertisers.id, id)).returning();
+    const [updated] = await db.update(advertisers).set({ ...data, updatedAt: new Date() }).where(eq(advertisers.id, id)).returning();
     return updated;
   }
 
@@ -405,7 +413,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateCampaign(id: string, data: Partial<InsertCampaign>) {
-    const [updated] = await db.update(campaigns).set(data).where(eq(campaigns.id, id)).returning();
+    const [updated] = await db.update(campaigns).set({ ...data, updatedAt: new Date() }).where(eq(campaigns.id, id)).returning();
     return updated;
   }
 
@@ -433,7 +441,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async markAlertRead(id: string) {
-    await db.update(alerts).set({ read: true }).where(eq(alerts.id, id));
+    await db.update(alerts).set({ read: true, updatedAt: new Date() }).where(eq(alerts.id, id));
   }
 
   async getBranding() {
@@ -556,18 +564,21 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteSubscriber(id: string) {
-    await db.delete(subscriberPodcasts).where(eq(subscriberPodcasts.subscriberId, id));
-    await db.delete(subscribers).where(eq(subscribers.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(subscriberPodcasts).where(eq(subscriberPodcasts.subscriberId, id));
+      await tx.delete(subscribers).where(eq(subscribers.id, id));
+    });
   }
   async getSubscriberPodcasts(subscriberId: string) {
     return db.select().from(subscriberPodcasts).where(eq(subscriberPodcasts.subscriberId, subscriberId));
   }
   async getSubscribersByPodcast(podcastId: string) {
-    const links = await db.select().from(subscriberPodcasts).where(eq(subscriberPodcasts.podcastId, podcastId));
-    if (links.length === 0) return [];
-    const subIds = links.map(l => l.subscriberId);
-    const all = await db.select().from(subscribers).orderBy(desc(subscribers.createdAt));
-    return all.filter(s => subIds.includes(s.id));
+    const results = await db.select({ subscriber: subscribers })
+      .from(subscribers)
+      .innerJoin(subscriberPodcasts, eq(subscribers.id, subscriberPodcasts.subscriberId))
+      .where(eq(subscriberPodcasts.podcastId, podcastId))
+      .orderBy(desc(subscribers.createdAt));
+    return results.map(r => r.subscriber);
   }
   async addSubscriberToPodcast(data: InsertSubscriberPodcast) {
     const existing = await db.select().from(subscriberPodcasts)
@@ -598,12 +609,17 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteCompany(id: string) {
-    await db.delete(dealActivities).where(
-      eq(dealActivities.dealId, db.select({ id: deals.id }).from(deals).where(eq(deals.companyId, id)).limit(1) as any)
-    ).catch(() => {});
-    await db.delete(deals).where(eq(deals.companyId, id));
-    await db.delete(companyContacts).where(eq(companyContacts.companyId, id));
-    await db.delete(companies).where(eq(companies.id, id));
+    await db.transaction(async (tx) => {
+      const companyDeals = await tx.select({ id: deals.id }).from(deals).where(eq(deals.companyId, id));
+      const dealIds = companyDeals.map(d => d.id);
+      if (dealIds.length > 0) {
+        await tx.delete(dealLineItems).where(inArray(dealLineItems.dealId, dealIds));
+        await tx.delete(dealActivities).where(inArray(dealActivities.dealId, dealIds));
+        await tx.delete(deals).where(eq(deals.companyId, id));
+      }
+      await tx.delete(companyContacts).where(eq(companyContacts.companyId, id));
+      await tx.delete(companies).where(eq(companies.id, id));
+    });
   }
 
   async getCompanyContacts(companyId?: string) {
@@ -653,9 +669,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteDeal(id: string) {
-    await db.delete(dealLineItems).where(eq(dealLineItems.dealId, id));
-    await db.delete(dealActivities).where(eq(dealActivities.dealId, id));
-    await db.delete(deals).where(eq(deals.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(dealLineItems).where(eq(dealLineItems.dealId, id));
+      await tx.delete(dealActivities).where(eq(dealActivities.dealId, id));
+      await tx.delete(deals).where(eq(deals.id, id));
+    });
   }
 
   async getDealActivities(dealId: string) {
@@ -694,9 +712,9 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async reorderDealLineItems(dealId: string, itemIds: string[]) {
-    for (let i = 0; i < itemIds.length; i++) {
-      await db.update(dealLineItems).set({ sortOrder: i }).where(eq(dealLineItems.id, itemIds[i]));
-    }
+    if (itemIds.length === 0) return;
+    const cases = itemIds.map((id, i) => sql`WHEN id = ${id} THEN ${i}`);
+    await db.execute(sql`UPDATE deal_line_items SET sort_order = CASE ${sql.join(cases, sql` `)} END WHERE id IN (${sql.join(itemIds.map(id => sql`${id}`), sql`, `)})`);
   }
 
   async getProducts(status?: string) {
@@ -721,9 +739,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(products).where(eq(products.id, id));
   }
   async reorderProducts(productIds: string[]) {
-    for (let i = 0; i < productIds.length; i++) {
-      await db.update(products).set({ sortOrder: i }).where(eq(products.id, productIds[i]));
-    }
+    if (productIds.length === 0) return;
+    const cases = productIds.map((id, i) => sql`WHEN id = ${id} THEN ${i}`);
+    await db.execute(sql`UPDATE products SET sort_order = CASE ${sql.join(cases, sql` `)} END WHERE id IN (${sql.join(productIds.map(id => sql`${id}`), sql`, `)})`);
   }
 
   async getAdCreatives(dealId: string) {
@@ -767,8 +785,10 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteOutboundCampaign(id: string) {
-    await db.delete(campaignEmails).where(eq(campaignEmails.campaignId, id));
-    await db.delete(outboundCampaigns).where(eq(outboundCampaigns.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(campaignEmails).where(eq(campaignEmails.campaignId, id));
+      await tx.delete(outboundCampaigns).where(eq(outboundCampaigns.id, id));
+    });
   }
 
   async getCampaignEmails(campaignId: string) {
@@ -790,9 +810,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(campaignEmails).where(eq(campaignEmails.id, id));
   }
   async reorderCampaignEmails(campaignId: string, emailIds: string[]) {
-    for (let i = 0; i < emailIds.length; i++) {
-      await db.update(campaignEmails).set({ sortOrder: i, dayNumber: i + 1 }).where(eq(campaignEmails.id, emailIds[i]));
-    }
+    if (emailIds.length === 0) return;
+    const sortCases = emailIds.map((id, i) => sql`WHEN id = ${id} THEN ${i}`);
+    const dayCases = emailIds.map((id, i) => sql`WHEN id = ${id} THEN ${i + 1}`);
+    await db.execute(sql`UPDATE campaign_emails SET sort_order = CASE ${sql.join(sortCases, sql` `)} END, day_number = CASE ${sql.join(dayCases, sql` `)} END WHERE id IN (${sql.join(emailIds.map(id => sql`${id}`), sql`, `)})`);
   }
   async getConsentedSubscribers(type: "email" | "sms", podcastId?: string) {
     const consentField = type === "email" ? subscribers.marketingConsent : subscribers.smsConsent;
@@ -825,7 +846,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateHeroSlide(id: string, data: Partial<InsertHeroSlide>) {
-    const [updated] = await db.update(heroSlides).set(data).where(eq(heroSlides.id, id)).returning();
+    const [updated] = await db.update(heroSlides).set({ ...data, updatedAt: new Date() }).where(eq(heroSlides.id, id)).returning();
     return updated;
   }
   async deleteHeroSlide(id: string) {
@@ -850,7 +871,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateSocialAccount(id: string, data: Partial<InsertSocialAccount>) {
-    const [updated] = await db.update(socialAccounts).set(data).where(eq(socialAccounts.id, id)).returning();
+    const [updated] = await db.update(socialAccounts).set({ ...data, updatedAt: new Date() }).where(eq(socialAccounts.id, id)).returning();
     return updated;
   }
   async deleteSocialAccount(id: string) {
@@ -872,7 +893,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateScheduledPost(id: string, data: Partial<InsertScheduledPost>) {
-    const [updated] = await db.update(scheduledPosts).set(data).where(eq(scheduledPosts.id, id)).returning();
+    const [updated] = await db.update(scheduledPosts).set({ ...data, updatedAt: new Date() }).where(eq(scheduledPosts.id, id)).returning();
     return updated;
   }
   async deleteScheduledPost(id: string) {
@@ -894,7 +915,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateClipAsset(id: string, data: Partial<InsertClipAsset>) {
-    const [updated] = await db.update(clipAssets).set(data).where(eq(clipAssets.id, id)).returning();
+    const [updated] = await db.update(clipAssets).set({ ...data, updatedAt: new Date() }).where(eq(clipAssets.id, id)).returning();
     return updated;
   }
   async deleteClipAsset(id: string) {
@@ -960,7 +981,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   async updateNewsLayoutSection(id: string, data: Partial<InsertNewsLayoutSection>) {
-    const [updated] = await db.update(newsLayoutSections).set(data).where(eq(newsLayoutSections.id, id)).returning();
+    const [updated] = await db.update(newsLayoutSections).set({ ...data, updatedAt: new Date() }).where(eq(newsLayoutSections.id, id)).returning();
     return updated;
   }
   async deleteNewsLayoutSection(id: string) {
@@ -1014,9 +1035,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   async deleteTask(id: string) {
-    await db.delete(taskActivityLogs).where(eq(taskActivityLogs.taskId, id));
-    await db.delete(taskComments).where(eq(taskComments.taskId, id));
-    await db.delete(tasks).where(eq(tasks.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(taskActivityLogs).where(eq(taskActivityLogs.taskId, id));
+      await tx.delete(taskComments).where(eq(taskComments.taskId, id));
+      await tx.delete(tasks).where(eq(tasks.id, id));
+    });
   }
   async getTaskComments(taskId: string) {
     return db.select().from(taskComments).where(eq(taskComments.taskId, taskId)).orderBy(desc(taskComments.createdAt));
@@ -1045,6 +1068,66 @@ export class DatabaseStorage implements IStorage {
   }
   async getNpsSurveysByUser(userId: string) {
     return db.select().from(npsSurveys).where(eq(npsSurveys.userId, userId)).orderBy(desc(npsSurveys.createdAt));
+  }
+
+  async getSubscribersPaginated(limit: number, offset: number) {
+    const [{ value: total }] = await db.select({ value: count() }).from(subscribers);
+    const data = await db.select().from(subscribers).orderBy(desc(subscribers.createdAt)).limit(limit).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getCompaniesPaginated(limit: number, offset: number) {
+    const [{ value: total }] = await db.select({ value: count() }).from(companies);
+    const data = await db.select().from(companies).orderBy(desc(companies.createdAt)).limit(limit).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getContactsPaginated(limit: number, offset: number, companyId?: string) {
+    if (companyId) {
+      const [{ value: total }] = await db.select({ value: count() }).from(companyContacts).where(eq(companyContacts.companyId, companyId));
+      const data = await db.select().from(companyContacts).where(eq(companyContacts.companyId, companyId)).orderBy(desc(companyContacts.createdAt)).limit(limit).offset(offset);
+      return { data, total: Number(total) };
+    }
+    const [{ value: total }] = await db.select({ value: count() }).from(companyContacts);
+    const data = await db.select().from(companyContacts).orderBy(desc(companyContacts.createdAt)).limit(limit).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getDealsPaginated(limit: number, offset: number, companyId?: string, stage?: string) {
+    const conditions = [];
+    if (companyId) conditions.push(eq(deals.companyId, companyId));
+    if (stage) conditions.push(eq(deals.stage, stage));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const [{ value: total }] = whereClause
+      ? await db.select({ value: count() }).from(deals).where(whereClause)
+      : await db.select({ value: count() }).from(deals);
+    const query = db.select().from(deals);
+    const data = whereClause
+      ? await query.where(whereClause).orderBy(desc(deals.createdAt)).limit(limit).offset(offset)
+      : await query.orderBy(desc(deals.createdAt)).limit(limit).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getContentPiecesPaginated(limit: number, offset: number, episodeId?: string) {
+    if (episodeId) {
+      const [{ value: total }] = await db.select({ value: count() }).from(contentPieces).where(eq(contentPieces.episodeId, episodeId));
+      const data = await db.select().from(contentPieces).where(eq(contentPieces.episodeId, episodeId)).limit(limit).offset(offset);
+      return { data, total: Number(total) };
+    }
+    const [{ value: total }] = await db.select({ value: count() }).from(contentPieces);
+    const data = await db.select().from(contentPieces).limit(limit).offset(offset);
+    return { data, total: Number(total) };
+  }
+
+  async getEpisodesPaginated(limit: number, offset: number, podcastId?: string) {
+    if (podcastId) {
+      const [{ value: total }] = await db.select({ value: count() }).from(episodes).where(eq(episodes.podcastId, podcastId));
+      const data = await db.select().from(episodes).where(eq(episodes.podcastId, podcastId)).orderBy(desc(episodes.publishedAt)).limit(limit).offset(offset);
+      return { data, total: Number(total) };
+    }
+    const [{ value: total }] = await db.select({ value: count() }).from(episodes);
+    const data = await db.select().from(episodes).orderBy(desc(episodes.publishedAt)).limit(limit).offset(offset);
+    return { data, total: Number(total) };
   }
 }
 

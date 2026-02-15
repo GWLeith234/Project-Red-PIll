@@ -1,0 +1,119 @@
+Here are discrete, copy-paste-ready tasks you can feed to Replit Agent one at a time. Each is scoped small enough that it shouldn't break anything, and each one cleans up technical debt that will compound during the multi-tenant conversion.
+
+---
+
+**Task 1: Secure the seed endpoint**
+
+> Add `requireAuth` and `requirePermission("settings.edit")` middleware to the `POST /api/seed` endpoint in `server/routes.ts`. This endpoint currently has no authentication and anyone can hit it. Keep the existing check that prevents re-seeding if podcasts already exist.
+
+---
+
+**Task 2: Fix the firstName not-null crash**
+
+> In `shared/schema.ts`, the `subscribers` table has `firstName: text("first_name").notNull()` but the `POST /api/public/subscribe` endpoint in `server/routes.ts` passes `firstName: firstName?.trim() || null`. Change the schema to make `firstName` nullable: `firstName: text("first_name")` instead of `.notNull()`. Run the database migration after making the change.
+
+---
+
+**Task 3: Add rate limiting to public endpoints**
+
+> Install `express-rate-limit` and add rate limiting middleware to these public endpoints in `server/routes.ts`: `POST /api/public/subscribe` (10 requests per minute per IP), `POST /api/articles/:id/comments` (5 per minute per IP), `GET /api/public/search` (30 per minute per IP), and `POST /api/public/check-subscription` (10 per minute per IP). Create the rate limiter instances near the top of the `registerRoutes` function and apply them inline to each route.
+
+---
+
+**Task 4: Add database indexes**
+
+> Add the following indexes to `shared/schema.ts` using Drizzle's index functionality. These are the most critical for query performance:
+> - `episodes`: index on `podcastId`
+> - `contentPieces`: index on `episodeId`, index on `status`, index on `type`
+> - `deals`: index on `companyId`, index on `stage`
+> - `companyContacts`: index on `companyId`
+> - `subscriberPodcasts`: composite index on `(subscriberId, podcastId)`
+> - `dealLineItems`: index on `dealId`
+> - `dealActivities`: index on `dealId`
+> - `scheduledPosts`: index on `contentPieceId`
+> - `subscribers`: unique index on `email`
+> - `campaigns`: index on `dealId`, index on `companyId`
+> - `adCreatives`: index on `dealId`, index on `format`
+> 
+> Run the migration after adding them.
+
+---
+
+**Task 5: Fix getSubscribersByPodcast N+1 query**
+
+> In `server/storage.ts`, the `getSubscribersByPodcast` method currently loads ALL subscribers then filters in JavaScript. Rewrite it to use a proper SQL JOIN:
+> ```typescript
+> async getSubscribersByPodcast(podcastId: string) {
+>   const results = await db.select({ subscriber: subscribers })
+>     .from(subscribers)
+>     .innerJoin(subscriberPodcasts, eq(subscribers.id, subscriberPodcasts.subscriberId))
+>     .where(eq(subscriberPodcasts.podcastId, podcastId))
+>     .orderBy(desc(subscribers.createdAt));
+>   return results.map(r => r.subscriber);
+> }
+> ```
+> This pattern already exists in `getConsentedSubscribers` — match that approach.
+
+---
+
+**Task 6: Fix getArticlesForPodcast N+1 query**
+
+> In `server/storage.ts`, the `getArticlesForPodcast` method loads ALL articles then filters in JavaScript with `.filter()`. Rewrite it to use a SQL JOIN through episodes:
+> ```typescript
+> async getArticlesForPodcast(podcastId: string) {
+>   const results = await db.select({ contentPiece: contentPieces })
+>     .from(contentPieces)
+>     .innerJoin(episodes, eq(contentPieces.episodeId, episodes.id))
+>     .where(and(eq(episodes.podcastId, podcastId), eq(contentPieces.type, "article")))
+>     .orderBy(desc(contentPieces.publishedAt));
+>   return results.map(r => r.contentPiece);
+> }
+> ```
+
+---
+
+**Task 7: Add consistent updatedAt to all mutable tables**
+
+> Several tables in `shared/schema.ts` have `createdAt` but no `updatedAt`. Add `updatedAt: timestamp("updated_at").defaultNow()` to these tables: `podcasts`, `episodes`, `contentPieces`, `advertisers`, `campaigns`, `alerts`, `heroSlides`, `newsLayoutSections`, `clipAssets`, `scheduledPosts`, `socialAccounts`, `comments`. Then update the corresponding storage methods in `server/storage.ts` to set `updatedAt: new Date()` in every `.update()` call for those tables, following the pattern already used for `companies`, `deals`, and `subscribers`. Run the migration.
+
+---
+
+**Task 8: Add pagination to list endpoints**
+
+> Add pagination support to these high-volume endpoints in `server/routes.ts`: `GET /api/subscribers`, `GET /api/companies`, `GET /api/contacts`, `GET /api/deals`, `GET /api/content-pieces`, and `GET /api/episodes`. Accept `page` and `limit` query parameters (default page=1, limit=50, max limit=200). Return the response as `{ data: [...], pagination: { page, limit, total, totalPages } }`. Update the corresponding storage methods to accept `limit` and `offset` parameters and add a count query. Keep the existing behavior when no pagination params are provided for backward compatibility with the frontend.
+
+---
+
+**Task 9: Batch the reorder operations**
+
+> In `server/storage.ts`, the methods `reorderContentPieces`, `reorderProducts`, `reorderDealLineItems`, and `reorderCampaignEmails` all run individual UPDATE queries in a for loop. Rewrite each one to use a single SQL statement with a CASE expression instead of N separate queries. For example:
+> ```typescript
+> async reorderContentPieces(pieceIds: string[]) {
+>   if (pieceIds.length === 0) return;
+>   const cases = pieceIds.map((id, i) => `WHEN id = '${id}' THEN ${i}`).join(' ');
+>   await db.execute(sql`UPDATE content_pieces SET sort_order = CASE ${sql.raw(cases)} END WHERE id IN (${sql.join(pieceIds.map(id => sql`${id}`), sql`, `)})`);
+> }
+> ```
+> Apply the same pattern to all four reorder methods.
+
+---
+
+**Task 10: Wrap cascade deletes in transactions**
+
+> In `server/storage.ts`, the methods `deleteCompany`, `deleteDeal`, `deleteSubscriber`, `deleteTask`, and `deleteOutboundCampaign` all perform multiple DELETE operations that should be atomic. Wrap each one in a Drizzle transaction using `db.transaction()`. Also remove the `.catch(() => {})` on the `deleteCompany` method's deal activities deletion — let errors propagate so they can be caught and handled properly. Example:
+> ```typescript
+> async deleteCompany(id: string) {
+>   await db.transaction(async (tx) => {
+>     await tx.delete(dealActivities)...;
+>     await tx.delete(deals).where(eq(deals.companyId, id));
+>     await tx.delete(companyContacts).where(eq(companyContacts.companyId, id));
+>     await tx.delete(companies).where(eq(companies.id, id));
+>   });
+> }
+> ```
+
+---
+
+I'd suggest running them roughly in this order. Tasks 1-3 are security fixes that take minutes each. Tasks 4-6 are performance wins. Tasks 7-10 are structural improvements that make the multi-tenant migration cleaner because you'll have consistent timestamps, proper pagination interfaces, and transactional deletes that won't leave orphaned data across tenants.
+
+Want me to flesh out any of these with more detail, or should I write up the multi-tenant migration spec as the next big piece after these are done?

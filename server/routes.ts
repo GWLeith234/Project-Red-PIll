@@ -20,6 +20,12 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import multer from "multer";
 import { adSizes } from "./ad-sizes";
 import { fetchImageFromUrl, processImageForSizes, getImageMetadata, validateFit } from "./image-resizer";
+import rateLimit from "express-rate-limit";
+
+const publicSubscribeLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
+const publicCommentLimit = rateLimit({ windowMs: 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
+const publicSearchLimit = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
+const publicCheckSubLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
 
 export async function registerRoutes(
   httpServer: Server,
@@ -187,6 +193,13 @@ export async function registerRoutes(
   // ── Episodes ──
   app.get("/api/episodes", async (req, res) => {
     const podcastId = req.query.podcastId as string | undefined;
+    if (req.query.page) {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+      const { data, total } = await storage.getEpisodesPaginated(limit, offset, podcastId);
+      return res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    }
     const data = await storage.getEpisodes(podcastId);
     res.json(data);
   });
@@ -222,6 +235,13 @@ export async function registerRoutes(
   // ── Content Pieces ──
   app.get("/api/content-pieces", async (req, res) => {
     const episodeId = req.query.episodeId as string | undefined;
+    if (req.query.page) {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+      const { data, total } = await storage.getContentPiecesPaginated(limit, offset, episodeId);
+      return res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    }
     const data = await storage.getContentPieces(episodeId);
     res.json(data);
   });
@@ -993,7 +1013,7 @@ export async function registerRoutes(
     res.json(data);
   });
 
-  app.post("/api/articles/:id/comments", async (req, res) => {
+  app.post("/api/articles/:id/comments", publicCommentLimit, async (req, res) => {
     const parsed = insertCommentSchema.safeParse({ ...req.body, articleId: req.params.id });
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.createComment(parsed.data);
@@ -2010,6 +2030,13 @@ export async function registerRoutes(
       const subs = await storage.getSubscribersByPodcast(podcastId);
       return res.json(subs);
     }
+    if (req.query.page) {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+      const { data, total } = await storage.getSubscribersPaginated(limit, offset);
+      return res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    }
     const subs = await storage.getSubscribers();
     res.json(subs);
   });
@@ -2450,7 +2477,7 @@ export async function registerRoutes(
   });
 
   // ── Public Subscription Check + Smart Recommendations (no auth) ──
-  app.post("/api/public/check-subscription", async (req, res) => {
+  app.post("/api/public/check-subscription", publicCheckSubLimit, async (req, res) => {
     const { email, podcastId } = req.body;
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return res.status(400).json({ message: "Valid email is required" });
@@ -2548,7 +2575,7 @@ export async function registerRoutes(
   });
 
   // ── Public Subscribe (no auth - for visitor widgets on story/episode pages) ──
-  app.post("/api/public/subscribe", async (req, res) => {
+  app.post("/api/public/subscribe", publicSubscribeLimit, async (req, res) => {
     const { email, firstName, lastName, podcastId, source, marketingConsent, smsConsent } = req.body;
     if (!email || typeof email !== "string" || !email.includes("@")) {
       return res.status(400).json({ message: "Valid email is required" });
@@ -2803,7 +2830,7 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/public/search", async (req, res) => {
+  app.get("/api/public/search", publicSearchLimit, async (req, res) => {
     const q = (req.query.q as string || "").toLowerCase().trim();
     if (!q) return res.json({ episodes: [], articles: [], podcasts: [] });
 
@@ -3084,7 +3111,14 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/companies", requireAuth, requirePermission("sales.view"), async (_req, res) => {
+  app.get("/api/companies", requireAuth, requirePermission("sales.view"), async (req, res) => {
+    if (req.query.page) {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+      const { data, total } = await storage.getCompaniesPaginated(limit, offset);
+      return res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    }
     const data = await storage.getCompanies();
     res.json(data);
   });
@@ -3120,6 +3154,13 @@ export async function registerRoutes(
   // ── Commercial CRM: Contacts ──
   app.get("/api/contacts", requireAuth, requirePermission("sales.view"), async (req, res) => {
     const companyId = req.query.companyId as string | undefined;
+    if (req.query.page) {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+      const { data, total } = await storage.getContactsPaginated(limit, offset, companyId);
+      return res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    }
     const data = await storage.getCompanyContacts(companyId);
     res.json(data);
   });
@@ -3154,6 +3195,13 @@ export async function registerRoutes(
   app.get("/api/deals", requireAuth, requirePermission("sales.view"), async (req, res) => {
     const companyId = req.query.companyId as string | undefined;
     const stage = req.query.stage as string | undefined;
+    if (req.query.page) {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+      const { data, total } = await storage.getDealsPaginated(limit, offset, companyId, stage);
+      return res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    }
     const data = await storage.getDeals(companyId, stage);
     res.json(data);
   });
@@ -3863,7 +3911,7 @@ export async function registerRoutes(
   });
 
   // ── Seed endpoint (development only) ──
-  app.post("/api/seed", async (_req, res) => {
+  app.post("/api/seed", requireAuth, requirePermission("settings.edit"), async (_req, res) => {
     try {
       const existingPodcasts = await storage.getPodcasts();
       if (existingPodcasts.length > 0) {
