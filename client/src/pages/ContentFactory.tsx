@@ -1526,6 +1526,48 @@ function UploadTab() {
   );
 }
 
+function ClipVideoPreview({ videoUrl, startTime }: { videoUrl: string; startTime?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl) return;
+
+    function parseTimeToSeconds(t: string): number {
+      const parts = t.split(":").map(Number);
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+      return parts[0] || 0;
+    }
+
+    const handleLoaded = () => {
+      if (startTime) {
+        video.currentTime = parseTimeToSeconds(startTime);
+      }
+      video.play().catch(() => {});
+    };
+
+    video.addEventListener("loadeddata", handleLoaded);
+    return () => video.removeEventListener("loadeddata", handleLoaded);
+  }, [videoUrl, startTime]);
+
+  return (
+    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black/50 relative">
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="w-full h-full object-cover"
+        data-testid="clip-video-preview"
+      />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+    </div>
+  );
+}
+
 function ClipsTab() {
   const { data: episodes } = useEpisodes();
   const [filterEpisodeId, setFilterEpisodeId] = useState<string>("all");
@@ -1603,61 +1645,74 @@ function ClipsTab() {
           <p className="text-muted-foreground font-mono text-sm">No clip suggestions yet. Run the pipeline to generate clips.</p>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {sortedClips.map((clip: any) => (
-            <Card key={clip.id} className="glass-panel border-border/50 hover:border-primary/20 transition-all" data-testid={`card-clip-${clip.id}`}>
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center gap-2">
-                    <Badge className={cn("text-lg font-bold font-mono px-3 py-1 border", getScoreColor(clip.viralScore || 0))} data-testid={`badge-score-${clip.id}`}>
-                      {clip.viralScore || 0}
-                    </Badge>
-                    <span className="text-[9px] font-mono uppercase text-muted-foreground">Viral</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {sortedClips.map((clip: any) => {
+            const episode = (episodes || []).find((ep: any) => ep.id === clip.episodeId);
+            const videoSrc = clip.clipUrl || episode?.videoUrl;
+            return (
+              <Card key={clip.id} className="glass-panel border-border/50 hover:border-primary/20 transition-all overflow-hidden" data-testid={`card-clip-${clip.id}`}>
+                {videoSrc ? (
+                  <ClipVideoPreview videoUrl={videoSrc} startTime={clip.startTime} />
+                ) : (
+                  <div className="aspect-video w-full bg-black/30 flex items-center justify-center">
+                    <div className="text-center">
+                      <Film className="h-8 w-8 text-muted-foreground/30 mx-auto mb-1" />
+                      <span className="text-[10px] font-mono text-muted-foreground/50">Audio only</span>
+                    </div>
                   </div>
-
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-display font-bold text-base truncate" data-testid={`text-clip-title-${clip.id}`}>{clip.title}</h3>
-                      <Badge variant="outline" className={cn(
-                        "font-mono text-[9px] uppercase",
-                        clip.status === "approved" ? "border-emerald-500/50 text-emerald-500" :
-                        clip.status === "exported" ? "border-primary/50 text-primary" :
-                        "border-muted text-muted-foreground"
-                      )}>{clip.status}</Badge>
-                      {clip.platform && (
-                        <Badge variant="outline" className="font-mono text-[9px]">
-                          {getPlatformIcon(clip.platform, "h-3 w-3 mr-1 inline")}
-                          {getPlatformLabel(clip.platform)}
-                        </Badge>
+                )}
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-display font-bold text-sm truncate" data-testid={`text-clip-title-${clip.id}`}>{clip.title}</h3>
+                        <Badge variant="outline" className={cn(
+                          "font-mono text-[9px] uppercase flex-shrink-0",
+                          clip.status === "approved" ? "border-emerald-500/50 text-emerald-500" :
+                          clip.status === "exported" ? "border-primary/50 text-primary" :
+                          "border-muted text-muted-foreground"
+                        )}>{clip.status}</Badge>
+                      </div>
+                      {episode && (
+                        <p className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">{episode.title}</p>
                       )}
                     </div>
+                    <Badge className={cn("text-sm font-bold font-mono px-2 py-0.5 border flex-shrink-0", getScoreColor(clip.viralScore || 0))} data-testid={`badge-score-${clip.id}`}>
+                      {clip.viralScore || 0}
+                    </Badge>
+                  </div>
 
-                    {clip.hookText && (
-                      <p className="text-sm text-foreground/80 italic">"{clip.hookText}"</p>
-                    )}
+                  {clip.hookText && (
+                    <p className="text-xs text-foreground/80 italic line-clamp-2">"{clip.hookText}"</p>
+                  )}
 
-                    <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Play className="h-3 w-3" />
-                        {clip.startTime} → {clip.endTime}
+                  <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Play className="h-3 w-3" />
+                      {clip.startTime} → {clip.endTime}
+                    </span>
+                    {clip.duration && <span>({clip.duration})</span>}
+                    {clip.platform && (
+                      <span className="flex items-center gap-1 ml-auto">
+                        {getPlatformIcon(clip.platform, "h-3 w-3")}
+                        {getPlatformLabel(clip.platform)}
                       </span>
-                      {clip.duration && <span>({clip.duration})</span>}
-                    </div>
-
-                    {clip.transcriptExcerpt && (
-                      <blockquote className="border-l-2 border-primary/30 pl-3 text-xs text-muted-foreground italic mt-2 line-clamp-2">
-                        {clip.transcriptExcerpt}
-                      </blockquote>
                     )}
                   </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
+                  {clip.transcriptExcerpt && (
+                    <blockquote className="border-l-2 border-primary/30 pl-3 text-[11px] text-muted-foreground italic line-clamp-2">
+                      {clip.transcriptExcerpt}
+                    </blockquote>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleApprove(clip.id)}
                       disabled={updateClip.isPending || clip.status === "approved"}
-                      className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
+                      className="flex-1 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 text-xs"
                       data-testid={`button-approve-clip-${clip.id}`}
                     >
                       <ThumbsUp className="h-3 w-3 mr-1" /> Approve
@@ -1667,16 +1722,16 @@ function ClipsTab() {
                       size="sm"
                       onClick={() => handleReject(clip.id)}
                       disabled={deleteClip.isPending}
-                      className="border-red-500/30 text-red-500 hover:bg-red-500/10"
+                      className="flex-1 border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs"
                       data-testid={`button-reject-clip-${clip.id}`}
                     >
                       <ThumbsDown className="h-3 w-3 mr-1" /> Reject
                     </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
