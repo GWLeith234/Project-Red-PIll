@@ -344,7 +344,10 @@ export function MobileHeader() {
   const { data: branding } = useBranding();
 
   return (
-    <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-sidebar border-b border-border h-14 flex items-center px-4 gap-3" data-testid="mobile-header">
+    <div className={cn(
+      "lg:hidden fixed top-0 left-0 right-0 z-40 bg-sidebar border-b border-border h-14 flex items-center px-4 gap-3 transition-transform duration-300 ease-in-out",
+      open ? "translate-x-72" : "translate-x-0"
+    )} data-testid="mobile-header">
       <button
         onClick={() => setOpen(!open)}
         className="p-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -373,14 +376,7 @@ export function Sidebar() {
     setOpen(false);
   }, [location, setOpen]);
 
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  
 
   return (
     <>
@@ -388,13 +384,6 @@ export function Sidebar() {
         <SidebarContent />
       </div>
 
-      {open && (
-        <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
-          data-testid="mobile-sidebar-overlay"
-        />
-      )}
       <div
         className={cn(
           "lg:hidden fixed top-14 left-0 bottom-0 z-50 w-72 bg-sidebar border-r border-border text-sidebar-foreground font-sans flex flex-col transition-transform duration-300 ease-in-out",

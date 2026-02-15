@@ -1,5 +1,6 @@
 import React, { Suspense } from "react";
-import { Sidebar, MobileHeader, MobileSidebarProvider } from "@/components/layout/Sidebar";
+import { Sidebar, MobileHeader, MobileSidebarProvider, useMobileSidebar } from "@/components/layout/Sidebar";
+import { cn } from "@/lib/utils";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -47,20 +48,30 @@ function PageLoader() {
   );
 }
 
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
+  const { open } = useMobileSidebar();
+  return (
+    <div className="flex min-h-screen bg-background text-foreground font-sans">
+      <MobileHeader />
+      <Sidebar />
+      <main className={cn(
+        "flex-1 ml-0 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto h-screen bg-[url('/images/command-center-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat relative transition-transform duration-300 ease-in-out",
+        open ? "translate-x-72 lg:translate-x-0" : "translate-x-0"
+      )}>
+        <div className="absolute inset-0 bg-background/90 z-0 pointer-events-none backdrop-blur-[2px]"></div>
+        <div className="relative z-10 max-w-7xl mx-auto">
+          {children}
+        </div>
+      </main>
+      <NpsFeedbackWidget />
+    </div>
+  );
+}
+
 function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <MobileSidebarProvider>
-      <div className="flex min-h-screen bg-background text-foreground font-sans">
-        <MobileHeader />
-        <Sidebar />
-        <main className="flex-1 ml-0 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto h-screen bg-[url('/images/command-center-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat relative">
-          <div className="absolute inset-0 bg-background/90 z-0 pointer-events-none backdrop-blur-[2px]"></div>
-          <div className="relative z-10 max-w-7xl mx-auto">
-            {children}
-          </div>
-        </main>
-        <NpsFeedbackWidget />
-      </div>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
     </MobileSidebarProvider>
   );
 }
