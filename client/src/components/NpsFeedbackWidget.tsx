@@ -59,7 +59,7 @@ export function NpsFeedbackWidget() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center group"
+        className="fixed bottom-6 left-6 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center group"
         data-testid="button-nps-trigger"
       >
         <MessageSquareHeart className="h-5 w-5 group-hover:scale-110 transition-transform" />
@@ -68,7 +68,7 @@ export function NpsFeedbackWidget() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[340px] sm:w-[380px] bg-card border border-border rounded-lg shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300" data-testid="nps-feedback-widget">
+    <div className="fixed bottom-6 left-6 z-50 w-[340px] sm:w-[380px] bg-card border border-border rounded-lg shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-300" data-testid="nps-feedback-widget">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
           <MessageSquareHeart className="h-4 w-4 text-primary" />
