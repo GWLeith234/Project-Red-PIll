@@ -570,12 +570,18 @@ export async function registerRoutes(
   });
 
   app.post("/api/scheduled-posts", requireAuth, requirePermission("content.edit"), async (req, res) => {
-    const data = await storage.createScheduledPost(req.body);
+    const body = { ...req.body };
+    if (body.scheduledAt && typeof body.scheduledAt === "string") body.scheduledAt = new Date(body.scheduledAt);
+    if (body.publishedAt && typeof body.publishedAt === "string") body.publishedAt = new Date(body.publishedAt);
+    const data = await storage.createScheduledPost(body);
     res.status(201).json(data);
   });
 
   app.patch("/api/scheduled-posts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
-    const data = await storage.updateScheduledPost(req.params.id, req.body);
+    const body = { ...req.body };
+    if (body.scheduledAt && typeof body.scheduledAt === "string") body.scheduledAt = new Date(body.scheduledAt);
+    if (body.publishedAt && typeof body.publishedAt === "string") body.publishedAt = new Date(body.publishedAt);
+    const data = await storage.updateScheduledPost(req.params.id, body);
     if (!data) return res.status(404).json({ message: "Not found" });
     res.json(data);
   });

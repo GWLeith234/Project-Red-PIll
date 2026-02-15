@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   Calendar, Plus, Trash2, Edit3, Clock, Sparkles, Lightbulb, Loader2,
   Linkedin, Facebook, Building2, ChevronLeft, ChevronRight, Zap,
@@ -519,23 +520,56 @@ export default function SchedulerPage() {
                           const cfg = getChannelConfig(post.platform);
                           const piece = contentPieces?.find((p: any) => p.id === post.contentPieceId);
                           return (
-                            <div
-                              key={post.id}
-                              className={cn(
-                                "rounded px-1.5 py-0.5 text-[9px] font-mono truncate border cursor-grab active:cursor-grabbing transition-all hover:opacity-80",
-                                cfg.bg, cfg.border, cfg.color
-                              )}
-                              draggable
-                              onDragStart={(e) => { e.stopPropagation(); handleDragStart(post); }}
-                              onClick={(e) => { e.stopPropagation(); openEditDialog(post); }}
-                              title={`${cfg.label}: ${piece?.title || "Post"} @ ${new Date(post.scheduledAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
-                              data-testid={`calendar-post-${post.id}`}
-                            >
-                              <span className="flex items-center gap-1">
-                                <cfg.icon className="h-2 w-2 shrink-0" />
-                                {piece?.title?.slice(0, 20) || "Post"}
-                              </span>
-                            </div>
+                            <HoverCard key={post.id} openDelay={200} closeDelay={100}>
+                              <HoverCardTrigger asChild>
+                                <div
+                                  className={cn(
+                                    "rounded px-1.5 py-0.5 text-[9px] font-mono truncate border cursor-grab active:cursor-grabbing transition-all hover:opacity-80",
+                                    cfg.bg, cfg.border, cfg.color
+                                  )}
+                                  draggable
+                                  onDragStart={(e) => { e.stopPropagation(); handleDragStart(post); }}
+                                  onClick={(e) => { e.stopPropagation(); openEditDialog(post); }}
+                                  data-testid={`calendar-post-${post.id}`}
+                                >
+                                  <span className="flex items-center gap-1">
+                                    <cfg.icon className="h-2 w-2 shrink-0" />
+                                    {piece?.title?.slice(0, 20) || "Post"}
+                                  </span>
+                                </div>
+                              </HoverCardTrigger>
+                              <HoverCardContent side="right" align="start" className="w-72 p-0 border-border/60 bg-card z-50" sideOffset={8}>
+                                <div className={cn("px-3 py-2 border-b flex items-center gap-2", cfg.bg, cfg.border)}>
+                                  <cfg.icon className={cn("h-3.5 w-3.5 shrink-0", cfg.color)} />
+                                  <span className={cn("font-mono text-xs font-semibold", cfg.color)}>{cfg.label}</span>
+                                  <Badge variant="outline" className={cn("ml-auto font-mono text-[8px] uppercase", statusColor(post.status))}>
+                                    {post.status}
+                                  </Badge>
+                                </div>
+                                <div className="px-3 py-2.5 space-y-2">
+                                  <p className="text-sm font-medium leading-tight">{piece?.title || "Untitled"}</p>
+                                  {piece?.description && (
+                                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{piece.description}</p>
+                                  )}
+                                  {post.postText && (
+                                    <div className="bg-muted/30 rounded p-2 border border-border/30">
+                                      <p className="text-[11px] text-foreground/80 leading-snug line-clamp-4">{post.postText}</p>
+                                    </div>
+                                  )}
+                                  {post.hashtags && post.hashtags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {post.hashtags.slice(0, 5).map((tag: string, ti: number) => (
+                                        <span key={ti} className="text-[9px] font-mono text-primary/70 bg-primary/5 rounded px-1.5 py-0.5">#{tag}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono pt-1 border-t border-border/30">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {new Date(post.scheduledAt).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                                  </div>
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
                           );
                         })}
                         {filteredPosts.length > 3 && (
