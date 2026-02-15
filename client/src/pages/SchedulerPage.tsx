@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   useContentPieces, useScheduledPosts, useCreateScheduledPost,
   useUpdateScheduledPost, useDeleteScheduledPost, useSmartSuggestions,
-  useAutoSchedule,
+  useAutoSchedule, useEpisodes,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -103,12 +103,29 @@ function parseSuggestionTime(timeStr: string): string | null {
 export default function SchedulerPage() {
   const { data: posts, isLoading } = useScheduledPosts();
   const { data: contentPieces } = useContentPieces();
+  const { data: episodes } = useEpisodes();
   const createPost = useCreateScheduledPost();
   const updatePost = useUpdateScheduledPost();
   const deletePost = useDeleteScheduledPost();
   const smartSuggestions = useSmartSuggestions();
   const autoSchedule = useAutoSchedule();
   const { toast } = useToast();
+
+  function getContentUrl(piece: any): string {
+    if (!piece) return "";
+    const episode = episodes?.find((e: any) => e.id === piece.episodeId);
+    const base = window.location.origin;
+    if (episode?.podcastId) {
+      return `${base}/news/${episode.podcastId}/article/${piece.id}`;
+    }
+    return `${base}/news/article/${piece.id}`;
+  }
+
+  function resolveLinks(text: string, piece: any): string {
+    if (!text || !piece) return text;
+    const url = getContentUrl(piece);
+    return text.replace(/\[LINK\]/gi, url);
+  }
 
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -183,11 +200,12 @@ export default function SchedulerPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const selectedPiece = contentPieces?.find((p: any) => p.id === form.contentPieceId);
     const data: any = {
       contentPieceId: form.contentPieceId,
       platform: form.platform,
       scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : new Date().toISOString(),
-      postText: form.postText || undefined,
+      postText: resolveLinks(form.postText || "", selectedPiece),
       hashtags: form.hashtags ? form.hashtags.split(",").map(h => h.trim()).filter(Boolean) : [],
     };
 
@@ -755,6 +773,38 @@ export default function SchedulerPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {form.contentPieceId && (() => {
+                const piece = contentPieces?.find((p: any) => p.id === form.contentPieceId);
+                if (!piece) return null;
+                const contentUrl = getContentUrl(piece);
+                return (
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/30 border border-border/30">
+                    <Newspaper className="h-3 w-3 text-primary shrink-0" />
+                    <a
+                      href={contentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-primary hover:underline truncate font-mono"
+                      data-testid="link-content-preview"
+                    >
+                      {piece.title}
+                    </a>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto h-5 px-1.5 text-[9px] font-mono"
+                      onClick={() => {
+                        navigator.clipboard.writeText(contentUrl);
+                        toast({ title: "Link Copied" });
+                      }}
+                      data-testid="button-copy-content-link"
+                    >
+                      Copy Link
+                    </Button>
+                  </div>
+                );
+              })()}
             </div>
             <div className="space-y-2">
               <Label className="font-mono text-xs uppercase tracking-wider">Channel</Label>
@@ -859,6 +909,24 @@ export default function SchedulerPage() {
                 rows={4}
                 data-testid="input-schedule-text"
               />
+              {form.postText?.includes("[LINK]") && form.contentPieceId && (
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-amber-400 font-mono">[LINK] will be replaced with the content URL on save</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1.5 text-[9px] font-mono text-primary"
+                    onClick={() => {
+                      const piece = contentPieces?.find((p: any) => p.id === form.contentPieceId);
+                      setForm({ ...form, postText: resolveLinks(form.postText, piece) });
+                    }}
+                    data-testid="button-resolve-link"
+                  >
+                    Replace Now
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="font-mono text-xs uppercase tracking-wider">Hashtags</Label>
@@ -891,7 +959,9 @@ export default function SchedulerPage() {
                 <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Click a suggestion to apply it:</p>
                 {Array.isArray(suggestions.suggestions) && suggestions.suggestions.slice(0, 5).map((s: any, i: number) => {
                   const cfg = getChannelConfig(s.platform || "");
-                  const isApplied = form.platform === s.platform && form.postText === (s.suggestedText || s.postText || "");
+                  const selectedPieceForCheck = contentPieces?.find((p: any) => p.id === form.contentPieceId);
+                  const resolvedText = resolveLinks(s.suggestedText || s.postText || "", selectedPieceForCheck);
+                  const isApplied = form.platform === s.platform && form.postText === resolvedText;
                   return (
                     <button
                       key={i}
@@ -899,7 +969,11 @@ export default function SchedulerPage() {
                       onClick={() => {
                         const updates: any = { ...form };
                         if (s.platform) updates.platform = s.platform;
-                        if (s.suggestedText || s.postText) updates.postText = s.suggestedText || s.postText;
+                        const selectedPiece = contentPieces?.find((p: any) => p.id === form.contentPieceId);
+                        if (s.suggestedText || s.postText) {
+                          const rawText = s.suggestedText || s.postText;
+                          updates.postText = resolveLinks(rawText, selectedPiece);
+                        }
                         if (s.hashtags) updates.hashtags = Array.isArray(s.hashtags) ? s.hashtags.join(", ") : s.hashtags;
                         if (s.bestTime) {
                           const parsed = parseSuggestionTime(s.bestTime);
