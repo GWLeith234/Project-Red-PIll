@@ -3,7 +3,6 @@ import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { NpsFeedbackButton } from "@/components/NpsFeedbackWidget";
 import { 
   LayoutDashboard, 
   Factory, 
@@ -31,7 +30,6 @@ import {
   Mail,
   Menu,
   X,
-  MessageSquareHeart,
   Blocks,
   Heart,
   type LucideIcon,
@@ -302,26 +300,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <div className="border-t border-border/50 px-3 py-2 space-y-0.5">
-        <Link
-          href="/analytics?section=nps"
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
-            location === "/analytics" && new URLSearchParams(searchString).get("section") === "nps"
-              ? "bg-sidebar-primary/10 text-primary border-l-2 border-primary"
-              : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-          )}
-          data-testid="link-nav-nps-feedback"
-        >
-          <MessageSquareHeart className="mr-3 h-4 w-4 flex-shrink-0" />
-          <span className="truncate">NPS Feedback</span>
-        </Link>
-        <div className="hidden lg:block">
-          <NpsFeedbackButton variant="sidebar" />
-        </div>
-      </div>
-
       <div className="border-t border-border px-3 py-3">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/50 text-primary font-bold text-[10px] flex-shrink-0" data-testid="sidebar-user-avatar">
@@ -374,7 +352,6 @@ export function MobileHeader() {
           </span>
         )}
       </div>
-      <NpsFeedbackButton />
     </div>
   );
 }
