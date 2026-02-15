@@ -4133,11 +4133,7 @@ export async function registerRoutes(
 
   app.get("/api/ai-brief", requireAuth, async (req, res) => {
     try {
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
+      const { claude } = await import("./ai-providers");
 
       const [episodes, contentPieces, subscribers, advertisers, deals, campaigns, podcasts] = await Promise.all([
         storage.getEpisodes(),
@@ -4176,21 +4172,18 @@ Platform Metrics Snapshot:
       let clientClosed = false;
       req.on("close", () => { clientClosed = true; });
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5-nano",
-        stream: true,
-        messages: [
-          {
-            role: "system",
-            content: `You are the AI assistant for a media platform command center. Generate a concise, energizing success briefing based on the platform metrics provided. Use a confident, executive tone. Structure it as:
+      const stream = claude.messages.stream({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 2048,
+        system: `You are the AI assistant for a media platform command center. Generate a concise, energizing success briefing based on the platform metrics provided. Use a confident, executive tone. Structure it as:
 
 1. **Headline** - One powerful sentence summarizing overall platform health
 2. **Key Wins** - 2-3 bullet points highlighting the strongest metrics
 3. **Growth Signal** - One sentence about momentum or opportunity
 4. **Next Move** - One actionable recommendation
 
-Keep it under 150 words. Use numbers and percentages. Be specific, not generic. If metrics are low or early-stage, frame them as "foundation laid" or "ready to scale" - always constructive and forward-looking.`
-          },
+Keep it under 150 words. Use numbers and percentages. Be specific, not generic. If metrics are low or early-stage, frame them as "foundation laid" or "ready to scale" - always constructive and forward-looking.`,
+        messages: [
           {
             role: "user",
             content: metricsContext
@@ -4198,13 +4191,14 @@ Keep it under 150 words. Use numbers and percentages. Be specific, not generic. 
         ],
       });
 
-      for await (const chunk of stream) {
-        if (clientClosed) break;
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+      stream.on("text", (text) => {
+        if (!clientClosed) {
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
         }
-      }
+      });
+
+      await stream.finalMessage();
+
       if (!clientClosed) {
         res.write(`data: [DONE]\n\n`);
       }
@@ -4232,25 +4226,27 @@ Keep it under 150 words. Use numbers and percentages. Be specific, not generic. 
     res.status(201).json(survey);
   });
 
-  // ── Image Studio: AI Generation ──
+  // ── Image Studio: AI Generation (Grok) ──
   app.post("/api/images/generate", requireAuth, async (req, res) => {
     try {
-      const { prompt, size = "1024x1024" } = req.body;
+      const { prompt, size = "1024x1024", aspect_ratio } = req.body;
       if (!prompt) return res.status(400).json({ message: "Prompt is required" });
 
-      const { openai } = await import("./replit_integrations/image/client");
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
+      const { grok } = await import("./ai-providers");
+      const response = await grok.images.generate({
+        model: "grok-imagine-image",
         prompt,
         n: 1,
-        size: size as "1024x1024" | "512x512" | "256x256",
-      });
+        ...(aspect_ratio ? { aspect_ratio } : { size: size as any }),
+        response_format: "url",
+      } as any);
 
-      const base64 = response.data[0]?.b64_json;
-      if (base64) {
-        res.json({ url: `data:image/png;base64,${base64}`, b64_json: base64 });
+      const imageUrl = response.data[0]?.url;
+      const b64 = response.data[0]?.b64_json;
+      if (b64) {
+        res.json({ url: `data:image/png;base64,${b64}`, b64_json: b64 });
       } else {
-        res.json({ url: response.data[0]?.url || null });
+        res.json({ url: imageUrl || null });
       }
     } catch (error: any) {
       console.error("Image generation error:", error);
@@ -4307,6 +4303,441 @@ Keep it under 150 words. Use numbers and percentages. Be specific, not generic. 
       console.error("Stock search error:", error);
       res.status(500).json({ message: error.message || "Failed to search stock photos" });
     }
+  });
+
+  // ── AI Provider Health Check (Task 6 + 11) ──
+  app.get("/api/ai/health", requireAuth, requirePermission("settings.view"), async (req, res) => {
+    const results: Record<string, { status: string; responseTimeMs: number; error?: string }> = {};
+
+    const checkProvider = async (name: string, fn: () => Promise<void>) => {
+      const start = Date.now();
+      try {
+        await fn();
+        results[name] = { status: "ok", responseTimeMs: Date.now() - start };
+      } catch (err: any) {
+        results[name] = { status: "error", responseTimeMs: Date.now() - start, error: err.message };
+      }
+    };
+
+    await Promise.all([
+      checkProvider("claude", async () => {
+        const { claude } = await import("./ai-providers");
+        const r = await claude.messages.create({
+          model: "claude-sonnet-4-5-20250929",
+          max_tokens: 16,
+          messages: [{ role: "user", content: "Say ok" }],
+        });
+        if (!r.content[0]) throw new Error("No response");
+      }),
+      checkProvider("grok", async () => {
+        if (!process.env.XAI_API_KEY) throw new Error("XAI_API_KEY not configured");
+        results["grok"] = { status: "configured", responseTimeMs: 0 };
+      }),
+      checkProvider("openai_whisper", async () => {
+        const key = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+        if (!key) throw new Error("OpenAI API key not configured");
+        results["openai_whisper"] = { status: "configured", responseTimeMs: 0 };
+      }),
+      checkProvider("gemini", async () => {
+        if (!process.env.GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY not configured");
+        const { gemini } = await import("./ai-providers");
+        const r = await gemini.generateContent("Say ok");
+        if (!r.response.text()) throw new Error("No response");
+      }),
+    ]);
+
+    res.json({ providers: results, timestamp: new Date().toISOString() });
+  });
+
+  // ── Gemini Video Analysis for Viral Clip Detection (Task 7) ──
+  app.post("/api/ai/analyze-video", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { episodeId } = req.body;
+      if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
+
+      const episode = await storage.getEpisode(episodeId);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+
+      const videoUrl = episode.videoUrl;
+      if (!videoUrl) return res.status(400).json({ message: "Episode has no video file" });
+
+      if (!process.env.GOOGLE_API_KEY) {
+        return res.status(503).json({ message: "GOOGLE_API_KEY not configured. Add it in Settings to enable video analysis." });
+      }
+
+      const { GoogleAIFileManager } = await import("@google/generative-ai/server");
+      const { gemini } = await import("./ai-providers");
+
+      let videoBuffer: Buffer;
+      if (videoUrl.startsWith("/objects/")) {
+        const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+        const objectService = new ObjectStorageService();
+        const objectFile = await objectService.getObjectEntityFile(videoUrl);
+        const [contents] = await objectFile.download();
+        videoBuffer = Buffer.from(contents);
+      } else {
+        const response = await fetch(videoUrl);
+        if (!response.ok) throw new Error(`Failed to fetch video: HTTP ${response.status}`);
+        videoBuffer = Buffer.from(await response.arrayBuffer());
+      }
+
+      const fs = await import("fs");
+      const path = await import("path");
+      const tmpPath = path.join("/tmp", `video_${episodeId}_${Date.now()}.mp4`);
+      fs.writeFileSync(tmpPath, videoBuffer);
+
+      const fileManager = new GoogleAIFileManager(process.env.GOOGLE_API_KEY);
+      const uploadResult = await fileManager.uploadFile(tmpPath, {
+        mimeType: "video/mp4",
+        displayName: episode.title || "Episode Video",
+      });
+
+      let file = await fileManager.getFile(uploadResult.file.name);
+      let attempts = 0;
+      while (file.state === "PROCESSING" && attempts < 60) {
+        await new Promise(r => setTimeout(r, 10000));
+        file = await fileManager.getFile(uploadResult.file.name);
+        attempts++;
+      }
+
+      if (file.state !== "ACTIVE") {
+        throw new Error(`Video processing failed. State: ${file.state}`);
+      }
+
+      const analysisResponse = await gemini.generateContent([
+        {
+          fileData: {
+            mimeType: uploadResult.file.mimeType,
+            fileUri: uploadResult.file.uri,
+          },
+        },
+        `You are a viral content producer for a podcast. Watch this episode and identify the 5-8 most viral-worthy moments.
+
+For each moment, return JSON with:
+- timestamp_start (MM:SS format)
+- timestamp_end (MM:SS format)
+- duration_seconds
+- quote (the key statement, under 20 words)
+- why_viral (emotional peak, hot take, surprising reveal, strong reaction, etc.)
+- virality_score (1-10)
+- suggested_platform (TikTok, X, YouTube Shorts, Instagram Reels)
+
+Prioritize: strong emotional reactions, controversial takes, surprising statements, clear visual energy, and quotable one-liners.
+
+Respond ONLY with valid JSON array.`,
+      ]);
+
+      const clipText = analysisResponse.response.text();
+      let clips: any[];
+      try {
+        const cleaned = clipText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        clips = JSON.parse(cleaned);
+      } catch {
+        clips = [];
+      }
+
+      const savedClips = [];
+      for (const clip of clips) {
+        const asset = await storage.createClipAsset({
+          episodeId,
+          title: clip.quote || "Viral Moment",
+          hookText: clip.quote || "",
+          startTime: clip.timestamp_start || "00:00",
+          endTime: clip.timestamp_end || "01:00",
+          duration: clip.duration_seconds ? `${clip.duration_seconds}s` : "60s",
+          transcriptExcerpt: clip.quote || "",
+          viralScore: clip.virality_score ? clip.virality_score * 10 : 50,
+          status: "suggested",
+          platform: (clip.suggested_platform || "tiktok").toLowerCase(),
+        });
+        savedClips.push({ ...asset, why_viral: clip.why_viral });
+      }
+
+      try { fs.unlinkSync(tmpPath); } catch {}
+
+      res.json({ clips: savedClips, totalFound: clips.length });
+    } catch (err: any) {
+      console.error("[analyze-video] Error:", err.message);
+      try {
+        const fs = await import("fs");
+        const path = await import("path");
+        const tmpPath = path.join("/tmp", `video_${req.body.episodeId}_*.mp4`);
+      } catch {}
+      res.status(500).json({ message: err.message || "Video analysis failed" });
+    }
+  });
+
+  // ── FFmpeg Clip Extraction (Task 8) ──
+  app.post("/api/ai/extract-clips", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { episodeId, clips } = req.body;
+      if (!episodeId) return res.status(400).json({ message: "episodeId is required" });
+      if (!Array.isArray(clips) || clips.length === 0) return res.status(400).json({ message: "clips array is required" });
+
+      const episode = await storage.getEpisode(episodeId);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+
+      const videoUrl = episode.videoUrl;
+      if (!videoUrl) return res.status(400).json({ message: "Episode has no video file" });
+
+      const fs = await import("fs");
+      const path = await import("path");
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      let sourceVideoPath: string;
+      if (videoUrl.startsWith("/objects/")) {
+        const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+        const objectService = new ObjectStorageService();
+        const objectFile = await objectService.getObjectEntityFile(videoUrl);
+        const [contents] = await objectFile.download();
+        sourceVideoPath = path.join("/tmp", `source_${episodeId}_${Date.now()}.mp4`);
+        fs.writeFileSync(sourceVideoPath, Buffer.from(contents));
+      } else {
+        const response = await fetch(videoUrl);
+        if (!response.ok) throw new Error(`Failed to fetch video: HTTP ${response.status}`);
+        sourceVideoPath = path.join("/tmp", `source_${episodeId}_${Date.now()}.mp4`);
+        fs.writeFileSync(sourceVideoPath, Buffer.from(await response.arrayBuffer()));
+      }
+
+      const extractedClips = [];
+      for (const clip of clips) {
+        try {
+          const outputFile = path.join("/tmp", `clip_${episodeId}_${clip.timestamp_start?.replace(":", "-") || Date.now()}.mp4`);
+          const cmd = `ffmpeg -y -i "${sourceVideoPath}" -ss ${clip.timestamp_start || "00:00"} -to ${clip.timestamp_end || "01:00"} -vf "crop=ih*9/16:ih,scale=1080:1920" -c:a copy "${outputFile}"`;
+
+          await execAsync(cmd, { timeout: 120000 });
+
+          const clipBuffer = fs.readFileSync(outputFile);
+
+          let clipUrl = outputFile;
+          try {
+            const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+            const objectService = new ObjectStorageService();
+            const storedPath = `clips/${episodeId}/${path.basename(outputFile)}`;
+            await objectService.uploadObject(storedPath, clipBuffer, "video/mp4");
+            clipUrl = `/objects/${storedPath}`;
+          } catch {
+            clipUrl = outputFile;
+          }
+
+          if (clip.clipAssetId) {
+            await storage.updateClipAsset(clip.clipAssetId, {
+              clipUrl,
+              status: "extracted",
+            });
+          }
+
+          extractedClips.push({
+            clipAssetId: clip.clipAssetId,
+            timestamp_start: clip.timestamp_start,
+            timestamp_end: clip.timestamp_end,
+            clipUrl,
+            status: "extracted",
+          });
+
+          try { fs.unlinkSync(outputFile); } catch {}
+        } catch (clipErr: any) {
+          extractedClips.push({
+            clipAssetId: clip.clipAssetId,
+            timestamp_start: clip.timestamp_start,
+            error: clipErr.message,
+            status: "failed",
+          });
+        }
+      }
+
+      try { fs.unlinkSync(sourceVideoPath); } catch {}
+
+      res.json({ clips: extractedClips, totalExtracted: extractedClips.filter(c => c.status === "extracted").length });
+    } catch (err: any) {
+      console.error("[extract-clips] Error:", err.message);
+      res.status(500).json({ message: err.message || "Clip extraction failed" });
+    }
+  });
+
+  // ── Grok Social Listening via x_search (Task 9) ──
+  app.post("/api/ai/social-listen", requireAuth, requirePermission("content.view"), async (req, res) => {
+    try {
+      const { query, handles, fromDate } = req.body;
+      if (!query) return res.status(400).json({ message: "query is required" });
+
+      if (!process.env.XAI_API_KEY) {
+        return res.status(503).json({ message: "XAI_API_KEY not configured. Add it in Settings to enable social listening." });
+      }
+
+      const { grok } = await import("./ai-providers");
+
+      const systemPrompt = `You are a social media intelligence analyst with access to real-time X/Twitter data. When analyzing a query, use your knowledge of current X/Twitter trends, posts, and engagement patterns to provide actionable intelligence.
+
+Your analysis must include:
+1. trending_topics: Array of objects with {topic: string, engagement_level: "high"|"medium"|"low", sentiment: "positive"|"negative"|"neutral"|"mixed", post_volume_estimate: string}
+2. key_posts: Array of {handle: string, summary: string, engagement_type: string, relevance_score: number}
+3. content_recommendations: Array of actionable content strategy suggestions based on what's trending
+4. audience_insights: Object with {primary_demographics: string, peak_engagement_times: string[], key_interests: string[]}
+5. competitor_activity: Array of {handle: string, activity_summary: string, strategy_notes: string}
+6. hashtag_analysis: Array of {hashtag: string, momentum: "rising"|"stable"|"declining", recommendation: string}
+
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+      const userPrompt = `Search and analyze X/Twitter activity for: "${query}"${handles ? `\nFocus especially on these X handles: ${Array.isArray(handles) ? handles.map(h => `@${h.replace("@", "")}`).join(", ") : `@${handles.replace("@", "")}`}` : ""}${fromDate ? `\nAnalyze posts from: ${fromDate} to present` : ""}
+
+Provide comprehensive social listening intelligence including trending topics, key posts, content strategy recommendations, audience insights, and competitor analysis.`;
+
+      const response = await grok.chat.completions.create({
+        model: "grok-4-1-fast-reasoning",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 4096,
+      });
+
+      const content = response.choices[0]?.message?.content || "{}";
+      let parsed;
+      try {
+        const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = { raw_response: content };
+      }
+
+      res.json({ ...parsed, query, provider: "grok", timestamp: new Date().toISOString() });
+    } catch (err: any) {
+      console.error("[social-listen] Error:", err.message);
+      res.status(500).json({ message: err.message || "Social listening failed" });
+    }
+  });
+
+  // ── Grok Collections API for Advertiser RAG (Task 10) ──
+  const advertiserCollections = new Map<string, { id: string; name: string; description: string; advertiserId: string | null; documents: Array<{ id: string; fileName: string; content: string; type: string; uploadedAt: string }>; createdAt: string }>();
+
+  app.post("/api/ai/collections", requireAuth, requirePermission("advertisers.edit"), async (req, res) => {
+    try {
+      const { name, description, advertiserId } = req.body;
+      if (!name) return res.status(400).json({ message: "Collection name is required" });
+
+      if (!process.env.XAI_API_KEY) {
+        return res.status(503).json({ message: "XAI_API_KEY not configured. Add it in Settings to enable advertiser RAG." });
+      }
+
+      const collectionId = `coll_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const collection = {
+        id: collectionId,
+        name,
+        description: description || "",
+        advertiserId: advertiserId || null,
+        documents: [],
+        createdAt: new Date().toISOString(),
+      };
+      advertiserCollections.set(collectionId, collection);
+
+      res.json({
+        id: collectionId,
+        name,
+        description: collection.description,
+        advertiserId: collection.advertiserId,
+        status: "created",
+        documentCount: 0,
+        createdAt: collection.createdAt,
+      });
+    } catch (err: any) {
+      console.error("[collections] Error:", err.message);
+      res.status(500).json({ message: err.message || "Collection creation failed" });
+    }
+  });
+
+  app.post("/api/ai/collections/:id/upload", requireAuth, requirePermission("advertisers.edit"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { content, fileName, type } = req.body;
+      if (!content) return res.status(400).json({ message: "Document content is required" });
+
+      const collection = advertiserCollections.get(id);
+      if (!collection) return res.status(404).json({ message: "Collection not found" });
+
+      const documentId = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      collection.documents.push({
+        id: documentId,
+        fileName: fileName || "document",
+        content,
+        type: type || "text",
+        uploadedAt: new Date().toISOString(),
+      });
+
+      res.json({
+        collectionId: id,
+        documentId,
+        fileName: fileName || "document",
+        type: type || "text",
+        status: "indexed",
+        totalDocuments: collection.documents.length,
+        uploadedAt: collection.documents[collection.documents.length - 1].uploadedAt,
+      });
+    } catch (err: any) {
+      console.error("[collections/upload] Error:", err.message);
+      res.status(500).json({ message: err.message || "Document upload failed" });
+    }
+  });
+
+  app.post("/api/ai/collections/:id/query", requireAuth, requirePermission("advertisers.view"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { question } = req.body;
+      if (!question) return res.status(400).json({ message: "Question is required" });
+
+      if (!process.env.XAI_API_KEY) {
+        return res.status(503).json({ message: "XAI_API_KEY not configured." });
+      }
+
+      const collection = advertiserCollections.get(id);
+      const documentContext = collection?.documents.length
+        ? collection.documents.map(d => `--- Document: ${d.fileName} (${d.type}) ---\n${d.content.slice(0, 5000)}`).join("\n\n")
+        : "No documents have been uploaded to this collection yet.";
+
+      const { grok } = await import("./ai-providers");
+
+      const response = await grok.chat.completions.create({
+        model: "grok-4-1-fast-reasoning",
+        messages: [
+          {
+            role: "system",
+            content: `You are an advertiser intelligence assistant with access to a document collection. Use the provided documents as your knowledge base to answer questions about the advertiser's brand, guidelines, campaign requirements, and preferences. Ground your answers in the document content. If the documents don't contain relevant information, say so clearly and provide general best-practice advice instead.`,
+          },
+          {
+            role: "user",
+            content: `DOCUMENT COLLECTION "${collection?.name || id}":\n${documentContext}\n\n---\nQUESTION: ${question}`,
+          },
+        ],
+        max_tokens: 2048,
+      });
+
+      const answer = response.choices[0]?.message?.content || "No answer generated.";
+      res.json({
+        collectionId: id,
+        collectionName: collection?.name || id,
+        documentsSearched: collection?.documents.length || 0,
+        question,
+        answer,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error("[collections/query] Error:", err.message);
+      res.status(500).json({ message: err.message || "Collection query failed" });
+    }
+  });
+
+  app.get("/api/ai/collections", requireAuth, requirePermission("advertisers.view"), async (_req, res) => {
+    const collections = Array.from(advertiserCollections.values()).map(c => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      advertiserId: c.advertiserId,
+      documentCount: c.documents.length,
+      createdAt: c.createdAt,
+    }));
+    res.json(collections);
   });
 
   return httpServer;

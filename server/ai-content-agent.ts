@@ -1,11 +1,6 @@
-import OpenAI from "openai";
+import { claude, openai } from "./ai-providers";
 import { storage } from "./storage";
 import type { Episode, ContentPiece, ClipAsset } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 function generateSlug(title: string): string {
   return title
@@ -100,7 +95,9 @@ Return JSON:
   ],
   "suggestedTitle": "SEO-optimized title using top trending keywords",
   "suggestedMetaDescription": "150-160 char meta description with primary keywords"
-}`;
+}
+
+Respond with valid JSON only. No markdown code fences, no preamble.`;
 
   const userPrompt = `Analyze this podcast transcript for the most valuable, currently trending keywords to optimize for maximum search visibility and audience growth.
 
@@ -110,17 +107,16 @@ ${podcastTitle ? `Podcast: "${podcastTitle}"` : ""}
 TRANSCRIPT:
 ${transcript.slice(0, 12000)}`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 3000,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 3000,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const parsed = JSON.parse((response.content[0] as any).text || "{}");
 
   return {
     topKeywords: (parsed.topKeywords || []).slice(0, 15),
@@ -167,7 +163,9 @@ Return your response as JSON with these exact fields:
   "seoKeywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
   "summary": "2-3 sentence article summary for preview cards",
   "body": "Full article body in markdown format with ## headings, > blockquotes, **bold**, etc."
-}`;
+}
+
+Respond with valid JSON only. No markdown code fences, no preamble.`;
 
   const userPrompt = `Transform this podcast episode transcript into a polished article.
 
@@ -177,17 +175,16 @@ ${podcastTitle ? `Podcast: "${podcastTitle}"` : ""}${keywordContext}
 TRANSCRIPT:
 ${transcript.slice(0, 15000)}`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 4096,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 4096,
   });
 
-  const content = response.choices[0]?.message?.content || "{}";
+  const content = (response.content[0] as any).text || "{}";
   let parsed: any;
   try {
     parsed = JSON.parse(content);
@@ -249,19 +246,20 @@ Return JSON:
   "seoKeywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5", "keyword6"],
   "summary": "2-3 sentence summary for preview",
   "body": "Full blog post in markdown"
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 4096,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Write a detailed blog post from this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}${keywordContext}\n\nTRANSCRIPT:\n${transcript.slice(0, 15000)}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 4096,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const parsed = JSON.parse((response.content[0] as any).text || "{}");
   const title = parsed.title || `Blog: ${episodeTitle}`;
   const body = parsed.body || "";
 
@@ -330,19 +328,20 @@ Return JSON:
       "hashtags": []
     }
   ]
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 2048,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Create social media posts from this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}${keywordContext}\n\nTRANSCRIPT:\n${transcript.slice(0, 10000)}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 2048,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || '{"posts":[]}');
+  const parsed = JSON.parse((response.content[0] as any).text || '{"posts":[]}');
   const posts = parsed.posts || [];
   const pieces: ContentPiece[] = [];
 
@@ -397,19 +396,20 @@ Return JSON:
   ]
 }
 
-Suggest 3-6 clips ordered by viral potential.`;
+Suggest 3-6 clips ordered by viral potential.
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 2048,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Find the most viral clip moments in this episode.\n\nEpisode: "${episodeTitle}"\nDuration: ${duration || "unknown"}\n\nTRANSCRIPT:\n${transcript.slice(0, 15000)}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 2048,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || '{"clips":[]}');
+  const parsed = JSON.parse((response.content[0] as any).text || '{"clips":[]}');
   const clips = parsed.clips || [];
   const assets: ClipAsset[] = [];
 
@@ -452,19 +452,20 @@ Return JSON:
   "title": "Newsletter segment heading",
   "summary": "One-line teaser",
   "body": "Full newsletter blurb in simple markdown"
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 1024,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Write a newsletter blurb for this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}\n\nTRANSCRIPT:\n${transcript.slice(0, 8000)}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 1024,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const parsed = JSON.parse((response.content[0] as any).text || "{}");
 
   return storage.createContentPiece({
     episodeId,
@@ -507,19 +508,20 @@ Return JSON:
   "seoKeywords": ["primary keyword", "secondary", "long-tail-1", "long-tail-2", "long-tail-3"],
   "body": "Full SEO asset content including FAQ section in markdown",
   "summary": "Brief description of SEO opportunities"
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 2048,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Generate SEO assets for this episode.\n\nEpisode: "${episodeTitle}"\n${podcastTitle ? `Show: "${podcastTitle}"` : ""}${keywordContext}\n\nTRANSCRIPT:\n${transcript.slice(0, 12000)}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 2048,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const parsed = JSON.parse((response.content[0] as any).text || "{}");
 
   return storage.createContentPiece({
     episodeId,
@@ -567,19 +569,20 @@ Return JSON:
   ],
   "overallStrategy": "Brief overall distribution strategy summary",
   "contentCalendarSuggestion": "Suggested posting schedule across the week"
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 1024,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Provide SMART distribution suggestions for this episode.\n\nEpisode: "${episodeTitle}"\n\nTRANSCRIPT EXCERPT:\n${transcript.slice(0, 5000)}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 1024,
   });
 
-  return JSON.parse(response.choices[0]?.message?.content || '{"suggestions":[]}');
+  return JSON.parse((response.content[0] as any).text || '{"suggestions":[]}');
 }
 
 export async function generateAutoSchedule(
@@ -637,12 +640,15 @@ Return JSON:
   ],
   "strategy": "Overall scheduling strategy explanation",
   "gapsIdentified": ["List of gap descriptions found in the current schedule"]
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 2048,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       {
         role: "user",
         content: `Schedule the following content pieces from ${startDate}${endDate ? ` to ${endDate}` : ""}.
@@ -657,11 +663,9 @@ ${endDate ? `IMPORTANT: Only schedule content within the date range ${startDate}
 Find gaps and schedule content to ensure consistent delivery across all channels.`
       },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 2048,
   });
 
-  return JSON.parse(response.choices[0]?.message?.content || '{"scheduledItems":[],"strategy":"","gapsIdentified":[]}');
+  return JSON.parse((response.content[0] as any).text || '{"scheduledItems":[],"strategy":"","gapsIdentified":[]}');
 }
 
 export async function generateMonthlyNewsletter(
@@ -774,19 +778,20 @@ Return JSON:
 {
   "title": "Newsletter subject line",
   "body": "Full newsletter body in markdown"
-}`;
+}
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+Respond with valid JSON only. No markdown code fences, no preamble.`;
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 2048,
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: `Compile ${timeWindow} ${cadence} newsletter from this content:\n\n${contentSummaries}` },
     ],
-    response_format: { type: "json_object" },
-    max_tokens: 2048,
   });
 
-  const parsed = JSON.parse(response.choices[0]?.message?.content || "{}");
+  const parsed = JSON.parse((response.content[0] as any).text || "{}");
 
   return {
     title: parsed.title || periodLabel,
