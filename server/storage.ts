@@ -59,6 +59,8 @@ import {
   communityPolls, type CommunityPoll, type InsertCommunityPoll,
   communityAnnouncements, type CommunityAnnouncement, type InsertCommunityAnnouncement,
   businessListings, type BusinessListing, type InsertBusinessListing,
+  aiLayoutExamples, type AiLayoutExample, type InsertAiLayoutExample,
+  adInjectionLog, type AdInjectionLog, type InsertAdInjectionLog,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -363,6 +365,15 @@ export interface IStorage {
   createBusinessListing(data: InsertBusinessListing): Promise<BusinessListing>;
   updateBusinessListing(id: string, data: Partial<InsertBusinessListing>): Promise<BusinessListing | undefined>;
   deleteBusinessListing(id: string): Promise<void>;
+
+  getAiLayoutExamples(pageType?: string): Promise<AiLayoutExample[]>;
+  getAiLayoutExample(id: string): Promise<AiLayoutExample | undefined>;
+  createAiLayoutExample(data: InsertAiLayoutExample): Promise<AiLayoutExample>;
+  updateAiLayoutExample(id: string, data: Partial<InsertAiLayoutExample>): Promise<AiLayoutExample | undefined>;
+  deleteAiLayoutExample(id: string): Promise<void>;
+
+  getAdInjectionLogs(pageId?: string): Promise<AdInjectionLog[]>;
+  createAdInjectionLog(data: InsertAdInjectionLog): Promise<AdInjectionLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1506,6 +1517,39 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteBusinessListing(id: string) {
     await db.delete(businessListings).where(eq(businessListings.id, id));
+  }
+
+  async getAiLayoutExamples(pageType?: string) {
+    if (pageType) {
+      return db.select().from(aiLayoutExamples).where(eq(aiLayoutExamples.pageType, pageType)).orderBy(aiLayoutExamples.displayOrder);
+    }
+    return db.select().from(aiLayoutExamples).orderBy(aiLayoutExamples.displayOrder);
+  }
+  async getAiLayoutExample(id: string) {
+    const [ex] = await db.select().from(aiLayoutExamples).where(eq(aiLayoutExamples.id, id));
+    return ex;
+  }
+  async createAiLayoutExample(data: InsertAiLayoutExample) {
+    const [created] = await db.insert(aiLayoutExamples).values(data).returning();
+    return created;
+  }
+  async updateAiLayoutExample(id: string, data: Partial<InsertAiLayoutExample>) {
+    const [updated] = await db.update(aiLayoutExamples).set({ ...data, updatedAt: new Date() }).where(eq(aiLayoutExamples.id, id)).returning();
+    return updated;
+  }
+  async deleteAiLayoutExample(id: string) {
+    await db.delete(aiLayoutExamples).where(eq(aiLayoutExamples.id, id));
+  }
+
+  async getAdInjectionLogs(pageId?: string) {
+    if (pageId) {
+      return db.select().from(adInjectionLog).where(eq(adInjectionLog.pageId, pageId)).orderBy(desc(adInjectionLog.injectedAt));
+    }
+    return db.select().from(adInjectionLog).orderBy(desc(adInjectionLog.injectedAt));
+  }
+  async createAdInjectionLog(data: InsertAdInjectionLog) {
+    const [created] = await db.insert(adInjectionLog).values(data).returning();
+    return created;
   }
 }
 
