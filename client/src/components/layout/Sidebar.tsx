@@ -3,6 +3,7 @@ import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { NpsFeedbackButton } from "@/components/NpsFeedbackWidget";
 import { 
   LayoutDashboard, 
   Factory, 
@@ -364,6 +365,7 @@ export function MobileHeader() {
           </span>
         )}
       </div>
+      <NpsFeedbackButton />
     </div>
   );
 }
