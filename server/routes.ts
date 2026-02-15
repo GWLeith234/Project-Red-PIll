@@ -4052,6 +4052,95 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/ai-brief", requireAuth, async (req, res) => {
+    try {
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const [episodes, contentPieces, subscribers, advertisers, deals, campaigns, podcasts] = await Promise.all([
+        storage.getEpisodes(),
+        storage.getContentPieces(),
+        storage.getSubscribers(),
+        storage.getAdvertisers(),
+        storage.getDeals(),
+        storage.getCampaigns(),
+        storage.getPodcasts(),
+      ]);
+
+      const totalRevenue = campaigns.reduce((sum, c) => sum + Number(c.budget || 0), 0);
+      const wonDeals = deals.filter(d => d.stage === "closed_won");
+      const wonRevenue = wonDeals.reduce((sum, d) => sum + Number(d.value || 0), 0);
+      const publishedContent = contentPieces.filter(c => c.status === "published" || c.status === "approved");
+      const transcribedEpisodes = episodes.filter(e => e.transcriptStatus === "complete");
+      const activeAdvertisers = advertisers.filter(a => a.status === "active");
+
+      const metricsContext = `
+Platform Metrics Snapshot:
+- Total podcasts: ${podcasts.length}
+- Total episodes: ${episodes.length} (${transcribedEpisodes.length} transcribed)
+- Content pieces produced: ${contentPieces.length} (${publishedContent.length} published/approved)
+- Content types: ${[...new Set(contentPieces.map(c => c.type))].join(", ") || "none yet"}
+- Total subscribers: ${subscribers.length}
+- Active advertisers: ${activeAdvertisers.length} of ${advertisers.length}
+- Ad campaigns: ${campaigns.length} (total budget: $${totalRevenue.toLocaleString()})
+- Deals: ${deals.length} total, ${wonDeals.length} closed-won ($${wonRevenue.toLocaleString()} revenue)
+- Pipeline deals: ${deals.filter(d => d.stage !== "closed_won" && d.stage !== "closed_lost").length} active
+      `.trim();
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      let clientClosed = false;
+      req.on("close", () => { clientClosed = true; });
+
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5-nano",
+        stream: true,
+        messages: [
+          {
+            role: "system",
+            content: `You are the AI assistant for a media platform command center. Generate a concise, energizing success briefing based on the platform metrics provided. Use a confident, executive tone. Structure it as:
+
+1. **Headline** - One powerful sentence summarizing overall platform health
+2. **Key Wins** - 2-3 bullet points highlighting the strongest metrics
+3. **Growth Signal** - One sentence about momentum or opportunity
+4. **Next Move** - One actionable recommendation
+
+Keep it under 150 words. Use numbers and percentages. Be specific, not generic. If metrics are low or early-stage, frame them as "foundation laid" or "ready to scale" - always constructive and forward-looking.`
+          },
+          {
+            role: "user",
+            content: metricsContext
+          }
+        ],
+      });
+
+      for await (const chunk of stream) {
+        if (clientClosed) break;
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        }
+      }
+      if (!clientClosed) {
+        res.write(`data: [DONE]\n\n`);
+      }
+      res.end();
+    } catch (err: any) {
+      console.error("[ai-brief] Error:", err?.message || err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to generate AI brief" });
+      } else {
+        res.write(`data: ${JSON.stringify({ error: "Failed to generate brief" })}\n\n`);
+        res.end();
+      }
+    }
+  });
+
   app.get("/api/nps/mine", requireAuth, async (req, res) => {
     const surveys = await storage.getNpsSurveysByUser((req as any).session?.userId);
     res.json(surveys);

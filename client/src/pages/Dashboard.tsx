@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { ChevronRight, DollarSign, Headphones, Briefcase, Shield, Factory } from "lucide-react";
-import { CelebrationOverlay, useCelebration, useActivityMonitor } from "@/components/CelebrationOverlay";
+import { ChevronRight, DollarSign, Headphones, Briefcase, Shield, Factory, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEpisodes, useContentPieces, useSubscribers, useDeals } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import ContentFactoryScreen from "@/components/screens/ContentFactoryScreen";
 import RevenueFactoryScreen from "@/components/screens/RevenueFactoryScreen";
 import CRMScreen from "@/components/screens/CRMScreen";
 import AudienceScreen from "@/components/screens/AudienceScreen";
 import AdminScreen from "@/components/screens/AdminScreen";
+import { AiSuccessBrief } from "@/components/AiSuccessBrief";
 
 const SCREENS = [
   { key: "content", label: "Content Factory", icon: Factory },
@@ -30,23 +29,8 @@ const SCREEN_QUERY_KEYS: Record<ScreenKey, string[][]> = {
 
 export default function Dashboard() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("content");
+  const [showAiBrief, setShowAiBrief] = useState(false);
   const queryClient = useQueryClient();
-
-  const { events: celebrationEvents, celebrate, dismiss: dismissCelebration } = useCelebration();
-  const activityCheck = useActivityMonitor(celebrate);
-  const { data: monitorEpisodes } = useEpisodes();
-  const { data: monitorContent } = useContentPieces();
-  const { data: monitorSubscribers } = useSubscribers();
-  const { data: monitorDeals } = useDeals();
-
-  useEffect(() => {
-    activityCheck({
-      episodes: monitorEpisodes || [],
-      contentPieces: monitorContent || [],
-      subscribers: monitorSubscribers || [],
-      deals: monitorDeals || [],
-    });
-  }, [monitorEpisodes, monitorContent, monitorSubscribers, monitorDeals, activityCheck]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -89,6 +73,14 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setShowAiBrief(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all bg-gradient-to-r from-violet-500/15 to-cyan-500/15 text-violet-400 border border-violet-500/30 hover:from-violet-500/25 hover:to-cyan-500/25 hover:text-violet-300 flex-shrink-0"
+            data-testid="button-ai-brief"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">AI Brief</span>
+          </button>
           <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-prev-screen">
             <ChevronRight className="h-4 w-4 rotate-180" />
           </button>
@@ -152,7 +144,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <CelebrationOverlay events={celebrationEvents} onDismiss={dismissCelebration} />
+      <AiSuccessBrief open={showAiBrief} onClose={() => setShowAiBrief(false)} />
     </div>
   );
 }
