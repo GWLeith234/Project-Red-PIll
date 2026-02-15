@@ -159,7 +159,21 @@ function NotificationPanel({ isSubscribed, preferences, subscribe, unsubscribe, 
           <p className="text-sm text-gray-400 text-center mb-6">Get notified when new episodes drop and breaking news publishes</p>
           <button
             disabled={loading}
-            onClick={async () => { setLoading(true); await subscribe(); setLoading(false); onClose(); }}
+            onClick={async () => {
+              setLoading(true);
+              try {
+                const result = await subscribe();
+                if (result) {
+                  onClose();
+                } else {
+                  console.error("Subscribe returned null");
+                  setLoading(false);
+                }
+              } catch (err) {
+                console.error("Subscribe error:", err);
+                setLoading(false);
+              }
+            }}
             className="w-full py-2.5 rounded-full font-semibold text-sm transition-all hover:brightness-110 disabled:opacity-50"
             style={{ backgroundColor: primaryColor, color: "#111" }}
             data-testid="button-enable-notifications"

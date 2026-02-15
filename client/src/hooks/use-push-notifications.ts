@@ -28,18 +28,28 @@ export function usePushNotifications() {
   useEffect(() => {
     const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     setIsSupported(supported);
-    if (!supported) return;
+    if (!supported) {
+      console.log("PUSH: browser does not support push notifications");
+      return;
+    }
 
     setPermission(Notification.permission);
 
     fetch("/api/public/vapid-key")
       .then((r) => r.json())
-      .then((d) => setVapidKey(d.publicKey))
-      .catch(() => {});
+      .then((d) => {
+        console.log("PUSH: fetched vapid key:", d.publicKey ? "present" : "missing");
+        setVapidKey(d.publicKey);
+      })
+      .catch((err) => {
+        console.error("PUSH ERROR: failed to fetch vapid key:", err);
+      });
 
     navigator.serviceWorker.ready.then(async (reg) => {
+      console.log("PUSH: service worker ready");
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
+        console.log("PUSH: existing subscription found");
         setIsSubscribed(true);
         setSubscription(sub);
         try {
@@ -53,6 +63,8 @@ export function usePushNotifications() {
             if (data.preferences) setPreferences(data.preferences);
           }
         } catch {}
+      } else {
+        console.log("PUSH: no existing subscription");
       }
     });
   }, []);
@@ -65,33 +77,53 @@ export function usePushNotifications() {
   }, [isSupported]);
 
   const subscribe = useCallback(async (email?: string) => {
-    if (!vapidKey) return null;
-    const perm = await requestPermission();
-    if (perm !== "granted") return null;
+    try {
+      console.log("PUSH: checking vapidKey", vapidKey ? "present" : "missing");
+      if (!vapidKey) {
+        console.error("PUSH ERROR: no vapid key available");
+        return null;
+      }
 
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
-    });
+      console.log("PUSH: requesting permission");
+      const perm = await requestPermission();
+      console.log("PUSH: permission result:", perm);
+      if (perm !== "granted") {
+        console.error("PUSH ERROR: permission not granted:", perm);
+        return null;
+      }
 
-    const keys = sub.toJSON().keys || {};
-    await fetch("/api/public/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subscription: {
-          endpoint: sub.endpoint,
-          keys: { p256dh: keys.p256dh, auth: keys.auth },
-        },
-        email,
-        preferences,
-      }),
-    });
+      console.log("PUSH: getting SW registration");
+      const reg = await navigator.serviceWorker.ready;
+      console.log("PUSH: calling pushManager.subscribe");
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      console.log("PUSH: subscription result:", sub ? "success" : "null");
 
-    setIsSubscribed(true);
-    setSubscription(sub);
-    return sub;
+      const keys = sub.toJSON().keys || {};
+      console.log("PUSH: sending to server");
+      const res = await fetch("/api/public/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subscription: {
+            endpoint: sub.endpoint,
+            keys: { p256dh: keys.p256dh, auth: keys.auth },
+          },
+          email,
+          preferences,
+        }),
+      });
+      console.log("PUSH: server response status:", res.status);
+
+      setIsSubscribed(true);
+      setSubscription(sub);
+      return sub;
+    } catch (error) {
+      console.error("PUSH ERROR:", error);
+      return null;
+    }
   }, [vapidKey, requestPermission, preferences]);
 
   const unsubscribe = useCallback(async () => {
