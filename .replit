@@ -44,3 +44,10 @@ waitForPort = 5000
 stack = "MOCKUP_JS"
 mockupState = "FULLSTACK"
 integrations = ["javascript_object_storage:2.0.0", "javascript_openai_ai_integrations:2.0.0", "github:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BE8DQBPYI401s7N4LfuhSSLwtYyBwtKL2ToHXxQvFB7wS-YHrPvdpRFG5BkeeQhlwIZupWYPeI-4q57-Ce1o8tI"
+VAPID_PRIVATE_KEY = "Z-mdeY81qipt9RIen2CC2kkhwL7zn5oXT9daoy3MQqQ"
+VAPID_EMAIL = "admin@mediatech.empire"
