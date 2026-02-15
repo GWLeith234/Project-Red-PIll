@@ -62,7 +62,7 @@ export default function Dashboard() {
   const activeScreenData = SCREENS[currentIdx];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] lg:h-[calc(100vh-2rem)] animate-in fade-in duration-500" data-testid="command-center">
+    <div className="flex flex-col h-[calc(100vh-7.5rem)] lg:h-[calc(100vh-4.5rem)] animate-in fade-in duration-500" data-testid="command-center">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 flex-shrink-0 gap-3">
         <div className="flex items-center gap-4">
           <div>
@@ -108,7 +108,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-3 sm:p-4 relative overflow-auto lg:overflow-hidden lg:aspect-video" data-testid="screen-viewport">
+      <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-3 sm:p-4 relative overflow-auto" data-testid="screen-viewport">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
