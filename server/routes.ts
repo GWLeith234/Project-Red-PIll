@@ -380,6 +380,18 @@ export async function registerRoutes(
     const parsed = insertContentPieceSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.createContentPiece(parsed.data);
+
+    if (data.status === "published") {
+      const pushType = data.type === "article" || data.type === "blog" ? "articles" : data.type === "episode" ? "episodes" : undefined;
+      if (pushType) {
+        const snippet = (data.body || data.summary || "").slice(0, 120);
+        sendPushToAll(
+          { title: data.title || "New Content", body: snippet, url: `/news/${data.slug || data.id}`, tag: `content-${data.id}` },
+          { type: pushType as any }
+        ).catch((err) => console.error("PUSH SEND ERROR:", err));
+      }
+    }
+
     res.status(201).json(data);
   });
 
@@ -395,7 +407,7 @@ export async function registerRoutes(
         sendPushToAll(
           { title: data.title || "New Content", body: snippet, url: `/news/${data.slug || data.id}`, tag: `content-${data.id}` },
           { type: pushType as any }
-        ).catch(() => {});
+        ).catch((err) => console.error("PUSH SEND ERROR:", err));
       }
     }
 
@@ -1076,7 +1088,7 @@ export async function registerRoutes(
       sendPushToAll(
         { title: piece.title || "New Content", body: snippet, url: `/news/${piece.slug || piece.id}`, tag: `content-${piece.id}` },
         { type: pushType as any }
-      ).catch(() => {});
+      ).catch((err) => console.error("PUSH SEND ERROR:", err));
     }
 
     res.json(updated);
@@ -5001,6 +5013,22 @@ Provide comprehensive social listening intelligence including trending topics, k
       await storage.createPushNotification({ title, body, type: filterType || "manual", targetAudience: "all", deliveredCount: result.delivered });
       res.json(result);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/push/test", async (_req, res) => {
+    try {
+      const result = await sendPushToAll({
+        title: "Test Notification",
+        body: "If you see this, push notifications are working!",
+        url: "/home",
+        tag: "test-" + Date.now(),
+      });
+      console.log("PUSH TEST RESULT:", result);
+      res.json(result);
+    } catch (err: any) {
+      console.error("PUSH TEST ERROR:", err);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // ── Web Push (Public) ──
