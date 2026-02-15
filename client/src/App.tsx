@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import React, { lazy, Suspense } from "react";
 import { Sidebar, MobileHeader, MobileSidebarProvider } from "@/components/layout/Sidebar";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -7,8 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { NpsFeedbackWidget } from "@/components/NpsFeedbackWidget";
 import Login from "@/pages/Login";
-
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
+import Dashboard from "@/pages/Dashboard";
 const ContentFactory = lazy(() => import("@/pages/ContentFactory"));
 const Monetization = lazy(() => import("@/pages/Monetization"));
 const Network = lazy(() => import("@/pages/Network"));
@@ -66,6 +65,36 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-64 text-center" data-testid="error-boundary">
+          <div>
+            <h2 className="text-lg font-display font-bold text-primary mb-2">Something went wrong</h2>
+            <p className="text-sm text-muted-foreground mb-4">This page encountered an error while loading.</p>
+            <button
+              onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-mono uppercase tracking-wider hover:bg-primary/90 transition-colors"
+              data-testid="button-error-retry"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function NoAccess() {
   return (
     <div className="text-center py-20" data-testid="no-access-page">
@@ -101,6 +130,7 @@ function ProtectedRoutes() {
 
   return (
     <AdminLayout>
+      <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Switch>
           <Route path="/">{() => <PermissionGate permission="dashboard.view"><Dashboard /></PermissionGate>}</Route>
@@ -123,6 +153,7 @@ function ProtectedRoutes() {
           <Route component={NotFound} />
         </Switch>
       </Suspense>
+      </ErrorBoundary>
     </AdminLayout>
   );
 }
