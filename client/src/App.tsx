@@ -7,7 +7,6 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { BrandingProvider } from "@/components/BrandingProvider";
-import { NpsFeedbackButton } from "@/components/NpsFeedbackWidget";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import ContentFactory from "@/pages/ContentFactory";
@@ -59,9 +58,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         "flex-1 ml-0 lg:ml-64 flex flex-col h-screen transition-transform duration-300 ease-in-out",
         open ? "translate-x-72 lg:translate-x-0" : "translate-x-0"
       )}>
-        <div className="hidden lg:flex items-center justify-end h-10 px-6 flex-shrink-0 relative z-20" data-testid="desktop-top-nav">
-          <NpsFeedbackButton />
-        </div>
         <main className="flex-1 pt-14 lg:pt-0 px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8 overflow-y-auto bg-[url('/images/command-center-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat relative">
           <div className="absolute inset-0 bg-background/90 z-0 pointer-events-none backdrop-blur-[2px]"></div>
           <div className="relative z-10 max-w-7xl mx-auto">

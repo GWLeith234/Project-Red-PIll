@@ -12,7 +12,7 @@ function getCategoryLabel(cat: string) {
   return cat.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export function NpsFeedbackButton() {
+export function NpsFeedbackButton({ variant = "compact" }: { variant?: "compact" | "sidebar" }) {
   const [open, setOpen] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -72,19 +72,35 @@ export function NpsFeedbackButton() {
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "p-2 rounded-md transition-colors",
-          open
-            ? "bg-primary/20 text-primary"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          "flex items-center gap-2 rounded-sm transition-all duration-200",
+          variant === "sidebar"
+            ? cn(
+                "w-full px-3 py-2 text-sm font-medium",
+                open
+                  ? "bg-sidebar-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              )
+            : cn(
+                "p-2 rounded-md",
+                open
+                  ? "bg-primary/20 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )
         )}
         title="Share Feedback"
         data-testid="button-nps-trigger"
       >
-        <MessageSquareHeart className="h-4 w-4" />
+        <MessageSquareHeart className={cn("flex-shrink-0", variant === "sidebar" ? "h-4 w-4" : "h-4 w-4")} />
+        {variant === "sidebar" && <span className="truncate">Share Feedback</span>}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[340px] sm:w-[380px] bg-card border border-border rounded-lg shadow-2xl animate-in slide-in-from-top-2 fade-in duration-200 z-50" data-testid="nps-feedback-widget">
+        <div className={cn(
+          "absolute w-[340px] sm:w-[380px] bg-card border border-border rounded-lg shadow-2xl animate-in fade-in duration-200 z-[60]",
+          variant === "sidebar"
+            ? "left-full bottom-0 ml-2 slide-in-from-left-2"
+            : "right-0 top-full mt-2 slide-in-from-top-2"
+        )} data-testid="nps-feedback-widget">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="flex items-center gap-2">
               <MessageSquareHeart className="h-4 w-4 text-primary" />

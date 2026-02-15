@@ -296,7 +296,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <div className="border-t border-border/50 px-3 py-2">
+      <div className="border-t border-border/50 px-3 py-2 space-y-0.5">
         <Link
           href="/analytics?section=nps"
           onClick={onNavigate}
@@ -311,6 +311,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <MessageSquareHeart className="mr-3 h-4 w-4 flex-shrink-0" />
           <span className="truncate">NPS Feedback</span>
         </Link>
+        <div className="hidden lg:block">
+          <NpsFeedbackButton variant="sidebar" />
+        </div>
       </div>
 
       <div className="border-t border-border px-3 py-3">
