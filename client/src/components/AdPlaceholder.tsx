@@ -26,15 +26,14 @@ export function AdPlaceholder({ width, height, label, className }: { width: numb
         target="_blank"
         rel="noopener noreferrer sponsored"
         className={`block overflow-hidden relative ${className || ""}`}
-        style={{ width: `${width}px`, maxWidth: "100%" }}
+        style={{ maxWidth: "100%" }}
         data-testid={`ad-unit-${label.toLowerCase().replace(/\s+/g, "-")}`}
         data-ad-id={ad.id}
       >
         <img
           src={ad.imageUrl}
           alt={ad.altText || ad.headline || "Advertisement"}
-          className="w-full h-auto object-contain"
-          style={{ background: "#f0f0f0" }}
+          style={{ display: "block", maxWidth: "100%", height: "auto" }}
           loading="lazy"
         />
         <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 opacity-60">
