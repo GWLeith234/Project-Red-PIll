@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Plus, Search, Calendar, Tag, User, MessageSquare,
   Clock, Loader2, Trash2, Send, GripVertical,
@@ -322,10 +323,10 @@ function CreateTaskDialog({
           </div>
           <div>
             <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Due Date</Label>
-            <Input
-              type="date"
+            <DatePicker
               value={form.dueDate}
-              onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))}
+              onChange={v => setForm(f => ({ ...f, dueDate: v }))}
+              placeholder="Pick due date"
               data-testid="input-task-due-date"
             />
           </div>
@@ -550,10 +551,10 @@ function TaskDetailDialog({
               </div>
               <div>
                 <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Due Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={editForm.dueDate || ""}
-                  onChange={e => setEditForm((f: any) => ({ ...f, dueDate: e.target.value }))}
+                  onChange={v => setEditForm((f: any) => ({ ...f, dueDate: v }))}
+                  placeholder="Pick due date"
                   data-testid="input-edit-task-due-date"
                 />
               </div>

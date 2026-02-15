@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Search, Calendar, Clock, Loader2, Filter, X,
   AlertCircle, CheckCircle2, ListTodo, ChevronLeft,
@@ -175,7 +176,7 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
           </div>
           <div>
             <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Due Date</Label>
-            <Input type="date" value={editForm.dueDate} onChange={e => setEditForm(f => ({ ...f, dueDate: e.target.value }))} data-testid="input-edit-due-date" />
+            <DatePicker value={editForm.dueDate} onChange={v => setEditForm(f => ({ ...f, dueDate: v }))} placeholder="Pick due date" data-testid="input-edit-due-date" />
           </div>
         </div>
         <div className="flex justify-end gap-2">

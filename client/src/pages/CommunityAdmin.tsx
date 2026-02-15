@@ -6,6 +6,7 @@ import {
   Plus, Pencil, Trash2, Check, X, Star, StarOff, Eye, EyeOff,
   ShieldCheck, ShieldOff, Search, Loader2, Heart,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 async function api(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: "include", headers: { "Content-Type": "application/json" }, ...options });
@@ -225,8 +226,8 @@ function EventForm({ initial, onSubmit, isPending, error }: { initial?: any; onS
             {["general","sports","music","business","community","education"].map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>)}
           </select>
         </FormField>
-        <FormField label="Start Date" testId="field-event-start-date"><input type="date" value={form.startDate} onChange={e => set("startDate", e.target.value)} className={inputClass} data-testid="input-event-start-date" /></FormField>
-        <FormField label="End Date" testId="field-event-end-date"><input type="date" value={form.endDate} onChange={e => set("endDate", e.target.value)} className={inputClass} data-testid="input-event-end-date" /></FormField>
+        <FormField label="Start Date" testId="field-event-start-date"><DatePicker value={form.startDate} onChange={v => set("startDate", v)} placeholder="Pick start date" data-testid="input-event-start-date" /></FormField>
+        <FormField label="End Date" testId="field-event-end-date"><DatePicker value={form.endDate} onChange={v => set("endDate", v)} placeholder="Pick end date" data-testid="input-event-end-date" /></FormField>
         <FormField label="Start Time" testId="field-event-start-time"><input type="time" value={form.startTime} onChange={e => set("startTime", e.target.value)} className={inputClass} data-testid="input-event-start-time" /></FormField>
         <FormField label="End Time" testId="field-event-end-time"><input type="time" value={form.endTime} onChange={e => set("endTime", e.target.value)} className={inputClass} data-testid="input-event-end-time" /></FormField>
         <FormField label="Venue Name" testId="field-event-venue"><input value={form.venueName} onChange={e => set("venueName", e.target.value)} className={inputClass} data-testid="input-event-venue" /></FormField>
@@ -317,8 +318,8 @@ function ObituaryForm({ initial, onSubmit, isPending, error }: { initial?: any; 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="First Name" testId="field-obit-first"><input value={form.firstName} onChange={e => set("firstName", e.target.value)} className={inputClass} required data-testid="input-obit-first" /></FormField>
         <FormField label="Last Name" testId="field-obit-last"><input value={form.lastName} onChange={e => set("lastName", e.target.value)} className={inputClass} required data-testid="input-obit-last" /></FormField>
-        <FormField label="Birth Date" testId="field-obit-birth"><input type="date" value={form.birthDate} onChange={e => set("birthDate", e.target.value)} className={inputClass} data-testid="input-obit-birth" /></FormField>
-        <FormField label="Death Date" testId="field-obit-death"><input type="date" value={form.deathDate} onChange={e => set("deathDate", e.target.value)} className={inputClass} data-testid="input-obit-death" /></FormField>
+        <FormField label="Birth Date" testId="field-obit-birth"><DatePicker value={form.birthDate} onChange={v => set("birthDate", v)} placeholder="Pick birth date" data-testid="input-obit-birth" /></FormField>
+        <FormField label="Death Date" testId="field-obit-death"><DatePicker value={form.deathDate} onChange={v => set("deathDate", v)} placeholder="Pick death date" data-testid="input-obit-death" /></FormField>
         <FormField label="Funeral Home" testId="field-obit-funeral"><input value={form.funeralHome} onChange={e => set("funeralHome", e.target.value)} className={inputClass} data-testid="input-obit-funeral" /></FormField>
         <FormField label="Photo URL" testId="field-obit-photo"><input value={form.photoUrl} onChange={e => set("photoUrl", e.target.value)} className={inputClass} data-testid="input-obit-photo" /></FormField>
         <FormField label="Tribute URL" testId="field-obit-tribute"><input value={form.tributeUrl} onChange={e => set("tributeUrl", e.target.value)} className={inputClass} data-testid="input-obit-tribute" /></FormField>
@@ -541,7 +542,7 @@ function PollForm({ initial, onSubmit, isPending, error }: { initial?: any; onSu
         ))}
         <button type="button" onClick={addOption} className="text-xs text-primary hover:underline" data-testid="button-add-option">+ Add Option</button>
       </div>
-      <FormField label="Expires At" testId="field-poll-expires"><input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className={inputClass} data-testid="input-poll-expires" /></FormField>
+      <FormField label="Expires At" testId="field-poll-expires"><DatePicker value={expiresAt} onChange={v => setExpiresAt(v)} placeholder="Pick expiry date" data-testid="input-poll-expires" /></FormField>
       {error && <p className="text-sm text-red-400" data-testid="text-form-error">{error}</p>}
       <div className="flex justify-end"><button type="submit" disabled={isPending} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50" data-testid="button-submit-poll">{isPending && <Loader2 className="h-4 w-4 animate-spin" />} {initial ? "Update" : "Create"}</button></div>
     </form>
@@ -717,7 +718,7 @@ function AnnouncementForm({ initial, onSubmit, isPending, error }: { initial?: a
           </select>
         </FormField>
         <FormField label="Names" testId="field-ann-names"><input value={form.names} onChange={e => set("names", e.target.value)} className={inputClass} required data-testid="input-ann-names" /></FormField>
-        <FormField label="Event Date" testId="field-ann-date"><input type="date" value={form.eventDate} onChange={e => set("eventDate", e.target.value)} className={inputClass} data-testid="input-ann-date" /></FormField>
+        <FormField label="Event Date" testId="field-ann-date"><DatePicker value={form.eventDate} onChange={v => set("eventDate", v)} placeholder="Pick event date" data-testid="input-ann-date" /></FormField>
         <FormField label="Photo URL" testId="field-ann-photo"><input value={form.photoUrl} onChange={e => set("photoUrl", e.target.value)} className={inputClass} data-testid="input-ann-photo" /></FormField>
       </div>
       <FormField label="Description" testId="field-ann-desc"><textarea value={form.description} onChange={e => set("description", e.target.value)} className={textareaClass} data-testid="input-ann-desc" /></FormField>

@@ -41,6 +41,7 @@ import { Progress } from "@/components/ui/progress";
 import { useUpload } from "@/hooks/use-upload";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
+import { DatePicker } from "@/components/ui/date-picker";
 import type { Product } from "@shared/schema";
 
 const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
@@ -959,11 +960,11 @@ function DealForm({ onSubmit, initialData, companies, contacts, podcasts, onCanc
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Start Date</label>
-          <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} data-testid="input-deal-start-date" />
+          <DatePicker value={form.startDate} onChange={v => setForm(f => ({ ...f, startDate: v }))} placeholder="Pick start date" data-testid="input-deal-start-date" />
         </div>
         <div>
           <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Close Date</label>
-          <Input type="date" value={form.closeDate} onChange={e => setForm(f => ({ ...f, closeDate: e.target.value }))} data-testid="input-deal-close-date" />
+          <DatePicker value={form.closeDate} onChange={v => setForm(f => ({ ...f, closeDate: v }))} placeholder="Pick close date" data-testid="input-deal-close-date" />
         </div>
       </div>
 
