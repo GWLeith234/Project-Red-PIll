@@ -307,12 +307,12 @@ function CreateTaskDialog({
             </div>
             <div>
               <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Assignee</Label>
-              <Select value={form.assigneeId} onValueChange={v => setForm(f => ({ ...f, assigneeId: v }))}>
+              <Select value={form.assigneeId || "__none__"} onValueChange={v => setForm(f => ({ ...f, assigneeId: v === "__none__" ? "" : v }))}>
                 <SelectTrigger data-testid="select-task-assignee">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="__none__">Unassigned</SelectItem>
                   {(users || []).map((u: any) => (
                     <SelectItem key={u.id} value={u.id}>{u.displayName || u.username}</SelectItem>
                   ))}
@@ -536,12 +536,12 @@ function TaskDetailDialog({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Assignee</Label>
-                <Select value={editForm.assigneeId || ""} onValueChange={v => setEditForm((f: any) => ({ ...f, assigneeId: v }))}>
+                <Select value={editForm.assigneeId || "__none__"} onValueChange={v => setEditForm((f: any) => ({ ...f, assigneeId: v === "__none__" ? "" : v }))}>
                   <SelectTrigger data-testid="select-edit-task-assignee">
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value="__none__">Unassigned</SelectItem>
                     {(users || []).map((u: any) => (
                       <SelectItem key={u.id} value={u.id}>{u.displayName || u.username}</SelectItem>
                     ))}
@@ -785,26 +785,26 @@ export default function KanbanBoard() {
             data-testid="input-search-tasks"
           />
         </div>
-        <Select value={filterPriority} onValueChange={setFilterPriority}>
+        <Select value={filterPriority || "__all__"} onValueChange={v => setFilterPriority(v === "__all__" ? "" : v)}>
           <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-filter-priority">
             <Filter className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Priorities</SelectItem>
+            <SelectItem value="__all__">All Priorities</SelectItem>
             <SelectItem value="low">Low</SelectItem>
             <SelectItem value="medium">Medium</SelectItem>
             <SelectItem value="high">High</SelectItem>
             <SelectItem value="urgent">Urgent</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+        <Select value={filterAssignee || "__all__"} onValueChange={v => setFilterAssignee(v === "__all__" ? "" : v)}>
           <SelectTrigger className="w-full sm:w-[160px]" data-testid="select-filter-assignee">
             <User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Assignees</SelectItem>
+            <SelectItem value="__all__">All Assignees</SelectItem>
             {(users || []).map((u: any) => (
               <SelectItem key={u.id} value={u.id}>{u.displayName || u.username}</SelectItem>
             ))}
