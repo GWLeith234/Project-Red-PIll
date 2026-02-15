@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Paintbrush,
   Shield,
+  FileText,
   LogOut,
   Briefcase,
   Bot,
@@ -31,6 +32,8 @@ import {
   Menu,
   X,
   MessageSquareHeart,
+  Blocks,
+  Heart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -62,6 +65,7 @@ const navGroups: NavGroup[] = [
       { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "Newsletters", href: "/newsletters", icon: Mail, permission: "content.view" },
       { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
+      { name: "Community", href: "/community", icon: Heart, permission: "content.view" },
     ],
   },
   {
@@ -102,8 +106,10 @@ const navGroups: NavGroup[] = [
   {
     label: "Admin",
     items: [
+      { name: "Site Builder", href: "/site-builder", icon: Blocks, permission: "customize.edit" },
       { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
       { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },
+      { name: "Legal", href: "/legal-admin", icon: FileText, permission: "settings.view" },
       { name: "Settings", href: "/settings", icon: Settings, permission: "settings.view" },
     ],
   },

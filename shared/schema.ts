@@ -874,4 +874,279 @@ export const insertReadLaterItemSchema = createInsertSchema(readLaterItems).omit
 export type InsertReadLaterItem = z.infer<typeof insertReadLaterItemSchema>;
 export type ReadLaterItem = typeof readLaterItems.$inferSelect;
 
+// ── Legal Templates ──
+export const legalTemplates = pgTable("legal_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateType: text("template_type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  version: integer("version").default(1),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLegalTemplateSchema = createInsertSchema(legalTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLegalTemplate = z.infer<typeof insertLegalTemplateSchema>;
+export type LegalTemplate = typeof legalTemplates.$inferSelect;
+
+// ── Device Registrations (Multi-Platform) ──
+export const deviceRegistrations = pgTable("device_registrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberId: varchar("subscriber_id"),
+  platform: text("platform").notNull(),
+  pushToken: text("push_token").unique(),
+  deviceModel: text("device_model"),
+  osVersion: text("os_version"),
+  appVersion: text("app_version"),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDeviceRegistrationSchema = createInsertSchema(deviceRegistrations).omit({ id: true, createdAt: true, lastActiveAt: true });
+export type InsertDeviceRegistration = z.infer<typeof insertDeviceRegistrationSchema>;
+export type DeviceRegistration = typeof deviceRegistrations.$inferSelect;
+
+// ── Push Notifications ──
+export const pushNotifications = pgTable("push_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  type: text("type").default("general"),
+  targetAudience: text("target_audience").default("all"),
+  contentId: varchar("content_id"),
+  podcastId: varchar("podcast_id"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  deliveredCount: integer("delivered_count").default(0),
+  openedCount: integer("opened_count").default(0),
+});
+
+export const insertPushNotificationSchema = createInsertSchema(pushNotifications).omit({ id: true, sentAt: true });
+export type InsertPushNotification = z.infer<typeof insertPushNotificationSchema>;
+export type PushNotification = typeof pushNotifications.$inferSelect;
+
+// ── Content Bookmarks (Server-Side) ──
+export const contentBookmarks = pgTable("content_bookmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberId: varchar("subscriber_id").notNull(),
+  contentType: text("content_type").notNull(),
+  contentId: varchar("content_id").notNull(),
+  bookmarkedAt: timestamp("bookmarked_at").defaultNow(),
+}, (table) => [
+  index("content_bookmarks_subscriber_idx").on(table.subscriberId),
+]);
+
+export const insertContentBookmarkSchema = createInsertSchema(contentBookmarks).omit({ id: true, bookmarkedAt: true });
+export type InsertContentBookmark = z.infer<typeof insertContentBookmarkSchema>;
+export type ContentBookmark = typeof contentBookmarks.$inferSelect;
+
+// ── Page Builder ──
+export const sitePages = pgTable("site_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  pageType: text("page_type").default("custom"),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
+  seoKeywords: text("seo_keywords").array().default(sql`ARRAY[]::text[]`),
+  ogImage: text("og_image"),
+  layoutType: text("layout_type").default("full_width"),
+  status: text("status").default("draft"),
+  isHomepage: boolean("is_homepage").default(false),
+  templateId: varchar("template_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  publishedAt: timestamp("published_at"),
+});
+
+export const insertSitePageSchema = createInsertSchema(sitePages).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
+export type InsertSitePage = z.infer<typeof insertSitePageSchema>;
+export type SitePage = typeof sitePages.$inferSelect;
+
+export const pageRows = pgTable("page_rows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pageId: varchar("page_id").notNull(),
+  displayOrder: integer("display_order").default(0),
+  rowType: text("row_type").default("content"),
+  columnCount: integer("column_count").default(1),
+  backgroundColor: text("background_color"),
+  backgroundImage: text("background_image"),
+  paddingTop: integer("padding_top").default(24),
+  paddingBottom: integer("padding_bottom").default(24),
+  cssClass: text("css_class"),
+  visible: boolean("visible").default(true),
+  deviceVisibility: text("device_visibility").default("all"),
+  conditions: jsonb("conditions").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("page_rows_page_id_idx").on(table.pageId),
+]);
+
+export const insertPageRowSchema = createInsertSchema(pageRows).omit({ id: true, createdAt: true });
+export type InsertPageRow = z.infer<typeof insertPageRowSchema>;
+export type PageRow = typeof pageRows.$inferSelect;
+
+export const pageWidgets = pgTable("page_widgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rowId: varchar("row_id").notNull(),
+  pageId: varchar("page_id").notNull(),
+  widgetType: varchar("widget_type").notNull(),
+  displayOrder: integer("display_order").default(0),
+  columnSpan: integer("column_span").default(1),
+  columnPosition: integer("column_position").default(0),
+  config: jsonb("config").default({}),
+  titleOverride: text("title_override"),
+  visible: boolean("visible").default(true),
+  cacheTtl: integer("cache_ttl").default(300),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("page_widgets_row_id_idx").on(table.rowId),
+  index("page_widgets_page_id_idx").on(table.pageId),
+]);
+
+export const insertPageWidgetSchema = createInsertSchema(pageWidgets).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPageWidget = z.infer<typeof insertPageWidgetSchema>;
+export type PageWidget = typeof pageWidgets.$inferSelect;
+
+export const pageTemplates = pgTable("page_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  templateType: text("template_type").default("custom"),
+  thumbnailUrl: text("thumbnail_url"),
+  rowsConfig: jsonb("rows_config").default([]),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPageTemplateSchema = createInsertSchema(pageTemplates).omit({ id: true, createdAt: true });
+export type InsertPageTemplate = z.infer<typeof insertPageTemplateSchema>;
+export type PageTemplate = typeof pageTemplates.$inferSelect;
+
+// ── Community Content ──
+export const communityEvents = pgTable("community_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  venueName: text("venue_name"),
+  venueAddress: text("venue_address"),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date"),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  category: text("category").default("general"),
+  imageUrl: text("image_url"),
+  ticketUrl: text("ticket_url"),
+  organizerName: text("organizer_name"),
+  organizerEmail: text("organizer_email"),
+  isFeatured: boolean("is_featured").default(false),
+  status: text("status").default("pending"),
+  submittedBy: text("submitted_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCommunityEventSchema = createInsertSchema(communityEvents).omit({ id: true, createdAt: true });
+export type InsertCommunityEvent = z.infer<typeof insertCommunityEventSchema>;
+export type CommunityEvent = typeof communityEvents.$inferSelect;
+
+export const obituaries = pgTable("obituaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  photoUrl: text("photo_url"),
+  birthDate: text("birth_date"),
+  deathDate: text("death_date"),
+  obituaryText: text("obituary_text"),
+  funeralHome: text("funeral_home"),
+  serviceDetails: text("service_details"),
+  tributeUrl: text("tribute_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  publishedAt: timestamp("published_at"),
+});
+
+export const insertObituarySchema = createInsertSchema(obituaries).omit({ id: true, createdAt: true, publishedAt: true });
+export type InsertObituary = z.infer<typeof insertObituarySchema>;
+export type Obituary = typeof obituaries.$inferSelect;
+
+export const classifieds = pgTable("classifieds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").default("for_sale"),
+  price: real("price"),
+  priceType: text("price_type").default("fixed"),
+  images: text("images").array().default(sql`ARRAY[]::text[]`),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  location: text("location"),
+  status: text("status").default("active"),
+  expiresAt: timestamp("expires_at"),
+  submittedBy: text("submitted_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertClassifiedSchema = createInsertSchema(classifieds).omit({ id: true, createdAt: true });
+export type InsertClassified = z.infer<typeof insertClassifiedSchema>;
+export type Classified = typeof classifieds.$inferSelect;
+
+export const communityPolls = pgTable("community_polls", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  question: text("question").notNull(),
+  options: jsonb("options").notNull(),
+  createdBy: varchar("created_by"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").default(true),
+  totalVotes: integer("total_votes").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCommunityPollSchema = createInsertSchema(communityPolls).omit({ id: true, createdAt: true });
+export type InsertCommunityPoll = z.infer<typeof insertCommunityPollSchema>;
+export type CommunityPoll = typeof communityPolls.$inferSelect;
+
+export const communityAnnouncements = pgTable("community_announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(),
+  names: text("names").notNull(),
+  description: text("description"),
+  photoUrl: text("photo_url"),
+  eventDate: text("event_date"),
+  submittedBy: text("submitted_by"),
+  status: text("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCommunityAnnouncementSchema = createInsertSchema(communityAnnouncements).omit({ id: true, createdAt: true });
+export type InsertCommunityAnnouncement = z.infer<typeof insertCommunityAnnouncementSchema>;
+export type CommunityAnnouncement = typeof communityAnnouncements.$inferSelect;
+
+export const businessListings = pgTable("business_listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  businessName: text("business_name").notNull(),
+  slug: text("slug").unique(),
+  description: text("description"),
+  category: text("category"),
+  subcategory: text("subcategory"),
+  logoUrl: text("logo_url"),
+  coverImage: text("cover_image"),
+  website: text("website"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  city: text("city"),
+  postalCode: text("postal_code"),
+  hours: jsonb("hours").default({}),
+  socialLinks: jsonb("social_links").default({}),
+  isFeatured: boolean("is_featured").default(false),
+  isVerified: boolean("is_verified").default(false),
+  advertiserId: varchar("advertiser_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBusinessListingSchema = createInsertSchema(businessListings).omit({ id: true, createdAt: true });
+export type InsertBusinessListing = z.infer<typeof insertBusinessListingSchema>;
+export type BusinessListing = typeof businessListings.$inferSelect;
+
 export * from "./models/chat";

@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
 
 function usePublicPodcasts() {
   return useQuery({
@@ -366,6 +367,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
       </nav>
 
       <PWAInstallPrompt />
+      <CookieConsentBanner />
 
       <footer className="bg-gray-950 text-gray-400 print:hidden" data-testid="audience-footer">
         <div className="max-w-[1400px] mx-auto px-4 py-10">
@@ -447,6 +449,7 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
               <span className="hover:text-gray-400 cursor-pointer transition-colors">Privacy</span>
               <span className="hover:text-gray-400 cursor-pointer transition-colors">Terms</span>
               <span className="hover:text-gray-400 cursor-pointer transition-colors">Contact</span>
+              <CookieSettingsLink className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer transition-colors" />
             </div>
           </div>
         </div>

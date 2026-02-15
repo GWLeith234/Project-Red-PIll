@@ -45,6 +45,20 @@ import {
   type NpsSurvey, type InsertNpsSurvey,
   readLaterItems,
   type ReadLaterItem, type InsertReadLaterItem,
+  legalTemplates, type LegalTemplate, type InsertLegalTemplate,
+  deviceRegistrations, type DeviceRegistration, type InsertDeviceRegistration,
+  pushNotifications, type PushNotification, type InsertPushNotification,
+  contentBookmarks, type ContentBookmark, type InsertContentBookmark,
+  sitePages, type SitePage, type InsertSitePage,
+  pageRows, type PageRow, type InsertPageRow,
+  pageWidgets, type PageWidget, type InsertPageWidget,
+  pageTemplates, type PageTemplate, type InsertPageTemplate,
+  communityEvents, type CommunityEvent, type InsertCommunityEvent,
+  obituaries, type Obituary, type InsertObituary,
+  classifieds, type Classified, type InsertClassified,
+  communityPolls, type CommunityPoll, type InsertCommunityPoll,
+  communityAnnouncements, type CommunityAnnouncement, type InsertCommunityAnnouncement,
+  businessListings, type BusinessListing, type InsertBusinessListing,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -272,6 +286,83 @@ export interface IStorage {
   removeReadLaterItem(userId: string, contentPieceId: string): Promise<void>;
   clearReadLaterItems(userId: string): Promise<void>;
   isReadLater(userId: string, contentPieceId: string): Promise<boolean>;
+
+  getLegalTemplates(): Promise<LegalTemplate[]>;
+  getLegalTemplate(id: string): Promise<LegalTemplate | undefined>;
+  getLegalTemplateByType(templateType: string): Promise<LegalTemplate | undefined>;
+  createLegalTemplate(data: InsertLegalTemplate): Promise<LegalTemplate>;
+  updateLegalTemplate(id: string, data: Partial<InsertLegalTemplate>): Promise<LegalTemplate | undefined>;
+  deleteLegalTemplate(id: string): Promise<void>;
+
+  registerDevice(data: InsertDeviceRegistration): Promise<DeviceRegistration>;
+  getDevicesBySubscriber(subscriberId: string): Promise<DeviceRegistration[]>;
+
+  createPushNotification(data: InsertPushNotification): Promise<PushNotification>;
+  getPushNotifications(limit?: number): Promise<PushNotification[]>;
+
+  getBookmarks(subscriberId: string): Promise<ContentBookmark[]>;
+  addBookmark(data: InsertContentBookmark): Promise<ContentBookmark>;
+  removeBookmark(subscriberId: string, contentId: string): Promise<void>;
+
+  getSitePages(): Promise<SitePage[]>;
+  getSitePage(id: string): Promise<SitePage | undefined>;
+  getSitePageBySlug(slug: string): Promise<SitePage | undefined>;
+  createSitePage(data: InsertSitePage): Promise<SitePage>;
+  updateSitePage(id: string, data: Partial<InsertSitePage>): Promise<SitePage | undefined>;
+  deleteSitePage(id: string): Promise<void>;
+
+  getPageRows(pageId: string): Promise<PageRow[]>;
+  createPageRow(data: InsertPageRow): Promise<PageRow>;
+  updatePageRow(id: string, data: Partial<InsertPageRow>): Promise<PageRow | undefined>;
+  deletePageRow(id: string): Promise<void>;
+
+  getPageWidgets(rowId: string): Promise<PageWidget[]>;
+  getPageWidgetsByPage(pageId: string): Promise<PageWidget[]>;
+  createPageWidget(data: InsertPageWidget): Promise<PageWidget>;
+  updatePageWidget(id: string, data: Partial<InsertPageWidget>): Promise<PageWidget | undefined>;
+  deletePageWidget(id: string): Promise<void>;
+
+  getPageTemplates(): Promise<PageTemplate[]>;
+  getPageTemplate(id: string): Promise<PageTemplate | undefined>;
+  createPageTemplate(data: InsertPageTemplate): Promise<PageTemplate>;
+  deletePageTemplate(id: string): Promise<void>;
+
+  getCommunityEvents(status?: string): Promise<CommunityEvent[]>;
+  getCommunityEvent(id: string): Promise<CommunityEvent | undefined>;
+  createCommunityEvent(data: InsertCommunityEvent): Promise<CommunityEvent>;
+  updateCommunityEvent(id: string, data: Partial<InsertCommunityEvent>): Promise<CommunityEvent | undefined>;
+  deleteCommunityEvent(id: string): Promise<void>;
+
+  getObituaries(): Promise<Obituary[]>;
+  getObituary(id: string): Promise<Obituary | undefined>;
+  createObituary(data: InsertObituary): Promise<Obituary>;
+  updateObituary(id: string, data: Partial<InsertObituary>): Promise<Obituary | undefined>;
+  deleteObituary(id: string): Promise<void>;
+
+  getClassifieds(category?: string, status?: string): Promise<Classified[]>;
+  getClassified(id: string): Promise<Classified | undefined>;
+  createClassified(data: InsertClassified): Promise<Classified>;
+  updateClassified(id: string, data: Partial<InsertClassified>): Promise<Classified | undefined>;
+  deleteClassified(id: string): Promise<void>;
+
+  getCommunityPolls(): Promise<CommunityPoll[]>;
+  getCommunityPoll(id: string): Promise<CommunityPoll | undefined>;
+  createCommunityPoll(data: InsertCommunityPoll): Promise<CommunityPoll>;
+  updateCommunityPoll(id: string, data: Partial<InsertCommunityPoll>): Promise<CommunityPoll | undefined>;
+  deleteCommunityPoll(id: string): Promise<void>;
+
+  getCommunityAnnouncements(status?: string): Promise<CommunityAnnouncement[]>;
+  getCommunityAnnouncement(id: string): Promise<CommunityAnnouncement | undefined>;
+  createCommunityAnnouncement(data: InsertCommunityAnnouncement): Promise<CommunityAnnouncement>;
+  updateCommunityAnnouncement(id: string, data: Partial<InsertCommunityAnnouncement>): Promise<CommunityAnnouncement | undefined>;
+  deleteCommunityAnnouncement(id: string): Promise<void>;
+
+  getBusinessListings(category?: string): Promise<BusinessListing[]>;
+  getBusinessListing(id: string): Promise<BusinessListing | undefined>;
+  getBusinessListingBySlug(slug: string): Promise<BusinessListing | undefined>;
+  createBusinessListing(data: InsertBusinessListing): Promise<BusinessListing>;
+  updateBusinessListing(id: string, data: Partial<InsertBusinessListing>): Promise<BusinessListing | undefined>;
+  deleteBusinessListing(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1161,6 +1252,260 @@ export class DatabaseStorage implements IStorage {
     const rows = await db.select().from(readLaterItems)
       .where(and(eq(readLaterItems.userId, userId), eq(readLaterItems.contentPieceId, contentPieceId)));
     return rows.length > 0;
+  }
+
+  async getLegalTemplates() {
+    return db.select().from(legalTemplates).orderBy(desc(legalTemplates.createdAt));
+  }
+  async getLegalTemplate(id: string) {
+    const [t] = await db.select().from(legalTemplates).where(eq(legalTemplates.id, id));
+    return t;
+  }
+  async getLegalTemplateByType(templateType: string) {
+    const [t] = await db.select().from(legalTemplates).where(eq(legalTemplates.templateType, templateType));
+    return t;
+  }
+  async createLegalTemplate(data: InsertLegalTemplate) {
+    const [created] = await db.insert(legalTemplates).values(data).returning();
+    return created;
+  }
+  async updateLegalTemplate(id: string, data: Partial<InsertLegalTemplate>) {
+    const [updated] = await db.update(legalTemplates).set({ ...data, updatedAt: new Date() }).where(eq(legalTemplates.id, id)).returning();
+    return updated;
+  }
+  async deleteLegalTemplate(id: string) {
+    await db.delete(legalTemplates).where(eq(legalTemplates.id, id));
+  }
+
+  async registerDevice(data: InsertDeviceRegistration) {
+    const [created] = await db.insert(deviceRegistrations).values(data).returning();
+    return created;
+  }
+  async getDevicesBySubscriber(subscriberId: string) {
+    return db.select().from(deviceRegistrations).where(eq(deviceRegistrations.subscriberId, subscriberId));
+  }
+
+  async createPushNotification(data: InsertPushNotification) {
+    const [created] = await db.insert(pushNotifications).values(data).returning();
+    return created;
+  }
+  async getPushNotifications(limit = 50) {
+    return db.select().from(pushNotifications).orderBy(desc(pushNotifications.sentAt)).limit(limit);
+  }
+
+  async getBookmarks(subscriberId: string) {
+    return db.select().from(contentBookmarks).where(eq(contentBookmarks.subscriberId, subscriberId)).orderBy(desc(contentBookmarks.bookmarkedAt));
+  }
+  async addBookmark(data: InsertContentBookmark) {
+    const [created] = await db.insert(contentBookmarks).values(data).returning();
+    return created;
+  }
+  async removeBookmark(subscriberId: string, contentId: string) {
+    await db.delete(contentBookmarks).where(and(eq(contentBookmarks.subscriberId, subscriberId), eq(contentBookmarks.contentId, contentId)));
+  }
+
+  async getSitePages() {
+    return db.select().from(sitePages).orderBy(desc(sitePages.createdAt));
+  }
+  async getSitePage(id: string) {
+    const [page] = await db.select().from(sitePages).where(eq(sitePages.id, id));
+    return page;
+  }
+  async getSitePageBySlug(slug: string) {
+    const [page] = await db.select().from(sitePages).where(eq(sitePages.slug, slug));
+    return page;
+  }
+  async createSitePage(data: InsertSitePage) {
+    const [created] = await db.insert(sitePages).values(data).returning();
+    return created;
+  }
+  async updateSitePage(id: string, data: Partial<InsertSitePage>) {
+    const [updated] = await db.update(sitePages).set({ ...data, updatedAt: new Date() }).where(eq(sitePages.id, id)).returning();
+    return updated;
+  }
+  async deleteSitePage(id: string) {
+    await db.delete(sitePages).where(eq(sitePages.id, id));
+  }
+
+  async getPageRows(pageId: string) {
+    return db.select().from(pageRows).where(eq(pageRows.pageId, pageId)).orderBy(pageRows.displayOrder);
+  }
+  async createPageRow(data: InsertPageRow) {
+    const [created] = await db.insert(pageRows).values(data).returning();
+    return created;
+  }
+  async updatePageRow(id: string, data: Partial<InsertPageRow>) {
+    const [updated] = await db.update(pageRows).set(data).where(eq(pageRows.id, id)).returning();
+    return updated;
+  }
+  async deletePageRow(id: string) {
+    await db.delete(pageRows).where(eq(pageRows.id, id));
+  }
+
+  async getPageWidgets(rowId: string) {
+    return db.select().from(pageWidgets).where(eq(pageWidgets.rowId, rowId)).orderBy(pageWidgets.displayOrder);
+  }
+  async getPageWidgetsByPage(pageId: string) {
+    return db.select().from(pageWidgets).where(eq(pageWidgets.pageId, pageId)).orderBy(pageWidgets.displayOrder);
+  }
+  async createPageWidget(data: InsertPageWidget) {
+    const [created] = await db.insert(pageWidgets).values(data).returning();
+    return created;
+  }
+  async updatePageWidget(id: string, data: Partial<InsertPageWidget>) {
+    const [updated] = await db.update(pageWidgets).set({ ...data, updatedAt: new Date() }).where(eq(pageWidgets.id, id)).returning();
+    return updated;
+  }
+  async deletePageWidget(id: string) {
+    await db.delete(pageWidgets).where(eq(pageWidgets.id, id));
+  }
+
+  async getPageTemplates() {
+    return db.select().from(pageTemplates).orderBy(desc(pageTemplates.createdAt));
+  }
+  async getPageTemplate(id: string) {
+    const [t] = await db.select().from(pageTemplates).where(eq(pageTemplates.id, id));
+    return t;
+  }
+  async createPageTemplate(data: InsertPageTemplate) {
+    const [created] = await db.insert(pageTemplates).values(data).returning();
+    return created;
+  }
+  async deletePageTemplate(id: string) {
+    await db.delete(pageTemplates).where(eq(pageTemplates.id, id));
+  }
+
+  async getCommunityEvents(status?: string) {
+    if (status) {
+      return db.select().from(communityEvents).where(eq(communityEvents.status, status)).orderBy(desc(communityEvents.createdAt));
+    }
+    return db.select().from(communityEvents).orderBy(desc(communityEvents.createdAt));
+  }
+  async getCommunityEvent(id: string) {
+    const [event] = await db.select().from(communityEvents).where(eq(communityEvents.id, id));
+    return event;
+  }
+  async createCommunityEvent(data: InsertCommunityEvent) {
+    const [created] = await db.insert(communityEvents).values(data).returning();
+    return created;
+  }
+  async updateCommunityEvent(id: string, data: Partial<InsertCommunityEvent>) {
+    const [updated] = await db.update(communityEvents).set(data).where(eq(communityEvents.id, id)).returning();
+    return updated;
+  }
+  async deleteCommunityEvent(id: string) {
+    await db.delete(communityEvents).where(eq(communityEvents.id, id));
+  }
+
+  async getObituaries() {
+    return db.select().from(obituaries).orderBy(desc(obituaries.createdAt));
+  }
+  async getObituary(id: string) {
+    const [obit] = await db.select().from(obituaries).where(eq(obituaries.id, id));
+    return obit;
+  }
+  async createObituary(data: InsertObituary) {
+    const [created] = await db.insert(obituaries).values(data).returning();
+    return created;
+  }
+  async updateObituary(id: string, data: Partial<InsertObituary>) {
+    const [updated] = await db.update(obituaries).set(data).where(eq(obituaries.id, id)).returning();
+    return updated;
+  }
+  async deleteObituary(id: string) {
+    await db.delete(obituaries).where(eq(obituaries.id, id));
+  }
+
+  async getClassifieds(category?: string, status?: string) {
+    const conditions = [];
+    if (category) conditions.push(eq(classifieds.category, category));
+    if (status) conditions.push(eq(classifieds.status, status));
+    if (conditions.length > 0) {
+      return db.select().from(classifieds).where(and(...conditions)).orderBy(desc(classifieds.createdAt));
+    }
+    return db.select().from(classifieds).orderBy(desc(classifieds.createdAt));
+  }
+  async getClassified(id: string) {
+    const [c] = await db.select().from(classifieds).where(eq(classifieds.id, id));
+    return c;
+  }
+  async createClassified(data: InsertClassified) {
+    const [created] = await db.insert(classifieds).values(data).returning();
+    return created;
+  }
+  async updateClassified(id: string, data: Partial<InsertClassified>) {
+    const [updated] = await db.update(classifieds).set(data).where(eq(classifieds.id, id)).returning();
+    return updated;
+  }
+  async deleteClassified(id: string) {
+    await db.delete(classifieds).where(eq(classifieds.id, id));
+  }
+
+  async getCommunityPolls() {
+    return db.select().from(communityPolls).orderBy(desc(communityPolls.createdAt));
+  }
+  async getCommunityPoll(id: string) {
+    const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.id, id));
+    return poll;
+  }
+  async createCommunityPoll(data: InsertCommunityPoll) {
+    const [created] = await db.insert(communityPolls).values(data).returning();
+    return created;
+  }
+  async updateCommunityPoll(id: string, data: Partial<InsertCommunityPoll>) {
+    const [updated] = await db.update(communityPolls).set(data).where(eq(communityPolls.id, id)).returning();
+    return updated;
+  }
+  async deleteCommunityPoll(id: string) {
+    await db.delete(communityPolls).where(eq(communityPolls.id, id));
+  }
+
+  async getCommunityAnnouncements(status?: string) {
+    if (status) {
+      return db.select().from(communityAnnouncements).where(eq(communityAnnouncements.status, status)).orderBy(desc(communityAnnouncements.createdAt));
+    }
+    return db.select().from(communityAnnouncements).orderBy(desc(communityAnnouncements.createdAt));
+  }
+  async getCommunityAnnouncement(id: string) {
+    const [a] = await db.select().from(communityAnnouncements).where(eq(communityAnnouncements.id, id));
+    return a;
+  }
+  async createCommunityAnnouncement(data: InsertCommunityAnnouncement) {
+    const [created] = await db.insert(communityAnnouncements).values(data).returning();
+    return created;
+  }
+  async updateCommunityAnnouncement(id: string, data: Partial<InsertCommunityAnnouncement>) {
+    const [updated] = await db.update(communityAnnouncements).set(data).where(eq(communityAnnouncements.id, id)).returning();
+    return updated;
+  }
+  async deleteCommunityAnnouncement(id: string) {
+    await db.delete(communityAnnouncements).where(eq(communityAnnouncements.id, id));
+  }
+
+  async getBusinessListings(category?: string) {
+    if (category) {
+      return db.select().from(businessListings).where(eq(businessListings.category, category)).orderBy(desc(businessListings.createdAt));
+    }
+    return db.select().from(businessListings).orderBy(desc(businessListings.createdAt));
+  }
+  async getBusinessListing(id: string) {
+    const [listing] = await db.select().from(businessListings).where(eq(businessListings.id, id));
+    return listing;
+  }
+  async getBusinessListingBySlug(slug: string) {
+    const [listing] = await db.select().from(businessListings).where(eq(businessListings.slug, slug));
+    return listing;
+  }
+  async createBusinessListing(data: InsertBusinessListing) {
+    const [created] = await db.insert(businessListings).values(data).returning();
+    return created;
+  }
+  async updateBusinessListing(id: string, data: Partial<InsertBusinessListing>) {
+    const [updated] = await db.update(businessListings).set(data).where(eq(businessListings.id, id)).returning();
+    return updated;
+  }
+  async deleteBusinessListing(id: string) {
+    await db.delete(businessListings).where(eq(businessListings.id, id));
   }
 }
 

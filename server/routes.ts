@@ -10,6 +10,10 @@ import {
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
   insertApiKeySchema, insertTaskSchema, insertTaskCommentSchema, insertTaskActivityLogSchema, insertNewsletterScheduleSchema,
   insertNpsSurveySchema,
+  insertLegalTemplateSchema, insertDeviceRegistrationSchema, insertContentBookmarkSchema,
+  insertSitePageSchema, insertPageRowSchema, insertPageWidgetSchema, insertPageTemplateSchema,
+  insertCommunityEventSchema, insertObituarySchema, insertClassifiedSchema,
+  insertCommunityPollSchema, insertCommunityAnnouncementSchema, insertBusinessListingSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -4785,6 +4789,636 @@ Provide comprehensive social listening intelligence including trending topics, k
       createdAt: c.createdAt,
     }));
     res.json(collections);
+  });
+
+  // ── Legal Templates (Admin CRUD) ──
+  app.get("/api/legal-templates", requireAuth, async (_req, res) => {
+    try {
+      const templates = await storage.getLegalTemplates();
+      res.json(templates);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/legal-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getLegalTemplate(req.params.id);
+      if (!template) return res.status(404).json({ message: "Template not found" });
+      res.json(template);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/legal-templates", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const data = insertLegalTemplateSchema.parse(req.body);
+      const template = await storage.createLegalTemplate(data);
+      res.status(201).json(template);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/legal-templates/:id", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const template = await storage.updateLegalTemplate(req.params.id, req.body);
+      if (!template) return res.status(404).json({ message: "Template not found" });
+      res.json(template);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/legal-templates/:id", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      await storage.deleteLegalTemplate(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/legal/:templateType", async (req, res) => {
+    try {
+      const template = await storage.getLegalTemplateByType(req.params.templateType);
+      if (!template) return res.status(404).json({ message: "Legal page not found" });
+      const brandingData = await storage.getBranding();
+      const settingsData = await storage.getSettings();
+      const variables: Record<string, string> = {
+        "COMPANY_NAME": brandingData?.companyName || "Company",
+        "COMPANY_SHORT": brandingData?.companyName?.split(" ").map((w: string) => w[0]).join("") || "CO",
+        "SITE_NAME": brandingData?.companyName || "Site",
+        "SITE_URL": brandingData?.websiteUrl || "",
+        "SUPPORT_EMAIL": brandingData?.contactEmail || "",
+        "PRIVACY_EMAIL": brandingData?.contactEmail || "",
+        "COMPANY_ADDRESS": settingsData?.companyLocation || "",
+        "COMPANY_PHONE": brandingData?.contactPhone || "",
+        "PRIVACY_PORTAL_URL": "/privacy-request",
+        "STATE_OF_INCORPORATION": "",
+        "TOS_EFFECTIVE_DATE": "March 1, 2026",
+        "PRIVACY_EFFECTIVE_DATE": "March 1, 2026",
+        "NETWORK_NAME": brandingData?.companyName || "Network",
+        "MIN_AGE": "13",
+      };
+      let body = template.body;
+      for (const [key, value] of Object.entries(variables)) {
+        body = body.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+      }
+      res.json({ ...template, body, resolvedVariables: variables });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Device Registrations ──
+  app.post("/api/public/devices/register", async (req, res) => {
+    try {
+      const data = insertDeviceRegistrationSchema.parse(req.body);
+      const device = await storage.registerDevice(data);
+      res.status(201).json(device);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // ── Content Bookmarks ──
+  app.get("/api/public/bookmarks/:subscriberId", async (req, res) => {
+    try {
+      const bookmarks = await storage.getBookmarks(req.params.subscriberId);
+      res.json(bookmarks);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/bookmarks", async (req, res) => {
+    try {
+      const data = insertContentBookmarkSchema.parse(req.body);
+      const bookmark = await storage.addBookmark(data);
+      res.status(201).json(bookmark);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/public/bookmarks/:subscriberId/:contentId", async (req, res) => {
+    try {
+      await storage.removeBookmark(req.params.subscriberId, req.params.contentId);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Device Registrations (Public) ──
+  app.post("/api/public/devices", async (req, res) => {
+    try {
+      const data = req.body;
+      const device = await storage.registerDevice(data);
+      res.status(201).json(device);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/devices/:subscriberId", async (req, res) => {
+    try {
+      const devices = await storage.getDevicesBySubscriber(req.params.subscriberId);
+      res.json(devices);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Push Notifications (Admin) ──
+  app.get("/api/push-notifications", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const notifications = await storage.getPushNotifications(limit);
+      res.json(notifications);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/push-notifications", requireAuth, async (req, res) => {
+    try {
+      const data = req.body;
+      const notification = await storage.createPushNotification(data);
+      res.status(201).json(notification);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // ── Site Pages (Admin CRUD) ──
+  app.get("/api/site-pages", requireAuth, async (_req, res) => {
+    try {
+      const pages = await storage.getSitePages();
+      res.json(pages);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/site-pages/:id", requireAuth, async (req, res) => {
+    try {
+      const page = await storage.getSitePage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      const rows = await storage.getPageRows(page.id);
+      const rowsWithWidgets = await Promise.all(rows.map(async (row) => {
+        const widgets = await storage.getPageWidgets(row.id);
+        return { ...row, widgets };
+      }));
+      res.json({ ...page, rows: rowsWithWidgets });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/site-pages", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const data = insertSitePageSchema.parse(req.body);
+      const page = await storage.createSitePage(data);
+      res.status(201).json(page);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/site-pages/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const page = await storage.updateSitePage(req.params.id, req.body);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/site-pages/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const widgets = await storage.getPageWidgetsByPage(req.params.id);
+      for (const w of widgets) await storage.deletePageWidget(w.id);
+      const rows = await storage.getPageRows(req.params.id);
+      for (const r of rows) await storage.deletePageRow(r.id);
+      await storage.deleteSitePage(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/site-pages/:id/publish", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const page = await storage.updateSitePage(req.params.id, { status: "published" });
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/site-pages/:id/duplicate", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const original = await storage.getSitePage(req.params.id);
+      if (!original) return res.status(404).json({ message: "Page not found" });
+      const newPage = await storage.createSitePage({
+        title: `${original.title} (Copy)`,
+        slug: `${original.slug}-copy-${Date.now()}`,
+        pageType: original.pageType,
+        seoTitle: original.seoTitle,
+        seoDescription: original.seoDescription,
+        layoutType: original.layoutType,
+        status: "draft",
+      });
+      const rows = await storage.getPageRows(original.id);
+      for (const row of rows) {
+        const newRow = await storage.createPageRow({
+          pageId: newPage.id,
+          displayOrder: row.displayOrder,
+          rowType: row.rowType,
+          columnCount: row.columnCount,
+          backgroundColor: row.backgroundColor,
+          paddingTop: row.paddingTop,
+          paddingBottom: row.paddingBottom,
+          visible: row.visible,
+          deviceVisibility: row.deviceVisibility,
+        });
+        const widgets = await storage.getPageWidgets(row.id);
+        for (const widget of widgets) {
+          await storage.createPageWidget({
+            rowId: newRow.id,
+            pageId: newPage.id,
+            widgetType: widget.widgetType,
+            displayOrder: widget.displayOrder,
+            columnSpan: widget.columnSpan,
+            columnPosition: widget.columnPosition,
+            config: widget.config,
+            titleOverride: widget.titleOverride,
+            visible: widget.visible,
+            cacheTtl: widget.cacheTtl,
+          });
+        }
+      }
+      res.status(201).json(newPage);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Page Rows ──
+  app.post("/api/site-pages/:pageId/rows", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const data = insertPageRowSchema.parse({ ...req.body, pageId: req.params.pageId });
+      const row = await storage.createPageRow(data);
+      res.status(201).json(row);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/page-rows/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const row = await storage.updatePageRow(req.params.id, req.body);
+      if (!row) return res.status(404).json({ message: "Row not found" });
+      res.json(row);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/page-rows/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const widgets = await storage.getPageWidgets(req.params.id);
+      for (const w of widgets) await storage.deletePageWidget(w.id);
+      await storage.deletePageRow(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/site-pages/:pageId/rows/reorder", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { items } = req.body;
+      for (const item of items) {
+        await storage.updatePageRow(item.id, { displayOrder: item.displayOrder });
+      }
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Page Widgets ──
+  app.post("/api/page-rows/:rowId/widgets", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const data = insertPageWidgetSchema.parse({ ...req.body, rowId: req.params.rowId });
+      const widget = await storage.createPageWidget(data);
+      res.status(201).json(widget);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/page-widgets/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const widget = await storage.updatePageWidget(req.params.id, req.body);
+      if (!widget) return res.status(404).json({ message: "Widget not found" });
+      res.json(widget);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/page-widgets/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      await storage.deletePageWidget(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/page-rows/:rowId/widgets/reorder", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { items } = req.body;
+      for (const item of items) {
+        await storage.updatePageWidget(item.id, { displayOrder: item.displayOrder });
+      }
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Page Templates ──
+  app.get("/api/page-templates", requireAuth, async (_req, res) => {
+    try {
+      const templates = await storage.getPageTemplates();
+      res.json(templates);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/page-templates", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const data = insertPageTemplateSchema.parse(req.body);
+      const template = await storage.createPageTemplate(data);
+      res.status(201).json(template);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.post("/api/page-templates/:id/apply/:pageId", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const template = await storage.getPageTemplate(req.params.id);
+      if (!template) return res.status(404).json({ message: "Template not found" });
+      const existingRows = await storage.getPageRows(req.params.pageId);
+      for (const r of existingRows) {
+        const widgets = await storage.getPageWidgets(r.id);
+        for (const w of widgets) await storage.deletePageWidget(w.id);
+        await storage.deletePageRow(r.id);
+      }
+      const rowsConfig = (template.rowsConfig as any[]) || [];
+      for (const rowConfig of rowsConfig) {
+        const newRow = await storage.createPageRow({
+          pageId: req.params.pageId,
+          displayOrder: rowConfig.displayOrder || 0,
+          rowType: rowConfig.rowType || "content",
+          columnCount: rowConfig.columnCount || 1,
+          backgroundColor: rowConfig.backgroundColor,
+          paddingTop: rowConfig.paddingTop || 24,
+          paddingBottom: rowConfig.paddingBottom || 24,
+          visible: true,
+          deviceVisibility: rowConfig.deviceVisibility || "all",
+        });
+        for (const widgetConfig of (rowConfig.widgets || [])) {
+          await storage.createPageWidget({
+            rowId: newRow.id,
+            pageId: req.params.pageId,
+            widgetType: widgetConfig.widgetType,
+            displayOrder: widgetConfig.displayOrder || 0,
+            columnSpan: widgetConfig.columnSpan || 1,
+            columnPosition: widgetConfig.columnPosition || 0,
+            config: widgetConfig.config || {},
+            titleOverride: widgetConfig.titleOverride,
+            visible: true,
+            cacheTtl: widgetConfig.cacheTtl || 300,
+          });
+        }
+      }
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/page-templates/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      await storage.deletePageTemplate(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Public Site Pages ──
+  app.get("/api/public/site-pages/:slug", async (req, res) => {
+    try {
+      const page = await storage.getSitePageBySlug(req.params.slug);
+      if (!page || page.status !== "published") return res.status(404).json({ message: "Page not found" });
+      const rows = await storage.getPageRows(page.id);
+      const rowsWithWidgets = await Promise.all(rows.map(async (row) => {
+        const widgets = await storage.getPageWidgets(row.id);
+        return { ...row, widgets };
+      }));
+      res.json({ ...page, rows: rowsWithWidgets });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Community Events ──
+  app.get("/api/community-events", requireAuth, async (req, res) => {
+    try {
+      const events = await storage.getCommunityEvents(req.query.status as string);
+      res.json(events);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/community-events/:id", requireAuth, async (req, res) => {
+    try {
+      const event = await storage.getCommunityEvent(req.params.id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      res.json(event);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/community-events", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const data = insertCommunityEventSchema.parse(req.body);
+      const event = await storage.createCommunityEvent(data);
+      res.status(201).json(event);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/community-events/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const event = await storage.updateCommunityEvent(req.params.id, req.body);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      res.json(event);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/community-events/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      await storage.deleteCommunityEvent(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Obituaries ──
+  app.get("/api/obituaries", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getObituaries()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/obituaries", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const data = insertObituarySchema.parse(req.body);
+      res.status(201).json(await storage.createObituary(data));
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/obituaries/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const item = await storage.updateObituary(req.params.id, req.body);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/obituaries/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try { await storage.deleteObituary(req.params.id); res.json({ success: true }); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Classifieds ──
+  app.get("/api/classifieds", requireAuth, async (req, res) => {
+    try { res.json(await storage.getClassifieds(req.query.category as string, req.query.status as string)); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/classifieds", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const data = insertClassifiedSchema.parse(req.body);
+      res.status(201).json(await storage.createClassified(data));
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/classifieds/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const item = await storage.updateClassified(req.params.id, req.body);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/classifieds/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try { await storage.deleteClassified(req.params.id); res.json({ success: true }); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Community Polls ──
+  app.get("/api/community-polls", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getCommunityPolls()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/community-polls", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const data = insertCommunityPollSchema.parse(req.body);
+      res.status(201).json(await storage.createCommunityPoll(data));
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/community-polls/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const item = await storage.updateCommunityPoll(req.params.id, req.body);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/community-polls/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try { await storage.deleteCommunityPoll(req.params.id); res.json({ success: true }); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/polls/:id/vote", async (req, res) => {
+    try {
+      const poll = await storage.getCommunityPoll(req.params.id);
+      if (!poll || !poll.isActive) return res.status(404).json({ message: "Poll not found or closed" });
+      const { optionIndex } = req.body;
+      const options = poll.options as any[];
+      if (optionIndex < 0 || optionIndex >= options.length) return res.status(400).json({ message: "Invalid option" });
+      options[optionIndex].votes = (options[optionIndex].votes || 0) + 1;
+      await storage.updateCommunityPoll(req.params.id, { options, totalVotes: (poll.totalVotes || 0) + 1 });
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Community Announcements ──
+  app.get("/api/community-announcements", requireAuth, async (req, res) => {
+    try { res.json(await storage.getCommunityAnnouncements(req.query.status as string)); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/community-announcements", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const data = insertCommunityAnnouncementSchema.parse(req.body);
+      res.status(201).json(await storage.createCommunityAnnouncement(data));
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/community-announcements/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const item = await storage.updateCommunityAnnouncement(req.params.id, req.body);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/community-announcements/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try { await storage.deleteCommunityAnnouncement(req.params.id); res.json({ success: true }); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Business Listings ──
+  app.get("/api/business-listings", requireAuth, async (req, res) => {
+    try { res.json(await storage.getBusinessListings(req.query.category as string)); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/business-listings/:id", requireAuth, async (req, res) => {
+    try {
+      const listing = await storage.getBusinessListing(req.params.id);
+      if (!listing) return res.status(404).json({ message: "Not found" });
+      res.json(listing);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/business-listings", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const data = insertBusinessListingSchema.parse(req.body);
+      res.status(201).json(await storage.createBusinessListing(data));
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/business-listings/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const item = await storage.updateBusinessListing(req.params.id, req.body);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/business-listings/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try { await storage.deleteBusinessListing(req.params.id); res.json({ success: true }); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Public Community Endpoints ──
+  app.get("/api/public/community-events", async (req, res) => {
+    try { res.json(await storage.getCommunityEvents("approved")); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/obituaries", async (_req, res) => {
+    try {
+      const items = await storage.getObituaries();
+      res.json(items.filter((o: any) => o.publishedAt));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/classifieds", async (req, res) => {
+    try { res.json(await storage.getClassifieds(req.query.category as string, "active")); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/community-polls", async (_req, res) => {
+    try {
+      const polls = await storage.getCommunityPolls();
+      res.json(polls.filter((p: any) => p.isActive));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/business-listings", async (req, res) => {
+    try { res.json(await storage.getBusinessListings(req.query.category as string)); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/community-announcements", async (_req, res) => {
+    try { res.json(await storage.getCommunityAnnouncements("approved")); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Blog API Endpoints ──
+  app.get("/api/public/blog", async (req, res) => {
+    try {
+      const { tag, page = "1", limit = "20" } = req.query;
+      const allPieces = await storage.getContentPiecesByStatus("ready", "blog");
+      let filtered = allPieces;
+      if (tag) {
+        filtered = allPieces.filter((p: any) => p.seoKeywords?.includes(tag as string));
+      }
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const offset = (pageNum - 1) * limitNum;
+      res.json({
+        data: filtered.slice(offset, offset + limitNum),
+        total: filtered.length,
+        page: pageNum,
+        totalPages: Math.ceil(filtered.length / limitNum),
+      });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/blog/tags", async (_req, res) => {
+    try {
+      const pieces = await storage.getContentPiecesByStatus("ready", "blog");
+      const tagCounts: Record<string, number> = {};
+      for (const p of pieces) {
+        for (const tag of (p.seoKeywords || [])) {
+          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        }
+      }
+      res.json(Object.entries(tagCounts).map(([tag, count]) => ({ tag, count })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   return httpServer;

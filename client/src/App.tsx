@@ -35,6 +35,9 @@ import AdResizer from "@/pages/AdResizer";
 import KanbanBoard from "@/pages/KanbanBoard";
 import MyTasks from "@/pages/MyTasks";
 import NewsletterManager from "@/pages/NewsletterManager";
+import LegalAdmin from "@/pages/LegalAdmin";
+import SiteBuilder from "@/pages/SiteBuilder";
+import CommunityAdmin from "@/pages/CommunityAdmin";
 import NotFound from "@/pages/not-found";
 
 function PageLoader() {
@@ -170,6 +173,9 @@ function ProtectedRoutes() {
           <Route path="/kanban">{() => <PermissionGate permission="content.view"><KanbanBoard /></PermissionGate>}</Route>
           <Route path="/my-tasks">{() => <PermissionGate permission="content.view"><MyTasks /></PermissionGate>}</Route>
           <Route path="/newsletters">{() => <PermissionGate permission="content.view"><NewsletterManager /></PermissionGate>}</Route>
+          <Route path="/legal-admin">{() => <PermissionGate permission="settings.view"><LegalAdmin /></PermissionGate>}</Route>
+          <Route path="/community">{() => <PermissionGate permission="content.view"><CommunityAdmin /></PermissionGate>}</Route>
+          <Route path="/site-builder">{() => <PermissionGate permission="customize.edit"><SiteBuilder /></PermissionGate>}</Route>
           <Route component={NotFound} />
         </Switch>
       </Suspense>
