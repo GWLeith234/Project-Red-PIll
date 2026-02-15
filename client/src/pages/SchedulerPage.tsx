@@ -9,10 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   Calendar, Plus, Trash2, Edit3, Clock, Sparkles, Lightbulb, Loader2,
   Linkedin, Facebook, Building2, ChevronLeft, ChevronRight, Zap,
-  Newspaper, PenLine, Mail, Mic, Video, ArrowRight
+  Newspaper, PenLine, Mail, Mic, Video, ArrowRight, CalendarIcon, Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +68,37 @@ function getFirstDayOfMonth(year: number, month: number) {
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY_MAP: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+
+function parseSuggestionTime(timeStr: string): string | null {
+  try {
+    const lower = timeStr.toLowerCase();
+    const timeMatch = lower.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+    let hours = 9, minutes = 0;
+    if (timeMatch) {
+      hours = parseInt(timeMatch[1]);
+      minutes = parseInt(timeMatch[2]);
+      if (timeMatch[3]?.toLowerCase() === "pm" && hours < 12) hours += 12;
+      if (timeMatch[3]?.toLowerCase() === "am" && hours === 12) hours = 0;
+    }
+    const now = new Date();
+    let targetDate = new Date(now);
+    for (const [dayName, dayNum] of Object.entries(WEEKDAY_MAP)) {
+      if (lower.includes(dayName)) {
+        const diff = (dayNum - now.getDay() + 7) % 7 || 7;
+        targetDate = new Date(now);
+        targetDate.setDate(now.getDate() + diff);
+        break;
+      }
+    }
+    if (targetDate.getTime() === now.getTime()) {
+      targetDate.setDate(now.getDate() + 1);
+    }
+    return `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  } catch {
+    return null;
+  }
+}
 
 export default function SchedulerPage() {
   const { data: posts, isLoading } = useScheduledPosts();
@@ -743,12 +776,79 @@ export default function SchedulerPage() {
             </div>
             <div className="space-y-2">
               <Label className="font-mono text-xs uppercase tracking-wider">Date & Time</Label>
-              <Input
-                type="datetime-local"
-                value={form.scheduledAt}
-                onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                data-testid="input-schedule-datetime"
-              />
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "flex-1 justify-start text-left font-normal",
+                        !form.scheduledAt && "text-muted-foreground"
+                      )}
+                      data-testid="input-schedule-date"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {form.scheduledAt
+                        ? new Date(form.scheduledAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+                        : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker
+                      mode="single"
+                      selected={form.scheduledAt ? new Date(form.scheduledAt) : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          const prev = form.scheduledAt ? new Date(form.scheduledAt) : new Date();
+                          date.setHours(prev.getHours(), prev.getMinutes());
+                          setForm({ ...form, scheduledAt: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}` });
+                        }
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <div className="flex items-center gap-1">
+                  <Select
+                    value={form.scheduledAt ? String(new Date(form.scheduledAt).getHours()) : ""}
+                    onValueChange={(h) => {
+                      const d = form.scheduledAt ? new Date(form.scheduledAt) : new Date();
+                      d.setHours(parseInt(h));
+                      setForm({ ...form, scheduledAt: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` });
+                    }}
+                  >
+                    <SelectTrigger className="w-[70px]" data-testid="select-schedule-hour">
+                      <SelectValue placeholder="HH" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={String(i)}>
+                          {String(i).padStart(2, "0")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-muted-foreground font-mono">:</span>
+                  <Select
+                    value={form.scheduledAt ? String(new Date(form.scheduledAt).getMinutes()) : ""}
+                    onValueChange={(m) => {
+                      const d = form.scheduledAt ? new Date(form.scheduledAt) : new Date();
+                      d.setMinutes(parseInt(m));
+                      setForm({ ...form, scheduledAt: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` });
+                    }}
+                  >
+                    <SelectTrigger className="w-[70px]" data-testid="select-schedule-minute">
+                      <SelectValue placeholder="MM" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                        <SelectItem key={m} value={String(m)}>
+                          {String(m).padStart(2, "0")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="font-mono text-xs uppercase tracking-wider">Post Text</Label>
@@ -786,14 +886,51 @@ export default function SchedulerPage() {
             {suggestions && (
               <div className="space-y-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
                 {suggestions.overallStrategy && (
-                  <p className="text-xs text-foreground/80">{suggestions.overallStrategy}</p>
+                  <p className="text-xs text-foreground/80 mb-2">{suggestions.overallStrategy}</p>
                 )}
-                {Array.isArray(suggestions.suggestions) && suggestions.suggestions.slice(0, 3).map((s: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <ArrowRight className="h-2.5 w-2.5 text-primary shrink-0" />
-                    <span><strong>{getChannelConfig(s.platform || "").label}</strong>: {s.bestTime} - {s.tip}</span>
-                  </div>
-                ))}
+                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Click a suggestion to apply it:</p>
+                {Array.isArray(suggestions.suggestions) && suggestions.suggestions.slice(0, 5).map((s: any, i: number) => {
+                  const cfg = getChannelConfig(s.platform || "");
+                  const isApplied = form.platform === s.platform && form.postText === (s.suggestedText || s.postText || "");
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        const updates: any = { ...form };
+                        if (s.platform) updates.platform = s.platform;
+                        if (s.suggestedText || s.postText) updates.postText = s.suggestedText || s.postText;
+                        if (s.hashtags) updates.hashtags = Array.isArray(s.hashtags) ? s.hashtags.join(", ") : s.hashtags;
+                        if (s.bestTime) {
+                          const parsed = parseSuggestionTime(s.bestTime);
+                          if (parsed) updates.scheduledAt = parsed;
+                        }
+                        setForm(updates);
+                        toast({ title: "Suggestion Applied", description: `${cfg.label} recommendation loaded into form` });
+                      }}
+                      className={cn(
+                        "w-full text-left rounded-lg p-2.5 border transition-all",
+                        isApplied
+                          ? "bg-primary/10 border-primary/40 ring-1 ring-primary/30"
+                          : "bg-background/50 border-border/40 hover:border-primary/30 hover:bg-primary/5"
+                      )}
+                      data-testid={`suggestion-apply-${i}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <cfg.icon className={cn("h-3.5 w-3.5 shrink-0", cfg.color)} />
+                        <span className={cn("text-xs font-semibold", cfg.color)}>{cfg.label}</span>
+                        {s.bestTime && (
+                          <span className="text-[10px] text-muted-foreground ml-auto font-mono">{s.bestTime}</span>
+                        )}
+                        {isApplied && <Check className="h-3 w-3 text-primary ml-1" />}
+                      </div>
+                      {s.tip && <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{s.tip}</p>}
+                      {(s.suggestedText || s.postText) && (
+                        <p className="text-[10px] text-foreground/70 mt-1.5 leading-snug line-clamp-2 italic">"{(s.suggestedText || s.postText).slice(0, 120)}..."</p>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
             <DialogFooter>
