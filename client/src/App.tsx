@@ -77,13 +77,16 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught:", error, errorInfo);
   }
   render() {
     if (this.state.hasError) {
@@ -92,8 +95,13 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
           <div>
             <h2 className="text-lg font-display font-bold text-primary mb-2">Something went wrong</h2>
             <p className="text-sm text-muted-foreground mb-4">This page encountered an error while loading.</p>
+            {this.state.error && (
+              <pre className="text-xs text-red-400 bg-red-500/10 p-3 rounded mb-4 max-w-md overflow-auto text-left" data-testid="text-error-details">
+                {this.state.error.message}
+              </pre>
+            )}
             <button
-              onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+              onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
               className="px-4 py-2 bg-primary text-primary-foreground text-sm font-mono uppercase tracking-wider hover:bg-primary/90 transition-colors"
               data-testid="button-error-retry"
             >
