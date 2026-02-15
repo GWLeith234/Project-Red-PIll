@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,25 +12,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  DndContext,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-  type DragOverEvent,
-  DragOverlay,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
   Plus, Search, Calendar, Tag, User, MessageSquare,
   Clock, Loader2, Trash2, Send, GripVertical,
@@ -67,31 +48,20 @@ function formatDate(date: string | Date | null | undefined) {
   return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function SortableTaskCard({ task, users, onClick }: { task: Task; users: any[]; onClick: () => void }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id, data: { type: "task", task } });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-  };
-
+function DraggableTaskCard({ task, users, onClick, onDragStart }: { task: Task; users: any[]; onClick: () => void; onDragStart: (e: React.DragEvent, taskId: string) => void }) {
   const assignee = users?.find((u: any) => u.id === task.assigneeId);
   const priority = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const overdue = isOverdue(task.dueDate);
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={cn("group", isDragging && "opacity-40")}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", task.id);
+        onDragStart(e, task.id);
+      }}
+      className="group"
       data-testid={`card-task-${task.id}`}
     >
       <Card
@@ -102,8 +72,6 @@ function SortableTaskCard({ task, users, onClick }: { task: Task; users: any[]; 
           <div className="flex items-start gap-2">
             <div
               className="mt-1 text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
-              {...attributes}
-              {...listeners}
               data-testid={`drag-handle-${task.id}`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -166,30 +134,6 @@ function SortableTaskCard({ task, users, onClick }: { task: Task; users: any[]; 
   );
 }
 
-function TaskCardOverlay({ task, users }: { task: Task; users: any[] }) {
-  const assignee = users?.find((u: any) => u.id === task.assigneeId);
-  const priority = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
-
-  return (
-    <Card className="border-primary/30 bg-card shadow-xl w-[280px]">
-      <CardContent className="p-3 space-y-2">
-        <p className="text-sm font-medium truncate">{task.title}</p>
-        <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 font-mono", priority.className)}>
-            {priority.label}
-          </Badge>
-          {assignee && (
-            <Avatar className="h-5 w-5">
-              <AvatarFallback className="text-[8px] bg-primary/10 text-primary">
-                {getInitials(assignee.displayName || assignee.username)}
-              </AvatarFallback>
-            </Avatar>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 function KanbanColumn({
   column,
@@ -197,12 +141,18 @@ function KanbanColumn({
   users,
   onAddTask,
   onTaskClick,
+  onDragStart,
+  onDrop,
+  isDropTarget,
 }: {
   column: typeof COLUMNS[number];
   tasks: Task[];
   users: any[];
   onAddTask: () => void;
   onTaskClick: (task: Task) => void;
+  onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onDrop: (e: React.DragEvent, columnId: string) => void;
+  isDropTarget: boolean;
 }) {
   return (
     <div className="flex flex-col min-w-[280px] w-[280px] shrink-0" data-testid={`column-${column.id}`}>
@@ -226,17 +176,26 @@ function KanbanColumn({
         </div>
         <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{column.description}</p>
       </div>
-      <div className="flex-1 rounded-b-lg border border-t-0 border-border/20 bg-muted/10 p-2 space-y-2 min-h-[200px] overflow-y-auto max-h-[calc(100vh-280px)]">
-        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          {tasks.map(task => (
-            <SortableTaskCard
-              key={task.id}
-              task={task}
-              users={users || []}
-              onClick={() => onTaskClick(task)}
-            />
-          ))}
-        </SortableContext>
+      <div
+        className={cn(
+          "flex-1 rounded-b-lg border border-t-0 border-border/20 bg-muted/10 p-2 space-y-2 min-h-[200px] overflow-y-auto max-h-[calc(100vh-280px)] transition-colors",
+          isDropTarget && "bg-primary/5 border-primary/30"
+        )}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(e) => onDrop(e, column.id)}
+      >
+        {tasks.map(task => (
+          <DraggableTaskCard
+            key={task.id}
+            task={task}
+            users={users || []}
+            onClick={() => onTaskClick(task)}
+            onDragStart={onDragStart}
+          />
+        ))}
         {tasks.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/40">
             <AlertCircle className="h-6 w-6 mb-2" />
@@ -728,7 +687,8 @@ export default function KanbanBoard() {
   const [createColumnStatus, setCreateColumnStatus] = useState("uploaded");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [dragTaskId, setDragTaskId] = useState<string | null>(null);
+  const [dropTargetColumn, setDropTargetColumn] = useState<string | null>(null);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -751,10 +711,22 @@ export default function KanbanBoard() {
     },
   });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  const handleDragStart = useCallback((e: React.DragEvent, taskId: string) => {
+    setDragTaskId(taskId);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData("text/plain");
+    if (taskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task && task.status !== columnId) {
+        updateMutation.mutate({ id: taskId, data: { status: columnId } });
+      }
+    }
+    setDragTaskId(null);
+    setDropTargetColumn(null);
+  }, [tasks, updateMutation]);
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
@@ -786,47 +758,6 @@ export default function KanbanBoard() {
     return map;
   }, [filteredTasks]);
 
-  const findColumnForTask = useCallback((taskId: string): string | null => {
-    for (const [colId, colTasks] of Object.entries(tasksByColumn)) {
-      if (colTasks.find(t => t.id === taskId)) return colId;
-    }
-    return null;
-  }, [tasksByColumn]);
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveId(null);
-
-    if (!over) return;
-
-    const activeTaskId = active.id as string;
-    const overColumnId = COLUMNS.find(c => c.id === over.id)?.id;
-    const overTaskId = over.id as string;
-
-    let targetColumn: string | null = null;
-
-    if (overColumnId) {
-      targetColumn = overColumnId;
-    } else {
-      targetColumn = findColumnForTask(overTaskId);
-    }
-
-    if (!targetColumn) return;
-
-    const sourceColumn = findColumnForTask(activeTaskId);
-    if (sourceColumn && sourceColumn !== targetColumn) {
-      updateMutation.mutate({ id: activeTaskId, data: { status: targetColumn } });
-    }
-  };
-
-  const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
   const hasFilters = searchQuery || filterPriority || filterAssignee;
 
   return (
@@ -901,14 +832,7 @@ export default function KanbanBoard() {
           </div>
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 sm:mx-0 sm:px-0" data-testid="kanban-columns">
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 sm:mx-0 sm:px-0" data-testid="kanban-columns">
             {COLUMNS.map(column => (
               <KanbanColumn
                 key={column.id}
@@ -923,13 +847,12 @@ export default function KanbanBoard() {
                   setSelectedTask(task);
                   setDetailOpen(true);
                 }}
+                onDragStart={handleDragStart}
+                onDrop={handleDrop}
+                isDropTarget={false}
               />
             ))}
           </div>
-          <DragOverlay>
-            {activeTask ? <TaskCardOverlay task={activeTask} users={users} /> : null}
-          </DragOverlay>
-        </DndContext>
       )}
 
       <CreateTaskDialog
