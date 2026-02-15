@@ -25,6 +25,13 @@ import multer from "multer";
 import { adSizes } from "./ad-sizes";
 import { fetchImageFromUrl, processImageForSizes, getImageMetadata, validateFit } from "./image-resizer";
 import rateLimit from "express-rate-limit";
+import {
+  WIDGET_REGISTRY, PAGE_TYPE_PRESETS, DEFAULT_AD_RULES,
+  validateAdPlacements, enforceAdPlacements,
+  generateAIPageLayout, refineAIPageLayout, suggestWidgets, getContentInventory,
+  type AdPlacementRules,
+} from "./ai-page-builder";
+import { insertAiLayoutExampleSchema, insertAdInjectionLogSchema } from "@shared/schema";
 
 const publicSubscribeLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
 const publicCommentLimit = rateLimit({ windowMs: 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
@@ -5418,6 +5425,177 @@ Provide comprehensive social listening intelligence including trending topics, k
         }
       }
       res.json(Object.entries(tagCounts).map(([tag, count]) => ({ tag, count })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/ai-page-builder/widget-registry", requireAuth, (_req, res) => {
+    res.json(WIDGET_REGISTRY);
+  });
+
+  app.get("/api/ai-page-builder/page-types", requireAuth, (_req, res) => {
+    res.json(PAGE_TYPE_PRESETS);
+  });
+
+  app.get("/api/ai-page-builder/content-inventory", requireAuth, (_req, res) => {
+    res.json(getContentInventory());
+  });
+
+  app.get("/api/ai-page-builder/ad-rules", requireAuth, (_req, res) => {
+    res.json(DEFAULT_AD_RULES);
+  });
+
+  app.post("/api/ai-page-builder/generate", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { pageType, prompt, existingContent } = req.body;
+      if (!pageType || !prompt) return res.status(400).json({ message: "pageType and prompt are required" });
+      const result = await generateAIPageLayout(pageType, prompt, existingContent);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/ai-page-builder/refine", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { layout, instruction } = req.body;
+      if (!layout || !instruction) return res.status(400).json({ message: "layout and instruction are required" });
+      const result = await refineAIPageLayout(layout, instruction);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/ai-page-builder/suggest-widgets", requireAuth, async (req, res) => {
+    try {
+      let { layout, pageType, pageId } = req.body;
+      if (!layout && pageId) {
+        const page = await storage.getSitePage(pageId);
+        pageType = pageType || (page as any)?.pageType || "homepage";
+        const widgets = await storage.getPageWidgetsByPage(pageId);
+        const rows = await storage.getPageRows(pageId);
+        layout = rows.map((r: any) => ({
+          columns: r.columns || 1,
+          widgets: widgets.filter((w: any) => w.rowId === r.id).map((w: any) => ({
+            type: w.widgetType,
+            config: w.config || {},
+            width: w.width || 12,
+          })),
+        }));
+      }
+      if (!layout) layout = [];
+      if (!pageType) pageType = "homepage";
+      const result = await suggestWidgets(layout, pageType);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/ai-page-builder/validate-ads", requireAuth, async (req, res) => {
+    try {
+      let { layout, rules, pageId } = req.body;
+      if (!layout && pageId) {
+        const widgets = await storage.getPageWidgetsByPage(pageId);
+        const rows = await storage.getPageRows(pageId);
+        layout = rows.map((r: any) => ({
+          columns: r.columns || 1,
+          widgets: widgets.filter((w: any) => w.rowId === r.id).map((w: any) => ({
+            type: w.widgetType,
+            config: w.config || {},
+            width: w.width || 12,
+          })),
+        }));
+      }
+      if (!layout) return res.status(400).json({ message: "layout or pageId is required" });
+      const result = validateAdPlacements(layout, rules || DEFAULT_AD_RULES);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/ai-page-builder/auto-fix-ads", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      let { layout, rules, pageId } = req.body;
+      if (!layout && pageId) {
+        const widgets = await storage.getPageWidgetsByPage(pageId);
+        const rows = await storage.getPageRows(pageId);
+        layout = rows.map((r: any) => ({
+          columns: r.columns || 1,
+          widgets: widgets.filter((w: any) => w.rowId === r.id).map((w: any) => ({
+            type: w.widgetType,
+            config: w.config || {},
+            width: w.width || 12,
+          })),
+        }));
+      }
+      if (!layout) return res.status(400).json({ message: "layout or pageId is required" });
+      const result = enforceAdPlacements(layout, rules || DEFAULT_AD_RULES);
+      if (result.injectedCount > 0 && pageId) {
+        await storage.createAdInjectionLog({
+          pageId,
+          pageSlug: req.body.pageSlug || null,
+          adsInjected: result.injectedCount,
+          violationsFound: result.changes,
+        });
+      }
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/ai-page-builder/examples", requireAuth, async (req, res) => {
+    try {
+      const { pageType } = req.query;
+      const examples = await storage.getAiLayoutExamples(pageType as string | undefined);
+      res.json(examples);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/ai-page-builder/examples", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const parsed = insertAiLayoutExampleSchema.parse(req.body);
+      const created = await storage.createAiLayoutExample(parsed);
+      res.status(201).json(created);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/ai-page-builder/examples/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const updated = await storage.updateAiLayoutExample(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ message: "Example not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/ai-page-builder/examples/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      await storage.deleteAiLayoutExample(req.params.id);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/ai-page-builder/ad-injection-report", requireAuth, async (req, res) => {
+    try {
+      const { pageId } = req.query;
+      const logs = await storage.getAdInjectionLogs(pageId as string | undefined);
+      res.json(logs);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/ai-page-builder/publish-validate", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      let { layout, rules, pageId } = req.body;
+      if (!layout && pageId) {
+        const widgets = await storage.getPageWidgetsByPage(pageId);
+        const rows = await storage.getPageRows(pageId);
+        layout = rows.map((r: any) => ({
+          columns: r.columns || 1,
+          widgets: widgets.filter((w: any) => w.rowId === r.id).map((w: any) => ({
+            type: w.widgetType,
+            config: w.config || {},
+            width: w.width || 12,
+          })),
+        }));
+      }
+      if (!layout) return res.status(400).json({ message: "layout or pageId is required" });
+      const validation = validateAdPlacements(layout, rules || DEFAULT_AD_RULES);
+      if (!validation.isValid) {
+        return res.json({ canPublish: false, violations: validation.violations, suggestions: validation.suggestions });
+      }
+      res.json({ canPublish: true, adCount: validation.adCount });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
