@@ -59,7 +59,7 @@ export function NpsFeedbackWidget() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 left-6 z-50 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all flex items-center justify-center group"
+        className="fixed bottom-6 left-6 z-50 h-12 w-12 rounded-full bg-primary/30 text-primary shadow-md hover:bg-primary/50 transition-all flex items-center justify-center group backdrop-blur-sm"
         data-testid="button-nps-trigger"
       >
         <MessageSquareHeart className="h-5 w-5 group-hover:scale-110 transition-transform" />
