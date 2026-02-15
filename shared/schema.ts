@@ -859,4 +859,19 @@ export const insertNpsSurveySchema = createInsertSchema(npsSurveys).omit({ id: t
 export type InsertNpsSurvey = z.infer<typeof insertNpsSurveySchema>;
 export type NpsSurvey = typeof npsSurveys.$inferSelect;
 
+// ── Read Later ──
+export const readLaterItems = pgTable("read_later_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  contentPieceId: varchar("content_piece_id").notNull(),
+  savedAt: timestamp("saved_at").defaultNow().notNull(),
+}, (table) => [
+  index("read_later_user_idx").on(table.userId),
+  index("read_later_content_idx").on(table.contentPieceId),
+]);
+
+export const insertReadLaterItemSchema = createInsertSchema(readLaterItems).omit({ id: true, savedAt: true });
+export type InsertReadLaterItem = z.infer<typeof insertReadLaterItemSchema>;
+export type ReadLaterItem = typeof readLaterItems.$inferSelect;
+
 export * from "./models/chat";

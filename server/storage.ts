@@ -43,6 +43,8 @@ import {
   type TaskComment, type InsertTaskComment,
   type TaskActivityLog, type InsertTaskActivityLog,
   type NpsSurvey, type InsertNpsSurvey,
+  readLaterItems,
+  type ReadLaterItem, type InsertReadLaterItem,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -264,6 +266,12 @@ export interface IStorage {
   getDealsPaginated(limit: number, offset: number, companyId?: string, stage?: string): Promise<{ data: Deal[]; total: number }>;
   getContentPiecesPaginated(limit: number, offset: number, episodeId?: string): Promise<{ data: ContentPiece[]; total: number }>;
   getEpisodesPaginated(limit: number, offset: number, podcastId?: string): Promise<{ data: Episode[]; total: number }>;
+
+  getReadLaterItems(userId: string): Promise<ReadLaterItem[]>;
+  addReadLaterItem(data: InsertReadLaterItem): Promise<ReadLaterItem>;
+  removeReadLaterItem(userId: string, contentPieceId: string): Promise<void>;
+  clearReadLaterItems(userId: string): Promise<void>;
+  isReadLater(userId: string, contentPieceId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1128,6 +1136,31 @@ export class DatabaseStorage implements IStorage {
     const [{ value: total }] = await db.select({ value: count() }).from(episodes);
     const data = await db.select().from(episodes).orderBy(desc(episodes.publishedAt)).limit(limit).offset(offset);
     return { data, total: Number(total) };
+  }
+  async getReadLaterItems(userId: string) {
+    return db.select().from(readLaterItems).where(eq(readLaterItems.userId, userId)).orderBy(desc(readLaterItems.savedAt));
+  }
+
+  async addReadLaterItem(data: InsertReadLaterItem) {
+    const existing = await db.select().from(readLaterItems)
+      .where(and(eq(readLaterItems.userId, data.userId), eq(readLaterItems.contentPieceId, data.contentPieceId)));
+    if (existing.length > 0) return existing[0];
+    const [item] = await db.insert(readLaterItems).values(data).returning();
+    return item;
+  }
+
+  async removeReadLaterItem(userId: string, contentPieceId: string) {
+    await db.delete(readLaterItems).where(and(eq(readLaterItems.userId, userId), eq(readLaterItems.contentPieceId, contentPieceId)));
+  }
+
+  async clearReadLaterItems(userId: string) {
+    await db.delete(readLaterItems).where(eq(readLaterItems.userId, userId));
+  }
+
+  async isReadLater(userId: string, contentPieceId: string) {
+    const rows = await db.select().from(readLaterItems)
+      .where(and(eq(readLaterItems.userId, userId), eq(readLaterItems.contentPieceId, contentPieceId)));
+    return rows.length > 0;
   }
 }
 
