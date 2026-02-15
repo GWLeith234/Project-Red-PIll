@@ -1149,4 +1149,33 @@ export const insertBusinessListingSchema = createInsertSchema(businessListings).
 export type InsertBusinessListing = z.infer<typeof insertBusinessListingSchema>;
 export type BusinessListing = typeof businessListings.$inferSelect;
 
+export const aiLayoutExamples = pgTable("ai_layout_examples", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pageType: text("page_type").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  layoutJson: jsonb("layout_json").notNull(),
+  isDefault: boolean("is_default").default(false),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAiLayoutExampleSchema = createInsertSchema(aiLayoutExamples).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAiLayoutExample = z.infer<typeof insertAiLayoutExampleSchema>;
+export type AiLayoutExample = typeof aiLayoutExamples.$inferSelect;
+
+export const adInjectionLog = pgTable("ad_injection_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pageId: varchar("page_id"),
+  pageSlug: text("page_slug"),
+  adsInjected: integer("ads_injected").notNull(),
+  violationsFound: text("violations_found").array().default([]),
+  injectedAt: timestamp("injected_at").defaultNow(),
+});
+
+export const insertAdInjectionLogSchema = createInsertSchema(adInjectionLog).omit({ id: true, injectedAt: true });
+export type InsertAdInjectionLog = z.infer<typeof insertAdInjectionLogSchema>;
+export type AdInjectionLog = typeof adInjectionLog.$inferSelect;
+
 export * from "./models/chat";
