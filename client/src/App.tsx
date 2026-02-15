@@ -55,7 +55,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       <MobileHeader />
       <Sidebar />
       <main className={cn(
-        "flex-1 ml-0 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto h-screen bg-[url('/images/command-center-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat relative transition-transform duration-300 ease-in-out",
+        "flex-1 ml-0 lg:ml-64 pt-14 lg:pt-8 px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8 overflow-y-auto h-screen bg-[url('/images/command-center-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat relative transition-transform duration-300 ease-in-out",
         open ? "translate-x-72 lg:translate-x-0" : "translate-x-0"
       )}>
         <div className="absolute inset-0 bg-background/90 z-0 pointer-events-none backdrop-blur-[2px]"></div>

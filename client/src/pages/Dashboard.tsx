@@ -62,7 +62,7 @@ export default function Dashboard() {
   const activeScreenData = SCREENS[currentIdx];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7.5rem)] lg:h-[calc(100vh-4.5rem)] animate-in fade-in duration-500" data-testid="command-center">
+    <div className="flex flex-col h-[calc(100vh-5rem)] lg:h-[calc(100vh-4.5rem)] animate-in fade-in duration-500" data-testid="command-center">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 flex-shrink-0 gap-3">
         <div className="flex items-center gap-4">
           <div>
