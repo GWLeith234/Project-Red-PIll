@@ -61,6 +61,7 @@ import {
   businessListings, type BusinessListing, type InsertBusinessListing,
   aiLayoutExamples, type AiLayoutExample, type InsertAiLayoutExample,
   adInjectionLog, type AdInjectionLog, type InsertAdInjectionLog,
+  devicePushSubscriptions, type DevicePushSubscription, type InsertDevicePushSubscription,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -1550,6 +1551,35 @@ export class DatabaseStorage implements IStorage {
   async createAdInjectionLog(data: InsertAdInjectionLog) {
     const [created] = await db.insert(adInjectionLog).values(data).returning();
     return created;
+  }
+
+  async upsertPushSubscription(data: InsertDevicePushSubscription): Promise<DevicePushSubscription> {
+    const existing = await db.select().from(devicePushSubscriptions).where(eq(devicePushSubscriptions.endpoint, data.endpoint));
+    if (existing.length > 0) {
+      const [updated] = await db.update(devicePushSubscriptions)
+        .set({ ...data, lastUsed: new Date() })
+        .where(eq(devicePushSubscriptions.endpoint, data.endpoint))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(devicePushSubscriptions).values(data).returning();
+    return created;
+  }
+
+  async updatePushPreferences(endpoint: string, preferences: any): Promise<DevicePushSubscription | undefined> {
+    const [updated] = await db.update(devicePushSubscriptions)
+      .set({ preferences, lastUsed: new Date() })
+      .where(eq(devicePushSubscriptions.endpoint, endpoint))
+      .returning();
+    return updated;
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await db.delete(devicePushSubscriptions).where(eq(devicePushSubscriptions.endpoint, endpoint));
+  }
+
+  async getAllPushSubscriptions(): Promise<DevicePushSubscription[]> {
+    return db.select().from(devicePushSubscriptions);
   }
 }
 

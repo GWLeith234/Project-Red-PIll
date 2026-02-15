@@ -18,7 +18,7 @@ import {
   Scissors, Play, ThumbsUp, ThumbsDown, Calendar, Plus, Trash2,
   Edit3, Eye, Building2, Sparkles, Zap, Send, Save,
   ChevronRight, AlertTriangle, ImagePlus, Music, Film, X as XCloseIcon,
-  TrendingUp, Target, BarChart3, Lightbulb, Hash, RefreshCw
+  TrendingUp, Target, BarChart3, Lightbulb, Hash, RefreshCw, BellRing
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -1139,6 +1139,40 @@ function PipelineTab() {
                       data-testid="button-publish"
                     >
                       <Send className="mr-1.5 h-3 w-3" /> Publish
+                    </Button>
+                  )}
+                  {previewPiece?.status === "published" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-mono text-xs border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                      onClick={async () => {
+                        try {
+                          const snippet = (previewPiece.body || previewPiece.summary || "").slice(0, 120);
+                          const res = await fetch("/api/push-notifications/send", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              title: previewPiece.title || "New Content",
+                              body: snippet,
+                              url: `/news/${previewPiece.slug || previewPiece.id}`,
+                              tag: `content-${previewPiece.id}`,
+                              filterType: previewPiece.type === "article" || previewPiece.type === "blog" ? "articles" : "episodes",
+                            }),
+                          });
+                          const data = await res.json();
+                          if (res.ok) {
+                            toast({ title: "Push Sent", description: `Delivered to ${data.delivered} subscriber(s)` });
+                          } else {
+                            toast({ title: "Error", description: data.message, variant: "destructive" });
+                          }
+                        } catch {
+                          toast({ title: "Error", description: "Failed to send push notification", variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-send-push"
+                    >
+                      <BellRing className="mr-1.5 h-3 w-3" /> Send Push
                     </Button>
                   )}
                   {previewPiece?.status !== "review" && previewPiece?.status !== "draft" && (

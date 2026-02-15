@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
 
@@ -141,11 +142,78 @@ function PresetsBar({ podcasts, primaryColor }: { podcasts: any[]; primaryColor:
   );
 }
 
+function NotificationPanel({ isSubscribed, preferences, subscribe, unsubscribe, updatePreferences, primaryColor, onClose }: {
+  isSubscribed: boolean; preferences: any; subscribe: () => Promise<any>; unsubscribe: () => Promise<void>;
+  updatePreferences: (p: any) => Promise<void>; primaryColor: string; onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  if (!isSubscribed) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose} data-testid="notification-modal-backdrop">
+        <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} data-testid="notification-modal">
+          <div className="flex items-center justify-center w-14 h-14 rounded-full mx-auto mb-4" style={{ backgroundColor: `${primaryColor}20` }}>
+            <BellRing className="h-7 w-7" style={{ color: primaryColor }} />
+          </div>
+          <h3 className="text-lg font-bold text-white text-center mb-2">Stay in the loop</h3>
+          <p className="text-sm text-gray-400 text-center mb-6">Get notified when new episodes drop and breaking news publishes</p>
+          <button
+            disabled={loading}
+            onClick={async () => { setLoading(true); await subscribe(); setLoading(false); onClose(); }}
+            className="w-full py-2.5 rounded-full font-semibold text-sm transition-all hover:brightness-110 disabled:opacity-50"
+            style={{ backgroundColor: primaryColor, color: "#111" }}
+            data-testid="button-enable-notifications"
+          >
+            {loading ? "Enabling..." : "Enable Notifications"}
+          </button>
+          <button onClick={onClose} className="w-full mt-2 py-2 text-sm text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-dismiss-notifications">
+            Not now
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-4 z-50" data-testid="notification-preferences-dropdown">
+      <h4 className="text-sm font-bold text-white mb-3">Notification Preferences</h4>
+      {[
+        { key: "articles", label: "New Articles" },
+        { key: "episodes", label: "New Episodes" },
+        { key: "breaking", label: "Breaking News" },
+      ].map(({ key, label }) => (
+        <label key={key} className="flex items-center justify-between py-2 cursor-pointer group" data-testid={`toggle-pref-${key}`}>
+          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{label}</span>
+          <button
+            onClick={() => updatePreferences({ [key]: !preferences[key] })}
+            className={`relative w-10 h-5 rounded-full transition-colors ${preferences[key] ? "" : "bg-gray-700"}`}
+            style={preferences[key] ? { backgroundColor: primaryColor } : undefined}
+            data-testid={`switch-${key}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${preferences[key] ? "translate-x-5" : ""}`} />
+          </button>
+        </label>
+      ))}
+      <div className="border-t border-gray-800 mt-2 pt-2">
+        <button
+          onClick={async () => { await unsubscribe(); onClose(); }}
+          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          data-testid="button-unsubscribe-push"
+        >
+          Turn off all notifications
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AudienceLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const { data: podcasts } = usePublicPodcasts();
   const { data: branding } = usePublicBranding();
   const { savedCount } = useReadLater();
+  const { isSupported, isSubscribed, preferences, subscribe, unsubscribe, updatePreferences } = usePushNotifications();
   const [location] = useLocation();
 
   const platformName = branding?.companyName || "MediaTech Empire";
@@ -214,6 +282,42 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                 >
                   <Search className="h-4 w-4" />
                 </Link>
+                {isSupported && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setNotifPanelOpen(!notifPanelOpen)}
+                      className="flex items-center gap-1.5 px-2.5 py-2 text-sm transition-colors rounded-full text-gray-400 hover:text-white hover:bg-gray-800 relative"
+                      data-testid="button-notification-bell"
+                    >
+                      <Bell className="h-4 w-4" />
+                      {!isSubscribed && (
+                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" data-testid="dot-notifications-off" />
+                      )}
+                    </button>
+                    {notifPanelOpen && isSubscribed && (
+                      <NotificationPanel
+                        isSubscribed={isSubscribed}
+                        preferences={preferences}
+                        subscribe={subscribe}
+                        unsubscribe={unsubscribe}
+                        updatePreferences={updatePreferences}
+                        primaryColor={primaryColor}
+                        onClose={() => setNotifPanelOpen(false)}
+                      />
+                    )}
+                  </div>
+                )}
+                {notifPanelOpen && !isSubscribed && isSupported && (
+                  <NotificationPanel
+                    isSubscribed={isSubscribed}
+                    preferences={preferences}
+                    subscribe={subscribe}
+                    unsubscribe={unsubscribe}
+                    updatePreferences={updatePreferences}
+                    primaryColor={primaryColor}
+                    onClose={() => setNotifPanelOpen(false)}
+                  />
+                )}
                 <Link
                   href="/read-later"
                   className={`flex items-center gap-1.5 px-2.5 py-2 text-sm transition-colors rounded-full relative
@@ -275,6 +379,20 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
                   <span className="text-sm text-white font-medium">{label}</span>
                 </Link>
               ))}
+
+              {isSupported && (
+                <button
+                  onClick={() => { setMobileMenuOpen(false); setNotifPanelOpen(true); }}
+                  className="flex items-center gap-3 px-3 py-3 hover:bg-gray-800 rounded-xl transition-colors w-full text-left"
+                  data-testid="mobile-nav-notifications"
+                >
+                  <Bell className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm text-white font-medium">Notifications</span>
+                  {!isSubscribed && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </button>
+              )}
 
               {podcasts && podcasts.length > 0 && (
                 <div className="pt-3 mt-2 border-t border-gray-800">

@@ -25,6 +25,7 @@ import multer from "multer";
 import { adSizes } from "./ad-sizes";
 import { fetchImageFromUrl, processImageForSizes, getImageMetadata, validateFit } from "./image-resizer";
 import rateLimit from "express-rate-limit";
+import webpush from "web-push";
 import {
   WIDGET_REGISTRY, PAGE_TYPE_PRESETS, DEFAULT_AD_RULES,
   validateAdPlacements, enforceAdPlacements,
@@ -37,6 +38,43 @@ const publicSubscribeLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardH
 const publicCommentLimit = rateLimit({ windowMs: 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
 const publicSearchLimit = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
 const publicCheckSubLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL || "admin@mediatech.empire"}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
+
+async function sendPushToAll(payload: { title: string; body: string; url?: string; tag?: string }, filter?: { type?: "articles" | "episodes" | "breaking" }) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    return { total: 0, delivered: 0, error: "VAPID keys not configured" };
+  }
+  const subs = await storage.getAllPushSubscriptions();
+  const filtered = filter?.type
+    ? subs.filter((s) => {
+        const prefs = (s.preferences as any) || {};
+        return prefs[filter.type!] !== false;
+      })
+    : subs;
+
+  let delivered = 0;
+  for (const sub of filtered) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        JSON.stringify(payload)
+      );
+      delivered++;
+    } catch (err: any) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        await storage.deletePushSubscription(sub.endpoint);
+      }
+    }
+  }
+  return { total: filtered.length, delivered };
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -346,8 +384,21 @@ export async function registerRoutes(
   });
 
   app.patch("/api/content-pieces/:id", async (req, res) => {
+    const previousPiece = req.body.status === "published" ? await storage.getContentPiece(req.params.id) : null;
     const data = await storage.updateContentPiece(req.params.id, req.body);
     if (!data) return res.status(404).json({ message: "Not found" });
+
+    if (req.body.status === "published" && previousPiece && previousPiece.status !== "published") {
+      const pushType = data.type === "article" || data.type === "blog" ? "articles" : data.type === "episode" ? "episodes" : undefined;
+      if (pushType) {
+        const snippet = (data.body || data.summary || "").slice(0, 120);
+        sendPushToAll(
+          { title: data.title || "New Content", body: snippet, url: `/news/${data.slug || data.id}`, tag: `content-${data.id}` },
+          { type: pushType as any }
+        ).catch(() => {});
+      }
+    }
+
     res.json(data);
   });
 
@@ -1018,6 +1069,16 @@ export async function registerRoutes(
       moderatedAt: new Date(),
       publishedAt: new Date(),
     } as any);
+
+    const pushType = piece.type === "article" || piece.type === "blog" ? "articles" : piece.type === "episode" ? "episodes" : undefined;
+    if (pushType) {
+      const snippet = (piece.body || piece.summary || "").slice(0, 120);
+      sendPushToAll(
+        { title: piece.title || "New Content", body: snippet, url: `/news/${piece.slug || piece.id}`, tag: `content-${piece.id}` },
+        { type: pushType as any }
+      ).catch(() => {});
+    }
+
     res.json(updated);
   });
 
@@ -4930,6 +4991,69 @@ Provide comprehensive social listening intelligence including trending topics, k
       const notification = await storage.createPushNotification(data);
       res.status(201).json(notification);
     } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.post("/api/push-notifications/send", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { title, body, url, tag, filterType } = req.body;
+      if (!title || !body) return res.status(400).json({ message: "title and body are required" });
+      const result = await sendPushToAll({ title, body, url, tag }, filterType ? { type: filterType } : undefined);
+      await storage.createPushNotification({ title, body, type: filterType || "manual", targetAudience: "all", deliveredCount: result.delivered });
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Web Push (Public) ──
+  app.get("/api/public/vapid-key", (_req, res) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || "" });
+  });
+
+  app.post("/api/public/push/subscribe", async (req, res) => {
+    try {
+      const { subscription, email, preferences } = req.body;
+      if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+        return res.status(400).json({ message: "Invalid subscription object" });
+      }
+      const sub = await storage.upsertPushSubscription({
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        subscriberEmail: email || null,
+        userAgent: req.headers["user-agent"] || null,
+        preferences: preferences || { articles: true, episodes: true, breaking: true },
+      });
+      res.status(201).json(sub);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.put("/api/public/push/preferences", async (req, res) => {
+    try {
+      const { endpoint, preferences } = req.body;
+      if (!endpoint || !preferences) return res.status(400).json({ message: "endpoint and preferences required" });
+      const updated = await storage.updatePushPreferences(endpoint, preferences);
+      if (!updated) return res.status(404).json({ message: "Subscription not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/push/get-preferences", async (req, res) => {
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ message: "endpoint required" });
+      const subs = await storage.getAllPushSubscriptions();
+      const sub = subs.find((s) => s.endpoint === endpoint);
+      if (!sub) return res.status(404).json({ message: "Subscription not found" });
+      res.json({ preferences: sub.preferences || { articles: true, episodes: true, breaking: true } });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/public/push/unsubscribe", async (req, res) => {
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ message: "endpoint required" });
+      await storage.deletePushSubscription(endpoint);
+      res.json({ success: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   // ── Site Pages (Admin CRUD) ──

@@ -1178,4 +1178,23 @@ export const insertAdInjectionLogSchema = createInsertSchema(adInjectionLog).omi
 export type InsertAdInjectionLog = z.infer<typeof insertAdInjectionLogSchema>;
 export type AdInjectionLog = typeof adInjectionLog.$inferSelect;
 
+// ── Web Push Subscriptions ──
+export const devicePushSubscriptions = pgTable("device_push_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberEmail: text("subscriber_email"),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  preferences: jsonb("preferences").default({ articles: true, episodes: true, breaking: true }),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastUsed: timestamp("last_used").defaultNow(),
+}, (table) => [
+  index("device_push_subs_endpoint_idx").on(table.endpoint),
+]);
+
+export const insertDevicePushSubscriptionSchema = createInsertSchema(devicePushSubscriptions).omit({ id: true, createdAt: true, lastUsed: true });
+export type InsertDevicePushSubscription = z.infer<typeof insertDevicePushSubscriptionSchema>;
+export type DevicePushSubscription = typeof devicePushSubscriptions.$inferSelect;
+
 export * from "./models/chat";
