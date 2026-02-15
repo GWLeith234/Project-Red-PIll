@@ -4153,5 +4153,82 @@ Keep it under 150 words. Use numbers and percentages. Be specific, not generic. 
     res.status(201).json(survey);
   });
 
+  // ── Image Studio: AI Generation ──
+  app.post("/api/images/generate", requireAuth, async (req, res) => {
+    try {
+      const { prompt, size = "1024x1024" } = req.body;
+      if (!prompt) return res.status(400).json({ message: "Prompt is required" });
+
+      const { openai } = await import("./replit_integrations/image/client");
+      const response = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt,
+        n: 1,
+        size: size as "1024x1024" | "512x512" | "256x256",
+      });
+
+      const base64 = response.data[0]?.b64_json;
+      if (base64) {
+        res.json({ url: `data:image/png;base64,${base64}`, b64_json: base64 });
+      } else {
+        res.json({ url: response.data[0]?.url || null });
+      }
+    } catch (error: any) {
+      console.error("Image generation error:", error);
+      res.status(500).json({ message: error.message || "Failed to generate image" });
+    }
+  });
+
+  // ── Image Studio: Stock Photo Search (Pexels) ──
+  app.get("/api/images/stock-search", requireAuth, async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      const page = parseInt(req.query.page as string) || 1;
+      const perPage = parseInt(req.query.per_page as string) || 15;
+      if (!query) return res.status(400).json({ message: "Search query is required" });
+
+      const pexelsKey = process.env.PEXELS_API_KEY;
+      if (!pexelsKey) {
+        return res.status(200).json({
+          photos: [],
+          total_results: 0,
+          message: "Stock photo search requires a Pexels API key. Add PEXELS_API_KEY in your secrets to enable this feature.",
+          needs_key: true,
+        });
+      }
+
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}&orientation=landscape`;
+      const pexelsRes = await fetch(url, {
+        headers: { Authorization: pexelsKey },
+      });
+      if (!pexelsRes.ok) {
+        throw new Error(`Pexels API returned ${pexelsRes.status}`);
+      }
+      const data = await pexelsRes.json();
+      res.json({
+        photos: (data.photos || []).map((p: any) => ({
+          id: p.id,
+          width: p.width,
+          height: p.height,
+          photographer: p.photographer,
+          alt: p.alt || query,
+          src: {
+            original: p.src.original,
+            large: p.src.large2x || p.src.large,
+            medium: p.src.medium,
+            small: p.src.small,
+            thumbnail: p.src.tiny,
+          },
+        })),
+        total_results: data.total_results || 0,
+        page,
+        per_page: perPage,
+      });
+    } catch (error: any) {
+      console.error("Stock search error:", error);
+      res.status(500).json({ message: error.message || "Failed to search stock photos" });
+    }
+  });
+
   return httpServer;
 }

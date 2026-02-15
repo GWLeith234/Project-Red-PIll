@@ -9,9 +9,10 @@ import { Separator } from "@/components/ui/separator";
 import {
   Type, Heading2, Heading3, Image, Quote, List, ListOrdered, Minus,
   GripVertical, Plus, Trash2, MoveUp, MoveDown, Eye, Edit3,
-  Bold, Italic, Link, AlignLeft, FileText, Clock
+  Bold, Italic, Link, AlignLeft, FileText, Clock, ImagePlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ImageStudio } from "@/components/ImageStudio";
 
 export interface EditorBlock {
   id: string;
@@ -66,6 +67,7 @@ function BlockEditor({
   onUpdate,
   onDelete,
   onMove,
+  onOpenImageStudio,
 }: {
   block: EditorBlock;
   index: number;
@@ -73,6 +75,7 @@ function BlockEditor({
   onUpdate: (block: EditorBlock) => void;
   onDelete: () => void;
   onMove: (dir: "up" | "down") => void;
+  onOpenImageStudio?: () => void;
 }) {
   const blockInfo = BLOCK_TYPES.find((b) => b.type === block.type);
   const Icon = blockInfo?.icon || Type;
@@ -126,13 +129,20 @@ function BlockEditor({
           </div>
         ) : block.type === "image" ? (
           <div className="space-y-2">
-            <Input
-              placeholder="Image URL..."
-              value={block.content}
-              onChange={(e) => onUpdate({ ...block, content: e.target.value })}
-              className="text-sm"
-              data-testid={`input-image-url-${index}`}
-            />
+            <div className="flex gap-2">
+              <Input
+                placeholder="Image URL..."
+                value={block.content}
+                onChange={(e) => onUpdate({ ...block, content: e.target.value })}
+                className="text-sm flex-1"
+                data-testid={`input-image-url-${index}`}
+              />
+              {onOpenImageStudio && (
+                <Button type="button" variant="outline" size="sm" onClick={onOpenImageStudio} className="gap-1.5 shrink-0" data-testid={`button-image-studio-block-${index}`}>
+                  <ImagePlus className="h-3.5 w-3.5" /> Studio
+                </Button>
+              )}
+            </div>
             {block.content && (
               <div className="relative rounded-lg overflow-hidden bg-muted/30 max-h-48">
                 <img
@@ -513,6 +523,8 @@ export default function ArticleEditor({
 }: ArticleEditorProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [activeTab, setActiveTab] = useState("edit");
+  const [showImageStudio, setShowImageStudio] = useState(false);
+  const [imageStudioTarget, setImageStudioTarget] = useState<"cover" | number>("cover");
 
   const addBlock = useCallback(
     (type: EditorBlock["type"], afterIndex?: number) => {
@@ -598,7 +610,7 @@ export default function ArticleEditor({
             <Separator className="my-2" />
             <div>
               <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Cover Image</Label>
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Input
                   value={coverImage}
                   onChange={(e) => onCoverImageChange(e.target.value)}
@@ -606,6 +618,16 @@ export default function ArticleEditor({
                   className="text-sm flex-1"
                   data-testid="input-editor-cover-image"
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setImageStudioTarget("cover"); setShowImageStudio(true); }}
+                  className="gap-1.5 shrink-0"
+                  data-testid="button-open-image-studio-cover"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" /> Studio
+                </Button>
               </div>
               {coverImage && (
                 <div className="mt-2 rounded-lg overflow-hidden max-h-40 bg-muted/30">
@@ -637,6 +659,7 @@ export default function ArticleEditor({
                 onUpdate={(b) => updateBlock(index, b)}
                 onDelete={() => deleteBlock(index)}
                 onMove={(dir) => moveBlock(index, dir)}
+                onOpenImageStudio={block.type === "image" ? () => { setImageStudioTarget(index); setShowImageStudio(true); } : undefined}
               />
             ))}
 
@@ -770,6 +793,21 @@ export default function ArticleEditor({
           </div>
         </TabsContent>
       </Tabs>
+
+      <ImageStudio
+        open={showImageStudio}
+        onClose={() => setShowImageStudio(false)}
+        onSelect={(url) => {
+          if (imageStudioTarget === "cover") {
+            onCoverImageChange(url);
+          } else if (typeof imageStudioTarget === "number") {
+            const newBlocks = [...blocks];
+            newBlocks[imageStudioTarget] = { ...newBlocks[imageStudioTarget], content: url };
+            onBlocksChange(newBlocks);
+          }
+        }}
+        defaultPrompt={title}
+      />
     </div>
   );
 }
