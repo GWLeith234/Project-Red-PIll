@@ -1163,51 +1163,113 @@ function PipelineTab() {
   );
 }
 
-function FileDropzone({ label, accept, icon: Icon, uploadedPath, onClear, onFile, isUploading, progress }: {
+function FileDropzone({ label, accept, icon: Icon, uploadedPath, onClear, onFile, isUploading, progress, formats, color = "primary" }: {
   label: string; accept: string; icon: any; uploadedPath: string;
   onClear: () => void; onFile: (f: File) => void; isUploading: boolean; progress: number;
+  formats?: string; color?: "primary" | "blue" | "purple" | "amber";
 }) {
   const [dragOver, setDragOver] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+
+  const colorMap = {
+    primary: { bg: "bg-primary/10", border: "border-primary", text: "text-primary", icon: "text-primary", ring: "ring-primary/30" },
+    blue: { bg: "bg-blue-500/10", border: "border-blue-500", text: "text-blue-400", icon: "text-blue-400", ring: "ring-blue-500/30" },
+    purple: { bg: "bg-purple-500/10", border: "border-purple-500", text: "text-purple-400", icon: "text-purple-400", ring: "ring-purple-500/30" },
+    amber: { bg: "bg-amber-500/10", border: "border-amber-500", text: "text-amber-400", icon: "text-amber-400", ring: "ring-amber-500/30" },
+  };
+  const c = colorMap[color];
+
+  const fileName = uploadedPath ? uploadedPath.split("/").pop() : "";
+
   return (
     <div
       className={cn(
-        "border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-all",
-        dragOver ? "border-primary bg-primary/10" : "border-border/50 hover:border-primary/50",
-        isUploading && "pointer-events-none opacity-70"
+        "relative rounded-xl border-2 border-dashed transition-all duration-200 cursor-pointer group",
+        dragOver ? `${c.border} ${c.bg} scale-[1.02] ring-4 ${c.ring}` :
+        uploadedPath ? "border-emerald-500/40 bg-emerald-500/5" :
+        isUploading ? `${c.border}/30 ${c.bg}/50` :
+        "border-border/40 hover:border-border hover:bg-muted/30"
       )}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
-      onClick={() => ref.current?.click()}
+      onClick={() => !uploadedPath && ref.current?.click()}
       data-testid={`dropzone-${label.toLowerCase().replace(/\s/g, "-")}`}
     >
-      <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} data-testid={`input-file-${label.toLowerCase().replace(/\s/g, "-")}`} />
+      <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} data-testid={`input-file-${label.toLowerCase().replace(/\s/g, "-")}`} />
+
       {isUploading ? (
-        <div className="space-y-2">
-          <Loader2 className="h-8 w-8 text-primary mx-auto animate-spin" />
-          <p className="font-mono text-xs text-primary">Uploading... {progress}%</p>
-          <Progress value={progress} className="h-1.5 max-w-[200px] mx-auto" />
+        <div className="p-6 flex flex-col items-center gap-3">
+          <div className={cn("h-12 w-12 rounded-full flex items-center justify-center", c.bg)}>
+            <Loader2 className={cn("h-6 w-6 animate-spin", c.icon)} />
+          </div>
+          <div className="text-center space-y-1 w-full">
+            <p className={cn("text-sm font-semibold", c.text)}>Uploading {label}...</p>
+            <p className="text-xs text-muted-foreground font-mono">{progress}% complete</p>
+          </div>
+          <div className="w-full max-w-[240px]">
+            <Progress value={progress} className="h-2" />
+          </div>
         </div>
       ) : uploadedPath ? (
-        <div className="space-y-1 relative">
-          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
-          <p className="font-mono text-xs text-emerald-500">{label} uploaded</p>
-          <p className="text-[10px] text-muted-foreground truncate max-w-[200px] mx-auto">{uploadedPath.split("/").pop()}</p>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="absolute top-0 right-0 p-1 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
-            data-testid={`button-clear-${label.toLowerCase().replace(/\s/g, "-")}`}
-          >
-            <XCloseIcon className="h-3 w-3" />
-          </button>
+        <div className="p-6 flex flex-col items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+            <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-semibold text-emerald-400">{label} Ready</p>
+            <p className="text-xs text-muted-foreground font-mono truncate max-w-[220px]" title={fileName}>{fileName}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
+              data-testid={`button-replace-${label.toLowerCase().replace(/\s/g, "-")}`}
+            >
+              <Upload className="h-3 w-3" /> Replace
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
+              data-testid={`button-clear-${label.toLowerCase().replace(/\s/g, "-")}`}
+            >
+              <XCloseIcon className="h-3 w-3" /> Remove
+            </Button>
+          </div>
         </div>
       ) : (
-        <div className="space-y-1">
-          <Icon className="h-8 w-8 text-muted-foreground mx-auto" />
-          <p className="font-mono text-xs text-muted-foreground">{label}</p>
-          <p className="text-[10px] text-muted-foreground">Drag & drop or click</p>
+        <div className="p-6 flex flex-col items-center gap-3">
+          <div className={cn(
+            "h-14 w-14 rounded-full flex items-center justify-center transition-colors",
+            dragOver ? c.bg : "bg-muted/50 group-hover:bg-muted"
+          )}>
+            <Icon className={cn("h-7 w-7 transition-colors", dragOver ? c.icon : "text-muted-foreground group-hover:text-foreground/70")} />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-semibold">{label}</p>
+            <p className="text-xs text-muted-foreground">
+              {dragOver ? (
+                <span className={c.text}>Drop file here</span>
+              ) : (
+                <>Drag & drop or <span className={cn("underline underline-offset-2", c.text)}>browse</span></>
+              )}
+            </p>
+          </div>
+          {formats && (
+            <div className="flex flex-wrap gap-1 justify-center">
+              {formats.split(",").map((fmt) => (
+                <Badge key={fmt.trim()} variant="outline" className="text-[9px] h-4 px-1.5 font-mono border-border/40 text-muted-foreground">
+                  {fmt.trim()}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1386,6 +1448,8 @@ function UploadTab() {
                       onFile={(f) => audioUpload.uploadFile(f)}
                       isUploading={audioUpload.isUploading}
                       progress={audioUpload.progress}
+                      formats="MP3, WAV, AAC, OGG"
+                      color="primary"
                     />
                   )}
                   {showVideo && (
@@ -1398,10 +1462,12 @@ function UploadTab() {
                       onFile={(f) => videoUpload.uploadFile(f)}
                       isUploading={videoUpload.isUploading}
                       progress={videoUpload.progress}
+                      formats="MP4, MOV, WEBM"
+                      color="blue"
                     />
                   )}
                   <FileDropzone
-                    label="Thumbnail"
+                    label="Thumbnail Image"
                     accept="image/*"
                     icon={ImagePlus}
                     uploadedPath={thumbnailPath}
@@ -1409,11 +1475,10 @@ function UploadTab() {
                     onFile={(f) => thumbnailUpload.uploadFile(f)}
                     isUploading={thumbnailUpload.isUploading}
                     progress={thumbnailUpload.progress}
+                    formats="JPG, PNG, WEBP"
+                    color="amber"
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground font-mono mt-2">
-                  Accepted: {showAudio && "MP3, WAV, AAC, OGG"}{showAudio && showVideo && " · "}{showVideo && "MP4, MOV, WEBM"} · Images: JPG, PNG, WEBP
-                </p>
               </div>
 
               <Button
