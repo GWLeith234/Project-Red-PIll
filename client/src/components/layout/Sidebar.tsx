@@ -235,11 +235,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <div className="flex items-center border-b border-border px-4 py-2.5">
+      <div className="flex items-center border-b border-border px-4 py-4">
         <div className="flex-1 min-w-0">
           {branding?.logoUrl ? (
-            <Link href="/" className="flex items-center h-8" data-testid="sidebar-logo" onClick={onNavigate}>
-              <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-6 max-w-[120px] object-contain" />
+            <Link href="/" className="flex items-center" data-testid="sidebar-logo" onClick={onNavigate}>
+              <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-10 max-w-[180px] object-contain" />
             </Link>
           ) : (
             <Link href="/customize" className="border border-dashed border-muted-foreground/50 rounded-sm px-2 py-1 flex items-center hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group" data-testid="sidebar-logo-placeholder" onClick={onNavigate}>
@@ -358,7 +358,7 @@ export function MobileHeader() {
       </button>
       <div className="flex-1 min-w-0">
         {branding?.logoUrl ? (
-          <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-5 max-w-[100px] object-contain" />
+          <img src={branding.logoUrl} alt={branding.companyName || "Logo"} className="h-7 max-w-[140px] object-contain" />
         ) : (
           <span className="text-sm font-display font-bold text-foreground truncate">
             {branding?.companyName || "MediaTech Empire"}

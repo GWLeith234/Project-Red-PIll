@@ -59,6 +59,8 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       "--gold": "45 93% 47%",
       "--accent": "160 84% 39%",
       "--accent-foreground": "210 40% 98%",
+      "--sidebar": "222 47% 9%",
+      "--sidebar-foreground": "210 40% 98%",
       "--sidebar-primary": "217 91% 60%",
       "--sidebar-primary-foreground": "0 0% 100%",
       "--sidebar-ring": "217 91% 60%",
@@ -93,13 +95,28 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         const hslParts = hsl.split(" ");
         if (hslParts.length === 3) {
           const h = parseInt(hslParts[0]);
+          const s = parseInt(hslParts[1]);
           root.style.setProperty("--sidebar-accent", `${h} 19% 20%`);
           root.style.setProperty("--sidebar-accent-foreground", "210 40% 98%");
           root.style.setProperty("--sidebar-border", `${h} 32% 17%`);
+
+          const fg = computeForeground(branding.primaryColor);
+          const isDarkLogo = fg === "0 0% 100%";
+          if (isDarkLogo) {
+            root.style.setProperty("--sidebar", `${h} ${Math.min(s, 25)}% 92%`);
+            root.style.setProperty("--sidebar-foreground", "222 47% 11%");
+            root.style.setProperty("--sidebar-accent", `${h} ${Math.min(s, 20)}% 85%`);
+            root.style.setProperty("--sidebar-accent-foreground", "222 47% 11%");
+            root.style.setProperty("--sidebar-border", `${h} ${Math.min(s, 15)}% 82%`);
+          } else {
+            root.style.setProperty("--sidebar", `${h} 47% 9%`);
+            root.style.setProperty("--sidebar-foreground", "210 40% 98%");
+          }
         }
       }
     } else {
       ["--primary", "--primary-foreground", "--ring", "--gold",
+       "--sidebar", "--sidebar-foreground",
        "--sidebar-primary", "--sidebar-primary-foreground", "--sidebar-ring",
        "--sidebar-accent", "--sidebar-accent-foreground", "--sidebar-border",
        "--chart-1"].forEach(prop => root.style.setProperty(prop, defaults[prop]));
