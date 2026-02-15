@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { ChevronRight, DollarSign, Headphones, Briefcase, Shield, Factory } from "lucide-react";
 import { CelebrationOverlay, useCelebration, useActivityMonitor } from "@/components/CelebrationOverlay";
 import { cn } from "@/lib/utils";
