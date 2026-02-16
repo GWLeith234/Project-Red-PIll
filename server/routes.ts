@@ -5520,6 +5520,8 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/community-polls", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      if (req.body.expiresAt && typeof req.body.expiresAt === "string") { req.body.expiresAt = new Date(req.body.expiresAt); }
+      if (req.body.closesAt && typeof req.body.closesAt === "string") { req.body.closesAt = new Date(req.body.closesAt); }
       const data = insertCommunityPollSchema.parse(req.body);
       res.status(201).json(await storage.createCommunityPoll(data));
     } catch (err: any) { res.status(400).json({ message: err.message }); }
@@ -5527,6 +5529,8 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/community-polls/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      if (req.body.expiresAt && typeof req.body.expiresAt === "string") { req.body.expiresAt = new Date(req.body.expiresAt); }
+      if (req.body.closesAt && typeof req.body.closesAt === "string") { req.body.closesAt = new Date(req.body.closesAt); }
       const item = await storage.updateCommunityPoll(req.params.id, req.body);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
