@@ -1,0 +1,17 @@
+Final QA pass across the entire audience-facing app. Fix any remaining issues:
+
+(1) Run a Lighthouse audit check. Make sure the PWA score is high by verifying: manifest.json has all required fields, service worker registers successfully, icons exist in all sizes, theme_color and background_color are set, start_url is valid, display is standalone.
+
+(2) Check all audience pages load without console errors. Visit each route and fix any errors: /home, /podcasts, /news, /search, /read-later, and any /show/:id or /listen/:id/:id pages. Ignore Vite HMR websocket warnings — those are expected in dev mode.
+
+(3) Fix the service worker cache error: "Failed to execute 'put' on 'Cache': Partial response (status code 206) is unsupported". In client/public/sw.js, update the fetch handler to skip caching responses with status 206 (partial content, which happens with audio/video streaming). In the cache.put sections, add a check: only cache if response.status === 200 (not 206 or other partial statuses). Change both cache.put calls to: if (response.ok && response.status === 200) { cache.put(request, response.clone()); }
+
+(4) Verify the bottom tab bar navigation does NOT cause full page reloads. All tabs (Home, Listen, News, Search) should use client-side navigation via wouter. Test by adding a console.log in the tab click handler and confirming no "Navigated to" messages appear in the console.
+
+(5) Verify the audio player persists across navigation. Play an episode, navigate to Home, confirm audio continues. The MiniPlayer bar should remain visible with working play/pause controls.
+
+(6) Verify push notifications work end-to-end. The bell icon should show preferences when subscribed (no red dot). Publishing an article should deliver a notification.
+
+(7) Verify bookmarks sync: save an article to Read Later as a subscribed user, check it appears in the database, clear localStorage, refresh, confirm it reappears.
+
+(8) Remove any remaining console.log debug statements that were added during development (PUSH:, AUDIO_PROVIDER:, AUDIO CHECK: etc.). Keep error logging (console.error) but remove verbose debug logging.
