@@ -202,6 +202,7 @@ export const branding = pgTable("branding", {
   websiteUrl: text("website_url"),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
+  themeMode: text("theme_mode").default("dark"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
