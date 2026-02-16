@@ -37,6 +37,22 @@ import {
 } from "./ai-page-builder";
 import { insertAiLayoutExampleSchema, insertAdInjectionLogSchema } from "@shared/schema";
 
+const DATE_FIELDS = [
+  "startDate", "endDate", "expiresAt", "closesAt", "publishedAt", "scheduledAt",
+  "sentAt", "dueDate", "publishDate", "date", "startDate", "closeDate",
+  "marketingConsentAt", "smsConsentAt", "lastActiveAt", "bookmarkedAt",
+  "moderatedAt", "revokedAt", "lastUsedAt", "tokenExpiresAt", "lastPostedAt",
+  "lastRunAt", "nextRunAt", "injectedAt", "savedAt",
+];
+function coerceDateFields(body: any) {
+  if (!body || typeof body !== "object") return;
+  for (const key of DATE_FIELDS) {
+    if (body[key] && typeof body[key] === "string") {
+      body[key] = new Date(body[key]);
+    }
+  }
+}
+
 const publicSubscribeLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
 const publicCommentLimit = rateLimit({ windowMs: 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
 const publicSearchLimit = rateLimit({ windowMs: 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests, please try again later." } });
@@ -748,6 +764,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/newsletter-schedules", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    coerceDateFields(req.body);
     const parsed = insertNewsletterScheduleSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const data = await storage.createNewsletterSchedule(parsed.data);
@@ -4980,6 +4997,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/legal-templates", requireAuth, requirePermission("settings.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertLegalTemplateSchema.parse(req.body);
       const template = await storage.createLegalTemplate(data);
       res.status(201).json(template);
@@ -5198,6 +5216,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/site-pages", requireAuth, requirePermission("customize.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertSitePageSchema.parse(req.body);
       const page = await storage.createSitePage(data);
       res.status(201).json(page);
@@ -5357,6 +5376,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/page-templates", requireAuth, requirePermission("customize.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertPageTemplateSchema.parse(req.body);
       const template = await storage.createPageTemplate(data);
       res.status(201).json(template);
@@ -5444,6 +5464,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/community-events", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertCommunityEventSchema.parse(req.body);
       const event = await storage.createCommunityEvent(data);
       res.status(201).json(event);
@@ -5452,6 +5473,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/community-events/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const event = await storage.updateCommunityEvent(req.params.id, req.body);
       if (!event) return res.status(404).json({ message: "Event not found" });
       res.json(event);
@@ -5472,6 +5494,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/obituaries", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertObituarySchema.parse(req.body);
       res.status(201).json(await storage.createObituary(data));
     } catch (err: any) { res.status(400).json({ message: err.message }); }
@@ -5479,6 +5502,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/obituaries/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const item = await storage.updateObituary(req.params.id, req.body);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
@@ -5496,6 +5520,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/classifieds", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertClassifiedSchema.parse(req.body);
       res.status(201).json(await storage.createClassified(data));
     } catch (err: any) { res.status(400).json({ message: err.message }); }
@@ -5503,6 +5528,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/classifieds/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const item = await storage.updateClassified(req.params.id, req.body);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
@@ -5520,8 +5546,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/community-polls", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
-      if (req.body.expiresAt && typeof req.body.expiresAt === "string") { req.body.expiresAt = new Date(req.body.expiresAt); }
-      if (req.body.closesAt && typeof req.body.closesAt === "string") { req.body.closesAt = new Date(req.body.closesAt); }
+      coerceDateFields(req.body);
       const data = insertCommunityPollSchema.parse(req.body);
       res.status(201).json(await storage.createCommunityPoll(data));
     } catch (err: any) { res.status(400).json({ message: err.message }); }
@@ -5529,8 +5554,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/community-polls/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
-      if (req.body.expiresAt && typeof req.body.expiresAt === "string") { req.body.expiresAt = new Date(req.body.expiresAt); }
-      if (req.body.closesAt && typeof req.body.closesAt === "string") { req.body.closesAt = new Date(req.body.closesAt); }
+      coerceDateFields(req.body);
       const item = await storage.updateCommunityPoll(req.params.id, req.body);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
@@ -5584,6 +5608,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/community-announcements", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertCommunityAnnouncementSchema.parse(req.body);
       res.status(201).json(await storage.createCommunityAnnouncement(data));
     } catch (err: any) { res.status(400).json({ message: err.message }); }
@@ -5591,6 +5616,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/community-announcements/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const item = await storage.updateCommunityAnnouncement(req.params.id, req.body);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
@@ -5616,6 +5642,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/business-listings", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const data = insertBusinessListingSchema.parse(req.body);
       res.status(201).json(await storage.createBusinessListing(data));
     } catch (err: any) { res.status(400).json({ message: err.message }); }
@@ -5623,6 +5650,7 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.patch("/api/business-listings/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      coerceDateFields(req.body);
       const item = await storage.updateBusinessListing(req.params.id, req.body);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
