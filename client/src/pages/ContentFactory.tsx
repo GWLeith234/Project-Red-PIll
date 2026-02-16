@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PageHeader from "@/components/admin/PageHeader";
+import AIGenerateModal from "@/components/admin/AIGenerateModal";
 import MetricsStrip from "@/components/admin/MetricsStrip";
 import DataCard from "@/components/admin/DataCard";
 import EmptyState from "@/components/admin/EmptyState";
@@ -199,6 +200,7 @@ export default function ContentFactory() {
   const urlParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const initialTab = urlParams.get("tab") || "pipeline";
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [showAIGenerate, setShowAIGenerate] = useState(false);
 
   const { data: metricsData } = useQuery<any>({
     queryKey: ["/api/admin/page-metrics/content-factory"],
@@ -217,7 +219,7 @@ export default function ContentFactory() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <PageHeader pageKey="content-factory" />
+      <PageHeader pageKey="content-factory" onAIAction={() => setShowAIGenerate(true)} />
 
       {metricsItems.length > 0 && <MetricsStrip metrics={metricsItems} />}
 
@@ -260,6 +262,8 @@ export default function ContentFactory() {
           description="Performance tracking coming soon"
         />
       </DataCard>
+
+      {showAIGenerate && <AIGenerateModal onClose={() => setShowAIGenerate(false)} />}
     </div>
   );
 }
