@@ -31,6 +31,7 @@ import {
   Menu,
   X,
   Blocks,
+  PanelLeft,
   Heart,
   type LucideIcon,
 } from "lucide-react";
@@ -52,48 +53,27 @@ const navGroups: NavGroup[] = [
   {
     label: "",
     items: [
-      { name: "Command Center", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
+      { name: "Dashboard", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
     ],
   },
   {
     label: "Content",
     items: [
-      { name: "AI Content Generator", href: "/content", icon: Factory, permission: "content.view" },
-      { name: "AI Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
-      { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
-      { name: "Newsletters", href: "/newsletters", icon: Mail, permission: "content.view" },
-      { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
-      { name: "AI Site Editor", href: "/site-builder", icon: Blocks, permission: "customize.edit" },
+      { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
+      { name: "AI Site Editor", href: "/site-builder", icon: PanelLeft, permission: "customize.edit" },
       { name: "Community", href: "/community", icon: Heart, permission: "content.view" },
-    ],
-  },
-  {
-    label: "Project Management",
-    items: [
-      { name: "Kanban Board", href: "/kanban", icon: Kanban, permission: "content.view" },
-      { name: "My Tasks", href: "/my-tasks", icon: ListTodo, permission: "content.view" },
     ],
   },
   {
     label: "Monetization",
     items: [
       { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
-      { name: "Ad Resizer", href: "/ad-resizer", icon: Scaling, permission: "monetization.view" },
-    ],
-  },
-  {
-    label: "CRM",
-    icon: ContactRound,
-    items: [
-      { name: "Commercial", href: "/sales", icon: Briefcase, permission: "sales.view" },
-      { name: "Subscriber", href: "/audience", icon: Users, permission: "audience.view" },
     ],
   },
   {
     label: "Network",
     items: [
-      { name: "Podcasts", href: "/network", icon: Network, permission: "network.view" },
-      { name: "View Live Site", href: "/home", icon: ExternalLink, permission: "dashboard.view" },
+      { name: "Network", href: "/network", icon: Network, permission: "network.view" },
     ],
   },
   {
@@ -103,11 +83,8 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Admin",
+    label: "",
     items: [
-      { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
-      { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },
-      { name: "Legal", href: "/legal-admin", icon: FileText, permission: "settings.view" },
       { name: "Settings", href: "/settings", icon: Settings, permission: "settings.view" },
     ],
   },

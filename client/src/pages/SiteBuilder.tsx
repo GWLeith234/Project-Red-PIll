@@ -550,7 +550,7 @@ export default function SiteBuilder() {
     return (
       <div className="h-[calc(100vh-3.5rem)] lg:h-screen -mx-4 sm:-mx-6 lg:-mx-8 -mb-4 sm:-mb-6 lg:-mb-8 flex flex-col" data-testid="page-site-builder">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <PageHeader pageKey="site-builder" onPrimaryAction={() => { resetWizard(); setShowNewPageDialog(true); }} />
+          <PageHeader pageKey="ai-site-editor" onPrimaryAction={() => { resetWizard(); setShowNewPageDialog(true); }} />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">

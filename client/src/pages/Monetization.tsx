@@ -20,7 +20,11 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { useToast } from "@/hooks/use-toast";
 import { PRODUCT_CATEGORIES, RATE_MODELS, type Product } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
+import DataCard from "@/components/admin/DataCard";
+import EmptyState from "@/components/admin/EmptyState";
 
 const cpmData = [
   { time: "00:00", value: 12 }, { time: "04:00", value: 10 }, { time: "08:00", value: 25 },
@@ -728,10 +732,24 @@ function ProductPerformanceTab() {
 
 export default function Monetization() {
   const { data: metrics, isLoading: metricsLoading } = useMetrics();
+  const { data: pageMetrics } = useQuery<any>({
+    queryKey: ["/api/admin/page-metrics/monetization"],
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <PageHeader pageKey="monetization" />
+
+      <MetricsStrip
+        metrics={[
+          { label: "Revenue MTD", value: pageMetrics?.metrics?.revenueMTD ?? "—" },
+          { label: "Active Campaigns", value: pageMetrics?.metrics?.activeCampaigns ?? "—" },
+          { label: "Ad Fill Rate", value: pageMetrics?.metrics?.adFillRate ?? "—" },
+          { label: "CPM Average", value: pageMetrics?.metrics?.cpmAverage ?? "—" },
+          { label: "Impressions Today", value: pageMetrics?.metrics?.impressionsToday ?? "—" },
+          { label: "Click-Through Rate", value: pageMetrics?.metrics?.clickThroughRate ?? "—" },
+        ]}
+      />
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="bg-card/50 border border-border/50 p-1 w-full overflow-x-auto flex-wrap sm:flex-nowrap">
@@ -855,6 +873,18 @@ export default function Monetization() {
           <ProductPerformanceTab />
         </TabsContent>
       </Tabs>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <DataCard title="Revenue Chart">
+          <EmptyState icon={DollarSign} title="Revenue Analytics" description="Coming in Analytics Sprint" />
+        </DataCard>
+        <DataCard title="Revenue by Product">
+          <EmptyState icon={Package} title="Product Leaderboard" description="Coming in Analytics Sprint" />
+        </DataCard>
+        <DataCard title="Revenue by Rep">
+          <EmptyState icon={Users} title="Rep Leaderboard" description="Coming in Analytics Sprint" />
+        </DataCard>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 
 async function api(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: "include", headers: { "Content-Type": "application/json" }, ...options });
@@ -30,9 +31,33 @@ type TabKey = typeof TABS[number]["key"];
 export default function CommunityAdmin() {
   const [activeTab, setActiveTab] = useState<TabKey>("events");
 
+  const { data: metricsData } = useQuery({
+    queryKey: ["/api/admin/page-metrics/community"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/page-metrics/community", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
   return (
     <div data-testid="community-admin-page" className="max-w-7xl mx-auto">
       <PageHeader pageKey="community" />
+
+      {metricsData?.metrics && (
+        <div className="mb-6">
+          <MetricsStrip
+            metrics={[
+              { label: "Active Events", value: metricsData.metrics.activeEvents ?? 0 },
+              { label: "Open Polls", value: metricsData.metrics.openPolls ?? 0 },
+              { label: "Total Votes", value: metricsData.metrics.totalVotes ?? 0 },
+              { label: "Posts Today", value: metricsData.metrics.postsToday ?? 0 },
+              { label: "Flagged Posts", value: metricsData.metrics.flaggedPosts ?? 0 },
+              { label: "Active Users", value: metricsData.metrics.activeUsers ?? 0 },
+            ]}
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-1 mb-6 flex-wrap border-b border-border" data-testid="community-tabs">
         {TABS.map(tab => (

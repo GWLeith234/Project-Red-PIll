@@ -22,6 +22,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
+import DataCard from "@/components/admin/DataCard";
+import EmptyState from "@/components/admin/EmptyState";
 import {
   useEpisodes, useContentPieces, usePodcasts, useCreateEpisode,
   useQueueTranscription, useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
@@ -197,9 +200,26 @@ export default function ContentFactory() {
   const initialTab = urlParams.get("tab") || "pipeline";
   const [activeTab, setActiveTab] = useState(initialTab);
 
+  const { data: metricsData } = useQuery<any>({
+    queryKey: ["/api/admin/page-metrics/content-factory"],
+  });
+
+  const metricsItems = metricsData?.metrics
+    ? [
+        { label: "Total Pieces", value: metricsData.metrics.total ?? 0 },
+        { label: "Published", value: metricsData.metrics.published ?? 0 },
+        { label: "In Moderation", value: metricsData.metrics.inModeration ?? 0 },
+        { label: "Drafts", value: metricsData.metrics.drafts ?? 0 },
+        { label: "AI Generated", value: metricsData.metrics.aiGenerated ?? 0 },
+        { label: "Avg. Time to Publish", value: metricsData.metrics.avgTimeToPublish ?? "—" },
+      ]
+    : [];
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
       <PageHeader pageKey="content-factory" />
+
+      {metricsItems.length > 0 && <MetricsStrip metrics={metricsItems} />}
 
       <ProcessingQueue />
 
@@ -232,6 +252,14 @@ export default function ContentFactory() {
           <NewsletterTab />
         </TabsContent>
       </Tabs>
+
+      <DataCard title="Content Performance Leaderboard" subtitle="Top articles by engagement">
+        <EmptyState
+          icon={BarChart3}
+          title="Performance Tracking"
+          description="Performance tracking coming soon"
+        />
+      </DataCard>
     </div>
   );
 }
@@ -2117,7 +2145,7 @@ function NewsletterTab() {
                         {previewRun.body?.split("\n").map((line: string, i: number) => {
                           if (line.startsWith("### ")) return <h3 key={i} className="text-sm font-display font-semibold mt-4 mb-1.5 text-foreground">{line.replace("### ", "")}</h3>;
                           if (line.startsWith("## ")) return <h2 key={i} className="text-base font-display font-bold mt-5 mb-2 text-foreground border-b border-border/30 pb-1">{line.replace("## ", "")}</h2>;
-                          if (line.startsWith("# ")) return <h1 key={i} className="text-lg font-display font-bold mt-5 mb-2 text-foreground">{line.replace("# ", "")}</h1>;
+                          if (line.startsWith("# ")) return <h2 key={i} className="text-lg font-display font-bold mt-5 mb-2 text-foreground">{line.replace("# ", "")}</h2>;
                           if (line.startsWith("- ")) return <li key={i} className="text-sm text-muted-foreground ml-4 mb-1 list-disc">{line.replace("- ", "")}</li>;
                           if (line.startsWith("> ")) return <blockquote key={i} className="border-l-2 border-primary/40 pl-3 italic text-muted-foreground my-2 text-sm">{line.replace("> ", "")}</blockquote>;
                           if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="font-semibold text-sm text-foreground mb-1">{line.replace(/\*\*/g, "")}</p>;

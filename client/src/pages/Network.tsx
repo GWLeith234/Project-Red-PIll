@@ -1,194 +1,120 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Mic, Users, Plus, MoreHorizontal, Settings, BarChart3, Globe, Loader2, Newspaper } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { Mail, MessageSquare } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
-import { Link } from "wouter";
-import { usePodcasts, useCreatePodcast } from "@/lib/api";
-import { useToast } from "@/hooks/use-toast";
+import MetricsStrip from "@/components/admin/MetricsStrip";
+import DataCard from "@/components/admin/DataCard";
+import EmptyState from "@/components/admin/EmptyState";
+import PipelineBoard from "@/components/admin/PipelineBoard";
 
 export default function Network() {
-  const { data: podcasts, isLoading } = usePodcasts();
-  const createPodcast = useCreatePodcast();
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", host: "", description: "", coverImage: "", category: "Talk" });
+  const [tab, setTab] = useState<"audience" | "commercial">("audience");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    createPodcast.mutate(
-      { title: form.title, host: form.host, description: form.description || undefined, coverImage: form.coverImage || undefined, category: form.category || "Talk" },
-      {
-        onSuccess: () => {
-          toast({ title: "Show Added", description: `${form.title} has been onboarded to the network.` });
-          setOpen(false);
-          setForm({ title: "", host: "", description: "", coverImage: "", category: "Talk" });
-        },
-        onError: (err: any) => {
-          toast({ title: "Error", description: err.message, variant: "destructive" });
-        },
-      }
-    );
-  }
+  const { data } = useQuery({
+    queryKey: ["/api/admin/page-metrics/network"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/page-metrics/network", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load network metrics");
+      return res.json();
+    },
+  });
+
+  const audienceMetrics = [
+    { label: "New This Week", value: data?.audience?.newThisWeek ?? 0 },
+    { label: "Total Subscribers", value: data?.audience?.total ?? 0 },
+    { label: "Active Campaigns", value: data?.audience?.activeCampaigns ?? 0 },
+    { label: "Campaign Status", value: "—" },
+  ];
+
+  const commercialMetrics = [
+    { label: "New Leads", value: data?.commercial?.leads ?? 0 },
+    { label: "Active Proposals", value: data?.commercial?.proposals ?? 0 },
+    { label: "Pending Orders", value: data?.commercial?.pendingOrders ?? 0 },
+    { label: "Revenue MTD", value: data?.commercial?.revenueMTD ?? "$0" },
+    { label: "Pipeline Value", value: data?.commercial?.pipelineValue ?? "$0" },
+  ];
+
+  const subscribers = (data?.audience?.subscribers ?? []).map((s: any) => ({
+    id: String(s.id ?? s.name),
+    title: s.name,
+    subtitle: s.email,
+  }));
+
+  const audienceColumns = [
+    { title: "New Subscribers", color: "#3B82F6", items: subscribers },
+    { title: "Engaged", color: "#8B5CF6", items: [] },
+    { title: "Active", color: "#10B981", items: [] },
+    { title: "At Risk", color: "#F59E0B", items: [] },
+    { title: "Churned", color: "#EF4444", items: [] },
+  ];
+
+  const commercialColumns = [
+    { title: "Leads", color: "#3B82F6", items: [] },
+    { title: "Qualified", color: "#8B5CF6", items: [] },
+    { title: "Proposal", color: "#F59E0B", items: [] },
+    { title: "Negotiation", color: "#F97316", items: [] },
+    { title: "Closed Won", color: "#10B981", items: [] },
+    { title: "Closed Lost", color: "#EF4444", items: [] },
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <PageHeader pageKey="podcasts" onPrimaryAction={() => setOpen(true)} />
+      <PageHeader pageKey="podcasts" />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="glass-panel border-border">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl">Onboard New Show</DialogTitle>
-            <DialogDescription className="font-mono text-xs">Add a podcast to your network</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title" className="font-mono text-xs uppercase tracking-wider">Show Title</Label>
-              <Input id="title" placeholder="e.g. The Daily Insight" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required data-testid="input-podcast-title" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="host" className="font-mono text-xs uppercase tracking-wider">Host Name</Label>
-              <Input id="host" placeholder="e.g. Jane Doe" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} required data-testid="input-podcast-host" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description" className="font-mono text-xs uppercase tracking-wider">Description</Label>
-              <Textarea id="description" placeholder="Brief show description..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} data-testid="input-podcast-description" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="coverImage" className="font-mono text-xs uppercase tracking-wider">Cover Image URL</Label>
-              <Input id="coverImage" placeholder="https://..." value={form.coverImage} onChange={(e) => setForm({ ...form, coverImage: e.target.value })} data-testid="input-podcast-cover" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category" className="font-mono text-xs uppercase tracking-wider">Category</Label>
-              <select
-                id="category"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
-                data-testid="select-podcast-category"
-              >
-                {["Talk", "News", "Comedy", "Tech", "Business", "Sports", "Culture", "True Crime", "Health"].map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="font-mono text-xs" data-testid="button-cancel-podcast">Cancel</Button>
-              <Button type="submit" disabled={createPodcast.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-submit-podcast">
-                {createPodcast.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Plus className="mr-2 h-3 w-3" />}
-                Add Show
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i} className="glass-panel border-border/50">
-              <Skeleton className="h-32 w-full" />
-              <CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent>
-            </Card>
-          ))
-        ) : (
-          podcasts?.map((show: any) => (
-            <Card key={show.id} className="glass-panel border-border/50 overflow-hidden group hover:border-primary/40 transition-all duration-300" data-testid={`card-podcast-${show.id}`}>
-              <div className="h-32 bg-secondary/50 relative">
-                {show.coverImage ? (
-                  <img src={show.coverImage} alt={show.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-card">
-                    <Mic className="h-12 w-12 text-muted-foreground/50" />
-                  </div>
-                )}
-                <div className="absolute top-3 right-3">
-                  <Badge variant="outline" className="bg-background/80 backdrop-blur-sm border-transparent text-foreground uppercase text-[10px] font-mono">
-                    {show.status}
-                  </Badge>
-                </div>
-              </div>
-
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="font-display text-xl">{show.title}</CardTitle>
-                    <CardDescription className="text-sm">{show.host}</CardDescription>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 -mt-1 -mr-2">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4 pb-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-mono uppercase">Audience</p>
-                    <div className="flex items-center">
-                      <Users className="h-3 w-3 mr-1 text-primary" />
-                      <span className="font-bold text-lg" data-testid={`text-subscribers-${show.id}`}>
-                        {show.subscribers >= 1000000 ? (show.subscribers / 1000000).toFixed(1) + "M" :
-                         show.subscribers >= 1000 ? (show.subscribers / 1000).toFixed(0) + "K" : show.subscribers}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-accent">+{show.growthPercent}% this month</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-mono uppercase">Content Power</p>
-                    <div className="flex items-center">
-                      <Globe className="h-3 w-3 mr-1 text-purple-400" />
-                      <span className="font-bold text-lg">{show.multiplicationFactor}x</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">Assets per Ep</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-border/50">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Network Saturation</span>
-                    <span className="text-foreground font-mono">85%</span>
-                  </div>
-                  <Progress value={85} className="h-1" indicatorClassName="bg-gradient-to-r from-primary to-purple-500" />
-                </div>
-              </CardContent>
-
-              <CardFooter className="bg-card/30 p-4 flex gap-2 border-t border-border/50">
-                <Link href="/news" className="flex-1">
-                  <Button className="w-full bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 hover:text-blue-300 text-xs h-8" data-testid={`button-news-${show.id}`}>
-                    <Newspaper className="mr-2 h-3 w-3" />
-                    News Page
-                  </Button>
-                </Link>
-                <Button className="flex-1 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary-foreground text-xs h-8" data-testid={`button-manage-${show.id}`}>
-                  <Settings className="mr-2 h-3 w-3" />
-                  Manage
-                </Button>
-                <Button className="flex-1 bg-secondary/50 text-foreground hover:bg-secondary hover:text-white text-xs h-8" data-testid={`button-analytics-${show.id}`}>
-                  <BarChart3 className="mr-2 h-3 w-3" />
-                  Analytics
-                </Button>
-              </CardFooter>
-            </Card>
-          ))
-        )}
-
-        <button onClick={() => setOpen(true)} className="border-2 border-dashed border-border/50 rounded-lg flex flex-col items-center justify-center h-full min-h-[300px] hover:border-primary/50 hover:bg-primary/5 transition-all group" data-testid="button-onboard-show">
-          <div className="h-16 w-16 rounded-full bg-secondary/50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
-          </div>
-          <h3 className="font-display text-lg font-medium text-muted-foreground group-hover:text-primary">Onboard New Show</h3>
-          <p className="text-sm text-muted-foreground/50 mt-1 max-w-[200px] text-center">Import RSS feed or create from scratch</p>
+      <div className="flex gap-2" data-testid="tab-toggle">
+        <button
+          onClick={() => setTab("audience")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            tab === "audience"
+              ? "bg-primary text-primary-foreground"
+              : "bg-card border border-border text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="tab-audience"
+        >
+          Audience
+        </button>
+        <button
+          onClick={() => setTab("commercial")}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            tab === "commercial"
+              ? "bg-primary text-primary-foreground"
+              : "bg-card border border-border text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="tab-commercial"
+        >
+          Commercial
         </button>
       </div>
+
+      {tab === "audience" && (
+        <div className="space-y-6">
+          <MetricsStrip metrics={audienceMetrics} />
+          <PipelineBoard columns={audienceColumns} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <DataCard title="Email Opens">
+              <EmptyState icon={Mail} title="Email Analytics" description="Coming soon" />
+            </DataCard>
+            <DataCard title="SMS Opens">
+              <EmptyState icon={MessageSquare} title="SMS Analytics" description="Coming soon" />
+            </DataCard>
+          </div>
+        </div>
+      )}
+
+      {tab === "commercial" && (
+        <div className="space-y-6">
+          <MetricsStrip metrics={commercialMetrics} />
+          <PipelineBoard columns={commercialColumns} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <DataCard title="Email Opens">
+              <EmptyState icon={Mail} title="Email Analytics" description="Coming soon" />
+            </DataCard>
+            <DataCard title="SMS Opens">
+              <EmptyState icon={MessageSquare} title="SMS Analytics" description="Coming soon" />
+            </DataCard>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5947,6 +5947,75 @@ Provide comprehensive social listening intelligence including trending topics, k
     });
   });
 
+  // ── Page Metrics API ──
+  app.get("/api/admin/page-metrics/:pageKey", requireAuth, async (req, res) => {
+    try {
+      const { pageKey } = req.params;
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (pageKey === "dashboard") {
+        const [subscribers, contentPieces, events, polls, communityPosts] = await Promise.all([
+          storage.getSubscribers(),
+          storage.getContentPieces(),
+          storage.getCommunityEvents(),
+          storage.getCommunityPolls(),
+          storage.getCommunityDiscussionPosts(),
+        ]);
+        const publishedThisWeek = contentPieces.filter((c: any) => c.status === "published" && new Date(c.createdAt) > sevenDaysAgo).length;
+        const recentActivity: any[] = [];
+        contentPieces.filter((c: any) => c.status === "published").slice(0, 10).forEach((c: any) => recentActivity.push({ type: "article", description: `Published: ${c.title}`, timestamp: c.createdAt }));
+        subscribers.slice(0, 5).forEach((s: any) => recentActivity.push({ type: "subscriber", description: `New subscriber: ${s.email || s.name || "Unknown"}`, timestamp: s.createdAt }));
+        communityPosts.slice(0, 5).forEach((p: any) => recentActivity.push({ type: "post", description: `Community post: ${p.title || "Untitled"}`, timestamp: p.createdAt }));
+        recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        res.json({
+          metrics: { totalSubscribers: subscribers.length, activeUsersToday: 0, publishedThisWeek, revenueMTD: "$0", pushDeliveryRate: "0%", avgSessionDuration: "0m" },
+          activityFeed: recentActivity.slice(0, 20),
+          quickAccess: { articleCount: contentPieces.length, subscriberCount: subscribers.length, eventsCount: events.length, pollsCount: polls.length },
+        });
+      } else if (pageKey === "content-factory") {
+        const contentPieces = await storage.getContentPieces();
+        const total = contentPieces.length;
+        const published = contentPieces.filter((c: any) => c.status === "published").length;
+        const inModeration = contentPieces.filter((c: any) => c.status === "in_moderation" || c.status === "pending").length;
+        const drafts = contentPieces.filter((c: any) => c.status === "draft").length;
+        const aiGenerated = contentPieces.filter((c: any) => c.aiGenerated || (c.source && c.source.includes("ai"))).length;
+        res.json({ metrics: { total, published, inModeration, drafts, aiGenerated, avgTimeToPublish: "N/A" } });
+      } else if (pageKey === "community") {
+        const [events, polls, posts] = await Promise.all([
+          storage.getCommunityEvents(),
+          storage.getCommunityPolls(),
+          storage.getCommunityDiscussionPosts(),
+        ]);
+        const activeEvents = events.filter((e: any) => new Date(e.startDate) >= todayStart || new Date(e.endDate || e.startDate) >= todayStart).length;
+        const openPolls = polls.filter((p: any) => p.status === "active").length;
+        const totalVotes = polls.reduce((sum: number, p: any) => sum + (p.totalVotes || 0), 0);
+        const postsToday = posts.filter((p: any) => new Date(p.createdAt) >= todayStart).length;
+        res.json({ metrics: { activeEvents, openPolls, totalVotes, postsToday, flaggedPosts: 0, activeUsers: 0 } });
+      } else if (pageKey === "monetization") {
+        const campaigns = await storage.getCampaigns().catch(() => []);
+        res.json({ metrics: { revenueMTD: "$0", activeCampaigns: campaigns.length, adFillRate: "0%", cpmAverage: "$0", impressionsToday: 0, clickThroughRate: "0%" } });
+      } else if (pageKey === "network") {
+        const [subscribers, deals, companies] = await Promise.all([
+          storage.getSubscribers(),
+          storage.getDeals(),
+          storage.getCompanies(),
+        ]);
+        const newSubsThisWeek = subscribers.filter((s: any) => new Date(s.createdAt) > sevenDaysAgo).length;
+        const totalDealValue = deals.reduce((sum: number, d: any) => sum + Number(d.value || 0), 0);
+        res.json({
+          audience: { newThisWeek: newSubsThisWeek, total: subscribers.length, activeCampaigns: 0, subscribers: subscribers.map((s: any) => ({ id: s.id, name: s.name || s.email, email: s.email })).slice(0, 50) },
+          commercial: { leads: 0, proposals: 0, pendingOrders: 0, revenueMTD: "$0", pipelineValue: `$${totalDealValue.toLocaleString()}`, deals, companies },
+        });
+      } else if (pageKey === "analytics") {
+        res.json({ metrics: { totalPageviews: "—", uniqueVisitors: "—", avgSessionDuration: "—", bounceRate: "—", topReferrer: "—", npsScore: "—" } });
+      } else {
+        res.json({ metrics: {} });
+      }
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // ── Admin Page Config ──
   app.get("/api/admin/page-config", requireAuth, async (_req, res) => {
     try { res.json(await storage.getAdminPageConfigs()); } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -5969,7 +6038,7 @@ Provide comprehensive social listening intelligence including trending topics, k
     { pageKey: "campaigns", title: "AI Campaign Builder", iconName: "Send", description: "Create and manage marketing campaigns", primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Build", sortOrder: 4 },
     { pageKey: "newsletters", title: "Newsletters", iconName: "Mail", description: "Manage newsletter templates and sends", primaryActionLabel: "+ New Newsletter", aiActionLabel: "AI Draft", sortOrder: 5 },
     { pageKey: "moderation", title: "AI Content Editor", iconName: "Bot", description: "Review and approve AI-generated content", aiActionLabel: "AI Review", sortOrder: 6 },
-    { pageKey: "site-builder", title: "AI Site Editor", iconName: "Blocks", description: "Build and customize site pages", primaryActionLabel: "+ New Page", aiActionLabel: "AI Design", sortOrder: 7 },
+    { pageKey: "ai-site-editor", title: "AI Site Editor", iconName: "PanelLeft", description: "Build and customize site pages", primaryActionLabel: "+ New Page", aiActionLabel: "AI Build", sortOrder: 3 },
     { pageKey: "community", title: "Community", iconName: "Heart", description: "Community events, polls, and discussions", primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", sortOrder: 8 },
     { pageKey: "kanban", title: "Kanban Board", iconName: "Kanban", description: "Visual project workflow management", primaryActionLabel: "+ New Task", sortOrder: 9 },
     { pageKey: "my-tasks", title: "My Tasks", iconName: "ListTodo", description: "Personal task list and calendar", primaryActionLabel: "+ New Task", sortOrder: 10 },

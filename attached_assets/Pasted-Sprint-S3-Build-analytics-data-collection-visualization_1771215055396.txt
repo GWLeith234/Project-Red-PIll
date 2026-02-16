@@ -1,0 +1,118 @@
+Sprint S3: Build analytics data collection, visualization dashboards, and an AI analytics engine that automatically surfaces insights, detects anomalies, and generates recommendations.
+
+PART A — DATA COLLECTION INFRASTRUCTURE:
+
+(1) Add a page_analytics table to the Drizzle schema:
+- id: uuid, primary key
+- url: text, not null
+- page_title: text
+- session_id: text, not null (generated client-side, stored in sessionStorage)
+- visitor_id: text (persistent anonymous ID stored in localStorage)
+- ip_address: text
+- user_agent: text
+- referrer: text
+- device_type: text (mobile/desktop/tablet — parsed from user_agent)
+- browser: text (parsed from user_agent)
+- os: text (parsed from user_agent)
+- country: text (from IP lookup, nullable)
+- region: text (nullable)
+- time_on_page: integer (seconds, nullable — updated on page exit)
+- created_at: timestamp, default now
+
+(2) Add a public tracking endpoint: POST /api/public/analytics/pageview — accepts { url, pageTitle, sessionId, visitorId, referrer, userAgent }. Parse device_type, browser, and os from the user_agent string server-side using a lightweight parser (install ua-parser-js). Rate limit to 60 per minute per IP.
+
+(3) Add a page exit endpoint: PATCH /api/public/analytics/pageview/:id — accepts { timeOnPage } to update time spent.
+
+(4) Add client-side tracking: Create client/src/hooks/use-page-tracking.ts. On every route change, fire a POST to the tracking endpoint with page URL, title, session ID (generate uuid in sessionStorage if not exists), visitor ID (generate uuid in localStorage if not exists), and referrer. On page unload or route change, send the time_on_page via the PATCH endpoint using navigator.sendBeacon. Import and call this hook in AudienceLayout so every audience page is tracked automatically.
+
+PART B — ANALYTICS DASHBOARD WIDGETS:
+
+(5) Build the Analytics page with real data widgets. Replace the placeholder cards from S2:
+
+Widget 1 — Live Visitors: Query page_analytics for sessions with created_at in the last 5 minutes, count distinct session_ids. Show as a large animated number. Auto-refresh every 10 seconds.
+
+Widget 2 — Pageviews Chart: Line chart (Recharts) showing daily pageviews for the last 30 days. Query page_analytics grouped by date. Add a comparison toggle to overlay the previous 30-day period as a dashed line.
+
+Widget 3 — Top Pages: Ranked table of top 20 pages by view count in the selected period. Show URL, view count, avg time on page, and bounce rate (sessions with only 1 pageview).
+
+Widget 4 — Device Breakdown: Donut chart showing Mobile vs Desktop vs Tablet percentages.
+
+Widget 5 — Browser & OS: Horizontal bar chart showing top 5 browsers and top 5 operating systems.
+
+Widget 6 — Referral Sources: Ranked table showing traffic sources grouped by type: Direct, Search (google, bing, etc.), Social (facebook, twitter, etc.), Referral (everything else). Show count and percentage.
+
+Widget 7 — Geographic: If country data is available, show a ranked table of top 10 countries. Otherwise show placeholder.
+
+Widget 8 — Session Duration: Histogram showing distribution of session lengths in buckets (0-30s, 30s-1m, 1-3m, 3-5m, 5-10m, 10m+).
+
+Widget 9 — Bounce Rate: Trend line showing daily bounce rate over 30 days.
+
+(6) Add API endpoints for dashboard data. All require auth:
+- GET /api/analytics/overview — returns live visitors, total pageviews (period), unique visitors, avg session duration, bounce rate
+- GET /api/analytics/pageviews?period=30d — returns daily pageview counts
+- GET /api/analytics/top-pages?period=30d&limit=20 — returns ranked pages
+- GET /api/analytics/devices?period=30d — returns device/browser/os breakdown
+- GET /api/analytics/referrers?period=30d — returns referral source breakdown
+- GET /api/analytics/geo?period=30d — returns country/region breakdown
+- GET /api/analytics/sessions?period=30d — returns session duration distribution
+
+PART C — NPS & SATISFACTION:
+
+(7) Add nps_responses table: id (uuid), score (integer 0-10, not null), comment (text, nullable), respondent_email (text, nullable), sentiment (text, nullable — populated by AI), created_at (timestamp).
+
+(8) Add user_feedback table: id (uuid), rating (integer 1-5), feedback_text (text), respondent_email (text, nullable), page_url (text, nullable), sentiment (text, nullable), created_at (timestamp).
+
+(9) Add public endpoints: POST /api/public/feedback/nps (accepts { score, comment, email }), POST /api/public/feedback/rating (accepts { rating, feedbackText, email, pageUrl }).
+
+(10) Build an NPS widget for the audience site: A small floating button (bottom-right, collapsible) that asks "How likely are you to recommend us? (0-10)" with optional comment. Shows only once per visitor (check localStorage). After submission, show a thank-you message.
+
+(11) On the Analytics admin page, add an NPS & Satisfaction section:
+- NPS Score gauge: Calculate from responses (% Promoters 9-10 minus % Detractors 0-6). Show as a large gauge chart.
+- NPS Trend: Monthly NPS line chart.
+- Satisfaction: Average star rating with distribution bar chart.
+- Feedback Feed: Scrollable list of recent text feedback with AI-generated sentiment tags (positive/neutral/negative).
+
+PART D — CONTENT PERFORMANCE:
+
+(12) Add content performance section to Analytics page:
+- Content Leaderboard by Tactic: Ranked table of best-performing content grouped by type (articles, episodes, social posts). Join page_analytics with articles table to get view counts per article.
+- Content Leaderboard by Talent: Ranked table by author. Group articles by author and sum their pageviews.
+- Engagement Funnel: Funnel chart showing Impressions (total pageviews) → Reads (time_on_page > 30s) → Shares (placeholder) → Subscribes (new subscribers in period).
+
+PART E — AI ANALYTICS ENGINE:
+
+(13) Create server/ai-analytics.ts — the AI analytics engine. This module uses the existing AI provider system (server/ai-providers.ts) to generate insights. Build these functions:
+
+Function: generateAnalyticsInsights(period: '7d' | '30d' | '90d')
+- Queries all analytics data for the period: pageviews, top pages, referrers, device mix, bounce rate, session duration, NPS scores, content performance
+- Sends a structured prompt to Claude: "You are an analytics expert for a conservative media platform. Analyze this data and provide: 1) Three key insights about audience behavior, 2) Two concerning trends that need attention, 3) Three actionable recommendations to grow engagement. Be specific with numbers and percentages."
+- Returns structured JSON: { insights: string[], concerns: string[], recommendations: string[] }
+
+Function: analyzeContentPerformance(articleIds: string[])
+- Fetches analytics for specific articles
+- Prompt: "Analyze the performance of these content pieces. Identify which topics, formats, and publish times perform best. Suggest 3 content ideas that would likely perform well based on these patterns."
+- Returns: { topPerformers: string[], patterns: string[], suggestions: string[] }
+
+Function: analyzeFeedbackSentiment(feedbackTexts: string[])
+- Batch analyze NPS comments and user feedback
+- Prompt: "Classify each piece of feedback as positive, neutral, or negative. Extract the key theme (content quality, site speed, missing feature, etc.). Summarize overall sentiment trends."
+- Returns: { items: { text: string, sentiment: string, theme: string }[], summary: string }
+
+Function: generateWeeklyDigest()
+- Compiles all analytics into a natural-language weekly summary
+- Prompt: "Write a concise weekly analytics digest for the platform owner. Include: traffic summary with week-over-week change, top performing content, audience growth, NPS movement, and one key recommendation. Format as a brief executive summary, 3-4 paragraphs."
+- Returns: { digest: string, generatedAt: Date }
+
+(14) Add AI analytics endpoints:
+- POST /api/analytics/ai/insights — calls generateAnalyticsInsights, returns JSON
+- POST /api/analytics/ai/content-analysis — calls analyzeContentPerformance
+- POST /api/analytics/ai/digest — calls generateWeeklyDigest
+- The sentiment analysis runs automatically when new NPS/feedback is submitted (call analyzeFeedbackSentiment and update the sentiment column)
+
+(15) Wire the "AI Analyze" button on the Analytics PageHeader:
+- When clicked, call POST /api/analytics/ai/insights
+- Show results in a slide-out panel or modal: three sections with icons — "Key Insights" (lightbulb), "Concerns" (alert triangle), "Recommendations" (target)
+- Each item is a bullet point with the AI-generated text
+- Add a "Generate Weekly Digest" button that calls the digest endpoint and shows the formatted summary
+
+(16) Add an AI Insights card to the Analytics page dashboard area. On page load, check if there's a cached insight less than 24 hours old (store in a new ai_insights_cache table: id, insight_type, data jsonb, generated_at timestamp). If fresh cache exists, show it. If not, show a "Generate Insights" button. This prevents excessive AI calls while keeping insights available.

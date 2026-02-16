@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import PageHeader from "@/components/admin/PageHeader";
 import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding, useAuditLogs, useApiKeys, useCreateApiKey, useRevokeApiKey, useDeleteApiKey } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,13 @@ import {
   Building2, Eye, Edit3, RefreshCw, Trash2, Radio, Image as ImageIcon,
   Key, Clock, Database, ScrollText, Copy, Plus, Ban, Mic,
   Search as SearchIcon, Hash, Mail, Volume2, VolumeX,
+  Settings2, LayoutGrid,
 } from "lucide-react";
+
+const TABS = [
+  { id: "platform", label: "Platform Settings", icon: Settings2 },
+  { id: "page-config", label: "Page Configuration", icon: LayoutGrid },
+] as const;
 
 const TIMEZONES = [
   "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
@@ -301,6 +308,7 @@ function RadioGroup({ label, options, value, onChange, testId, disabled }: {
 }
 
 export default function Settings() {
+  const [activeTab, setActiveTab] = useState<string>("platform");
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { data: branding, isLoading: brandingLoading } = useBranding();
@@ -522,6 +530,32 @@ export default function Settings() {
   return (
     <div className="space-y-6" data-testid="settings-page">
       <PageHeader pageKey="settings" onPrimaryAction={canEdit ? handleSave : undefined} />
+
+      <div className="flex items-center gap-1 border-b border-border -mt-2 mb-4 overflow-x-auto" data-testid="settings-tabs">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold uppercase tracking-wider transition-colors whitespace-nowrap border-b-2 -mb-px",
+                activeTab === tab.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              )}
+              data-testid={`tab-${tab.id}`}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === "page-config" && <PageConfigurationTab />}
+
+      {activeTab === "platform" && <>
       <div className="flex items-center gap-3 flex-shrink-0 justify-end -mt-4 mb-4">
         {canEdit && (
           <button
@@ -1103,6 +1137,207 @@ export default function Settings() {
         {form.apiKeysEnabled && <ApiKeyManagement canEdit={canEdit} />}
 
         <AuditLogViewer />
+      </div>
+      </>}
+    </div>
+  );
+}
+
+function PageConfigurationTab() {
+  const { toast } = useToast();
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+
+  const { data: configs, isLoading } = useQuery({
+    queryKey: ["/api/admin/page-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/page-config", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load page config");
+      return res.json();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ pageKey, data }: { pageKey: string; data: Record<string, string> }) => {
+      const res = await fetch(`/api/admin/page-config/${pageKey}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update page config");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      setEditingKey(null);
+      toast({ title: "Page Config Saved", description: "Page configuration has been updated." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const startEditing = (config: any) => {
+    setEditingKey(config.pageKey);
+    setEditForm({
+      title: config.title || "",
+      description: config.description || "",
+      iconName: config.iconName || "",
+      primaryActionLabel: config.primaryActionLabel || "",
+      aiActionLabel: config.aiActionLabel || "",
+    });
+  };
+
+  const handleSave = (pageKey: string) => {
+    updateMutation.mutate({ pageKey, data: editForm });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="page-config-tab">
+      <SectionHeader icon={LayoutGrid} title="Page Configuration" description="Manage page titles, icons, and action labels for all admin pages" />
+
+      <div className="border border-border/50 rounded-sm overflow-hidden overflow-x-auto" data-testid="page-config-table">
+        <div className="hidden md:grid grid-cols-[1fr_1.5fr_0.8fr_2fr_1.2fr_1.2fr_auto] gap-3 px-4 py-2 bg-card/30 border-b border-border/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground min-w-[700px]">
+          <span>Page Key</span>
+          <span>Title</span>
+          <span>Icon</span>
+          <span>Description</span>
+          <span>Primary Action</span>
+          <span>AI Action</span>
+          <span></span>
+        </div>
+        <div className="divide-y divide-border/30">
+          {configs?.map((config: any) => {
+            const isEditing = editingKey === config.pageKey;
+            return (
+              <div
+                key={config.pageKey}
+                className={cn(
+                  "flex flex-col gap-2 px-4 py-3 md:grid md:grid-cols-[1fr_1.5fr_0.8fr_2fr_1.2fr_1.2fr_auto] md:gap-3 md:items-center text-sm transition-colors",
+                  isEditing ? "bg-primary/5" : "hover:bg-card/50 cursor-pointer"
+                )}
+                onClick={() => !isEditing && startEditing(config)}
+                data-testid={`row-page-config-${config.pageKey}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Key:</span>
+                  <span className="text-xs font-mono text-foreground/80">{config.pageKey}</span>
+                </div>
+
+                {isEditing ? (
+                  <>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Title:</span>
+                      <Input
+                        value={editForm.title}
+                        onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                        className="h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`input-title-${config.pageKey}`}
+                      />
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Icon:</span>
+                      <Input
+                        value={editForm.iconName}
+                        onChange={(e) => setEditForm(f => ({ ...f, iconName: e.target.value }))}
+                        className="h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`input-icon-${config.pageKey}`}
+                      />
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Description:</span>
+                      <Input
+                        value={editForm.description}
+                        onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                        className="h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`input-description-${config.pageKey}`}
+                      />
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Primary Action:</span>
+                      <Input
+                        value={editForm.primaryActionLabel}
+                        onChange={(e) => setEditForm(f => ({ ...f, primaryActionLabel: e.target.value }))}
+                        className="h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`input-primary-action-${config.pageKey}`}
+                      />
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">AI Action:</span>
+                      <Input
+                        value={editForm.aiActionLabel}
+                        onChange={(e) => setEditForm(f => ({ ...f, aiActionLabel: e.target.value }))}
+                        className="h-8 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`input-ai-action-${config.pageKey}`}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSave(config.pageKey)}
+                        disabled={updateMutation.isPending}
+                        className="h-7 px-2 bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-[10px] uppercase tracking-wider"
+                        data-testid={`button-save-config-${config.pageKey}`}
+                      >
+                        {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingKey(null)}
+                        className="h-7 px-2 font-mono text-[10px]"
+                        data-testid={`button-cancel-config-${config.pageKey}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Title: </span>
+                      <span className="text-sm font-medium">{config.title || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Icon: </span>
+                      <span className="text-xs font-mono text-muted-foreground">{config.iconName || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Description: </span>
+                      <span className="text-xs text-muted-foreground truncate block max-w-[250px]">{config.description || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Primary Action: </span>
+                      <span className="text-xs font-mono">{config.primaryActionLabel || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">AI Action: </span>
+                      <span className="text-xs font-mono">{config.aiActionLabel || "—"}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Edit3 className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

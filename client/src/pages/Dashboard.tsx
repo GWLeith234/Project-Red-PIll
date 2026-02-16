@@ -1,150 +1,147 @@
-import React, { useState, useEffect } from "react";
-import { ChevronRight, DollarSign, Headphones, Briefcase, Shield, Factory, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
-import ContentFactoryScreen from "@/components/screens/ContentFactoryScreen";
-import RevenueFactoryScreen from "@/components/screens/RevenueFactoryScreen";
-import CRMScreen from "@/components/screens/CRMScreen";
-import AudienceScreen from "@/components/screens/AudienceScreen";
-import AdminScreen from "@/components/screens/AdminScreen";
-import { AiSuccessBrief } from "@/components/AiSuccessBrief";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { formatDistanceToNow } from "date-fns";
+import { Newspaper, UserPlus, MessageSquare, Factory, Users, BarChart3, Heart, ArrowRight } from "lucide-react";
 import PageHeader from "@/components/admin/PageHeader";
 import MetricsStrip from "@/components/admin/MetricsStrip";
+import DataCard from "@/components/admin/DataCard";
+import { AiSuccessBrief } from "@/components/AiSuccessBrief";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const SCREENS = [
-  { key: "content", label: "Content Factory", icon: Factory },
-  { key: "revenue", label: "Revenue Factory", icon: DollarSign },
-  { key: "crm", label: "CRM", icon: Briefcase },
-  { key: "audience", label: "Audience", icon: Headphones },
-  { key: "admin", label: "Admin", icon: Shield },
-] as const;
-
-type ScreenKey = (typeof SCREENS)[number]["key"];
-
-const SCREEN_QUERY_KEYS: Record<ScreenKey, string[][]> = {
-  content: [["/api/episodes"], ["/api/content-pieces"], ["/api/moderation/counts"], ["/api/scheduled-posts"], ["/api/podcasts"], ["/api/outbound-campaigns"]],
-  revenue: [["/api/advertisers"], ["/api/campaigns"], ["/api/deals"], ["/api/products"]],
-  crm: [["/api/companies"], ["/api/contacts"], ["/api/deals"]],
-  audience: [["/api/subscribers"], ["/api/podcasts"], ["/api/outbound-campaigns"]],
-  admin: [["/api/admin/dashboard-stats"]],
+const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  article: Newspaper,
+  subscriber: UserPlus,
+  post: MessageSquare,
 };
 
 export default function Dashboard() {
-  const [activeScreen, setActiveScreen] = useState<ScreenKey>("content");
   const [showAiBrief, setShowAiBrief] = useState(false);
-  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const keys = SCREEN_QUERY_KEYS[activeScreen];
-      keys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [activeScreen, queryClient]);
+  const { data, isLoading } = useQuery({
+    queryKey: ["/api/admin/page-metrics/dashboard"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/page-metrics/dashboard", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load dashboard metrics");
+      return res.json();
+    },
+  });
 
-  const currentIdx = SCREENS.findIndex(s => s.key === activeScreen);
-  const goPrev = () => {
-    const prev = (currentIdx - 1 + SCREENS.length) % SCREENS.length;
-    setActiveScreen(SCREENS[prev].key);
-  };
-  const goNext = () => {
-    const next = (currentIdx + 1) % SCREENS.length;
-    setActiveScreen(SCREENS[next].key);
-  };
+  const metrics = data?.metrics
+    ? [
+        { label: "Total Subscribers", value: data.metrics.totalSubscribers },
+        { label: "Active Users Today", value: data.metrics.activeUsersToday },
+        { label: "Published This Week", value: data.metrics.publishedThisWeek },
+        { label: "Revenue MTD", value: data.metrics.revenueMTD },
+        { label: "Push Delivery Rate", value: data.metrics.pushDeliveryRate },
+        { label: "Avg. Session Duration", value: data.metrics.avgSessionDuration },
+      ]
+    : [];
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "ArrowRight") goNext();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [activeScreen]);
-
-  const activeScreenData = SCREENS[currentIdx];
-
-  const SAMPLE_METRICS = [
-    { label: "Total Revenue", value: "$42.8K", trend: 12.5, trendDirection: "up" as const },
-    { label: "Episodes", value: 147, trend: 8.2, trendDirection: "up" as const },
-    { label: "Subscribers", value: "23.1K", trend: 3.7, trendDirection: "up" as const },
-    { label: "Avg. CPM", value: "$18.50", trend: 2.1, trendDirection: "down" as const },
-    { label: "Active Campaigns", value: 12, trend: 15.0, trendDirection: "up" as const },
-    { label: "Content Pieces", value: 892, trend: 22.4, trendDirection: "up" as const },
-  ];
+  const activityFeed: Array<{ type: string; description: string; timestamp: string }> = data?.activityFeed || [];
+  const quickAccess = data?.quickAccess;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] lg:h-[calc(100vh-4.5rem)] animate-in fade-in duration-500" data-testid="command-center">
-      <PageHeader
-        pageKey="dashboard"
-        onAIAction={() => setShowAiBrief(true)}
-      />
+    <div className="flex flex-col gap-6 animate-in fade-in duration-500" data-testid="dashboard-page">
+      <PageHeader pageKey="dashboard" onAIAction={() => setShowAiBrief(true)} />
 
-      <div className="mb-4 flex-shrink-0">
-        <MetricsStrip metrics={SAMPLE_METRICS} />
-      </div>
-
-      <div className="flex items-center gap-2 mb-4 flex-shrink-0 w-full overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-prev-screen">
-          <ChevronRight className="h-4 w-4 rotate-180" />
-        </button>
-        <div className="flex items-center gap-1 overflow-x-auto flex-1" style={{ scrollbarWidth: "none" }}>
-          {SCREENS.map((screen) => (
-            <button
-              key={screen.key}
-              onClick={() => setActiveScreen(screen.key)}
-              className={cn(
-                "flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all whitespace-nowrap flex-shrink-0",
-                activeScreen === screen.key
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              )}
-              data-testid={`button-screen-${screen.key}`}
-            >
-              <screen.icon className="h-3 w-3" />
-              <span className="hidden sm:inline">{screen.label}</span>
-            </button>
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="metrics-skeleton">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[90px] rounded-lg" />
           ))}
         </div>
-        <button onClick={goNext} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-next-screen">
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      ) : (
+        <MetricsStrip metrics={metrics} />
+      )}
 
-      <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-3 sm:p-4 relative overflow-auto" data-testid="screen-viewport">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+      {isLoading ? (
+        <Skeleton className="h-[300px] rounded-lg" />
+      ) : (
+        <DataCard title="Live Activity Feed" data-testid="card-activity-feed">
+          <div className="max-h-[320px] overflow-y-auto space-y-3 pr-1" data-testid="activity-feed-list">
+            {activityFeed.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-empty-feed">No recent activity</p>
+            )}
+            {activityFeed.map((entry, i) => {
+              const IconComponent = ACTIVITY_ICONS[entry.type] || Newspaper;
+              return (
+                <div key={i} className="flex items-start gap-3 py-2 border-b border-border/40 last:border-0" data-testid={`activity-item-${i}`}>
+                  <div className="mt-0.5 p-1.5 rounded-md bg-muted flex-shrink-0">
+                    <IconComponent className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground" data-testid={`text-activity-desc-${i}`}>{entry.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-activity-time-${i}`}>
+                      {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DataCard>
+      )}
 
-        <div className="h-full w-full">
-          {activeScreen === "content" && <ContentFactoryScreen />}
-          {activeScreen === "revenue" && <RevenueFactoryScreen />}
-          {activeScreen === "crm" && <CRMScreen />}
-          {activeScreen === "audience" && <AudienceScreen />}
-          {activeScreen === "admin" && <AdminScreen />}
-        </div>
-
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-          {SCREENS.map((screen) => (
-            <button
-              key={screen.key}
-              onClick={() => setActiveScreen(screen.key)}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                activeScreen === screen.key ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-              )}
-              data-testid={`dot-screen-${screen.key}`}
-            />
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="quick-access-skeleton">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[120px] rounded-lg" />
           ))}
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="quick-access-grid">
+          <Link href="/content" data-testid="link-content-factory">
+            <DataCard title="Content Factory">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Factory className="h-5 w-5 text-primary" />
+                  <span className="text-lg font-semibold" data-testid="text-article-count">{quickAccess?.articleCount ?? 0} articles</span>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </DataCard>
+          </Link>
 
-      <div className="flex items-center justify-between mt-2 flex-shrink-0">
-        <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-wider">
-          {activeScreenData.label} &middot; Screen {currentIdx + 1} of {SCREENS.length}
-        </p>
-        <p className="text-[10px] font-mono text-muted-foreground/50 hidden sm:block">
-          Use arrow keys or click to navigate
-        </p>
-      </div>
+          <Link href="/network" data-testid="link-network">
+            <DataCard title="Network">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <span className="text-lg font-semibold" data-testid="text-subscriber-count">{quickAccess?.subscriberCount ?? 0} subscribers</span>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </DataCard>
+          </Link>
+
+          <Link href="/analytics" data-testid="link-analytics">
+            <DataCard title="Analytics">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <span className="text-lg font-semibold text-muted-foreground" data-testid="text-analytics-status">Coming Soon</span>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </DataCard>
+          </Link>
+
+          <Link href="/community" data-testid="link-community">
+            <DataCard title="Community">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Heart className="h-5 w-5 text-primary" />
+                  <span className="text-lg font-semibold" data-testid="text-community-count">
+                    {quickAccess?.eventsCount ?? 0} events + {quickAccess?.pollsCount ?? 0} polls
+                  </span>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </DataCard>
+          </Link>
+        </div>
+      )}
 
       <AiSuccessBrief open={showAiBrief} onClose={() => setShowAiBrief(false)} />
     </div>
