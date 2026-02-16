@@ -1,4 +1,8 @@
-import { createContext, useContext, useState, useEffect, useSyncExternalStore, type ReactNode } from "react";
+The audio player state (currentEpisode, queue, history) is lost when AudioPlayerProvider remounts during navigation, even though the audio element persists as a singleton. Fix this by storing all player state globally alongside the audio element.
+
+Replace the ENTIRE contents of client/src/components/AudioPlayerProvider.tsx with this:
+
+import { createContext, useContext, useState, useRef, useCallback, useEffect, useSyncExternalStore, type ReactNode } from "react";
 
 export interface AudioEpisode {
   id: string;
@@ -29,6 +33,7 @@ interface AudioPlayerContextType {
   playPrevious: () => void;
 }
 
+// ─── Global singleton state (survives React unmounts) ───
 const globalState = {
   audio: null as HTMLAudioElement | null,
   currentEpisode: null as AudioEpisode | null,
@@ -58,7 +63,7 @@ function notify() {
 
 function subscribe(listener: () => void) {
   globalState._listeners.add(listener);
-  return () => { globalState._listeners.delete(listener); };
+  return () => globalState._listeners.delete(listener);
 }
 
 function getVersion() {
@@ -81,8 +86,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const audio = getAudio();
   const [, forceRender] = useState(0);
 
+  // Subscribe to global state changes
   useSyncExternalStore(subscribe, getVersion, getVersion);
 
+  // Set up audio event listeners (add/remove on mount/unmount)
   useEffect(() => {
     const onTimeUpdate = () => forceRender((n) => n + 1);
     const onDurationChange = () => forceRender((n) => n + 1);
@@ -172,3 +179,5 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   return <AudioPlayerContext.Provider value={value}>{children}</AudioPlayerContext.Provider>;
 }
+
+This version stores currentEpisode, queue, history, volume, and playbackRate in module-level variables that persist even when React unmounts and remounts the component. The audio element and all its state survive navigation completely outside of React's lifecycle.
