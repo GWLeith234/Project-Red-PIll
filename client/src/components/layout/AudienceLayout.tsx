@@ -232,7 +232,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
   const { isSupported, isSubscribed, preferences, subscribe, unsubscribe, updatePreferences } = usePushNotifications();
   const audioPlayer = useAudioPlayerOptional();
   const hasActivePlayer = !!audioPlayer?.currentEpisode;
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
 
   const platformName = branding?.companyName || "MediaTech Empire";
   const tagline = branding?.tagline || "AI-Powered Media Platform";
@@ -489,9 +489,13 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
             { href: "/news", icon: Newspaper, label: "News", path: "news" },
             { href: "/search", icon: Search, label: "Search", path: "search" },
           ].map(({ href, icon: Icon, label, path }) => (
-            <Link
+            <button
               key={path}
-              href={href}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(href);
+              }}
               className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
                 ${isActivePath(path) ? "" : "text-gray-500"}`}
               style={isActivePath(path) ? { color: primaryColor } : undefined}
@@ -499,7 +503,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
             >
               <Icon className="h-5 w-5" />
               <span className="text-[10px] font-medium">{label}</span>
-            </Link>
+            </button>
           ))}
         </div>
       </nav>

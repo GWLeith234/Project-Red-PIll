@@ -1,0 +1,38 @@
+CRITICAL BUG: Tapping the bottom tab bar (Home, Listen, News, Search) causes a full page reload instead of client-side navigation. This destroys all React state including the audio player. The browser completely reloads the page when switching tabs.
+
+Fix this:
+
+(1) In client/src/components/layout/AudienceLayout.tsx, find the bottom tab bar nav section (around line 484). The tabs currently use wouter's Link component. Replace them with buttons that use wouter's useLocation hook for programmatic navigation. Change the tab rendering from Link components to:
+
+{[
+  { href: "/home", icon: Home, label: "Home", path: "home" },
+  { href: "/podcasts", icon: Headphones, label: "Listen", path: "podcasts" },
+  { href: "/news", icon: Newspaper, label: "News", path: "news" },
+  { href: "/search", icon: Search, label: "Search", path: "search" },
+].map(({ href, icon: Icon, label, path }) => (
+  <button
+    key={path}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(href);
+    }}
+    className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors
+      ${isActivePath(path) ? "" : "text-gray-500"}`}
+    style={isActivePath(path) ? { color: primaryColor } : undefined}
+    data-testid={`tab-${path}`}
+  >
+    <Icon className="h-5 w-5" />
+    <span className="text-[10px] font-medium">{label}</span>
+  </button>
+))}
+
+Make sure useLocation is imported from wouter at the top: const [location, navigate] = useLocation(); (it may already be imported as useLocation but you need the navigate function from it).
+
+(2) Also check ALL other navigation links in AudienceLayout.tsx — the hamburger menu links, the presets bar podcast links, the header logo link, the footer links, and any other internal navigation. Every link that goes to an audience route (/home, /podcasts, /news, /search, /show/*, /listen/*, /read-later, /author/*) must use either wouter's Link component or the navigate() function. If any use regular <a> tags with href to internal routes, change them to use wouter navigation.
+
+(3) Also check if the PresetsBar component does navigation. If it uses <a> tags for podcast links, change them to wouter Link or navigate().
+
+(4) Check all audience page components (AudienceHome, PodcastDirectory, PublicNewsPage, SearchPage, EpisodePage, ArticlePage, ShowDetail, ReadLater) for any <a> tags that link to internal routes. Change them all to wouter Link.
+
+(5) After making changes, verify: open the browser console, check "Preserve log", play an episode, tap the Home tab. The console should NOT show "SW registered" or "AUDIO_PROVIDER: mounting" a second time. The audio should keep playing.
