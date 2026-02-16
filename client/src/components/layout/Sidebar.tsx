@@ -4,90 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { getIcon } from "@/lib/icon-resolver";
 import ThemeToggle from "@/components/ThemeToggle";
-import {
-  LayoutDashboard,
-  FileText,
-  DollarSign,
-  Radio,
-  BarChart3,
-  Settings,
-  Users,
-  Image as ImageIcon,
-  Paintbrush,
-  Shield,
-  Factory,
-  LogOut,
-  Briefcase,
-  Bot,
-  ChevronDown,
-  ExternalLink,
-  ContactRound,
-  Network,
-  Send,
-  CalendarClock,
-  Scaling,
-  Kanban,
-  ListTodo,
-  Mail,
-  Menu,
-  X,
-  Blocks,
-  PanelLeft,
-  Heart,
-  Mic,
-  Hash,
-  Folder,
-  Zap,
-  Globe,
-  Bell,
-  Search,
-  type LucideIcon,
-} from "lucide-react";
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  LayoutDashboard,
-  FileText,
-  DollarSign,
-  Radio,
-  BarChart3,
-  Settings,
-  Users,
-  Paintbrush,
-  Shield,
-  Factory,
-  Briefcase,
-  Bot,
-  ContactRound,
-  Network,
-  Send,
-  CalendarClock,
-  Scaling,
-  Kanban,
-  ListTodo,
-  Mail,
-  Blocks,
-  PanelLeft,
-  Heart,
-  Mic,
-  Hash,
-  Folder,
-  Zap,
-  Globe,
-  Bell,
-  Search,
-  ExternalLink,
-  ImageIcon,
-};
-
-const SECTION_LABELS: Record<string, string> = {
-  "": "",
-  content: "Content",
-  monetization: "Monetization",
-  network: "Network",
-  analytics: "Analytics",
-  admin: "Admin",
-};
+import { LogOut, ChevronDown, Menu, X, Image as ImageIcon } from "lucide-react";
 
 type PageConfig = {
   pageKey: string;
@@ -101,9 +20,14 @@ type PageConfig = {
   navParent: string | null;
 };
 
-function getIcon(name: string): LucideIcon {
-  return ICON_MAP[name] || Blocks;
-}
+type NavSection = {
+  id: string;
+  sectionKey: string;
+  displayName: string;
+  iconName: string | null;
+  sortOrder: number;
+  isCollapsedDefault: boolean | null;
+};
 
 function isItemActive(route: string, location: string, searchString: string): boolean {
   if (!route.includes("?")) {
@@ -234,35 +158,60 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     staleTime: 30000,
   });
 
+  const { data: navSections } = useQuery<NavSection[]>({
+    queryKey: ["/api/admin/nav-sections"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/nav-sections", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
   const toggleGroup = (label: string) => {
     setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
+  const sectionLookup = (() => {
+    const map: Record<string, NavSection> = {};
+    if (navSections) {
+      for (const s of navSections) {
+        map[s.sectionKey] = s;
+      }
+    }
+    return map;
+  })();
+
   const sections = (() => {
     if (!configs || configs.length === 0) return [];
     const grouped: Record<string, PageConfig[]> = {};
-    const sectionOrder: string[] = [];
     for (const cfg of configs) {
-      const section = cfg.navSection ?? "ungrouped";
-      if (!grouped[section]) {
-        grouped[section] = [];
-        sectionOrder.push(section);
-      }
+      const section = cfg.navSection ?? "";
+      if (!grouped[section]) grouped[section] = [];
       grouped[section].push(cfg);
     }
     for (const key of Object.keys(grouped)) {
       grouped[key].sort((a, b) => a.sortOrder - b.sortOrder);
     }
-    sectionOrder.sort((a, b) => {
-      const minA = Math.min(...(grouped[a]?.map(c => c.sortOrder) || [999]));
-      const minB = Math.min(...(grouped[b]?.map(c => c.sortOrder) || [999]));
-      return minA - minB;
+
+    const allKeys = Object.keys(grouped);
+    allKeys.sort((a, b) => {
+      const sA = sectionLookup[a];
+      const sB = sectionLookup[b];
+      const orderA = sA ? sA.sortOrder : 999;
+      const orderB = sB ? sB.sortOrder : 999;
+      return orderA - orderB;
     });
-    return sectionOrder.map(section => ({
-      label: SECTION_LABELS[section] ?? section.charAt(0).toUpperCase() + section.slice(1),
-      key: section,
-      items: grouped[section],
-    }));
+
+    return allKeys.map(section => {
+      const navSec = sectionLookup[section];
+      const label = navSec ? navSec.displayName : (section ? section.charAt(0).toUpperCase() + section.slice(1) : "");
+      return {
+        label,
+        key: section,
+        items: grouped[section],
+      };
+    });
   })();
 
   return (
