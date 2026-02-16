@@ -13,6 +13,9 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       androidSplashResourceName: 'splash',
       showSpinner: false
+    },
+    App: {
+      url: 'https://mediatechempire.com'
     }
   }
 };

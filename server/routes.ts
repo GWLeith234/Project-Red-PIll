@@ -5841,5 +5841,29 @@ Provide comprehensive social listening intelligence including trending topics, k
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  app.get("/.well-known/assetlinks.json", (_req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.json([{
+      relation: ["delegate_permission/common.handle_all_urls"],
+      target: {
+        namespace: "android_app",
+        package_name: "com.mediatechempire.app",
+        sha256_cert_fingerprints: ["PLACEHOLDER_FINGERPRINT"]
+      }
+    }]);
+  });
+  app.get("/.well-known/apple-app-site-association", (_req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.json({
+      applinks: {
+        apps: [],
+        details: [{
+          appID: "TEAMID.com.mediatechempire.app",
+          paths: ["/news/*", "/listen/*", "/show/*", "/home", "/podcasts", "/search", "/read-later", "/author/*"]
+        }]
+      }
+    });
+  });
+
   return httpServer;
 }

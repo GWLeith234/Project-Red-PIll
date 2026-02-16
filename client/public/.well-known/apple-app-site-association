@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.mediatechempire.app",
+        "paths": ["/news/*", "/listen/*", "/show/*", "/home", "/podcasts", "/search", "/read-later", "/author/*"]
+      }
+    ]
+  }
+}
