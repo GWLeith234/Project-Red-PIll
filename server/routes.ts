@@ -6018,8 +6018,59 @@ Provide comprehensive social listening intelligence including trending topics, k
   });
 
   // ── Admin Page Config ──
+  const SEED_CONFIGS: Array<Record<string, any>> = [
+    { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", route: "/", permission: "dashboard.view", navSection: "", sortOrder: 1, aiActionLabel: "AI Insights", description: "Command center overview with KPIs and alerts" },
+    { pageKey: "content-factory", title: "Content Factory", iconName: "FileText", route: "/content", permission: "content.view", navSection: "content", sortOrder: 10, primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", description: "AI content production pipeline" },
+    { pageKey: "scheduler", title: "Scheduler", iconName: "CalendarClock", route: "/scheduler", permission: "content.view", navSection: "content", sortOrder: 11, description: "Schedule and manage content publishing" },
+    { pageKey: "moderation", title: "Moderation Queue", iconName: "Shield", route: "/moderation", permission: "content.edit", navSection: "content", sortOrder: 12, description: "Review and approve AI-generated content" },
+    { pageKey: "kanban", title: "Kanban Board", iconName: "Kanban", route: "/kanban", permission: "content.view", navSection: "content", sortOrder: 13, description: "Visual project workflow management", primaryActionLabel: "+ New Task" },
+    { pageKey: "my-tasks", title: "My Tasks", iconName: "ListTodo", route: "/my-tasks", permission: "content.view", navSection: "content", sortOrder: 14, description: "Personal task list and calendar", primaryActionLabel: "+ New Task" },
+    { pageKey: "ai-site-editor", title: "AI Site Editor", iconName: "PanelLeft", route: "/site-builder", permission: "customize.edit", navSection: "content", sortOrder: 15, primaryActionLabel: "+ New Page", aiActionLabel: "AI Build", description: "Build and customize site pages" },
+    { pageKey: "community", title: "Community", iconName: "Heart", route: "/community", permission: "content.view", navSection: "content", sortOrder: 16, primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", description: "Community events, polls, and discussions" },
+    { pageKey: "monetization", title: "Monetization", iconName: "DollarSign", route: "/monetization", permission: "monetization.view", navSection: "monetization", sortOrder: 20, primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Optimize", description: "Revenue tracking and product management" },
+    { pageKey: "campaigns", title: "Campaign Builder", iconName: "Send", route: "/campaigns", permission: "content.view", navSection: "monetization", sortOrder: 21, description: "Create and manage marketing campaigns" },
+    { pageKey: "ad-resizer", title: "Ad Resizer", iconName: "Scaling", route: "/ad-resizer", permission: "monetization.view", navSection: "monetization", sortOrder: 22, description: "Resize ad creatives for all platforms" },
+    { pageKey: "newsletters", title: "Newsletters", iconName: "Mail", route: "/newsletters", permission: "content.view", navSection: "monetization", sortOrder: 23, description: "Manage newsletter templates and sends", primaryActionLabel: "+ New Newsletter", aiActionLabel: "AI Draft" },
+    { pageKey: "network", title: "Network", iconName: "Network", route: "/network", permission: "network.view", navSection: "network", sortOrder: 30, primaryActionLabel: "+ Add Contact", aiActionLabel: "AI Suggest", description: "Podcast network and show management" },
+    { pageKey: "audience", title: "Audience CRM", iconName: "ContactRound", route: "/audience", permission: "audience.view", navSection: "network", sortOrder: 31, description: "Audience management and engagement" },
+    { pageKey: "sales", title: "Sales CRM", iconName: "Briefcase", route: "/sales", permission: "sales.view", navSection: "network", sortOrder: 32, description: "B2B sales pipeline and deal management" },
+    { pageKey: "analytics", title: "Analytics", iconName: "BarChart3", route: "/analytics", permission: "analytics.view", navSection: "analytics", sortOrder: 40, primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", description: "Audience analytics and reporting" },
+    { pageKey: "settings", title: "Settings", iconName: "Settings", route: "/settings", permission: "settings.view", navSection: "admin", sortOrder: 50, description: "Platform configuration and preferences" },
+    { pageKey: "users", title: "Users & Permissions", iconName: "Shield", route: "/users", permission: "users.view", navSection: "admin", sortOrder: 51, primaryActionLabel: "+ Add User", description: "Manage users, roles, and permissions" },
+    { pageKey: "customize", title: "Branding", iconName: "Paintbrush", route: "/customize", permission: "customize.view", navSection: "admin", sortOrder: 52, description: "Branding, logos, and theme configuration" },
+    { pageKey: "legal-admin", title: "Legal", iconName: "FileText", route: "/legal-admin", permission: "settings.view", navSection: "admin", sortOrder: 53, description: "Manage terms, privacy, and legal documents" },
+  ];
+
   app.get("/api/admin/page-config", requireAuth, async (_req, res) => {
     try { res.json(await storage.getAdminPageConfigs()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/page-config/reorder", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const { pages } = req.body;
+      if (!Array.isArray(pages)) return res.status(400).json({ message: "pages array required" });
+      await storage.batchUpdatePageConfigOrder(pages);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/admin/page-config/reset", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      await storage.deleteAllAdminPageConfigs();
+      for (const cfg of SEED_CONFIGS) {
+        await storage.upsertAdminPageConfig(cfg as any);
+      }
+      const configs = await storage.getAdminPageConfigs();
+      res.json(configs);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/admin/page-config", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const validated = insertAdminPageConfigSchema.parse(req.body);
+      const result = await storage.upsertAdminPageConfig(validated);
+      res.json(result);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
 
   app.patch("/api/admin/page-config/:pageKey", requireAuth, async (req, res) => {
@@ -6031,29 +6082,14 @@ Provide comprehensive social listening intelligence including trending topics, k
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
 
-  // Seed admin page configs
-  const SEED_CONFIGS = [
-    { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", description: "Command center overview with KPIs and alerts", aiActionLabel: "AI Insights", sortOrder: 1 },
-    { pageKey: "content-factory", title: "AI Content Generator", iconName: "Factory", description: "AI content production pipeline", primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", sortOrder: 2 },
-    { pageKey: "scheduler", title: "Content Calendar", iconName: "CalendarClock", description: "Schedule and manage content publishing", primaryActionLabel: "+ Schedule", aiActionLabel: "AI Schedule", sortOrder: 3 },
-    { pageKey: "campaigns", title: "AI Campaign Builder", iconName: "Send", description: "Create and manage marketing campaigns", primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Build", sortOrder: 4 },
-    { pageKey: "newsletters", title: "Newsletters", iconName: "Mail", description: "Manage newsletter templates and sends", primaryActionLabel: "+ New Newsletter", aiActionLabel: "AI Draft", sortOrder: 5 },
-    { pageKey: "moderation", title: "AI Content Editor", iconName: "Bot", description: "Review and approve AI-generated content", aiActionLabel: "AI Review", sortOrder: 6 },
-    { pageKey: "ai-site-editor", title: "AI Site Editor", iconName: "PanelLeft", description: "Build and customize site pages", primaryActionLabel: "+ New Page", aiActionLabel: "AI Build", sortOrder: 3 },
-    { pageKey: "community", title: "Community", iconName: "Heart", description: "Community events, polls, and discussions", primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", sortOrder: 8 },
-    { pageKey: "kanban", title: "Kanban Board", iconName: "Kanban", description: "Visual project workflow management", primaryActionLabel: "+ New Task", sortOrder: 9 },
-    { pageKey: "my-tasks", title: "My Tasks", iconName: "ListTodo", description: "Personal task list and calendar", primaryActionLabel: "+ New Task", sortOrder: 10 },
-    { pageKey: "monetization", title: "Monetization", iconName: "DollarSign", description: "Revenue tracking and product management", primaryActionLabel: "+ New Product", aiActionLabel: "AI Optimize", sortOrder: 11 },
-    { pageKey: "ad-resizer", title: "Ad Resizer Studio", iconName: "Scaling", description: "Resize ad creatives for all platforms", primaryActionLabel: "+ Upload Image", sortOrder: 12 },
-    { pageKey: "commercial-crm", title: "Commercial CRM", iconName: "Briefcase", description: "B2B sales pipeline and deal management", primaryActionLabel: "+ New Deal", aiActionLabel: "AI Prospect", sortOrder: 13 },
-    { pageKey: "subscriber-crm", title: "Subscriber CRM", iconName: "Users", description: "Audience management and engagement", primaryActionLabel: "+ Add Subscriber", aiActionLabel: "AI Segment", sortOrder: 14 },
-    { pageKey: "podcasts", title: "Podcasts", iconName: "Mic", description: "Podcast network and show management", primaryActionLabel: "+ Add Show", aiActionLabel: "AI Suggest", sortOrder: 15 },
-    { pageKey: "analytics", title: "Analytics", iconName: "BarChart3", description: "Audience analytics and reporting", primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", sortOrder: 16 },
-    { pageKey: "customize", title: "Customize", iconName: "Paintbrush", description: "Branding, logos, and theme configuration", sortOrder: 17 },
-    { pageKey: "users", title: "User Management", iconName: "Shield", description: "Manage users, roles, and permissions", primaryActionLabel: "+ Add User", sortOrder: 18 },
-    { pageKey: "legal", title: "Legal Pages", iconName: "FileText", description: "Manage terms, privacy, and legal documents", primaryActionLabel: "+ New Page", sortOrder: 19 },
-    { pageKey: "settings", title: "Settings", iconName: "Settings", description: "Platform configuration and preferences", sortOrder: 20 },
-  ];
+  app.delete("/api/admin/page-config/:pageKey", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const deleted = await storage.deleteAdminPageConfig(req.params.pageKey);
+      if (!deleted) return res.status(404).json({ message: "Page config not found" });
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   (async () => {
     try {
       for (const cfg of SEED_CONFIGS) {

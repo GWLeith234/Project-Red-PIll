@@ -1,20 +1,21 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { Link, useLocation, useSearch } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { 
-  LayoutDashboard, 
-  Factory, 
-  DollarSign, 
+import {
+  LayoutDashboard,
+  FileText,
+  DollarSign,
   Radio,
-  BarChart3, 
-  Settings, 
+  BarChart3,
+  Settings,
   Users,
   Image as ImageIcon,
   Paintbrush,
   Shield,
-  FileText,
+  Factory,
   LogOut,
   Briefcase,
   Bot,
@@ -33,71 +34,82 @@ import {
   Blocks,
   PanelLeft,
   Heart,
+  Mic,
+  Hash,
+  Folder,
+  Zap,
+  Globe,
+  Bell,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 
-type NavItem = {
-  name: string;
-  href: string;
-  icon: LucideIcon;
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  FileText,
+  DollarSign,
+  Radio,
+  BarChart3,
+  Settings,
+  Users,
+  Paintbrush,
+  Shield,
+  Factory,
+  Briefcase,
+  Bot,
+  ContactRound,
+  Network,
+  Send,
+  CalendarClock,
+  Scaling,
+  Kanban,
+  ListTodo,
+  Mail,
+  Blocks,
+  PanelLeft,
+  Heart,
+  Mic,
+  Hash,
+  Folder,
+  Zap,
+  Globe,
+  Bell,
+  Search,
+  ExternalLink,
+  ImageIcon,
+};
+
+const SECTION_LABELS: Record<string, string> = {
+  "": "",
+  content: "Content",
+  monetization: "Monetization",
+  network: "Network",
+  analytics: "Analytics",
+  admin: "Admin",
+};
+
+type PageConfig = {
+  pageKey: string;
+  title: string;
+  iconName: string;
+  route: string;
   permission: string;
+  navSection: string | null;
+  sortOrder: number;
+  isVisible: boolean | null;
+  navParent: string | null;
 };
 
-type NavGroup = {
-  label: string;
-  icon?: LucideIcon;
-  items: NavItem[];
-};
+function getIcon(name: string): LucideIcon {
+  return ICON_MAP[name] || Blocks;
+}
 
-const navGroups: NavGroup[] = [
-  {
-    label: "",
-    items: [
-      { name: "Dashboard", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
-    ],
-  },
-  {
-    label: "Content",
-    items: [
-      { name: "Content Factory", href: "/content", icon: Factory, permission: "content.view" },
-      { name: "AI Site Editor", href: "/site-builder", icon: PanelLeft, permission: "customize.edit" },
-      { name: "Community", href: "/community", icon: Heart, permission: "content.view" },
-    ],
-  },
-  {
-    label: "Monetization",
-    items: [
-      { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
-    ],
-  },
-  {
-    label: "Network",
-    items: [
-      { name: "Network", href: "/network", icon: Network, permission: "network.view" },
-    ],
-  },
-  {
-    label: "Analytics",
-    items: [
-      { name: "Analytics", href: "/analytics", icon: BarChart3, permission: "analytics.view" },
-    ],
-  },
-  {
-    label: "",
-    items: [
-      { name: "Settings", href: "/settings", icon: Settings, permission: "settings.view" },
-    ],
-  },
-];
-
-function isItemActive(item: NavItem, location: string, searchString: string): boolean {
-  if (!item.href.includes("?")) {
-    if (item.href === "/analytics") {
-      return location === "/analytics";
-    }
-    return location === item.href;
+function isItemActive(route: string, location: string, searchString: string): boolean {
+  if (!route.includes("?")) {
+    if (route === "/analytics") return location === "/analytics";
+    return location === route;
   }
-  const [itemPath, itemQuery] = item.href.split("?");
+  const [itemPath, itemQuery] = route.split("?");
   if (location !== itemPath) return false;
   const itemParams = new URLSearchParams(itemQuery);
   const currentParams = new URLSearchParams(searchString);
@@ -108,8 +120,9 @@ function isItemActive(item: NavItem, location: string, searchString: string): bo
   return true;
 }
 
-function NavGroupSection({ group, location, searchString, hasPermission, collapsed, onToggle, onNavigate }: {
-  group: NavGroup;
+function NavGroupSection({ label, items, location, searchString, hasPermission, collapsed, onToggle, onNavigate }: {
+  label: string;
+  items: PageConfig[];
   location: string;
   searchString: string;
   hasPermission: (p: string) => boolean;
@@ -117,13 +130,13 @@ function NavGroupSection({ group, location, searchString, hasPermission, collaps
   onToggle: () => void;
   onNavigate?: () => void;
 }) {
-  const visibleItems = group.items.filter(item => hasPermission(item.permission));
+  const visibleItems = items.filter(item => (item.isVisible !== false) && hasPermission(item.permission));
   if (visibleItems.length === 0) return null;
 
-  const hasActiveChild = visibleItems.some(item => isItemActive(item, location, searchString));
-  const isUngrouped = !group.label;
+  const hasActiveChild = visibleItems.some(item => isItemActive(item.route, location, searchString));
+  const isUngrouped = !label;
   const isCollapsed = collapsed && !hasActiveChild;
-  const groupId = `nav-group-${group.label.toLowerCase().replace(/\s+/g, "-")}`;
+  const groupId = `nav-group-${(label || "home").toLowerCase().replace(/\s+/g, "-")}`;
 
   return (
     <div className={isUngrouped ? "" : "mt-2"}>
@@ -136,11 +149,10 @@ function NavGroupSection({ group, location, searchString, hasPermission, collaps
             "w-full flex items-center justify-between px-3 py-1.5 mb-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] hover:text-muted-foreground transition-colors font-mono",
             hasActiveChild ? "text-primary/70" : "text-muted-foreground/70"
           )}
-          data-testid={`button-nav-group-${group.label.toLowerCase()}`}
+          data-testid={`button-nav-group-${label.toLowerCase()}`}
         >
           <span className="flex items-center gap-1.5">
-            {group.icon && <group.icon className="h-3 w-3" />}
-            {group.label}
+            {label}
           </span>
           <ChevronDown className={cn(
             "h-3 w-3 transition-transform duration-200",
@@ -154,15 +166,16 @@ function NavGroupSection({ group, location, searchString, hasPermission, collaps
         className={cn(
           "space-y-0.5 overflow-hidden transition-all duration-200",
           !isUngrouped && isCollapsed && "max-h-0 opacity-0",
-          !isUngrouped && !isCollapsed && "max-h-96 opacity-100",
+          !isUngrouped && !isCollapsed && "max-h-[600px] opacity-100",
         )}
       >
         {visibleItems.map((item) => {
-          const isActive = isItemActive(item, location, searchString);
+          const isActive = isItemActive(item.route, location, searchString);
+          const Icon = getIcon(item.iconName);
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.pageKey}
+              href={item.route}
               onClick={onNavigate}
               className={cn(
                 "group flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
@@ -171,15 +184,15 @@ function NavGroupSection({ group, location, searchString, hasPermission, collaps
                   : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                 !isUngrouped && "pl-5",
               )}
-              data-testid={`link-nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+              data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
             >
-              <item.icon
+              <Icon
                 className={cn(
                   "mr-3 h-4 w-4 flex-shrink-0 transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
-              <span className="truncate">{item.name}</span>
+              <span className="truncate">{item.title}</span>
             </Link>
           );
         })}
@@ -210,9 +223,46 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout, hasPermission } = useAuth();
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
+  const { data: configs } = useQuery<PageConfig[]>({
+    queryKey: ["/api/admin/page-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/page-config", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
   const toggleGroup = (label: string) => {
     setCollapsedGroups(prev => ({ ...prev, [label]: !prev[label] }));
   };
+
+  const sections = (() => {
+    if (!configs || configs.length === 0) return [];
+    const grouped: Record<string, PageConfig[]> = {};
+    const sectionOrder: string[] = [];
+    for (const cfg of configs) {
+      const section = cfg.navSection ?? "ungrouped";
+      if (!grouped[section]) {
+        grouped[section] = [];
+        sectionOrder.push(section);
+      }
+      grouped[section].push(cfg);
+    }
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    sectionOrder.sort((a, b) => {
+      const minA = Math.min(...(grouped[a]?.map(c => c.sortOrder) || [999]));
+      const minB = Math.min(...(grouped[b]?.map(c => c.sortOrder) || [999]));
+      return minA - minB;
+    });
+    return sectionOrder.map(section => ({
+      label: SECTION_LABELS[section] ?? section.charAt(0).toUpperCase() + section.slice(1),
+      key: section,
+      items: grouped[section],
+    }));
+  })();
 
   return (
     <>
@@ -233,15 +283,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       
       <div className="flex-1 overflow-y-auto py-3">
         <nav className="px-3 space-y-0.5">
-          {navGroups.map((group) => (
+          {sections.map((section, idx) => (
             <NavGroupSection
-              key={group.label || "home"}
-              group={group}
+              key={`nav-${section.key || "ungrouped"}-${idx}`}
+              label={section.label}
+              items={section.items}
               location={location}
               searchString={searchString}
               hasPermission={hasPermission}
-              collapsed={!!collapsedGroups[group.label]}
-              onToggle={() => toggleGroup(group.label)}
+              collapsed={!!collapsedGroups[section.key]}
+              onToggle={() => toggleGroup(section.key)}
               onNavigate={onNavigate}
             />
           ))}
@@ -340,8 +391,6 @@ export function Sidebar() {
   useEffect(() => {
     setOpen(false);
   }, [location, setOpen]);
-
-  
 
   return (
     <>

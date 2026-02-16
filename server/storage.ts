@@ -395,6 +395,9 @@ export interface IStorage {
   getAdminPageConfigByKey(pageKey: string): Promise<AdminPageConfig | undefined>;
   upsertAdminPageConfig(data: InsertAdminPageConfig): Promise<AdminPageConfig>;
   updateAdminPageConfig(pageKey: string, data: Partial<InsertAdminPageConfig>): Promise<AdminPageConfig | undefined>;
+  deleteAdminPageConfig(pageKey: string): Promise<boolean>;
+  batchUpdatePageConfigOrder(pages: { pageKey: string; sortOrder: number; navSection: string }[]): Promise<void>;
+  deleteAllAdminPageConfigs(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1666,6 +1669,21 @@ export class DatabaseStorage implements IStorage {
   async updateAdminPageConfig(pageKey: string, data: Partial<InsertAdminPageConfig>): Promise<AdminPageConfig | undefined> {
     const [updated] = await db.update(adminPageConfigs).set(data).where(eq(adminPageConfigs.pageKey, pageKey)).returning();
     return updated;
+  }
+
+  async deleteAdminPageConfig(pageKey: string): Promise<boolean> {
+    const result = await db.delete(adminPageConfigs).where(eq(adminPageConfigs.pageKey, pageKey)).returning();
+    return result.length > 0;
+  }
+
+  async batchUpdatePageConfigOrder(pages: { pageKey: string; sortOrder: number; navSection: string }[]): Promise<void> {
+    for (const p of pages) {
+      await db.update(adminPageConfigs).set({ sortOrder: p.sortOrder, navSection: p.navSection }).where(eq(adminPageConfigs.pageKey, p.pageKey));
+    }
+  }
+
+  async deleteAllAdminPageConfigs(): Promise<void> {
+    await db.delete(adminPageConfigs);
   }
 }
 

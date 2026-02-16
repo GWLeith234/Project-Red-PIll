@@ -1,0 +1,31 @@
+PART D — LIGHT/DARK THEME MANAGEMENT:
+
+(7) Add theme support to the platform. Add a theme_mode column to the branding table (or site_settings if that's where branding lives): text, default 'dark', options: 'light', 'dark', 'system'.
+
+(8) Create client/src/hooks/use-theme.ts:
+- Reads theme preference: first check localStorage for 'theme-preference', then fall back to branding setting from the API, then default to 'dark'
+- If set to 'system', use window.matchMedia('(prefers-color-scheme: dark)') to detect OS preference and listen for changes
+- Applies the theme by adding/removing 'dark' class on document.documentElement (Tailwind dark mode strategy)
+- Exports: { theme: 'light' | 'dark', setTheme: (mode: 'light' | 'dark' | 'system') => void, mode: 'light' | 'dark' | 'system' }
+
+(9) Create client/src/components/ThemeToggle.tsx:
+- A button that cycles through: Dark → Light → System
+- Shows Moon icon for dark, Sun icon for light, Monitor icon for system
+- Tooltip shows current mode name
+- Saves preference to localStorage immediately
+
+(10) Add the ThemeToggle to two places:
+- Admin sidebar: at the bottom near the logout button
+- Audience layout: in the hamburger menu or header area
+
+(11) Ensure ALL admin and audience pages work correctly in both light and dark themes:
+- Review all Tailwind classes across components. Anywhere colors are hardcoded (e.g., bg-gray-900, text-white, border-gray-800), add the appropriate dark: variant or use semantic Tailwind classes (bg-background, text-foreground, border-border) from shadcn/ui theme tokens
+- PageHeader, MetricsStrip, DataCard, PipelineBoard, Leaderboard, SearchFilterBar, EmptyState — all must render correctly in both themes
+- The audience site (home, news, podcasts, events, community, polls) must also support both themes
+- Cards, tables, modals, and forms should all adapt
+
+(12) Add a Theme section to Settings page (can be a new tab or within the existing Branding tab):
+- Radio buttons for: Dark Mode, Light Mode, System (follow device)
+- Preview panel showing how the admin dashboard looks in each theme
+- Save button that updates the branding table AND localStorage
+- This sets the default theme for all users. Individual users can override with the ThemeToggle button.

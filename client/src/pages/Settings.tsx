@@ -22,10 +22,14 @@ import {
   Globe, Zap, FileText, Bell, Shield, Wifi, WifiOff,
   Save, Loader2, AlertTriangle, Sparkles, MapPin, Upload, X,
   CheckCircle2, ArrowRight, Lightbulb, Facebook, Linkedin,
-  Building2, Eye, Edit3, RefreshCw, Trash2, Radio, Image as ImageIcon,
+  Building2, Eye, EyeOff, Edit3, RefreshCw, Trash2, Radio, Image as ImageIcon,
   Key, Clock, Database, ScrollText, Copy, Plus, Ban, Mic,
   Search as SearchIcon, Hash, Mail, Volume2, VolumeX,
-  Settings2, LayoutGrid,
+  Settings2, LayoutGrid, GripVertical, ChevronDown, ChevronRight,
+  LayoutDashboard, DollarSign, BarChart3, Settings as SettingsIcon,
+  Briefcase, ContactRound, Network, Send, CalendarClock, Scaling,
+  Kanban, ListTodo, PanelLeft, Heart, Blocks, Factory, Paintbrush,
+  type LucideIcon,
 } from "lucide-react";
 
 const TABS = [
@@ -1143,12 +1147,55 @@ export default function Settings() {
   );
 }
 
+const PAGE_ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard, FileText, DollarSign, BarChart3, Settings: SettingsIcon,
+  Shield, Briefcase, ContactRound, Network, Send, CalendarClock, Scaling,
+  Kanban, ListTodo, Mail, PanelLeft, Heart, Factory, Blocks, Paintbrush,
+  Eye, Radio, Mic, Globe, Bell, Zap, Hash,
+};
+
+const ICON_OPTIONS = Object.keys(PAGE_ICON_MAP);
+
+function getPageIcon(name: string): LucideIcon {
+  return PAGE_ICON_MAP[name] || Blocks;
+}
+
+const SECTION_ORDER = ["", "content", "monetization", "network", "analytics", "admin"];
+const SECTION_DISPLAY: Record<string, string> = {
+  "": "Dashboard",
+  content: "Content",
+  monetization: "Monetization",
+  network: "Network",
+  analytics: "Analytics",
+  admin: "Admin",
+};
+
+type PageCfg = {
+  pageKey: string;
+  title: string;
+  description: string | null;
+  iconName: string;
+  route: string;
+  permission: string;
+  navSection: string | null;
+  sortOrder: number;
+  isVisible: boolean | null;
+  primaryActionLabel: string | null;
+  aiActionLabel: string | null;
+};
+
 function PageConfigurationTab() {
   const { toast } = useToast();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [dragItem, setDragItem] = useState<string | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showAddPage, setShowAddPage] = useState<string | null>(null);
+  const [newPageForm, setNewPageForm] = useState({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
-  const { data: configs, isLoading } = useQuery({
+  const { data: configs, isLoading } = useQuery<PageCfg[]>({
     queryKey: ["/api/admin/page-config"],
     queryFn: async () => {
       const res = await fetch("/api/admin/page-config", { credentials: "include" });
@@ -1158,27 +1205,164 @@ function PageConfigurationTab() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ pageKey, data }: { pageKey: string; data: Record<string, string> }) => {
+    mutationFn: async ({ pageKey, data }: { pageKey: string; data: Record<string, any> }) => {
       const res = await fetch(`/api/admin/page-config/${pageKey}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update page config");
+      if (!res.ok) throw new Error("Failed to update");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
       setEditingKey(null);
-      toast({ title: "Page Config Saved", description: "Page configuration has been updated." });
+      toast({ title: "Saved", description: "Page configuration updated." });
     },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (pages: { pageKey: string; sortOrder: number; navSection: string }[]) => {
+      const res = await fetch("/api/admin/page-config/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pages }),
+      });
+      if (!res.ok) throw new Error("Failed to reorder");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
     },
   });
 
-  const startEditing = (config: any) => {
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/page-config/reset", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to reset");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      setShowResetDialog(false);
+      toast({ title: "Reset Complete", description: "Navigation restored to defaults." });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: Record<string, any>) => {
+      const res = await fetch("/api/admin/page-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to create page");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      setShowAddPage(null);
+      setNewPageForm({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
+      toast({ title: "Page Added", description: "New page added to navigation." });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (pageKey: string) => {
+      const res = await fetch(`/api/admin/page-config/${pageKey}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      toast({ title: "Deleted", description: "Page removed from navigation." });
+    },
+  });
+
+  const sections = (() => {
+    if (!configs) return [];
+    const grouped: Record<string, PageCfg[]> = {};
+    for (const cfg of configs) {
+      const s = cfg.navSection ?? "ungrouped";
+      if (!grouped[s]) grouped[s] = [];
+      grouped[s].push(cfg);
+    }
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    const knownSections = SECTION_ORDER.filter(s => grouped[s]);
+    const customSections = Object.keys(grouped).filter(s => !SECTION_ORDER.includes(s)).sort();
+    return [...knownSections, ...customSections].map(s => ({
+      key: s,
+      label: SECTION_DISPLAY[s] ?? s.charAt(0).toUpperCase() + s.slice(1),
+      items: grouped[s] || [],
+    }));
+  })();
+
+  const handleDragStart = (e: React.DragEvent, pageKey: string) => {
+    setDragItem(pageKey);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", pageKey);
+  };
+
+  const handleDragOver = (e: React.DragEvent, sectionKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSection(sectionKey);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetSection: string, targetIndex?: number) => {
+    e.preventDefault();
+    const draggedKey = e.dataTransfer.getData("text/plain");
+    if (!draggedKey || !configs) return;
+
+    const updatedConfigs = [...configs];
+    const draggedIdx = updatedConfigs.findIndex(c => c.pageKey === draggedKey);
+    if (draggedIdx === -1) return;
+
+    const dragged = { ...updatedConfigs[draggedIdx] };
+    dragged.navSection = targetSection;
+
+    const sectionItems = updatedConfigs
+      .filter(c => (c.navSection ?? "") === targetSection && c.pageKey !== draggedKey)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const insertAt = targetIndex !== undefined ? targetIndex : sectionItems.length;
+    sectionItems.splice(insertAt, 0, dragged);
+
+    const sectionBase = sections.find(s => s.key === targetSection);
+    const baseOrder = sectionBase ? Math.min(...sectionBase.items.map(i => i.sortOrder), 999) : 0;
+
+    const reorderPages = sectionItems.map((item, idx) => ({
+      pageKey: item.pageKey,
+      sortOrder: baseOrder + idx,
+      navSection: targetSection,
+    }));
+
+    reorderMutation.mutate(reorderPages);
+    setDragItem(null);
+    setDragOverSection(null);
+  };
+
+  const toggleVisibility = (config: PageCfg) => {
+    updateMutation.mutate({
+      pageKey: config.pageKey,
+      data: { isVisible: !(config.isVisible !== false) },
+    });
+  };
+
+  const startEditing = (config: PageCfg) => {
     setEditingKey(config.pageKey);
     setEditForm({
       title: config.title || "",
@@ -1193,6 +1377,20 @@ function PageConfigurationTab() {
     updateMutation.mutate({ pageKey, data: editForm });
   };
 
+  const handleAddPage = (sectionKey: string) => {
+    if (!newPageForm.pageKey || !newPageForm.title || !newPageForm.route) {
+      toast({ title: "Missing fields", description: "Page key, title, and route are required.", variant: "destructive" });
+      return;
+    }
+    const sectionItems = configs?.filter(c => (c.navSection ?? "") === sectionKey) || [];
+    const maxOrder = sectionItems.length > 0 ? Math.max(...sectionItems.map(i => i.sortOrder)) : 0;
+    createMutation.mutate({
+      ...newPageForm,
+      navSection: sectionKey,
+      sortOrder: maxOrder + 1,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1203,142 +1401,332 @@ function PageConfigurationTab() {
 
   return (
     <div className="space-y-4" data-testid="page-config-tab">
-      <SectionHeader icon={LayoutGrid} title="Page Configuration" description="Manage page titles, icons, and action labels for all admin pages" />
+      <div className="flex items-center justify-between">
+        <SectionHeader icon={LayoutGrid} title="Navigation Manager" description="Organize sidebar pages, sections, and visibility. Drag pages between sections to reorganize." />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowResetDialog(true)}
+          className="h-8 text-xs font-mono"
+          data-testid="button-reset-nav"
+        >
+          <RefreshCw className="h-3 w-3 mr-1.5" />
+          Reset to Default
+        </Button>
+      </div>
 
-      <div className="border border-border/50 rounded-sm overflow-hidden overflow-x-auto" data-testid="page-config-table">
-        <div className="hidden md:grid grid-cols-[1fr_1.5fr_0.8fr_2fr_1.2fr_1.2fr_auto] gap-3 px-4 py-2 bg-card/30 border-b border-border/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground min-w-[700px]">
-          <span>Page Key</span>
-          <span>Title</span>
-          <span>Icon</span>
-          <span>Description</span>
-          <span>Primary Action</span>
-          <span>AI Action</span>
-          <span></span>
-        </div>
-        <div className="divide-y divide-border/30">
-          {configs?.map((config: any) => {
-            const isEditing = editingKey === config.pageKey;
-            return (
-              <div
-                key={config.pageKey}
-                className={cn(
-                  "flex flex-col gap-2 px-4 py-3 md:grid md:grid-cols-[1fr_1.5fr_0.8fr_2fr_1.2fr_1.2fr_auto] md:gap-3 md:items-center text-sm transition-colors",
-                  isEditing ? "bg-primary/5" : "hover:bg-card/50 cursor-pointer"
-                )}
-                onClick={() => !isEditing && startEditing(config)}
-                data-testid={`row-page-config-${config.pageKey}`}
+      {sections.map((section) => {
+        const isCollapsed = collapsedSections[section.key];
+        return (
+          <div
+            key={section.key}
+            className={cn(
+              "border rounded-sm transition-colors",
+              dragOverSection === section.key ? "border-primary bg-primary/5" : "border-border/50"
+            )}
+            onDragOver={(e) => handleDragOver(e, section.key)}
+            onDragLeave={() => setDragOverSection(null)}
+            onDrop={(e) => handleDrop(e, section.key)}
+            data-testid={`section-${section.key || "dashboard"}`}
+          >
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-card/30 border-b border-border/30">
+              <button
+                onClick={() => setCollapsedSections(prev => ({ ...prev, [section.key]: !prev[section.key] }))}
+                className="text-muted-foreground hover:text-foreground"
+                data-testid={`button-toggle-section-${section.key || "dashboard"}`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Key:</span>
-                  <span className="text-xs font-mono text-foreground/80">{config.pageKey}</span>
-                </div>
+                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">
+                {section.label || "Ungrouped"}
+              </span>
+              <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
+                ({section.items.length})
+              </span>
+              <div className="flex-1" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowAddPage(section.key);
+                  setNewPageForm({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
+                }}
+                className="h-6 px-2 text-[10px] font-mono text-muted-foreground hover:text-foreground"
+                data-testid={`button-add-page-${section.key || "dashboard"}`}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Page
+              </Button>
+            </div>
 
-                {isEditing ? (
-                  <>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Title:</span>
-                      <Input
-                        value={editForm.title}
-                        onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
-                        className="h-8 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`input-title-${config.pageKey}`}
-                      />
+            {!isCollapsed && (
+              <div className="divide-y divide-border/20">
+                {section.items.map((config, idx) => {
+                  const Icon = getPageIcon(config.iconName);
+                  const isEditing = editingKey === config.pageKey;
+                  const isDragging = dragItem === config.pageKey;
+                  const isHidden = config.isVisible === false;
+
+                  return (
+                    <div
+                      key={config.pageKey}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, config.pageKey)}
+                      onDragEnd={() => { setDragItem(null); setDragOverSection(null); }}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => { e.stopPropagation(); handleDrop(e, section.key, idx); }}
+                      className={cn(
+                        "flex items-start gap-3 px-4 py-2.5 transition-all",
+                        isDragging && "opacity-40",
+                        isHidden && "opacity-50",
+                        isEditing ? "bg-primary/5" : "hover:bg-card/50"
+                      )}
+                      data-testid={`row-page-config-${config.pageKey}`}
+                    >
+                      <div className="flex items-center gap-2 pt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                      </div>
+
+                      <div className="flex items-center justify-center h-8 w-8 rounded bg-card border border-border/50 flex-shrink-0">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Title</Label>
+                                <Input
+                                  value={editForm.title}
+                                  onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                                  className="h-7 text-xs mt-0.5"
+                                  data-testid={`input-title-${config.pageKey}`}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+                                <Select value={editForm.iconName} onValueChange={(v) => setEditForm(f => ({ ...f, iconName: v }))}>
+                                  <SelectTrigger className="h-7 text-xs mt-0.5" data-testid={`select-icon-${config.pageKey}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ICON_OPTIONS.map(name => {
+                                      const Ic = PAGE_ICON_MAP[name];
+                                      return (
+                                        <SelectItem key={name} value={name}>
+                                          <span className="flex items-center gap-2">
+                                            <Ic className="h-3 w-3" />
+                                            {name}
+                                          </span>
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Description (tooltip)</Label>
+                              <Input
+                                value={editForm.description}
+                                onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                className="h-7 text-xs mt-0.5"
+                                data-testid={`input-description-${config.pageKey}`}
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Primary Action Label</Label>
+                                <Input
+                                  value={editForm.primaryActionLabel}
+                                  onChange={(e) => setEditForm(f => ({ ...f, primaryActionLabel: e.target.value }))}
+                                  className="h-7 text-xs mt-0.5"
+                                  data-testid={`input-primary-action-${config.pageKey}`}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">AI Action Label</Label>
+                                <Input
+                                  value={editForm.aiActionLabel}
+                                  onChange={(e) => setEditForm(f => ({ ...f, aiActionLabel: e.target.value }))}
+                                  className="h-7 text-xs mt-0.5"
+                                  data-testid={`input-ai-action-${config.pageKey}`}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSave(config.pageKey)}
+                                disabled={updateMutation.isPending}
+                                className="h-7 px-3 text-[10px] font-mono uppercase"
+                                data-testid={`button-save-config-${config.pageKey}`}
+                              >
+                                {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                                Save
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingKey(null)} className="h-7 px-2 text-[10px]" data-testid={`button-cancel-config-${config.pageKey}`}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <div className="min-w-0">
+                              <span className="text-sm font-medium block truncate">{config.title}</span>
+                              <span className="text-[10px] font-mono text-muted-foreground">{config.route}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {!isEditing && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => toggleVisibility(config)}
+                            className="p-1.5 rounded hover:bg-muted transition-colors"
+                            title={isHidden ? "Show in navigation" : "Hide from navigation"}
+                            data-testid={`button-visibility-${config.pageKey}`}
+                          >
+                            {isHidden ? <EyeOff className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
+                          </button>
+                          <button
+                            onClick={() => startEditing(config)}
+                            className="p-1.5 rounded hover:bg-muted transition-colors"
+                            title="Edit page settings"
+                            data-testid={`button-edit-${config.pageKey}`}
+                          >
+                            <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Remove "${config.title}" from navigation?`)) {
+                                deleteMutation.mutate(config.pageKey);
+                              }
+                            }}
+                            className="p-1.5 rounded hover:bg-destructive/10 transition-colors"
+                            title="Remove from navigation"
+                            data-testid={`button-delete-${config.pageKey}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Icon:</span>
-                      <Input
-                        value={editForm.iconName}
-                        onChange={(e) => setEditForm(f => ({ ...f, iconName: e.target.value }))}
-                        className="h-8 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`input-icon-${config.pageKey}`}
-                      />
+                  );
+                })}
+
+                {showAddPage === section.key && (
+                  <div className="px-4 py-3 bg-primary/5 border-t border-border/30 space-y-2" data-testid={`add-page-form-${section.key}`}>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Page Key</Label>
+                        <Input
+                          value={newPageForm.pageKey}
+                          onChange={(e) => setNewPageForm(f => ({ ...f, pageKey: e.target.value }))}
+                          placeholder="my-page"
+                          className="h-7 text-xs mt-0.5"
+                          data-testid="input-new-page-key"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Title</Label>
+                        <Input
+                          value={newPageForm.title}
+                          onChange={(e) => setNewPageForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="My Page"
+                          className="h-7 text-xs mt-0.5"
+                          data-testid="input-new-page-title"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Description:</span>
-                      <Input
-                        value={editForm.description}
-                        onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
-                        className="h-8 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`input-description-${config.pageKey}`}
-                      />
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Route</Label>
+                        <Input
+                          value={newPageForm.route}
+                          onChange={(e) => setNewPageForm(f => ({ ...f, route: e.target.value }))}
+                          placeholder="/my-page"
+                          className="h-7 text-xs mt-0.5"
+                          data-testid="input-new-page-route"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+                        <Select value={newPageForm.iconName} onValueChange={(v) => setNewPageForm(f => ({ ...f, iconName: v }))}>
+                          <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-new-page-icon">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ICON_OPTIONS.map(name => {
+                              const Ic = PAGE_ICON_MAP[name];
+                              return <SelectItem key={name} value={name}><span className="flex items-center gap-2"><Ic className="h-3 w-3" />{name}</span></SelectItem>;
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Permission</Label>
+                        <Select value={newPageForm.permission} onValueChange={(v) => setNewPageForm(f => ({ ...f, permission: v }))}>
+                          <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-new-page-permission">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {["dashboard.view","content.view","content.edit","monetization.view","monetization.edit","network.view","audience.view","analytics.view","customize.view","customize.edit","settings.view","settings.edit","users.view","sales.view"].map(p => (
+                              <SelectItem key={p} value={p}>{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">Primary Action:</span>
-                      <Input
-                        value={editForm.primaryActionLabel}
-                        onChange={(e) => setEditForm(f => ({ ...f, primaryActionLabel: e.target.value }))}
-                        className="h-8 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`input-primary-action-${config.pageKey}`}
-                      />
-                    </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase block mb-1">AI Action:</span>
-                      <Input
-                        value={editForm.aiActionLabel}
-                        onChange={(e) => setEditForm(f => ({ ...f, aiActionLabel: e.target.value }))}
-                        className="h-8 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`input-ai-action-${config.pageKey}`}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 pt-1">
                       <Button
                         size="sm"
-                        onClick={() => handleSave(config.pageKey)}
-                        disabled={updateMutation.isPending}
-                        className="h-7 px-2 bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-[10px] uppercase tracking-wider"
-                        data-testid={`button-save-config-${config.pageKey}`}
+                        onClick={() => handleAddPage(section.key)}
+                        disabled={createMutation.isPending}
+                        className="h-7 px-3 text-[10px] font-mono uppercase"
+                        data-testid="button-confirm-add-page"
                       >
-                        {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
-                        Save
+                        {createMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+                        Add
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingKey(null)}
-                        className="h-7 px-2 font-mono text-[10px]"
-                        data-testid={`button-cancel-config-${config.pageKey}`}
-                      >
-                        <X className="h-3 w-3" />
+                      <Button size="sm" variant="outline" onClick={() => setShowAddPage(null)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-page">
+                        Cancel
                       </Button>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Title: </span>
-                      <span className="text-sm font-medium">{config.title || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Icon: </span>
-                      <span className="text-xs font-mono text-muted-foreground">{config.iconName || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Description: </span>
-                      <span className="text-xs text-muted-foreground truncate block max-w-[250px]">{config.description || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">Primary Action: </span>
-                      <span className="text-xs font-mono">{config.primaryActionLabel || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="md:hidden text-[10px] font-mono text-muted-foreground uppercase">AI Action: </span>
-                      <span className="text-xs font-mono">{config.aiActionLabel || "—"}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Edit3 className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
-            );
-          })}
-        </div>
-      </div>
+            )}
+          </div>
+        );
+      })}
+
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Navigation to Defaults?</DialogTitle>
+            <DialogDescription>
+              This will remove all customizations and restore the original navigation structure. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResetDialog(false)} data-testid="button-cancel-reset">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => resetMutation.mutate()}
+              disabled={resetMutation.isPending}
+              data-testid="button-confirm-reset"
+            >
+              {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Reset to Defaults
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

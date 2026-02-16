@@ -1,0 +1,102 @@
+Fix the sidebar navigation to include ALL admin pages, and upgrade the Page Configuration tool so partners can manage their own navigation structure (sections, names, ordering, visibility).
+
+PROBLEM: These 12 pages exist as routes in App.tsx but are missing from the sidebar navigation:
+- /scheduler (Scheduler)
+- /moderation (Moderation Queue)
+- /campaigns (Campaign Builder)
+- /ad-resizer (Ad Resizer)
+- /sales (Commercial CRM)
+- /audience (Subscriber CRM)
+- /customize (Customize / Branding)
+- /users (Users & Permissions)
+- /kanban (Kanban Board)
+- /my-tasks (My Tasks)
+- /newsletters (Newsletter Manager)
+- /legal-admin (Legal Admin)
+
+PART A — UPDATE admin_page_config TABLE:
+
+(1) Add these columns to the admin_page_config table in the Drizzle schema:
+- nav_section: text, default 'ungrouped' (which sidebar group this page belongs to, e.g., 'content', 'monetization', 'network', 'admin')
+- nav_parent: text, nullable (if this page is a sub-item, the page_key of its parent)
+- route: text, not null (the URL path, e.g., '/content', '/scheduler')
+- permission: text, not null, default 'dashboard.view' (the permission required to see this page)
+
+(2) Add seed data (or upsert) for ALL pages. Group them logically:
+
+Dashboard section (nav_section: ''):
+{ page_key: 'dashboard', title: 'Dashboard', icon_name: 'LayoutDashboard', route: '/', permission: 'dashboard.view', sort_order: 1, ai_action_label: 'AI Insights' }
+
+Content section (nav_section: 'content'):
+{ page_key: 'content-factory', title: 'Content Factory', icon_name: 'FileText', route: '/content', permission: 'content.view', sort_order: 10, primary_action_label: '+ New Content', ai_action_label: 'AI Generate' }
+{ page_key: 'scheduler', title: 'Scheduler', icon_name: 'CalendarClock', route: '/scheduler', permission: 'content.view', sort_order: 11 }
+{ page_key: 'moderation', title: 'Moderation Queue', icon_name: 'Shield', route: '/moderation', permission: 'content.edit', sort_order: 12 }
+{ page_key: 'kanban', title: 'Kanban Board', icon_name: 'Kanban', route: '/kanban', permission: 'content.view', sort_order: 13 }
+{ page_key: 'my-tasks', title: 'My Tasks', icon_name: 'ListTodo', route: '/my-tasks', permission: 'content.view', sort_order: 14 }
+{ page_key: 'ai-site-editor', title: 'AI Site Editor', icon_name: 'PanelLeft', route: '/site-builder', permission: 'customize.edit', sort_order: 15, primary_action_label: '+ New Page', ai_action_label: 'AI Build' }
+{ page_key: 'community', title: 'Community', icon_name: 'Users', route: '/community', permission: 'content.view', sort_order: 16, primary_action_label: '+ Add Event', ai_action_label: 'AI Moderate' }
+
+Monetization section (nav_section: 'monetization'):
+{ page_key: 'monetization', title: 'Monetization', icon_name: 'DollarSign', route: '/monetization', permission: 'monetization.view', sort_order: 20, primary_action_label: '+ New Campaign', ai_action_label: 'AI Optimize' }
+{ page_key: 'campaigns', title: 'Campaign Builder', icon_name: 'Send', route: '/campaigns', permission: 'content.view', sort_order: 21 }
+{ page_key: 'ad-resizer', title: 'Ad Resizer', icon_name: 'Scaling', route: '/ad-resizer', permission: 'monetization.view', sort_order: 22 }
+{ page_key: 'newsletters', title: 'Newsletters', icon_name: 'Mail', route: '/newsletters', permission: 'content.view', sort_order: 23 }
+
+Network section (nav_section: 'network'):
+{ page_key: 'network', title: 'Network', icon_name: 'Network', route: '/network', permission: 'network.view', sort_order: 30, primary_action_label: '+ Add Contact', ai_action_label: 'AI Suggest' }
+{ page_key: 'audience', title: 'Audience CRM', icon_name: 'ContactRound', route: '/audience', permission: 'audience.view', sort_order: 31 }
+{ page_key: 'sales', title: 'Sales CRM', icon_name: 'Briefcase', route: '/sales', permission: 'sales.view', sort_order: 32 }
+
+Analytics section (nav_section: 'analytics'):
+{ page_key: 'analytics', title: 'Analytics', icon_name: 'BarChart3', route: '/analytics', permission: 'analytics.view', sort_order: 40, primary_action_label: 'Export Report', ai_action_label: 'AI Analyze' }
+
+Admin section (nav_section: 'admin'):
+{ page_key: 'settings', title: 'Settings', icon_name: 'Settings', route: '/settings', permission: 'settings.view', sort_order: 50 }
+{ page_key: 'users', title: 'Users & Permissions', icon_name: 'Shield', route: '/users', permission: 'users.view', sort_order: 51 }
+{ page_key: 'customize', title: 'Branding', icon_name: 'Paintbrush', route: '/customize', permission: 'customize.view', sort_order: 52 }
+{ page_key: 'legal-admin', title: 'Legal', icon_name: 'FileText', route: '/legal-admin', permission: 'settings.view', sort_order: 53 }
+
+PART B — MAKE SIDEBAR DATA-DRIVEN:
+
+(3) Rewrite client/src/components/layout/Sidebar.tsx to be fully data-driven from admin_page_config:
+- Remove the hardcoded navGroups array entirely
+- Fetch page configs from /api/admin/page-config using useQuery
+- Group pages by nav_section (empty string = ungrouped at top)
+- Sort by sort_order within each group
+- Only show pages where is_visible = true
+- Only show pages where the user hasPermission(config.permission)
+- Dynamically load Lucide icons by icon_name using a lookup map (import all needed icons and create a Record<string, LucideIcon> mapping)
+- Each section is collapsible with the section name as the header (same UX as current groups)
+- The section labels should be displayed as: '' = no header (standalone), 'content' = 'Content', 'monetization' = 'Monetization', 'network' = 'Network', 'analytics' = 'Analytics', 'admin' = 'Admin'
+
+(4) Add an API endpoint to update the navigation order: PATCH /api/admin/page-config/reorder — accepts { pages: { pageKey: string, sortOrder: number, navSection: string }[] }. Updates sort_order and nav_section for each page in one batch.
+
+PART C — UPGRADE PAGE CONFIGURATION TOOL:
+
+(5) Completely rebuild the PageConfigurationTab in client/src/pages/Settings.tsx with these features:
+
+Layout: Instead of a flat table, show a visual representation of the sidebar structure. Group pages by nav_section with drag-and-drop between sections.
+
+For each page card show:
+- Drag handle (grip dots icon on the left)
+- Icon preview (render the actual Lucide icon)
+- Title (editable inline on click)
+- Route path (muted, read-only)
+- Visibility toggle (eye/eye-off icon button)
+- Edit button (pencil icon) that expands to show all editable fields: title, description (tooltip), icon_name (with dropdown of common Lucide icons), primary_action_label, ai_action_label
+- Delete button (only for custom pages added by partner, not for system pages)
+
+Section management:
+- Each section has an editable header (partner can rename "Content" to "Editorial" etc.)
+- "Add Section" button at the bottom to create a new nav group
+- Pages can be dragged between sections to reorganize
+- "Add Page" button within each section to add a new page entry (creates a config row — the route must already exist in App.tsx, but this lets partners control what appears in nav)
+
+Drag-and-drop:
+- Use HTML5 drag and drop (no external library)
+- Dragging a page between sections updates its nav_section
+- Dragging within a section reorders (updates sort_order)
+- On drop, call PATCH /api/admin/page-config/reorder with the new order
+- Visual feedback: dragged item has opacity, drop target highlights
+
+(6) Add a "Reset to Default" button that restores the seed data navigation structure. Confirm with a dialog before resetting.
