@@ -1,0 +1,80 @@
+Build a shared UI component library and admin_page_config system to standardize every admin page. This is the foundation sprint — all subsequent sprints depend on these components.
+
+(1) Create an admin_page_config table in the Drizzle schema (shared/schema.ts):
+- id: uuid, primary key, default gen_random_uuid()
+- page_key: text, unique, not null (e.g., 'dashboard', 'content-factory', 'monetization', 'network', 'community', 'analytics')
+- title: text, not null
+- description: text (used as tooltip on hover)
+- icon_name: text, not null (Lucide icon name like 'LayoutDashboard', 'FileText', 'DollarSign', 'Users2', 'Users', 'BarChart3')
+- primary_action_label: text, nullable (e.g., '+ New Content', '+ New Campaign')
+- ai_action_label: text, nullable (e.g., 'AI Generate', 'AI Optimize', 'AI Analyze')
+- metrics_config: jsonb, nullable
+- sort_order: integer, not null
+- is_visible: boolean, default true
+
+Add seed data for these pages:
+{ page_key: 'dashboard', title: 'Dashboard', icon_name: 'LayoutDashboard', ai_action_label: 'AI Insights', sort_order: 1 }
+{ page_key: 'content-factory', title: 'Content Factory', icon_name: 'FileText', primary_action_label: '+ New Content', ai_action_label: 'AI Generate', sort_order: 2 }
+{ page_key: 'monetization', title: 'Monetization', icon_name: 'DollarSign', primary_action_label: '+ New Campaign', ai_action_label: 'AI Optimize', sort_order: 3 }
+{ page_key: 'network', title: 'Network', icon_name: 'Users2', primary_action_label: '+ Add Contact', ai_action_label: 'AI Suggest', sort_order: 4 }
+{ page_key: 'community', title: 'Community', icon_name: 'Users', primary_action_label: '+ Add Event', ai_action_label: 'AI Moderate', sort_order: 5 }
+{ page_key: 'analytics', title: 'Analytics', icon_name: 'BarChart3', primary_action_label: 'Export Report', ai_action_label: 'AI Analyze', sort_order: 6 }
+
+Add API endpoints: GET /api/admin/page-config (returns all), PATCH /api/admin/page-config/:pageKey (update one). Both require auth.
+
+(2) Build client/src/components/admin/PageHeader.tsx:
+- Accepts props: pageKey (string), onPrimaryAction (optional callback), onAIAction (optional callback), primaryActionOverride (optional string), aiActionOverride (optional string)
+- Fetches config from /api/admin/page-config filtered by pageKey using useQuery
+- Renders: Lucide icon (dynamically loaded by icon_name, colored with branding primary color) + title text (large, bold) on the left side
+- Icon has a tooltip on hover showing the description text
+- Right side: AI Action button (ALWAYS purple #6C3FC5, with a Sparkles icon prefix) + Primary Action button (branding primary color)
+- If no primary_action_label, don't render the primary button
+- If no ai_action_label, don't render the AI button
+- AI button has a loading spinner state (pass isAILoading prop)
+
+(3) Build client/src/components/admin/AIActionButton.tsx:
+- Always purple background (#6C3FC5), white text
+- Shows Sparkles icon from lucide-react before the label
+- Accepts: label (string), onClick (callback), isLoading (boolean)
+- When isLoading, show a spinning Loader2 icon instead of Sparkles
+- Rounded corners, hover darkens slightly
+
+(4) Build client/src/components/admin/MetricsStrip.tsx:
+- Accepts: metrics array of { label: string, value: string | number, trend?: number, trendDirection?: 'up' | 'down' }
+- Renders a horizontal row of cards (max 6), auto-sized to fill width
+- Each card: muted small label on top, large bold value below, trend indicator (green up arrow or red down arrow with percentage) at bottom right
+- Responsive: wraps to 2 rows on mobile
+
+(5) Build client/src/components/admin/TrendIndicator.tsx:
+- Accepts: value (number, percentage), direction ('up' | 'down')
+- Green with ArrowUp icon for positive trends, Red with ArrowDown for negative
+- Small text, inline display
+
+(6) Build client/src/components/admin/DataCard.tsx:
+- A card wrapper with: optional title (bold, top-left), optional subtitle, optional action button (top-right)
+- Consistent padding, border, rounded corners, dark theme compatible
+- Children rendered inside
+
+(7) Build client/src/components/admin/Leaderboard.tsx:
+- Accepts: items array of { rank: number, name: string, value: string | number, avatar?: string, subtitle?: string }
+- Renders ranked list: position number, avatar circle (initials if no image), name, value right-aligned
+- Top 3 highlighted with gold/silver/bronze accent
+
+(8) Build client/src/components/admin/PipelineBoard.tsx:
+- Accepts: columns array of { title: string, color: string, items: { id: string, title: string, subtitle?: string, value?: string }[] }
+- Renders horizontal kanban-style columns, each with a header (title + count badge) and stacked cards below
+- Cards show title, subtitle, optional value badge
+- Scrollable horizontally if many columns
+
+(9) Build client/src/components/admin/SearchFilterBar.tsx:
+- Search input with magnifying glass icon on the left
+- Optional filter dropdowns to the right (accepts filters array of { label, options })
+- Debounced search (300ms) — calls onSearch callback
+
+(10) Build client/src/components/admin/EmptyState.tsx:
+- Accepts: icon (Lucide icon component), title (string), description (string), actionLabel (optional string), onAction (optional callback)
+- Centered layout: large muted icon, title below, description below that, optional action button
+
+(11) Migrate the Dashboard page to use the new PageHeader component. Replace whatever title/header it currently has with <PageHeader pageKey="dashboard" />. Add a placeholder MetricsStrip with sample data. This serves as the reference implementation for all other pages.
+
+(12) Remove the Obituaries, Classifieds, Directory, and Announcements tabs from the Community admin page. Keep only Events, Polls, and Discussion tabs.

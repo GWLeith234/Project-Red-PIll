@@ -65,6 +65,7 @@ import {
   aiLayoutExamples, type AiLayoutExample, type InsertAiLayoutExample,
   adInjectionLog, type AdInjectionLog, type InsertAdInjectionLog,
   devicePushSubscriptions, type DevicePushSubscription, type InsertDevicePushSubscription,
+  adminPageConfigs, type AdminPageConfig, type InsertAdminPageConfig,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -389,6 +390,11 @@ export interface IStorage {
 
   getAdInjectionLogs(pageId?: string): Promise<AdInjectionLog[]>;
   createAdInjectionLog(data: InsertAdInjectionLog): Promise<AdInjectionLog>;
+
+  getAdminPageConfigs(): Promise<AdminPageConfig[]>;
+  getAdminPageConfigByKey(pageKey: string): Promise<AdminPageConfig | undefined>;
+  upsertAdminPageConfig(data: InsertAdminPageConfig): Promise<AdminPageConfig>;
+  updateAdminPageConfig(pageKey: string, data: Partial<InsertAdminPageConfig>): Promise<AdminPageConfig | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1641,6 +1647,25 @@ export class DatabaseStorage implements IStorage {
 
   async getAllPushSubscriptions(): Promise<DevicePushSubscription[]> {
     return db.select().from(devicePushSubscriptions);
+  }
+
+  async getAdminPageConfigs(): Promise<AdminPageConfig[]> {
+    return db.select().from(adminPageConfigs).orderBy(adminPageConfigs.sortOrder);
+  }
+
+  async getAdminPageConfigByKey(pageKey: string): Promise<AdminPageConfig | undefined> {
+    const [config] = await db.select().from(adminPageConfigs).where(eq(adminPageConfigs.pageKey, pageKey));
+    return config;
+  }
+
+  async upsertAdminPageConfig(data: InsertAdminPageConfig): Promise<AdminPageConfig> {
+    const [result] = await db.insert(adminPageConfigs).values(data).onConflictDoUpdate({ target: adminPageConfigs.pageKey, set: data }).returning();
+    return result;
+  }
+
+  async updateAdminPageConfig(pageKey: string, data: Partial<InsertAdminPageConfig>): Promise<AdminPageConfig | undefined> {
+    const [updated] = await db.update(adminPageConfigs).set(data).where(eq(adminPageConfigs.pageKey, pageKey)).returning();
+    return updated;
   }
 }
 

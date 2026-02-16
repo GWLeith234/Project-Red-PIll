@@ -1273,4 +1273,21 @@ export const insertCommunityLikeSchema = createInsertSchema(communityLikes).omit
 export type InsertCommunityLike = z.infer<typeof insertCommunityLikeSchema>;
 export type CommunityLike = typeof communityLikes.$inferSelect;
 
+export const adminPageConfigs = pgTable("admin_page_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pageKey: text("page_key").unique().notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  iconName: text("icon_name").notNull(),
+  primaryActionLabel: text("primary_action_label"),
+  aiActionLabel: text("ai_action_label"),
+  metricsConfig: jsonb("metrics_config"),
+  sortOrder: integer("sort_order").notNull(),
+  isVisible: boolean("is_visible").default(true),
+});
+
+export const insertAdminPageConfigSchema = createInsertSchema(adminPageConfigs).omit({ id: true });
+export type InsertAdminPageConfig = z.infer<typeof insertAdminPageConfigSchema>;
+export type AdminPageConfig = typeof adminPageConfigs.$inferSelect;
+
 export * from "./models/chat";

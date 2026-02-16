@@ -17,6 +17,7 @@ import {
   insertCommunityEventSchema, insertObituarySchema, insertClassifiedSchema,
   insertCommunityPollSchema, insertCommunityAnnouncementSchema, insertBusinessListingSchema,
   insertPollVoteSchema, insertCommunityPostSchema, insertCommunityLikeSchema,
+  insertAdminPageConfigSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -5945,6 +5946,37 @@ Provide comprehensive social listening intelligence including trending topics, k
       }
     });
   });
+
+  // ── Admin Page Config ──
+  app.get("/api/admin/page-config", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getAdminPageConfigs()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/page-config/:pageKey", requireAuth, async (req, res) => {
+    try {
+      const validated = insertAdminPageConfigSchema.partial().omit({ pageKey: true }).parse(req.body);
+      const updated = await storage.updateAdminPageConfig(req.params.pageKey, validated);
+      if (!updated) return res.status(404).json({ message: "Page config not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  // Seed admin page configs
+  const SEED_CONFIGS = [
+    { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", description: "Command center overview with KPIs and alerts", aiActionLabel: "AI Insights", sortOrder: 1 },
+    { pageKey: "content-factory", title: "Content Factory", iconName: "FileText", description: "AI content production pipeline", primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", sortOrder: 2 },
+    { pageKey: "monetization", title: "Monetization", iconName: "DollarSign", description: "Revenue tracking and campaign management", primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Optimize", sortOrder: 3 },
+    { pageKey: "network", title: "Network", iconName: "Users2", description: "Podcast network and contact management", primaryActionLabel: "+ Add Contact", aiActionLabel: "AI Suggest", sortOrder: 4 },
+    { pageKey: "community", title: "Community", iconName: "Users", description: "Community events, polls, and discussions", primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", sortOrder: 5 },
+    { pageKey: "analytics", title: "Analytics", iconName: "BarChart3", description: "Audience analytics and reporting", primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", sortOrder: 6 },
+  ];
+  (async () => {
+    try {
+      for (const cfg of SEED_CONFIGS) {
+        await storage.upsertAdminPageConfig(cfg as any);
+      }
+    } catch (e) { console.error("Failed to seed admin page configs:", e); }
+  })();
 
   return httpServer;
 }

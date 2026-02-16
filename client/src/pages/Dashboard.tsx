@@ -8,6 +8,8 @@ import CRMScreen from "@/components/screens/CRMScreen";
 import AudienceScreen from "@/components/screens/AudienceScreen";
 import AdminScreen from "@/components/screens/AdminScreen";
 import { AiSuccessBrief } from "@/components/AiSuccessBrief";
+import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 
 const SCREENS = [
   { key: "content", label: "Content Factory", icon: Factory },
@@ -61,51 +63,51 @@ export default function Dashboard() {
 
   const activeScreenData = SCREENS[currentIdx];
 
+  const SAMPLE_METRICS = [
+    { label: "Total Revenue", value: "$42.8K", trend: 12.5, trendDirection: "up" as const },
+    { label: "Episodes", value: 147, trend: 8.2, trendDirection: "up" as const },
+    { label: "Subscribers", value: "23.1K", trend: 3.7, trendDirection: "up" as const },
+    { label: "Avg. CPM", value: "$18.50", trend: 2.1, trendDirection: "down" as const },
+    { label: "Active Campaigns", value: 12, trend: 15.0, trendDirection: "up" as const },
+    { label: "Content Pieces", value: 892, trend: 22.4, trendDirection: "up" as const },
+  ];
+
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] lg:h-[calc(100vh-4.5rem)] animate-in fade-in duration-500" data-testid="command-center">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 flex-shrink-0 gap-3">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold font-display tracking-tight text-foreground flex items-center gap-2">
-              Command Center
-              <span className="text-[10px] font-mono text-accent bg-accent/10 border border-accent/30 px-1.5 py-0.5 rounded-sm uppercase tracking-widest">Live</span>
-            </h1>
-          </div>
+      <PageHeader
+        pageKey="dashboard"
+        onAIAction={() => setShowAiBrief(true)}
+      />
+
+      <div className="mb-4 flex-shrink-0">
+        <MetricsStrip metrics={SAMPLE_METRICS} />
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 flex-shrink-0 w-full overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-prev-screen">
+          <ChevronRight className="h-4 w-4 rotate-180" />
+        </button>
+        <div className="flex items-center gap-1 overflow-x-auto flex-1" style={{ scrollbarWidth: "none" }}>
+          {SCREENS.map((screen) => (
+            <button
+              key={screen.key}
+              onClick={() => setActiveScreen(screen.key)}
+              className={cn(
+                "flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all whitespace-nowrap flex-shrink-0",
+                activeScreen === screen.key
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+              )}
+              data-testid={`button-screen-${screen.key}`}
+            >
+              <screen.icon className="h-3 w-3" />
+              <span className="hidden sm:inline">{screen.label}</span>
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => setShowAiBrief(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all bg-gradient-to-r from-violet-500/15 to-cyan-500/15 text-violet-400 border border-violet-500/30 hover:from-violet-500/25 hover:to-cyan-500/25 hover:text-violet-300 flex-shrink-0"
-            data-testid="button-ai-brief"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">AI Brief</span>
-          </button>
-          <button onClick={goPrev} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-prev-screen">
-            <ChevronRight className="h-4 w-4 rotate-180" />
-          </button>
-          <div className="flex items-center gap-1 overflow-x-auto flex-1 sm:flex-initial" style={{ scrollbarWidth: "none" }}>
-            {SCREENS.map((screen) => (
-              <button
-                key={screen.key}
-                onClick={() => setActiveScreen(screen.key)}
-                className={cn(
-                  "flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider rounded-sm transition-all whitespace-nowrap flex-shrink-0",
-                  activeScreen === screen.key
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                )}
-                data-testid={`button-screen-${screen.key}`}
-              >
-                <screen.icon className="h-3 w-3" />
-                <span className="hidden sm:inline">{screen.label}</span>
-              </button>
-            ))}
-          </div>
-          <button onClick={goNext} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-next-screen">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+        <button onClick={goNext} className="p-1.5 rounded-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground flex-shrink-0" data-testid="button-next-screen">
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 border border-border/40 rounded-lg bg-background/50 p-3 sm:p-4 relative overflow-auto" data-testid="screen-viewport">

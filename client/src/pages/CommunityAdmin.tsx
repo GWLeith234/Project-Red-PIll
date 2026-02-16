@@ -20,12 +20,8 @@ async function api(url: string, options?: RequestInit) {
 
 const TABS = [
   { key: "events", label: "Events", icon: Calendar },
-  { key: "obituaries", label: "Obituaries", icon: Cross },
-  { key: "classifieds", label: "Classifieds", icon: Newspaper },
   { key: "polls", label: "Polls", icon: BarChart3 },
   { key: "discussion", label: "Discussion", icon: MessageSquare },
-  { key: "directory", label: "Directory", icon: Building2 },
-  { key: "announcements", label: "Announcements", icon: Megaphone },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -61,12 +57,8 @@ export default function CommunityAdmin() {
       </div>
 
       {activeTab === "events" && <EventsTab />}
-      {activeTab === "obituaries" && <ObituariesTab />}
-      {activeTab === "classifieds" && <ClassifiedsTab />}
       {activeTab === "polls" && <PollsTab />}
       {activeTab === "discussion" && <DiscussionTab />}
-      {activeTab === "directory" && <DirectoryTab />}
-      {activeTab === "announcements" && <AnnouncementsTab />}
     </div>
   );
 }
