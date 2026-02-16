@@ -1,0 +1,19 @@
+Two tasks to complete:
+
+TASK 1 - FIX AUDIO PERSISTENCE ACROSS NAVIGATION:
+
+The audio player stops every time the user navigates between tabs (Home, Listen, News, Search). AudioPlayerProvider is at the App level in App.tsx but audio still stops. The root cause needs to be identified and fixed. Do all of these:
+
+(A) In client/src/components/AudioPlayerProvider.tsx, change the Audio element to be a DOM-attached element that the browser cannot garbage collect. In the useEffect where the Audio is created, replace "const audio = new Audio()" with: const audio = document.createElement("audio"); audio.preload = "metadata"; audio.style.display = "none"; document.body.appendChild(audio); audioRef.current = audio; In the cleanup, add document.body.removeChild(audio) after audio.src = "".
+
+(B) Add debug logging: at the very start of the useEffect that creates the audio element, add console.log("AUDIO_PROVIDER: mounting"). In the cleanup, add console.log("AUDIO_PROVIDER: unmounting - THIS SHOULD ONLY HAPPEN ON APP CLOSE"). In the playEpisode function, add console.log("AUDIO_PROVIDER: playing", episode.title). In the pause function, add console.log("AUDIO_PROVIDER: paused").
+
+(C) Check if the bottom tab bar navigation is doing full page reloads instead of client-side navigation. In client/src/components/layout/AudienceLayout.tsx, find the tab bar nav section. Make sure the tab links use wouter's Link component with href prop, NOT regular <a> tags with href. If any are <a> tags, change them to wouter Link components. Also check the hamburger menu links, presets bar links, and any other navigation elements in AudienceLayout — ALL audience navigation must use wouter Link, never <a href> which causes full page reloads that destroy React state including the audio player.
+
+(D) Check client/src/App.tsx. Make sure AudioPlayerProvider is NOT inside Suspense. The current structure should be: QueryClientProvider > BrandingProvider > AudioPlayerProvider > AuthProvider > Suspense > Switch. If AudioPlayerProvider is inside Suspense, move it outside. Suspense can unmount and remount its children when loading states change, which would destroy the audio player.
+
+(E) Search the entire codebase for any other Audio() constructors, audio elements, or audio.pause() calls that might be interfering. Remove any leftover audio elements from EpisodePage or any other page component. The ONLY audio element should be the one in AudioPlayerProvider.
+
+TASK 2 - REMOVE ALL PLACEHOLDER UI:
+
+Search the entire audience-facing app for placeholder content, dummy data, lorem ipsum, "Coming Soon" badges (except the App Store buttons which should keep them), TODO comments, and hardcoded sample data. Remove or hide any UI elements that display fake or placeholder content. This includes: fake podcast covers, sample episode data, hardcoded author names, placeholder ad units that show "AD" or "Advertisement" text with no real content, and any "lorem ipsum" text. If removing a placeholder would leave an empty section, hide the entire section instead. Do NOT remove the ad placeholder components themselves — those will be needed later for real ads — but hide them if they currently show visible placeholder text.
