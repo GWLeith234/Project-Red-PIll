@@ -16,6 +16,7 @@ import {
   insertSitePageSchema, insertPageRowSchema, insertPageWidgetSchema, insertPageTemplateSchema,
   insertCommunityEventSchema, insertObituarySchema, insertClassifiedSchema,
   insertCommunityPollSchema, insertCommunityAnnouncementSchema, insertBusinessListingSchema,
+  insertPollVoteSchema, insertCommunityPostSchema, insertCommunityLikeSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -5536,13 +5537,36 @@ Provide comprehensive social listening intelligence including trending topics, k
     try { await storage.deleteCommunityPoll(req.params.id); res.json({ success: true }); } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
-  app.post("/api/public/polls/:id/vote", async (req, res) => {
+  // ── Community Posts Admin ──
+  app.get("/api/community-posts", requireAuth, async (req, res) => {
+    try { res.json(await storage.getCommunityPosts()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/community-posts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
-      const poll = await storage.getCommunityPoll(req.params.id);
+      const updated = await storage.updateCommunityPost(req.params.id, req.body);
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/community-posts/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      await storage.deleteCommunityPost(req.params.id);
+      res.sendStatus(204);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/polls/:id/vote", publicCommentLimit, async (req, res) => {
+    try {
+      const poll = await storage.getCommunityPollById(req.params.id);
       if (!poll || !poll.isActive) return res.status(404).json({ message: "Poll not found or closed" });
-      const { optionIndex } = req.body;
+      const { optionId, voterIdentifier } = req.body;
+      const optionIndex = parseInt(optionId);
       const options = poll.options as any[];
-      if (optionIndex < 0 || optionIndex >= options.length) return res.status(400).json({ message: "Invalid option" });
+      if (isNaN(optionIndex) || optionIndex < 0 || optionIndex >= options.length) return res.status(400).json({ message: "Invalid option" });
+      if (voterIdentifier) {
+        try { await storage.castPollVote({ pollId: req.params.id, optionId: String(optionIndex), voterIdentifier }); } catch (_e) { return res.status(409).json({ message: "Already voted" }); }
+      }
       options[optionIndex].votes = (options[optionIndex].votes || 0) + 1;
       await storage.updateCommunityPoll(req.params.id, { options, totalVotes: (poll.totalVotes || 0) + 1 });
       res.json({ success: true });
@@ -5634,6 +5658,31 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.get("/api/public/community-announcements", async (_req, res) => {
     try { res.json(await storage.getCommunityAnnouncements("approved")); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Public Community Posts / Discussion ──
+  app.get("/api/public/community-posts", async (req, res) => {
+    try {
+      const posts = await storage.getCommunityPosts(req.query.parentId as string);
+      res.json(posts.filter((p: any) => !p.isHidden));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/community-posts", publicCommentLimit, async (req, res) => {
+    try {
+      const parsed = insertCommunityPostSchema.parse(req.body);
+      const post = await storage.createCommunityPost(parsed);
+      res.status(201).json(post);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.post("/api/public/community-posts/:postId/like", publicCommentLimit, async (req, res) => {
+    try {
+      const { likerIdentifier } = req.body;
+      if (!likerIdentifier) return res.status(400).json({ message: "likerIdentifier required" });
+      const result = await storage.toggleCommunityLike(req.params.postId, likerIdentifier);
+      res.json(result);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
 
   // ── Blog API Endpoints ──

@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
-  Calendar, Cross, Newspaper, BarChart3, Building2, Megaphone,
+  Calendar, Cross, Newspaper, BarChart3, Building2, Megaphone, MessageSquare,
   Plus, Pencil, Trash2, Check, X, Star, StarOff, Eye, EyeOff,
-  ShieldCheck, ShieldOff, Search, Loader2, Heart,
+  ShieldCheck, ShieldOff, Search, Loader2, Heart, Pin, PinOff,
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
 
@@ -23,6 +23,7 @@ const TABS = [
   { key: "obituaries", label: "Obituaries", icon: Cross },
   { key: "classifieds", label: "Classifieds", icon: Newspaper },
   { key: "polls", label: "Polls", icon: BarChart3 },
+  { key: "discussion", label: "Discussion", icon: MessageSquare },
   { key: "directory", label: "Directory", icon: Building2 },
   { key: "announcements", label: "Announcements", icon: Megaphone },
 ] as const;
@@ -63,6 +64,7 @@ export default function CommunityAdmin() {
       {activeTab === "obituaries" && <ObituariesTab />}
       {activeTab === "classifieds" && <ClassifiedsTab />}
       {activeTab === "polls" && <PollsTab />}
+      {activeTab === "discussion" && <DiscussionTab />}
       {activeTab === "directory" && <DirectoryTab />}
       {activeTab === "announcements" && <AnnouncementsTab />}
     </div>
@@ -740,6 +742,64 @@ function LoadingSkeleton() {
           <div className="h-6 w-16 bg-muted rounded-full" />
         </div>
       ))}
+    </div>
+  );
+}
+
+function DiscussionTab() {
+  const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<any>(null);
+
+  const { data: posts = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/community-posts"], queryFn: () => api("/api/community-posts") });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api(`/api/community-posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/community-posts"] }); },
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api(`/api/community-posts/${id}`, { method: "DELETE" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/community-posts"] }); setDeleting(null); },
+  });
+
+  const filtered = posts.filter((p: any) => !search || p.content?.toLowerCase().includes(search.toLowerCase()) || p.authorName?.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div data-testid="discussion-tab">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input type="text" placeholder="Search posts..." value={search} onChange={e => setSearch(e.target.value)} className={`${inputClass} pl-9`} data-testid="input-search-posts" />
+        </div>
+        <span className="text-xs text-muted-foreground">{posts.length} posts</span>
+      </div>
+
+      {deleting && <DeleteConfirmation name={deleting.authorName + "'s post"} onConfirm={() => deleteMut.mutate(deleting.id)} onCancel={() => setDeleting(null)} isPending={deleteMut.isPending} />}
+
+      {isLoading ? <LoadingSkeleton /> : filtered.length === 0 ? <EmptyState text="No discussion posts yet" /> : (
+        <div className="border border-border rounded-xl bg-card/30 overflow-hidden">
+          <div className="hidden sm:grid grid-cols-[1fr_120px_80px_60px_60px_90px] gap-3 px-5 py-2.5 border-b border-border bg-muted/20 text-[11px] font-mono uppercase tracking-widest text-muted-foreground/70">
+            <span>Content</span><span>Author</span><span>Likes</span><span>Pinned</span><span>Hidden</span><span className="text-right">Actions</span>
+          </div>
+          {filtered.map((p: any) => (
+            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_120px_80px_60px_60px_90px] gap-3 px-5 py-3 border-b border-border/60 last:border-b-0 hover:bg-muted/5 items-start sm:items-center" data-testid={`row-post-${p.id}`}>
+              <span className="text-sm text-foreground line-clamp-2" data-testid={`text-post-content-${p.id}`}>{p.content}</span>
+              <span className="text-xs text-muted-foreground truncate">{p.authorName}</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1"><Heart className="h-3 w-3" />{p.likesCount || 0}</span>
+              <span>{p.isPinned ? <Pin className="h-3.5 w-3.5 text-primary" /> : <span className="text-xs text-muted-foreground/30">—</span>}</span>
+              <span>{p.isHidden ? <EyeOff className="h-3.5 w-3.5 text-red-400" /> : <Eye className="h-3.5 w-3.5 text-emerald-400" />}</span>
+              <div className="flex items-center justify-end gap-1">
+                <button onClick={() => updateMut.mutate({ id: p.id, data: { isPinned: !p.isPinned } })} className="p-1.5 hover:bg-muted/80 rounded-md text-muted-foreground hover:text-foreground" title={p.isPinned ? "Unpin" : "Pin"} data-testid={`button-pin-post-${p.id}`}>
+                  {p.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                </button>
+                <button onClick={() => updateMut.mutate({ id: p.id, data: { isHidden: !p.isHidden } })} className="p-1.5 hover:bg-muted/80 rounded-md text-muted-foreground hover:text-foreground" title={p.isHidden ? "Show" : "Hide"} data-testid={`button-hide-post-${p.id}`}>
+                  {p.isHidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                </button>
+                <button onClick={() => setDeleting(p)} className="p-1.5 hover:bg-red-500/10 rounded-md text-muted-foreground hover:text-red-400" title="Delete" data-testid={`button-delete-post-${p.id}`}><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

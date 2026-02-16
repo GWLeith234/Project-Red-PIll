@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp, CalendarDays, Users } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useAudioPlayerOptional } from "@/components/AudioPlayerProvider";
@@ -73,6 +73,8 @@ function PresetsBar({ podcasts, primaryColor }: { podcasts: any[]; primaryColor:
     { id: "__home", label: "For You", href: "/home", icon: <Home className="h-5 w-5" /> },
     { id: "__trending", label: "Trending", href: "/news", icon: <TrendingUp className="h-5 w-5" /> },
     { id: "__discover", label: "Discover", href: "/podcasts", icon: <Shuffle className="h-5 w-5" /> },
+    { id: "__events", label: "Events", href: "/events", icon: <CalendarDays className="h-5 w-5" /> },
+    { id: "__community", label: "Community", href: "/community-hub", icon: <Users className="h-5 w-5" /> },
     ...podcasts.map((p: any) => ({
       id: p.id,
       label: p.title,
@@ -245,6 +247,8 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
     if (path === "search") return location === "/search";
     if (path === "news") return location === "/news" || location.startsWith("/news/");
     if (path === "read-later") return location === "/read-later";
+    if (path === "events") return location === "/events";
+    if (path === "community-hub") return location === "/community-hub";
     return false;
   };
 
@@ -273,6 +277,8 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
                     { href: "/home", label: "Home", path: "home", icon: Home },
                     { href: "/podcasts", label: "Listen", path: "podcasts", icon: Headphones },
                     { href: "/news", label: "News", path: "news", icon: Newspaper },
+                    { href: "/events", label: "Events", path: "events", icon: CalendarDays },
+                    { href: "/community-hub", label: "Community", path: "community-hub", icon: Users },
                   ].map(({ href, label, path, icon: Icon }) => (
                     <Link
                       key={path}
@@ -384,6 +390,8 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
                 { href: "/home", label: "Home", icon: Home },
                 { href: "/podcasts", label: "Listen", icon: Headphones },
                 { href: "/news", label: "News", icon: Newspaper },
+                { href: "/events", label: "Events", icon: CalendarDays },
+                { href: "/community-hub", label: "Community", icon: Users },
                 { href: "/search", label: "Search", icon: Search },
               ].map(({ href, label, icon: Icon }) => (
                 <Link
@@ -560,6 +568,8 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
                 <li><Link href="/home" className="text-sm text-gray-500 hover:text-white transition-colors">Home</Link></li>
                 <li><Link href="/podcasts" className="text-sm text-gray-500 hover:text-white transition-colors">All Podcasts</Link></li>
                 <li><Link href="/news" className="text-sm text-gray-500 hover:text-white transition-colors">News</Link></li>
+                <li><Link href="/events" className="text-sm text-gray-500 hover:text-white transition-colors">Events</Link></li>
+                <li><Link href="/community-hub" className="text-sm text-gray-500 hover:text-white transition-colors">Community</Link></li>
                 <li><Link href="/search" className="text-sm text-gray-500 hover:text-white transition-colors">Search</Link></li>
               </ul>
             </div>

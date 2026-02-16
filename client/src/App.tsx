@@ -39,6 +39,8 @@ import NewsletterManager from "@/pages/NewsletterManager";
 import LegalAdmin from "@/pages/LegalAdmin";
 import SiteBuilder from "@/pages/SiteBuilder";
 import CommunityAdmin from "@/pages/CommunityAdmin";
+import EventsPage from "@/pages/EventsPage";
+import CommunityPage from "@/pages/CommunityPage";
 import NotFound from "@/pages/not-found";
 
 function PageLoader() {
@@ -202,6 +204,8 @@ function App() {
             <Route path="/news">{() => <AudienceLayout><PublicNewsPage /></AudienceLayout>}</Route>
             <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
             <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
+            <Route path="/events">{() => <AudienceLayout><EventsPage /></AudienceLayout>}</Route>
+            <Route path="/community-hub">{() => <AudienceLayout><CommunityPage /></AudienceLayout>}</Route>
             <Route>
               <ProtectedRoutes />
             </Route>

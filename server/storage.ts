@@ -57,7 +57,10 @@ import {
   obituaries, type Obituary, type InsertObituary,
   classifieds, type Classified, type InsertClassified,
   communityPolls, type CommunityPoll, type InsertCommunityPoll,
+  pollVotes, type PollVote, type InsertPollVote,
   communityAnnouncements, type CommunityAnnouncement, type InsertCommunityAnnouncement,
+  communityPosts, type CommunityPost, type InsertCommunityPost,
+  communityLikes, type CommunityLike, type InsertCommunityLike,
   businessListings, type BusinessListing, type InsertBusinessListing,
   aiLayoutExamples, type AiLayoutExample, type InsertAiLayoutExample,
   adInjectionLog, type AdInjectionLog, type InsertAdInjectionLog,
@@ -350,9 +353,20 @@ export interface IStorage {
 
   getCommunityPolls(): Promise<CommunityPoll[]>;
   getCommunityPoll(id: string): Promise<CommunityPoll | undefined>;
+  getCommunityPollById(id: string): Promise<CommunityPoll | undefined>;
   createCommunityPoll(data: InsertCommunityPoll): Promise<CommunityPoll>;
   updateCommunityPoll(id: string, data: Partial<InsertCommunityPoll>): Promise<CommunityPoll | undefined>;
   deleteCommunityPoll(id: string): Promise<void>;
+
+  getPollVotes(pollId: string): Promise<PollVote[]>;
+  castPollVote(data: InsertPollVote): Promise<PollVote>;
+
+  getCommunityPosts(parentId?: string): Promise<CommunityPost[]>;
+  getCommunityPostById(id: string): Promise<CommunityPost | undefined>;
+  createCommunityPost(data: InsertCommunityPost): Promise<CommunityPost>;
+  updateCommunityPost(id: string, data: Partial<InsertCommunityPost>): Promise<CommunityPost | undefined>;
+  deleteCommunityPost(id: string): Promise<void>;
+  toggleCommunityLike(postId: string, likerIdentifier: string): Promise<{ liked: boolean }>;
 
   getCommunityAnnouncements(status?: string): Promise<CommunityAnnouncement[]>;
   getCommunityAnnouncement(id: string): Promise<CommunityAnnouncement | undefined>;
@@ -1470,6 +1484,53 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteCommunityPoll(id: string) {
     await db.delete(communityPolls).where(eq(communityPolls.id, id));
+  }
+
+  async getCommunityPollById(id: string) {
+    const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.id, id));
+    return poll;
+  }
+
+  async getPollVotes(pollId: string): Promise<PollVote[]> {
+    return db.select().from(pollVotes).where(eq(pollVotes.pollId, pollId));
+  }
+  async castPollVote(data: InsertPollVote): Promise<PollVote> {
+    const [vote] = await db.insert(pollVotes).values(data).returning();
+    return vote;
+  }
+
+  async getCommunityPosts(parentId?: string): Promise<CommunityPost[]> {
+    if (parentId) {
+      return db.select().from(communityPosts).where(eq(communityPosts.parentId, parentId)).orderBy(desc(communityPosts.createdAt));
+    }
+    return db.select().from(communityPosts).orderBy(desc(communityPosts.createdAt));
+  }
+  async getCommunityPostById(id: string): Promise<CommunityPost | undefined> {
+    const [post] = await db.select().from(communityPosts).where(eq(communityPosts.id, id));
+    return post;
+  }
+  async createCommunityPost(data: InsertCommunityPost): Promise<CommunityPost> {
+    const [created] = await db.insert(communityPosts).values(data).returning();
+    return created;
+  }
+  async updateCommunityPost(id: string, data: Partial<InsertCommunityPost>): Promise<CommunityPost | undefined> {
+    const [updated] = await db.update(communityPosts).set(data).where(eq(communityPosts.id, id)).returning();
+    return updated;
+  }
+  async deleteCommunityPost(id: string): Promise<void> {
+    await db.delete(communityLikes).where(eq(communityLikes.postId, id));
+    await db.delete(communityPosts).where(eq(communityPosts.id, id));
+  }
+  async toggleCommunityLike(postId: string, likerIdentifier: string): Promise<{ liked: boolean }> {
+    const existing = await db.select().from(communityLikes).where(and(eq(communityLikes.postId, postId), eq(communityLikes.likerIdentifier, likerIdentifier)));
+    if (existing.length > 0) {
+      await db.delete(communityLikes).where(and(eq(communityLikes.postId, postId), eq(communityLikes.likerIdentifier, likerIdentifier)));
+      await db.update(communityPosts).set({ likesCount: sql`GREATEST(0, likes_count - 1)` }).where(eq(communityPosts.id, postId));
+      return { liked: false };
+    }
+    await db.insert(communityLikes).values({ postId, likerIdentifier });
+    await db.update(communityPosts).set({ likesCount: sql`likes_count + 1` }).where(eq(communityPosts.id, postId));
+    return { liked: true };
   }
 
   async getCommunityAnnouncements(status?: string) {
