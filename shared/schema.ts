@@ -1290,4 +1290,68 @@ export const insertAdminPageConfigSchema = createInsertSchema(adminPageConfigs).
 export type InsertAdminPageConfig = z.infer<typeof insertAdminPageConfigSchema>;
 export type AdminPageConfig = typeof adminPageConfigs.$inferSelect;
 
+export const pageAnalytics = pgTable("page_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  url: text("url").notNull(),
+  pageTitle: text("page_title"),
+  sessionId: text("session_id").notNull(),
+  visitorId: text("visitor_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  deviceType: text("device_type"),
+  browser: text("browser"),
+  os: text("os"),
+  country: text("country"),
+  region: text("region"),
+  timeOnPage: integer("time_on_page"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("page_analytics_session_idx").on(table.sessionId),
+  index("page_analytics_created_idx").on(table.createdAt),
+  index("page_analytics_url_idx").on(table.url),
+]);
+
+export const insertPageAnalyticsSchema = createInsertSchema(pageAnalytics).omit({ id: true, createdAt: true });
+export type InsertPageAnalytics = z.infer<typeof insertPageAnalyticsSchema>;
+export type PageAnalytics = typeof pageAnalytics.$inferSelect;
+
+export const npsResponses = pgTable("nps_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  score: integer("score").notNull(),
+  comment: text("comment"),
+  respondentEmail: text("respondent_email"),
+  sentiment: text("sentiment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNpsResponseSchema = createInsertSchema(npsResponses).omit({ id: true, createdAt: true, sentiment: true });
+export type InsertNpsResponse = z.infer<typeof insertNpsResponseSchema>;
+export type NpsResponse = typeof npsResponses.$inferSelect;
+
+export const userFeedback = pgTable("user_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rating: integer("rating").notNull(),
+  feedbackText: text("feedback_text"),
+  respondentEmail: text("respondent_email"),
+  pageUrl: text("page_url"),
+  sentiment: text("sentiment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserFeedbackSchema = createInsertSchema(userFeedback).omit({ id: true, createdAt: true, sentiment: true });
+export type InsertUserFeedback = z.infer<typeof insertUserFeedbackSchema>;
+export type UserFeedback = typeof userFeedback.$inferSelect;
+
+export const aiInsightsCache = pgTable("ai_insights_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  insightType: text("insight_type").notNull(),
+  data: jsonb("data"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
+export const insertAiInsightsCacheSchema = createInsertSchema(aiInsightsCache).omit({ id: true, generatedAt: true });
+export type InsertAiInsightsCache = z.infer<typeof insertAiInsightsCacheSchema>;
+export type AiInsightsCache = typeof aiInsightsCache.$inferSelect;
+
 export * from "./models/chat";
