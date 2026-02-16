@@ -1029,19 +1029,23 @@ export const communityEvents = pgTable("community_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description"),
+  location: text("location"),
   venueName: text("venue_name"),
   venueAddress: text("venue_address"),
-  startDate: text("start_date").notNull(),
-  endDate: text("end_date"),
+  eventUrl: text("event_url"),
+  coverImage: text("cover_image"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
   startTime: text("start_time"),
   endTime: text("end_time"),
+  isFeatured: boolean("is_featured").default(false),
+  isVirtual: boolean("is_virtual").default(false),
   category: text("category").default("general"),
   imageUrl: text("image_url"),
   ticketUrl: text("ticket_url"),
   organizerName: text("organizer_name"),
   organizerEmail: text("organizer_email"),
-  isFeatured: boolean("is_featured").default(false),
-  status: text("status").default("pending"),
+  status: text("status").default("upcoming"),
   submittedBy: text("submitted_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1094,17 +1098,36 @@ export type Classified = typeof classifieds.$inferSelect;
 export const communityPolls = pgTable("community_polls", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   question: text("question").notNull(),
+  pollType: text("poll_type").default("single"),
   options: jsonb("options").notNull(),
-  createdBy: varchar("created_by"),
-  expiresAt: timestamp("expires_at"),
-  isActive: boolean("is_active").default(true),
+  results: jsonb("results").default({}),
   totalVotes: integer("total_votes").default(0),
+  status: text("status").default("active"),
+  isFeatured: boolean("is_featured").default(false),
+  closesAt: timestamp("closes_at"),
+  createdBy: varchar("created_by"),
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertCommunityPollSchema = createInsertSchema(communityPolls).omit({ id: true, createdAt: true });
 export type InsertCommunityPoll = z.infer<typeof insertCommunityPollSchema>;
 export type CommunityPoll = typeof communityPolls.$inferSelect;
+
+export const pollVotes = pgTable("poll_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pollId: varchar("poll_id").notNull(),
+  optionId: text("option_id").notNull(),
+  voterIdentifier: text("voter_identifier").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("poll_votes_poll_voter_idx").on(table.pollId, table.voterIdentifier),
+]);
+
+export const insertPollVoteSchema = createInsertSchema(pollVotes).omit({ id: true, createdAt: true });
+export type InsertPollVote = z.infer<typeof insertPollVoteSchema>;
+export type PollVote = typeof pollVotes.$inferSelect;
 
 export const communityAnnouncements = pgTable("community_announcements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1218,5 +1241,36 @@ export const subscriberBookmarks = pgTable("subscriber_bookmarks", {
 export const insertSubscriberBookmarkSchema = createInsertSchema(subscriberBookmarks).omit({ id: true, savedAt: true });
 export type InsertSubscriberBookmark = z.infer<typeof insertSubscriberBookmarkSchema>;
 export type SubscriberBookmark = typeof subscriberBookmarks.$inferSelect;
+
+// ── Community Posts ──
+export const communityPosts = pgTable("community_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  authorName: text("author_name").notNull(),
+  authorEmail: text("author_email"),
+  authorAvatar: text("author_avatar"),
+  content: text("content").notNull(),
+  parentId: varchar("parent_id"),
+  likesCount: integer("likes_count").default(0),
+  isPinned: boolean("is_pinned").default(false),
+  isHidden: boolean("is_hidden").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCommunityPostSchema = createInsertSchema(communityPosts).omit({ id: true, createdAt: true, likesCount: true });
+export type InsertCommunityPost = z.infer<typeof insertCommunityPostSchema>;
+export type CommunityPost = typeof communityPosts.$inferSelect;
+
+export const communityLikes = pgTable("community_likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  likerIdentifier: text("liker_identifier").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("community_likes_post_liker_idx").on(table.postId, table.likerIdentifier),
+]);
+
+export const insertCommunityLikeSchema = createInsertSchema(communityLikes).omit({ id: true, createdAt: true });
+export type InsertCommunityLike = z.infer<typeof insertCommunityLikeSchema>;
+export type CommunityLike = typeof communityLikes.$inferSelect;
 
 export * from "./models/chat";

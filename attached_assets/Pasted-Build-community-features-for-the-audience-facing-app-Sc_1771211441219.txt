@@ -1,0 +1,34 @@
+Build community features for the audience-facing app. Scope is limited to three features: Events, Polls, and Online Community.
+
+FEATURE 1 - EVENTS:
+
+(1) Add an events table to the Drizzle schema: id (uuid primary key, default gen_random_uuid()), title (text, not null), description (text), location (text), venue_name (text, nullable), event_url (text, nullable), cover_image (text, nullable), start_date (timestamp, not null), end_date (timestamp, nullable), is_featured (boolean, default false), is_virtual (boolean, default false), category (text, default "general" — options: general, meetup, conference, webinar, rally, fundraiser), status (text, default "upcoming" — options: upcoming, ongoing, past, cancelled), created_at (timestamp, default now), updated_at (timestamp, default now).
+
+(2) Add admin CRUD endpoints: GET /api/events (list all, sorted by start_date), GET /api/events/:id, POST /api/events (requireAuth, requirePermission content.edit), PATCH /api/events/:id (requireAuth), DELETE /api/events/:id (requireAuth). Add a public endpoint: GET /api/public/events (returns only upcoming and ongoing events, sorted by start_date asc).
+
+(3) Build admin Events management page at client/src/pages/EventsAdmin.tsx. Table view showing all events with columns: title, date, location, category, status. Add/edit modal with form fields for all columns. Add a route in App.tsx: /events-admin behind requirePermission content.edit.
+
+(4) Build audience Events page at client/src/pages/EventsPage.tsx. Card grid layout showing upcoming events. Each card shows: cover image (or gradient placeholder), title, date formatted nicely (e.g. "Sat, Mar 15 at 7:00 PM"), location or "Virtual Event", category badge. Tapping a card opens a detail view with full description, map link (if location provided), and "Add to Calendar" button that generates an .ics download. Add route in App.tsx: /events wrapped in AudienceLayout. Add "Events" to the hamburger menu in AudienceLayout.
+
+FEATURE 2 - POLLS:
+
+(5) Add a polls table: id (uuid), question (text, not null), poll_type (text, default "single" — options: single, multiple), options (jsonb, not null — array of {id: string, text: string}), results (jsonb, default {} — object mapping option id to vote count), total_votes (integer, default 0), status (text, default "active" — options: active, closed), is_featured (boolean, default false), closes_at (timestamp, nullable), created_at (timestamp, default now). Add a poll_votes table: id (uuid), poll_id (text, not null, references polls), voter_identifier (text, not null — either subscriber email or fingerprint hash), option_ids (jsonb, not null — array of selected option ids), voted_at (timestamp, default now), unique constraint on (poll_id, voter_identifier).
+
+(6) Add admin endpoints: GET /api/polls, POST /api/polls (requireAuth), PATCH /api/polls/:id (requireAuth), DELETE /api/polls/:id (requireAuth). Add public endpoints: GET /api/public/polls (returns active polls), GET /api/public/polls/:id (returns poll with results), POST /api/public/polls/:id/vote (accepts { optionIds: string[], voterIdentifier: string }, validates vote, increments results, returns updated poll). The vote endpoint should check for duplicate votes by voter_identifier and return 409 if already voted.
+
+(7) Build admin Polls management at client/src/pages/PollsAdmin.tsx. List of polls with question, status, total votes. Create poll form: question text, add/remove options dynamically, poll type (single/multiple choice), optional close date. View results with a horizontal bar chart showing vote percentages. Add route: /polls-admin.
+
+(8) Build audience poll widget at client/src/components/PollWidget.tsx. Shows the poll question, radio buttons (single) or checkboxes (multiple), a Vote button. After voting, shows results as animated horizontal bars with percentages and total vote count. Generate voter_identifier from subscriber email if available, otherwise use a hash of navigator.userAgent + screen dimensions as a fingerprint. Embed featured polls on the /home page below the hero section.
+
+FEATURE 3 - ONLINE COMMUNITY:
+
+(9) Add a community_posts table: id (uuid), author_name (text, not null), author_email (text, nullable), author_avatar (text, nullable), content (text, not null, max 2000 chars), parent_id (text, nullable — for replies/threads), likes_count (integer, default 0), is_pinned (boolean, default false), is_hidden (boolean, default false), created_at (timestamp, default now). Add a community_likes table: id (uuid), post_id (text, not null), liker_identifier (text, not null), created_at (timestamp, default now), unique constraint on (post_id, liker_identifier).
+
+(10) Add public endpoints: GET /api/public/community (returns visible posts, paginated, newest first, with reply counts), GET /api/public/community/:id/replies (returns replies to a post), POST /api/public/community (accepts { authorName, authorEmail, content, parentId? } — rate limited to 5 posts per minute per IP), POST /api/public/community/:id/like (accepts { likerIdentifier }, toggles like), DELETE /api/public/community/:id (only if author_email matches). Add admin endpoint: PATCH /api/community/:id (requireAuth — for pinning and hiding posts).
+
+(11) Build audience Community page at client/src/pages/CommunityPage.tsx. Shows a post composer at the top (name field, optional email for returning users, textarea with character counter, Post button). Below that, a feed of posts showing: author name, avatar (generated from initials if no image), time ago, content, like button with count, reply button with count. Tapping reply expands an inline reply composer. Tapping a post with replies shows the thread. Pinned posts appear at the top with a pin icon. Add route: /community in AudienceLayout. Add "Community" to the hamburger menu.
+
+(12) Add admin moderation: in the existing admin area, add a Community moderation section (can be on the existing CommunityAdmin page if it exists, or create one). Shows all posts including hidden ones. Admin can pin/unpin and hide/unhide posts. Hidden posts show a "Hidden by moderator" badge.
+
+NAVIGATION:
+(13) Add "Events" and "Community" links to the audience hamburger menu in AudienceLayout.tsx. Add them after the existing menu items. Use Calendar icon for Events and Users icon for Community (from lucide-react).
