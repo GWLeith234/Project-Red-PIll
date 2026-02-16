@@ -1091,10 +1091,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/moderation/counts", requireAuth, requirePermission("content.edit"), async (_req, res) => {
-    const allReview = await storage.getContentPiecesByStatus("review");
+    const allReview = await storage.getContentPiecesByStatus("in_review");
     const allDraft = await storage.getContentPiecesByStatus("draft");
-    const allPending = await storage.getContentPiecesByStatus("pending");
-    const combined = [...allReview, ...allDraft, ...allPending];
+    const combined = [...allReview, ...allDraft];
     const counts: Record<string, number> = {};
     for (const item of combined) {
       counts[item.type] = (counts[item.type] || 0) + 1;

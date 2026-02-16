@@ -1,0 +1,152 @@
+Fix multiple issues across Kanban, My Tasks, AI Site Editor, and Community Discussion.
+
+PART A — KANBAN: @MENTION TEAM MEMBERS:
+
+(1) Add @mention support to Kanban task comments. When typing a comment in the task detail modal:
+- Typing "@" triggers a dropdown popup showing all team users (fetch from GET /api/users)
+- The dropdown filters as you type after the @ (e.g., "@geo" filters to "George")
+- Selecting a user inserts "@DisplayName" into the comment text, styled in the primary brand color
+- The mention is stored in the comment as a special format: @[userId:displayName]
+
+(2) When a comment with @mentions is saved:
+- Parse the comment for @[userId:displayName] patterns
+- Create a notification for each mentioned user
+- Add a notifications table if it doesn't exist: id (uuid), user_id (text, not null), type (text: 'mention', 'assignment', 'comment', 'status_change'), title (text), message (text), link (text, route to the relevant task), is_read (boolean, default false), created_at (timestamp)
+- Add API: GET /api/notifications (returns unread for current user), PATCH /api/notifications/:id/read, POST /api/notifications/read-all
+
+(3) Add a notification bell icon in the admin header bar (top-right, next to user avatar):
+- Shows unread count badge (red dot with number)
+- Clicking opens a dropdown with recent notifications
+- Each notification: icon, message, time ago, click navigates to the referenced task
+- "Mark all read" button at the top
+
+(4) @mentions should also work when assigning a task — selecting an assignee in the task form should auto-notify that user: "You've been assigned to task: [Task Title]"
+
+PART B — MY TASKS: TASK CREATION AND ASSIGNMENT FLOW:
+
+(5) My Tasks page currently only shows tasks but has no way to create them. Add:
+- "+ New Task" button in the PageHeader (it's in the page config already, just wire it up)
+- Clicking opens a task creation form modal with: Title, Description, Priority (Low/Medium/High/Urgent), Due Date, Assignee (dropdown of team users — default to self), Status (default: "uploaded" which is the first Kanban column)
+- The task is created via POST /api/tasks and appears immediately in the list
+
+(6) Improve the My Tasks list view:
+- Show tasks assigned to the current user (already filtered by assigneeId)
+- Add an "Assigned by Me" toggle to also see tasks the current user created and assigned to others
+- Each task card shows: title, status badge, priority badge, due date (with overdue highlighting in red), assignee avatar
+- Quick actions on each card: Mark Complete (moves to "published" status), Change Priority, Reassign
+- Sorting: by due date (default), by priority, by status
+
+(7) Fix the calendar view in My Tasks:
+- Show tasks as colored dots on calendar days (color = priority)
+- Clicking a day shows that day's tasks in a list below the calendar
+- Clicking a task opens the task detail modal (same one from Kanban)
+
+PART C — AI SITE EDITOR: REMOVE BRAND REFERENCES:
+
+(8) Update server/seed-page-templates.ts — rename and rewrite these templates:
+- "SooToday-Style Homepage" → "News Homepage" with description: "A local news homepage with hero carousel, article grids, community sections, and business directory."
+- "iHeart Podcast Directory" → "Podcast Discovery" with description: "A podcast discovery page with category tabs, carousels, and a full directory grid."
+- "Cumulus Show Page" → "Show Detail Page" with description: "A single show detail page with hero section, listen-on badges, episode feed, host profile, and related shows."
+
+(9) Update server/ai-page-builder.ts — remove brand references from template descriptions:
+- "SooToday-style homepage" → "News-style homepage with hero, articles, ads, and community widgets"
+- "iHeart-style podcast discovery page" → "Podcast discovery page with search, charts, and categories"
+- "Cumulus-style network overview" → "Network overview with all shows and branding"
+- Search for any other references to iHeart, Cumulus, or SooToday and replace with generic descriptions
+
+(10) If the seed data has already been inserted into the database, add a migration step that updates existing rows to use the new names and descriptions. Do NOT just change the seed file — also update the live data.
+
+PART D — COMMUNITY DISCUSSION: FULL BUILD-OUT:
+
+(11) The discussion system on /community-hub needs to become a proper community forum for audience readers. Upgrade the schema — add these columns to community_posts:
+- topic: text, nullable (categorize posts: "General", "News Discussion", "Politics", "Sports", "Entertainment", "Local", "Ask the Community")
+- title: text, nullable (optional post title for starting a new thread — replies don't need titles)
+- is_thread_starter: boolean, default false (true if this is the first post in a thread, false if it's a reply)
+- reply_count: integer, default 0 (cached count of direct replies)
+- is_flagged: boolean, default false (readers can flag inappropriate content)
+- flagged_reason: text, nullable
+- is_ai_generated: boolean, default false (marks posts from AI engagement agents)
+- moderation_status: text, default 'visible' (visible, hidden, under_review, removed)
+- moderated_by: text, nullable
+- moderated_at: timestamp, nullable
+
+(12) Rebuild the audience Discussion page (/community-hub) with a proper forum UI:
+
+TOP: Topic filter bar — horizontal pills: All | General | News Discussion | Politics | Sports | Entertainment | Local | Ask the Community
+- Clicking filters posts by topic
+- Each pill shows post count
+
+BELOW: "Start a Discussion" composer area:
+- Title field (optional but encouraged)
+- Topic selector dropdown
+- Content textarea (2000 char limit with counter)
+- Author name + email fields (pre-fill from subscriber info if logged in)
+- "Post" button
+
+MAIN FEED: Thread list sorted by newest first (or "trending" = most replies in 24h):
+- Sort toggle: Newest | Trending | Most Liked
+- Each thread card shows:
+  - Author avatar (initials circle) + author name + time ago
+  - Topic badge (colored by topic)
+  - Title (bold, if exists) 
+  - Content preview (first 150 chars)
+  - Footer: reply count icon + count, like heart icon + count, flag icon
+  - If pinned: pin badge at top
+- Clicking a thread opens it:
+  - Original post at top (full content)
+  - Replies below in chronological order, nested up to 2 levels deep
+  - Reply composer at bottom
+  - Like button on each post (toggle, checks liker_identifier)
+  - Flag button (opens a quick reason selector: Spam, Offensive, Off-Topic, Misinformation)
+
+(13) Add flagging and moderation:
+- Public flag endpoint: POST /api/public/community-posts/:id/flag — accepts { reason, reporterIdentifier }
+- Flagging sets is_flagged = true and flagged_reason on the post
+- In the admin Community page (community admin), add a "Flagged Posts" tab:
+  - Shows all posts where is_flagged = true, sorted by flagged date
+  - Each post shows: the content, the flag reason, author info
+  - Admin actions: "Dismiss Flag" (clears flag, keeps post visible), "Hide Post" (sets moderation_status = 'hidden', post disappears from public), "Remove Post" (sets moderation_status = 'removed'), "Ban Author" (placeholder for future — just hide all their posts)
+- When a post is hidden/removed, it disappears from the audience feed but remains in the database for admin review
+- Add a moderation_status filter to the public community-posts endpoint: only return posts where moderation_status = 'visible'
+
+(14) Add auto-moderation:
+- When a new post is created, check the content against a basic word filter (create a configurable blocked_words list in site settings, default to common profanity)
+- If flagged by word filter: set moderation_status = 'under_review' and is_flagged = true with reason 'auto_flagged_content'
+- The post is held and does not appear publicly until admin reviews
+- Optional: use the AI provider to do a quick sentiment/safety check on longer posts (>200 chars). If AI flags it as potentially harmful, set to under_review.
+
+(15) AI Engagement Agents — create automated discussion participants:
+- Add an ai_agents table: id (uuid), agent_name (text), agent_persona (text, the prompt personality description), agent_avatar (text, URL or initials), topics (text array, which topics this agent engages with), is_active (boolean), posting_frequency (text: 'hourly', 'twice_daily', 'daily'), last_posted_at (timestamp), created_at (timestamp)
+
+- Seed with 3 default agents:
+  - "PoliticalPulse" — persona: "An informed political commentator who asks thought-provoking questions about current events and policy. Balanced but engaging. Asks open-ended questions to spark debate." Topics: Politics, News Discussion. Avatar: "PP"
+  - "SportsDesk" — persona: "An enthusiastic sports fan who shares hot takes, asks prediction questions, and celebrates great plays. Keeps it fun and light." Topics: Sports, Entertainment. Avatar: "SD"  
+  - "CommunityVoice" — persona: "A friendly community member who starts conversations about local events, asks for recommendations, and shares positivity. Warm and inclusive tone." Topics: General, Local, Ask the Community. Avatar: "CV"
+
+- Build server/ai-community-agents.ts with functions:
+  - generateAgentPost(agent: Agent): uses the AI provider with the agent's persona prompt + recent discussion context to generate a natural community post. The prompt includes: "You are [agent_name]. [persona]. Write a short community discussion post (50-150 words) about a current topic. Be conversational and end with a question to encourage replies. Do NOT mention that you are an AI."
+  - runAgentCycle(): checks all active agents, for each one whose last_posted_at + frequency interval has passed, generates and posts a new discussion post with is_ai_generated = true
+  
+- API endpoints:
+  - GET /api/admin/community-agents (list all agents)
+  - POST /api/admin/community-agents (create new agent)
+  - PATCH /api/admin/community-agents/:id (update persona, topics, frequency, active status)
+  - DELETE /api/admin/community-agents/:id
+  - POST /api/admin/community-agents/:id/post-now (manually trigger a post from this agent)
+  - POST /api/admin/community-agents/run-cycle (run all active agents)
+
+- In the admin Community page, add an "AI Agents" tab:
+  - List of agents with name, persona preview, topics, frequency, last posted, active toggle
+  - Create/edit agent form
+  - "Post Now" button on each agent (for testing)
+  - "Run All Agents" button
+  - The daily AI job from S4 (POST /api/crm/ai/daily-run) should also call runAgentCycle()
+
+- AI-generated posts appear in the community feed like normal posts. They show the agent's name and avatar. There is NO indicator to audience users that these are AI-generated (they appear as regular community members). Admin can see the is_ai_generated badge in the admin view.
+
+(16) Add community moderation to article comments as well:
+- If the platform has article comments (on news/article pages), apply the same moderation system:
+  - Flag button on comments
+  - Auto-moderation word filter
+  - Admin moderation queue includes both community posts AND article comments
+  - Same flagged/hidden/removed status flow

@@ -700,7 +700,7 @@ export function useDeleteNewsletterRun() {
 export function useModerationQueue(type?: string) {
   const params = new URLSearchParams();
   if (type) params.set("type", type);
-  const statuses = ["review", "draft", "pending"];
+  const statuses = ["in_review", "draft"];
   const url = `/api/moderation/queue${params.toString() ? `?${params}` : ""}`;
   return useQuery({
     queryKey: ["/api/moderation/queue", type],

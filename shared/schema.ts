@@ -1282,10 +1282,20 @@ export const communityPosts = pgTable("community_posts", {
   likesCount: integer("likes_count").default(0),
   isPinned: boolean("is_pinned").default(false),
   isHidden: boolean("is_hidden").default(false),
+  topic: text("topic"),
+  title: text("title"),
+  isThreadStarter: boolean("is_thread_starter").default(false),
+  replyCount: integer("reply_count").default(0),
+  isFlagged: boolean("is_flagged").default(false),
+  flaggedReason: text("flagged_reason"),
+  isAiGenerated: boolean("is_ai_generated").default(false),
+  moderationStatus: text("moderation_status").default("visible"),
+  moderatedBy: text("moderated_by"),
+  moderatedAt: timestamp("moderated_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertCommunityPostSchema = createInsertSchema(communityPosts).omit({ id: true, createdAt: true, likesCount: true });
+export const insertCommunityPostSchema = createInsertSchema(communityPosts).omit({ id: true, createdAt: true, likesCount: true, replyCount: true });
 export type InsertCommunityPost = z.infer<typeof insertCommunityPostSchema>;
 export type CommunityPost = typeof communityPosts.$inferSelect;
 
@@ -1536,5 +1546,39 @@ export const liveSessions = pgTable("live_sessions", {
 export const insertLiveSessionSchema = createInsertSchema(liveSessions).omit({ id: true, connectedAt: true, lastActivityAt: true });
 export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
 export type LiveSession = typeof liveSessions.$inferSelect;
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: text("user_id").notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message"),
+  link: text("link"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("notifications_user_id_idx").on(table.userId),
+  index("notifications_is_read_idx").on(table.isRead),
+]);
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+export const aiAgents = pgTable("ai_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentName: text("agent_name").notNull(),
+  agentPersona: text("agent_persona").notNull(),
+  agentAvatar: text("agent_avatar"),
+  topics: text("topics").array().default(sql`ARRAY[]::text[]`),
+  isActive: boolean("is_active").default(true),
+  postingFrequency: text("posting_frequency").default("daily"),
+  lastPostedAt: timestamp("last_posted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAiAgentSchema = createInsertSchema(aiAgents).omit({ id: true, createdAt: true });
+export type InsertAiAgent = z.infer<typeof insertAiAgentSchema>;
+export type AiAgent = typeof aiAgents.$inferSelect;
 
 export * from "./models/chat";

@@ -40,10 +40,12 @@ const CONTENT_TABS = [
 
 function getStatusConfig(status: string) {
   switch (status) {
-    case "review": return { label: "Pending Review", color: "border-amber-500/50 text-amber-500 bg-amber-500/10", icon: Clock };
+    case "in_review": return { label: "In Review", color: "border-amber-500/50 text-amber-500 bg-amber-500/10", icon: Clock };
     case "draft": return { label: "Draft", color: "border-blue-500/50 text-blue-500 bg-blue-500/10", icon: Edit3 };
-    case "pending": return { label: "Pending", color: "border-violet-500/50 text-violet-500 bg-violet-500/10", icon: Clock };
-    case "suggested": return { label: "Suggested", color: "border-pink-500/50 text-pink-500 bg-pink-500/10", icon: Sparkles };
+    case "approved": return { label: "Approved", color: "border-green-500/50 text-green-500 bg-green-500/10", icon: CheckCircle2 };
+    case "scheduled": return { label: "Scheduled", color: "border-cyan-500/50 text-cyan-500 bg-cyan-500/10", icon: CalendarClock };
+    case "published": return { label: "Published", color: "border-emerald-500/50 text-emerald-500 bg-emerald-500/10", icon: Globe };
+    case "rejected": return { label: "Rejected", color: "border-red-500/50 text-red-500 bg-red-500/10", icon: XCircle };
     default: return { label: status, color: "border-muted-foreground/50 text-muted-foreground", icon: Clock };
   }
 }
@@ -753,7 +755,7 @@ function ContentCard({ item, onPreview, onEdit, onApprove, onReject, approving, 
     >
       <div className={cn(
         "w-1 self-stretch rounded-full shrink-0",
-        item.status === "review" ? "bg-amber-500" : item.status === "suggested" ? "bg-pink-500" : item.status === "draft" ? "bg-blue-500" : "bg-violet-500"
+        item.status === "in_review" ? "bg-amber-500" : item.status === "draft" ? "bg-blue-500" : item.status === "approved" ? "bg-green-500" : item.status === "published" ? "bg-emerald-500" : "bg-violet-500"
       )} />
 
       <div className={cn("h-7 w-7 rounded-md flex items-center justify-center shrink-0 border", typeConf.color)}>
