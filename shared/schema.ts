@@ -309,6 +309,13 @@ export const subscribers = pgTable("subscribers", {
   marketingConsentAt: timestamp("marketing_consent_at"),
   smsConsent: boolean("sms_consent").default(false),
   smsConsentAt: timestamp("sms_consent_at"),
+  lastEmailOpenedAt: timestamp("last_email_opened_at"),
+  emailsOpenedCount: integer("emails_opened_count").default(0),
+  lastPushClickedAt: timestamp("last_push_clicked_at"),
+  pushClickedCount: integer("push_clicked_count").default(0),
+  lastVisitAt: timestamp("last_visit_at"),
+  visitCount: integer("visit_count").default(0),
+  engagementStage: text("engagement_stage").default("new"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1358,5 +1365,123 @@ export const aiInsightsCache = pgTable("ai_insights_cache", {
 export const insertAiInsightsCacheSchema = createInsertSchema(aiInsightsCache).omit({ id: true, generatedAt: true });
 export type InsertAiInsightsCache = z.infer<typeof insertAiInsightsCacheSchema>;
 export type AiInsightsCache = typeof aiInsightsCache.$inferSelect;
+
+export const commercialLeads = pgTable("commercial_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyName: text("company_name").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  source: text("source"),
+  pipelineStage: text("pipeline_stage").default("lead"),
+  pipelineType: text("pipeline_type").default("new_logo"),
+  estimatedValue: real("estimated_value").default(0),
+  notes: text("notes"),
+  aiScore: integer("ai_score"),
+  aiRecommendation: text("ai_recommendation"),
+  lastActivityAt: timestamp("last_activity_at"),
+  assignedTo: varchar("assigned_to"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("commercial_leads_pipeline_stage_idx").on(table.pipelineStage),
+  index("commercial_leads_pipeline_type_idx").on(table.pipelineType),
+]);
+
+export const insertCommercialLeadSchema = createInsertSchema(commercialLeads).omit({ id: true, createdAt: true });
+export type InsertCommercialLead = z.infer<typeof insertCommercialLeadSchema>;
+export type CommercialLead = typeof commercialLeads.$inferSelect;
+
+export const commercialProposals = pgTable("commercial_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").notNull(),
+  proposalName: text("proposal_name").notNull(),
+  products: jsonb("products"),
+  totalValue: real("total_value").default(0),
+  status: text("status").default("draft"),
+  sentAt: timestamp("sent_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("commercial_proposals_lead_id_idx").on(table.leadId),
+]);
+
+export const insertCommercialProposalSchema = createInsertSchema(commercialProposals).omit({ id: true, createdAt: true });
+export type InsertCommercialProposal = z.infer<typeof insertCommercialProposalSchema>;
+export type CommercialProposal = typeof commercialProposals.$inferSelect;
+
+export const commercialOrders = pgTable("commercial_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").notNull(),
+  proposalId: varchar("proposal_id"),
+  orderName: text("order_name").notNull(),
+  products: jsonb("products"),
+  totalValue: real("total_value").default(0),
+  status: text("status").default("active"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("commercial_orders_lead_id_idx").on(table.leadId),
+]);
+
+export const insertCommercialOrderSchema = createInsertSchema(commercialOrders).omit({ id: true, createdAt: true });
+export type InsertCommercialOrder = z.infer<typeof insertCommercialOrderSchema>;
+export type CommercialOrder = typeof commercialOrders.$inferSelect;
+
+export const campaignPerformance = pgTable("campaign_performance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(),
+  campaignName: text("campaign_name").notNull(),
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  spend: real("spend").default(0),
+  revenue: real("revenue").default(0),
+  ctr: real("ctr"),
+  roas: real("roas"),
+  periodStart: timestamp("period_start"),
+  periodEnd: timestamp("period_end"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("campaign_performance_order_id_idx").on(table.orderId),
+]);
+
+export const insertCampaignPerformanceSchema = createInsertSchema(campaignPerformance).omit({ id: true, createdAt: true });
+export type InsertCampaignPerformance = z.infer<typeof insertCampaignPerformanceSchema>;
+export type CampaignPerformance = typeof campaignPerformance.$inferSelect;
+
+export const aiAdvertiserPrompts = pgTable("ai_advertiser_prompts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(),
+  leadId: varchar("lead_id"),
+  promptMessage: text("prompt_message").notNull(),
+  suggestedIncrease: real("suggested_increase"),
+  projections: jsonb("projections"),
+  status: text("status").default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+}, (table) => [
+  index("ai_advertiser_prompts_order_id_idx").on(table.orderId),
+  index("ai_advertiser_prompts_status_idx").on(table.status),
+]);
+
+export const insertAiAdvertiserPromptSchema = createInsertSchema(aiAdvertiserPrompts).omit({ id: true, createdAt: true });
+export type InsertAiAdvertiserPrompt = z.infer<typeof insertAiAdvertiserPromptSchema>;
+export type AiAdvertiserPrompt = typeof aiAdvertiserPrompts.$inferSelect;
+
+export const aiContentLog = pgTable("ai_content_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contentType: text("content_type").notNull(),
+  promptSummary: text("prompt_summary"),
+  modelUsed: text("model_used"),
+  tokensUsed: integer("tokens_used"),
+  userId: varchar("user_id"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
+export const insertAiContentLogSchema = createInsertSchema(aiContentLog).omit({ id: true, generatedAt: true });
+export type InsertAiContentLog = z.infer<typeof insertAiContentLogSchema>;
+export type AiContentLog = typeof aiContentLog.$inferSelect;
 
 export * from "./models/chat";
