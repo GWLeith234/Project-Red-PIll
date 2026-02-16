@@ -1284,6 +1284,10 @@ export const adminPageConfigs = pgTable("admin_page_configs", {
   metricsConfig: jsonb("metrics_config"),
   sortOrder: integer("sort_order").notNull(),
   isVisible: boolean("is_visible").default(true),
+  navSection: text("nav_section").default("ungrouped"),
+  navParent: text("nav_parent"),
+  route: text("route").notNull().default("/"),
+  permission: text("permission").notNull().default("dashboard.view"),
 });
 
 export const insertAdminPageConfigSchema = createInsertSchema(adminPageConfigs).omit({ id: true });
