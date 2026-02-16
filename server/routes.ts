@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, db } from "./storage";
+import { subscriberBookmarks } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
@@ -2731,6 +2733,94 @@ export async function registerRoutes(
       await storage.incrementPodcastSubscribers(podcastId);
     }
     res.status(201).json({ message: "Subscribed successfully", alreadyExisted: false });
+  });
+
+  // ── Public Bookmarks (subscriber-synced read later) ──
+  app.get("/api/public/bookmarks/:email", publicSubscribeLimit, async (req, res) => {
+    try {
+      const email = req.params.email.trim().toLowerCase();
+      const bookmarks = await db.select().from(subscriberBookmarks)
+        .where(eq(subscriberBookmarks.subscriberEmail, email))
+        .orderBy(desc(subscriberBookmarks.savedAt));
+      res.json(bookmarks);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/public/bookmarks", publicSubscribeLimit, async (req, res) => {
+    try {
+      const { email, article } = req.body;
+      if (!email || !article?.articleId) return res.status(400).json({ message: "Email and article required" });
+      const normalEmail = email.trim().toLowerCase();
+      const existing = await db.select().from(subscriberBookmarks)
+        .where(and(eq(subscriberBookmarks.subscriberEmail, normalEmail), eq(subscriberBookmarks.articleId, article.articleId)));
+      if (existing.length > 0) {
+        return res.json(existing[0]);
+      }
+      const [bookmark] = await db.insert(subscriberBookmarks).values({
+        subscriberEmail: normalEmail,
+        articleId: article.articleId,
+        articleTitle: article.articleTitle || null,
+        articleDescription: article.articleDescription || null,
+        coverImage: article.coverImage || null,
+        podcastId: article.podcastId || null,
+        podcastTitle: article.podcastTitle || null,
+        readingTime: article.readingTime || null,
+        publishedAt: article.publishedAt ? new Date(article.publishedAt) : null,
+      }).returning();
+      res.status(201).json(bookmark);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.delete("/api/public/bookmarks", publicSubscribeLimit, async (req, res) => {
+    try {
+      const { email, articleId } = req.body;
+      if (!email || !articleId) return res.status(400).json({ message: "Email and articleId required" });
+      await db.delete(subscriberBookmarks)
+        .where(and(eq(subscriberBookmarks.subscriberEmail, email.trim().toLowerCase()), eq(subscriberBookmarks.articleId, articleId)));
+      res.json({ message: "Removed" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/public/bookmarks/sync", publicSubscribeLimit, async (req, res) => {
+    try {
+      const { email, bookmarks } = req.body;
+      if (!email) return res.status(400).json({ message: "Email required" });
+      const normalEmail = email.trim().toLowerCase();
+      const serverBookmarks = await db.select().from(subscriberBookmarks)
+        .where(eq(subscriberBookmarks.subscriberEmail, normalEmail));
+      const serverMap = new Map(serverBookmarks.map(b => [b.articleId, b]));
+      const localBookmarks = Array.isArray(bookmarks) ? bookmarks : [];
+      for (const local of localBookmarks) {
+        if (!local.articleId) continue;
+        if (!serverMap.has(local.articleId)) {
+          const [inserted] = await db.insert(subscriberBookmarks).values({
+            subscriberEmail: normalEmail,
+            articleId: local.articleId,
+            articleTitle: local.articleTitle || null,
+            articleDescription: local.articleDescription || null,
+            coverImage: local.coverImage || null,
+            podcastId: local.podcastId || null,
+            podcastTitle: local.podcastTitle || null,
+            readingTime: local.readingTime || null,
+            publishedAt: local.publishedAt ? new Date(local.publishedAt) : null,
+            savedAt: local.savedAt ? new Date(local.savedAt) : new Date(),
+          }).returning();
+          serverMap.set(local.articleId, inserted);
+        }
+      }
+      const merged = Array.from(serverMap.values()).sort((a, b) =>
+        new Date(b.savedAt || 0).getTime() - new Date(a.savedAt || 0).getTime()
+      );
+      res.json(merged);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // ── Public Episode Detail (no auth - for public episode pages) ──

@@ -75,9 +75,9 @@ export default function ReadLater() {
             <div className="space-y-4" data-testid="read-later-list">
               {savedArticles.map((article) => (
                 <div
-                  key={article.contentPieceId}
+                  key={article.articleId}
                   className="group bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md transition-all hover:border-gray-200"
-                  data-testid={`saved-article-${article.contentPieceId}`}
+                  data-testid={`saved-article-${article.articleId}`}
                 >
                   <div className="flex gap-4">
                     {article.coverImage && (
@@ -89,16 +89,16 @@ export default function ReadLater() {
                     )}
                     <div className="flex-1 min-w-0">
                       <Link
-                        href={`/news/${article.podcastId}/article/${article.contentPieceId}`}
+                        href={`/news/${article.podcastId}/article/${article.articleId}`}
                         className="block"
-                        data-testid={`link-saved-article-${article.contentPieceId}`}
+                        data-testid={`link-saved-article-${article.articleId}`}
                       >
                         <h3 className="font-bold text-gray-900 text-base leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 mb-1">
-                          {article.title}
+                          {article.articleTitle}
                         </h3>
                       </Link>
-                      {article.description && (
-                        <p className="text-sm text-gray-500 line-clamp-2 mb-2">{article.description}</p>
+                      {article.articleDescription && (
+                        <p className="text-sm text-gray-500 line-clamp-2 mb-2">{article.articleDescription}</p>
                       )}
                       <div className="flex items-center gap-3 text-xs text-gray-400">
                         {article.podcastTitle && <span>{article.podcastTitle}</span>}
@@ -113,18 +113,18 @@ export default function ReadLater() {
                     </div>
                     <div className="flex flex-col items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() => removeArticle(article.contentPieceId)}
+                        onClick={() => removeArticle(article.articleId)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         title="Remove from Read Later"
-                        data-testid={`button-remove-${article.contentPieceId}`}
+                        data-testid={`button-remove-${article.articleId}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                      <Link href={`/news/${article.podcastId}/article/${article.contentPieceId}`}>
+                      <Link href={`/news/${article.podcastId}/article/${article.articleId}`}>
                         <button
                           className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                           title="Read now"
-                          data-testid={`button-read-${article.contentPieceId}`}
+                          data-testid={`button-read-${article.articleId}`}
                         >
                           <ChevronRight className="h-4 w-4" />
                         </button>
