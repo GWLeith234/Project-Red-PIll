@@ -1,7 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache } from "@shared/schema";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions } from "@shared/schema";
+import { lookupIP, getRandomDevCity } from "./geo-lookup";
+import { addFeedClient, getRecentActivities, trackSubscriber, trackArticlePublished, trackCommunityPost, trackPollVote, trackNpsSubmission, trackEventCreated, addActivity } from "./activity-feed";
+import type { Response as ExpressResponse } from "express";
 import { eq, and, desc, sql } from "drizzle-orm";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
@@ -2754,6 +2757,7 @@ export async function registerRoutes(
       await storage.addSubscriberToPodcast({ subscriberId: sub.id, podcastId });
       await storage.incrementPodcastSubscribers(podcastId);
     }
+    trackSubscriber(email);
     res.status(201).json({ message: "Subscribed successfully", alreadyExisted: false });
   });
 
@@ -5601,6 +5605,7 @@ Provide comprehensive social listening intelligence including trending topics, k
       }
       options[optionIndex].votes = (options[optionIndex].votes || 0) + 1;
       await storage.updateCommunityPoll(req.params.id, { options, totalVotes: (poll.totalVotes || 0) + 1 });
+      trackPollVote(poll.question || "Poll");
       res.json({ success: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
@@ -5708,6 +5713,7 @@ Provide comprehensive social listening intelligence including trending topics, k
     try {
       const parsed = insertCommunityPostSchema.parse(req.body);
       const post = await storage.createCommunityPost(parsed);
+      trackCommunityPost(parsed.authorName || "Anonymous");
       res.status(201).json(post);
     } catch (err: any) { res.status(400).json({ message: err.message }); }
   });
@@ -6118,6 +6124,38 @@ Provide comprehensive social listening intelligence including trending topics, k
         ipAddress, userAgent: userAgent || null, referrer: referrer || null,
         deviceType, browser, os,
       }).returning();
+
+      // Upsert live_session
+      const existing = await db.select().from(liveSessions).where(eq(liveSessions.sessionId, sessionId)).limit(1);
+      let geoData: { lat: number; lng: number; country: string; city: string } | null = null;
+      if (existing.length === 0 || !existing[0].latitude) {
+        geoData = await lookupIP(ipAddress);
+      }
+      if (existing.length > 0) {
+        await db.update(liveSessions).set({
+          currentPage: url,
+          lastActivityAt: new Date(),
+          ...(geoData ? { latitude: String(geoData.lat), longitude: String(geoData.lng), country: geoData.country, city: geoData.city } : {}),
+        }).where(eq(liveSessions.sessionId, sessionId));
+      } else {
+        await db.insert(liveSessions).values({
+          sessionId,
+          ipAddress,
+          currentPage: url,
+          userAgent: userAgent || null,
+          deviceType,
+          ...(geoData ? { latitude: String(geoData.lat), longitude: String(geoData.lng), country: geoData.country, city: geoData.city } : {}),
+        }).onConflictDoNothing();
+      }
+
+      // Broadcast SSE ping
+      if (geoData || (existing.length > 0 && existing[0].latitude)) {
+        const lat = geoData?.lat ?? Number(existing[0]?.latitude);
+        const lng = geoData?.lng ?? Number(existing[0]?.longitude);
+        const country = geoData?.country ?? existing[0]?.country ?? "";
+        broadcastVisitorEvent({ type: "ping", lat, lng, country, page: url });
+      }
+
       res.json({ id: row.id });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
@@ -6145,6 +6183,7 @@ Provide comprehensive social listening intelligence including trending topics, k
       const [row] = await db.insert(npsResponses).values({
         score, comment: comment || null, respondentEmail: email || null,
       }).returning();
+      trackNpsSubmission(score);
       res.json(row);
       if (comment) {
         import("./ai-analytics").then(({ analyzeFeedbackSentiment }) => {
@@ -6488,6 +6527,131 @@ Provide comprehensive social listening intelligence including trending topics, k
       res.status(500).json({ message: e.message });
     }
   });
+
+  // ── Live Visitor SSE Infrastructure ──
+  const visitorSSEClients: ExpressResponse[] = [];
+
+  function broadcastVisitorEvent(data: any) {
+    const msg = `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of visitorSSEClients) {
+      try { client.write(msg); } catch {}
+    }
+  }
+
+  // Cleanup stale sessions every 60s
+  setInterval(async () => {
+    try {
+      const cutoff = new Date(Date.now() - 10 * 60 * 1000);
+      await db.delete(liveSessions).where(sql`${liveSessions.lastActivityAt} < ${cutoff}`);
+    } catch {}
+  }, 60_000);
+
+  app.get("/api/analytics/live-visitors", requireAuth, (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    visitorSSEClients.push(res);
+    res.on("close", () => {
+      const idx = visitorSSEClients.indexOf(res);
+      if (idx >= 0) visitorSSEClients.splice(idx, 1);
+    });
+
+    // Send initial snapshot
+    (async () => {
+      try {
+        const sessions = await db.select().from(liveSessions);
+        res.write(`event: snapshot\ndata: ${JSON.stringify({ type: "snapshot", sessions })}\n\n`);
+      } catch {}
+    })();
+
+    // Send updates every 5 seconds
+    const updateInterval = setInterval(async () => {
+      try {
+        const sessions = await db.select().from(liveSessions);
+        const countryMap = new Map<string, number>();
+        for (const s of sessions) {
+          if (s.country) countryMap.set(s.country, (countryMap.get(s.country) || 0) + 1);
+        }
+        const topCountries = [...countryMap.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([country, count]) => ({ country, count }));
+
+        const oneMinAgo = new Date(Date.now() - 60_000);
+        const recentPages = await db.execute(sql`SELECT COUNT(*) as cnt FROM page_analytics WHERE created_at >= ${oneMinAgo}`);
+        const pagesPerMinute = Number(recentPages.rows[0]?.cnt || 0);
+
+        res.write(`event: update\ndata: ${JSON.stringify({
+          type: "update",
+          activeSessions: sessions.length,
+          sessions,
+          topCountries,
+          pagesPerMinute,
+        })}\n\n`);
+      } catch {}
+    }, 5000);
+
+    // Keepalive every 30s
+    const keepalive = setInterval(() => {
+      try { res.write(": keepalive\n\n"); } catch {}
+    }, 30_000);
+
+    res.on("close", () => {
+      clearInterval(updateInterval);
+      clearInterval(keepalive);
+    });
+  });
+
+  // ── Live Activity Feed SSE ──
+  app.get("/api/analytics/live-feed", requireAuth, (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    addFeedClient(res);
+
+    // Send history
+    const history = getRecentActivities(20);
+    res.write(`event: history\ndata: ${JSON.stringify({ type: "history", activities: history })}\n\n`);
+
+    // Keepalive
+    const keepalive = setInterval(() => {
+      try { res.write(": keepalive\n\n"); } catch {}
+    }, 30_000);
+
+    res.on("close", () => clearInterval(keepalive));
+  });
+
+  // ── Dev mode: simulate visitor ──
+  if (process.env.NODE_ENV !== "production") {
+    app.post("/api/analytics/simulate-visitor", requireAuth, async (_req, res) => {
+      try {
+        const geo = getRandomDevCity();
+        const fakeSessionId = `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const pages = ["/", "/news", "/podcasts", "/shows", "/community", "/about"];
+        const page = pages[Math.floor(Math.random() * pages.length)];
+        await db.insert(liveSessions).values({
+          sessionId: fakeSessionId,
+          ipAddress: "127.0.0.1",
+          latitude: String(geo.lat),
+          longitude: String(geo.lng),
+          country: geo.country,
+          city: geo.city,
+          currentPage: page,
+          deviceType: Math.random() > 0.3 ? "desktop" : "mobile",
+        }).onConflictDoNothing();
+        broadcastVisitorEvent({ type: "ping", lat: geo.lat, lng: geo.lng, country: geo.country, page });
+        res.json({ ok: true, city: geo.city, country: geo.country });
+      } catch (e: any) {
+        res.status(500).json({ message: e.message });
+      }
+    });
+  }
 
   // ── Commercial Leads CRUD ──
   app.get("/api/crm/leads", requireAuth, async (req, res) => {

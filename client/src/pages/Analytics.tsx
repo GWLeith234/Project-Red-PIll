@@ -5,7 +5,8 @@ import MetricsStrip from "@/components/admin/MetricsStrip";
 import DataCard from "@/components/admin/DataCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, AlertTriangle, Target, X, FileText, Loader2, Sparkles } from "lucide-react";
+import { Lightbulb, AlertTriangle, Target, X, FileText, Loader2, Sparkles, Radio } from "lucide-react";
+import LiveVisitorMap from "@/components/admin/LiveVisitorMap";
 import {
   LineChart,
   Line,
@@ -206,6 +207,43 @@ export default function Analytics() {
           </div>
         </div>
       )}
+
+      <DataCard title="Live Visitor Map" subtitle="Real-time global visitor activity" data-testid="card-live-map">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Radio className="w-4 h-4 text-red-500 animate-pulse" />
+            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Broadcasting</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {process.env.NODE_ENV !== "production" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs font-mono"
+                onClick={async () => {
+                  for (let i = 0; i < 10; i++) {
+                    await fetch("/api/analytics/simulate-visitor", { method: "POST", credentials: "include" });
+                    await new Promise(r => setTimeout(r, 500));
+                  }
+                }}
+                data-testid="button-simulate-visitors"
+              >
+                Simulate 10 Visitors
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs font-mono"
+              onClick={() => window.open("/analytics/live-map", "_blank")}
+              data-testid="button-fullscreen-map"
+            >
+              Fullscreen
+            </Button>
+          </div>
+        </div>
+        <LiveVisitorMap />
+      </DataCard>
 
       <Tabs defaultValue="website" data-testid="analytics-tabs">
         <TabsList data-testid="analytics-tabs-list">

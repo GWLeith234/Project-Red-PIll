@@ -41,6 +41,7 @@ import SiteBuilder from "@/pages/SiteBuilder";
 import CommunityAdmin from "@/pages/CommunityAdmin";
 import EventsPage from "@/pages/EventsPage";
 import CommunityPage from "@/pages/CommunityPage";
+import LiveMapBroadcast from "@/pages/LiveMapBroadcast";
 import NotFound from "@/pages/not-found";
 
 function PageLoader() {
@@ -206,6 +207,7 @@ function App() {
             <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
             <Route path="/events">{() => <AudienceLayout><EventsPage /></AudienceLayout>}</Route>
             <Route path="/community-hub">{() => <AudienceLayout><CommunityPage /></AudienceLayout>}</Route>
+            <Route path="/analytics/live-map">{() => <LiveMapBroadcast />}</Route>
             <Route>
               <ProtectedRoutes />
             </Route>

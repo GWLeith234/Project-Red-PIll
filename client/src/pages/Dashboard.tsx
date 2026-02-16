@@ -1,19 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { formatDistanceToNow } from "date-fns";
-import { Newspaper, UserPlus, MessageSquare, Factory, Users, BarChart3, Heart, ArrowRight } from "lucide-react";
+import { Factory, Users, BarChart3, Heart, ArrowRight } from "lucide-react";
+import LiveActivityFeed from "@/components/admin/LiveActivityFeed";
 import PageHeader from "@/components/admin/PageHeader";
 import MetricsStrip from "@/components/admin/MetricsStrip";
 import DataCard from "@/components/admin/DataCard";
 import { AiSuccessBrief } from "@/components/AiSuccessBrief";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  article: Newspaper,
-  subscriber: UserPlus,
-  post: MessageSquare,
-};
 
 export default function Dashboard() {
   const [showAiBrief, setShowAiBrief] = useState(false);
@@ -38,7 +32,6 @@ export default function Dashboard() {
       ]
     : [];
 
-  const activityFeed: Array<{ type: string; description: string; timestamp: string }> = data?.activityFeed || [];
   const quickAccess = data?.quickAccess;
 
   return (
@@ -55,33 +48,9 @@ export default function Dashboard() {
         <MetricsStrip metrics={metrics} />
       )}
 
-      {isLoading ? (
-        <Skeleton className="h-[300px] rounded-lg" />
-      ) : (
-        <DataCard title="Live Activity Feed" data-testid="card-activity-feed">
-          <div className="max-h-[320px] overflow-y-auto space-y-3 pr-1" data-testid="activity-feed-list">
-            {activityFeed.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-empty-feed">No recent activity</p>
-            )}
-            {activityFeed.map((entry, i) => {
-              const IconComponent = ACTIVITY_ICONS[entry.type] || Newspaper;
-              return (
-                <div key={i} className="flex items-start gap-3 py-2 border-b border-border/40 last:border-0" data-testid={`activity-item-${i}`}>
-                  <div className="mt-0.5 p-1.5 rounded-md bg-muted flex-shrink-0">
-                    <IconComponent className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground" data-testid={`text-activity-desc-${i}`}>{entry.description}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5" data-testid={`text-activity-time-${i}`}>
-                      {formatDistanceToNow(new Date(entry.timestamp), { addSuffix: true })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </DataCard>
-      )}
+      <DataCard title="Live Activity Feed" data-testid="card-activity-feed">
+        <LiveActivityFeed />
+      </DataCard>
 
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="quick-access-skeleton">
