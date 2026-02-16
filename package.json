@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
+    "@capacitor/android": "^8.1.0",
     "@capacitor/cli": "^7.5.0",
     "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "@google-cloud/storage": "^7.19.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
