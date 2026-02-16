@@ -4,6 +4,8 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { AudioPlayerProvider, useAudioPlayerOptional } from "@/components/AudioPlayerProvider";
+import MiniPlayer from "@/components/MiniPlayer";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
 
@@ -221,13 +223,15 @@ function NotificationPanel({ isSubscribed, preferences, subscribe, unsubscribe, 
   );
 }
 
-export default function AudienceLayout({ children }: { children: React.ReactNode }) {
+function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const { data: podcasts } = usePublicPodcasts();
   const { data: branding } = usePublicBranding();
   const { savedCount } = useReadLater();
   const { isSupported, isSubscribed, preferences, subscribe, unsubscribe, updatePreferences } = usePushNotifications();
+  const audioPlayer = useAudioPlayerOptional();
+  const hasActivePlayer = !!audioPlayer?.currentEpisode;
   const [location] = useLocation();
 
   const platformName = branding?.companyName || "MediaTech Empire";
@@ -471,9 +475,11 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         )}
       </header>
 
-      <main className="flex-1 pb-16 lg:pb-0">
+      <main className={`flex-1 ${hasActivePlayer ? "pb-28 lg:pb-16" : "pb-16 lg:pb-0"}`}>
         {children}
       </main>
+
+      <MiniPlayer />
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-950/95 backdrop-blur-lg border-t border-gray-800/50 safe-area-bottom print:hidden" data-testid="mobile-tab-bar">
         <div className="flex items-center justify-around h-14">
@@ -593,5 +599,13 @@ export default function AudienceLayout({ children }: { children: React.ReactNode
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function AudienceLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AudioPlayerProvider>
+      <AudienceLayoutInner>{children}</AudienceLayoutInner>
+    </AudioPlayerProvider>
   );
 }

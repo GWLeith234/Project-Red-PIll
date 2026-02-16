@@ -1,0 +1,13 @@
+Build a persistent audio player for the audience-facing app that survives page navigation and supports background playback. Implementation:
+
+(1) Create a React context AudioPlayerContext in client/src/components/AudioPlayerProvider.tsx. State: currentEpisode (object with id, title, podcastTitle, audioUrl, coverImage, duration), isPlaying, currentTime, duration, volume, playbackRate, queue (array of episodes). Functions: play(episode), pause(), resume(), seek(time), setVolume(v), setPlaybackRate(r), addToQueue(episode), playNext(), playPrevious(). Use a single HTML5 Audio element created with useRef. Attach timeupdate, ended, loadedmetadata, error event listeners.
+
+(2) Integrate the Media Session API for lock-screen and notification controls. When an episode starts playing: navigator.mediaSession.metadata = new MediaMetadata({ title: episode.title, artist: episode.podcastTitle, album: 'MediaTech Empire', artwork: [{ src: episode.coverImage, sizes: '512x512', type: 'image/png' }] }). Set action handlers for play, pause, seekbackward (skip back 15s), seekforward (skip forward 30s), previoustrack (playPrevious), nexttrack (playNext).
+
+(3) Wrap AudienceLayout's children in AudioPlayerProvider in App.tsx so the context persists across all audience routes.
+
+(4) Build the MiniPlayer component at client/src/components/MiniPlayer.tsx. This renders as a fixed bar above the bottom tab bar (bottom-14 on mobile, bottom-0 on desktop). Shows: episode cover image (40x40 rounded), episode title (truncated), podcast name (truncated), play/pause button, 15s skip-back button, 30s skip-forward button, and a thin progress bar at the top edge of the bar. Tapping the text area expands to a full-screen player modal with: large cover art, full title and podcast name, scrubber/seek bar with current time and duration, play/pause/skip buttons, volume slider, playback speed selector (0.5x, 1x, 1.25x, 1.5x, 2x), queue list, and a close/minimize button.
+
+(5) Mount MiniPlayer inside AudienceLayout, below {children} and above the bottom tab bar. Only render when currentEpisode is not null. Adjust the bottom padding of <main> to account for the mini player height when visible (add pb-28 when player is active instead of pb-16).
+
+(6) Connect the existing EpisodePage play buttons to AudioPlayerContext. When a user taps play on any episode, call play(episode) from context instead of using a page-local audio element. If EpisodePage currently has its own audio player, remove it and use the global one.

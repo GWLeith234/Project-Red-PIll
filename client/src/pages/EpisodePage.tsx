@@ -2,11 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones, Sparkles } from "lucide-react";
+import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones, Sparkles, ListPlus } from "lucide-react";
 import { useState } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar, EpisodeSubscribeWidget } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
+import { useAudioPlayer, type AudioEpisode } from "@/components/AudioPlayerProvider";
 
 function formatDuration(duration: string | null) {
   if (!duration) return "";
@@ -62,35 +63,69 @@ function VideoPlayerUI({ videoUrl, title, thumbnailUrl }: { videoUrl: string; ti
   );
 }
 
-function AudioPlayerUI({ title, duration, podcastTitle }: { title: string; duration: string | null; podcastTitle: string }) {
-  const [playing, setPlaying] = useState(false);
-  const [progress] = useState(0);
+function AudioPlayerUI({ episode, podcast }: { episode: any; podcast: any }) {
+  const { play, pause, resume, isPlaying, currentEpisode, addToQueue } = useAudioPlayer();
+  const isThisEpisode = currentEpisode?.id === episode.id;
+  const isThisPlaying = isThisEpisode && isPlaying;
+
+  const handlePlay = () => {
+    if (isThisEpisode) {
+      isPlaying ? pause() : resume();
+    } else {
+      const audioEp: AudioEpisode = {
+        id: episode.id,
+        title: episode.title,
+        podcastTitle: podcast?.title || "Podcast",
+        audioUrl: episode.audioUrl || "",
+        coverImage: episode.thumbnailUrl || podcast?.coverImage,
+        duration: episode.duration,
+        podcastId: podcast?.id,
+      };
+      play(audioEp);
+    }
+  };
+
+  const handleQueue = () => {
+    addToQueue({
+      id: episode.id,
+      title: episode.title,
+      podcastTitle: podcast?.title || "Podcast",
+      audioUrl: episode.audioUrl || "",
+      coverImage: episode.thumbnailUrl || podcast?.coverImage,
+      duration: episode.duration,
+      podcastId: podcast?.id,
+    });
+  };
 
   return (
     <div className="bg-gray-900 rounded-lg p-5 mb-8" data-testid="audio-player">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => {}}
+          onClick={handlePlay}
           className="h-14 w-14 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center flex-shrink-0 transition-colors shadow-lg shadow-amber-500/20"
           data-testid="button-play-pause"
         >
-          {playing ? <Pause className="h-6 w-6 text-gray-900" /> : <Play className="h-6 w-6 text-gray-900 ml-0.5" />}
+          {isThisPlaying ? <Pause className="h-6 w-6 text-gray-900" /> : <Play className="h-6 w-6 text-gray-900 ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm font-semibold truncate" data-testid="text-player-title">{title}</p>
-          <p className="text-gray-400 text-xs">{podcastTitle}</p>
+          <p className="text-white text-sm font-semibold truncate" data-testid="text-player-title">{episode.title}</p>
+          <p className="text-gray-400 text-xs">{podcast?.title || "Podcast"}</p>
           <div className="mt-2.5 flex items-center gap-3">
-            <div className="flex-1 bg-gray-800 rounded-full h-1.5 overflow-hidden">
-              <div
-                className="bg-amber-500 h-full rounded-full transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
             <span className="text-gray-500 text-xs font-mono flex-shrink-0">
-              {duration ? formatDuration(duration) : "--:--"}
+              {episode.duration ? formatDuration(episode.duration) : "--:--"}
             </span>
           </div>
         </div>
+        {!isThisEpisode && (
+          <button
+            onClick={handleQueue}
+            className="p-2 text-gray-500 hover:text-amber-500 transition-colors"
+            title="Add to queue"
+            data-testid="button-add-to-queue"
+          >
+            <ListPlus className="h-5 w-5" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -310,11 +345,7 @@ export default function EpisodePage() {
             )}
 
             {(episode.episodeType !== "video") && (
-              <AudioPlayerUI
-                title={episode.title}
-                duration={episode.duration}
-                podcastTitle={podcast?.title || "Podcast"}
-              />
+              <AudioPlayerUI episode={episode} podcast={podcast} />
             )}
 
             <InlineSubscribeWidget
