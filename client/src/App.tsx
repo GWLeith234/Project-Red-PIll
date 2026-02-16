@@ -21,6 +21,7 @@ import SearchPage from "@/pages/SearchPage";
 import ReadLater from "@/pages/ReadLater";
 import PublicNewsPage from "@/pages/PublicNewsPage";
 import AudienceLayout from "@/components/layout/AudienceLayout";
+import { AudioPlayerProvider } from "@/components/AudioPlayerProvider";
 import UsersAdmin from "@/pages/UsersAdmin";
 import SubscriberCRM from "@/pages/SubscriberCRM";
 import CommercialCRM from "@/pages/CommercialCRM";
@@ -188,6 +189,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrandingProvider>
+      <AudioPlayerProvider>
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
           <Switch>
@@ -207,6 +209,7 @@ function App() {
         </Suspense>
         <Toaster />
       </AuthProvider>
+      </AudioPlayerProvider>
       </BrandingProvider>
     </QueryClientProvider>
   );

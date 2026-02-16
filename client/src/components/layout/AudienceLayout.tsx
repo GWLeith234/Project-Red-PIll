@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import { AudioPlayerProvider, useAudioPlayerOptional } from "@/components/AudioPlayerProvider";
+import { useAudioPlayerOptional } from "@/components/AudioPlayerProvider";
 import MiniPlayer from "@/components/MiniPlayer";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
@@ -603,9 +603,5 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
 }
 
 export default function AudienceLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AudioPlayerProvider>
-      <AudienceLayoutInner>{children}</AudienceLayoutInner>
-    </AudioPlayerProvider>
-  );
+  return <AudienceLayoutInner>{children}</AudienceLayoutInner>;
 }
