@@ -63,10 +63,60 @@
   --radius: 0rem; 
 }
 
-/* DARK CORPORATE FUTURIST THEME */
+/* LIGHT THEME */
 :root {
-  --background: 222 47% 11%; /* Deep Slate Blue */
-  --foreground: 0 0% 100%; /* Pure White */
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  --primary: 217 91% 50%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;
+
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 217 91% 50%;
+
+  --gold: 45 93% 37%;
+
+  --radius: 0rem;
+
+  --chart-1: 217 91% 50%;
+  --chart-2: 160 84% 39%;
+  --chart-3: 199 89% 48%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+
+  --sidebar: 220 14% 96%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-primary: 217 91% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 14% 92%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217 91% 50%;
+}
+
+/* DARK CORPORATE FUTURIST THEME */
+.dark {
+  --background: 222 47% 11%;
+  --foreground: 0 0% 100%;
 
   --card: 222 47% 13%;
   --card-foreground: 210 40% 98%;
@@ -74,7 +124,7 @@
   --popover: 222 47% 11%;
   --popover-foreground: 210 40% 98%;
 
-  --primary: 217 91% 60%; /* Electric Blue */
+  --primary: 217 91% 60%;
   --primary-foreground: 222 47% 11%;
 
   --secondary: 217 19% 27%;
@@ -83,7 +133,7 @@
   --muted: 217 19% 27%;
   --muted-foreground: 215 20% 65%;
 
-  --accent: 160 84% 39%; /* Tech Green */
+  --accent: 160 84% 39%;
   --accent-foreground: 210 40% 98%;
 
   --destructive: 0 62% 30%;
@@ -93,9 +143,9 @@
   --input: 217 32% 17%;
   --ring: 217 91% 60%;
 
-  --gold: 45 93% 47%; /* Rich Gold */
+  --gold: 45 93% 47%;
 
-  --radius: 0rem; /* Sharp edges for futuristic look */
+  --radius: 0rem;
 
   --chart-1: 217 91% 60%;
   --chart-2: 160 84% 39%;
@@ -132,7 +182,7 @@
 
 @layer utilities {
   .glass-panel {
-    @apply bg-card/60 backdrop-blur-md border border-white/5 shadow-xl;
+    @apply bg-card/60 backdrop-blur-md border border-border/50 shadow-xl;
   }
   
   .tech-border {

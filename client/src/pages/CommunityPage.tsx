@@ -76,11 +76,11 @@ function PollCard({ poll }: { poll: any }) {
 
   return (
     <div
-      className={`bg-gray-900 border rounded-xl p-6 ${isFeatured ? "border-amber-500/50 ring-1 ring-amber-500/20" : "border-gray-800"}`}
+      className={`bg-background border rounded-xl p-6 ${isFeatured ? "border-amber-500/50 ring-1 ring-amber-500/20" : "border-border"}`}
       data-testid={`card-poll-${poll.id}`}
     >
       <div className="flex items-start justify-between mb-4">
-        <h3 className="text-lg font-bold text-white pr-4" data-testid={`text-poll-question-${poll.id}`}>
+        <h3 className="text-lg font-bold text-foreground pr-4" data-testid={`text-poll-question-${poll.id}`}>
           {poll.question}
         </h3>
         {isFeatured && (
@@ -99,18 +99,18 @@ function PollCard({ poll }: { poll: any }) {
           if (hasVoted) {
             return (
               <div key={idx} className="relative" data-testid={`poll-result-${poll.id}-${idx}`}>
-                <div className="relative h-11 rounded-lg overflow-hidden bg-gray-800 border border-gray-700">
+                <div className="relative h-11 rounded-lg overflow-hidden bg-muted border border-border">
                   <div
                     className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-500 ${
-                      isSelected ? "bg-amber-500/30" : "bg-gray-700/50"
+                      isSelected ? "bg-amber-500/30" : "bg-muted/50"
                     }`}
                     style={{ width: `${pct}%` }}
                   />
                   <div className="relative flex items-center justify-between h-full px-4">
-                    <span className={`text-sm font-medium ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
+                    <span className={`text-sm font-medium ${isSelected ? "text-amber-300" : "text-foreground/80"}`}>
                       {option.text}
                     </span>
-                    <span className={`text-sm font-bold ${isSelected ? "text-amber-400" : "text-gray-400"}`}>
+                    <span className={`text-sm font-bold ${isSelected ? "text-amber-400" : "text-muted-foreground"}`}>
                       {pct}%
                     </span>
                   </div>
@@ -124,7 +124,7 @@ function PollCard({ poll }: { poll: any }) {
               key={idx}
               onClick={() => handleVote(idx)}
               disabled={submitting}
-              className="w-full h-11 rounded-lg border border-gray-700 bg-gray-800 text-gray-300 text-sm font-medium hover:border-amber-500/50 hover:bg-gray-750 hover:text-white transition-all disabled:opacity-50 px-4 text-left"
+              className="w-full h-11 rounded-lg border border-border bg-muted text-foreground/80 text-sm font-medium hover:border-amber-500/50 hover:bg-muted hover:text-foreground transition-all disabled:opacity-50 px-4 text-left"
               data-testid={`poll-option-${poll.id}-${idx}`}
             >
               {option.text}
@@ -133,7 +133,7 @@ function PollCard({ poll }: { poll: any }) {
         })}
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-gray-500">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Users className="h-3.5 w-3.5" />
         <span data-testid={`text-poll-votes-${poll.id}`}>{totalVotes} vote{totalVotes !== 1 ? "s" : ""}</span>
         {poll.createdAt && (
@@ -209,8 +209,8 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
   const replies: any[] = post.replies || [];
 
   return (
-    <div className={depth > 0 ? "ml-8 border-l-2 border-gray-800 pl-4" : ""} data-testid={`card-post-${post.id}`}>
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-3">
+    <div className={depth > 0 ? "ml-8 border-l-2 border-border pl-4" : ""} data-testid={`card-post-${post.id}`}>
+      <div className="bg-background border border-border rounded-xl p-5 mb-3">
         {isPinned && depth === 0 && (
           <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold mb-3" data-testid={`badge-pinned-${post.id}`}>
             <Pin className="h-3.5 w-3.5 fill-amber-400" />
@@ -224,12 +224,12 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
               <img
                 src={post.authorAvatar}
                 alt=""
-                className="h-10 w-10 rounded-full object-cover ring-2 ring-gray-800"
+                className="h-10 w-10 rounded-full object-cover ring-2 ring-border"
                 data-testid={`img-avatar-${post.id}`}
               />
             ) : (
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500/30 to-purple-500/30 flex items-center justify-center ring-2 ring-gray-800">
-                <span className="text-xs font-bold text-white" data-testid={`text-initials-${post.id}`}>
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500/30 to-purple-500/30 flex items-center justify-center ring-2 ring-border">
+                <span className="text-xs font-bold text-foreground" data-testid={`text-initials-${post.id}`}>
                   {getInitials(post.authorName || "A")}
                 </span>
               </div>
@@ -238,14 +238,14 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold text-white" data-testid={`text-author-${post.id}`}>
+              <span className="text-sm font-semibold text-foreground" data-testid={`text-author-${post.id}`}>
                 {post.authorName || "Anonymous"}
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 {post.createdAt ? timeAgo(post.createdAt) : ""}
               </span>
             </div>
-            <p className="text-sm text-gray-300 whitespace-pre-wrap" data-testid={`text-content-${post.id}`}>
+            <p className="text-sm text-foreground/80 whitespace-pre-wrap" data-testid={`text-content-${post.id}`}>
               {post.content}
             </p>
 
@@ -253,7 +253,7 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
               <button
                 onClick={handleLike}
                 className={`flex items-center gap-1.5 text-sm transition-colors ${
-                  liked ? "text-red-400" : "text-gray-500 hover:text-red-400"
+                  liked ? "text-red-400" : "text-muted-foreground hover:text-red-400"
                 }`}
                 data-testid={`button-like-${post.id}`}
               >
@@ -263,7 +263,7 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
               {depth === 0 && (
                 <button
                   onClick={() => setShowReply(!showReply)}
-                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-400 transition-colors"
                   data-testid={`button-reply-${post.id}`}
                 >
                   <MessageCircle className="h-4 w-4" />
@@ -281,7 +281,7 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
               placeholder="Your name"
               value={replyName}
               onChange={(e) => setReplyName(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50"
               data-testid={`input-reply-name-${post.id}`}
             />
             <div className="flex gap-2">
@@ -290,7 +290,7 @@ function DiscussionPost({ post, depth = 0 }: { post: any; depth?: number }) {
                 placeholder="Write a reply..."
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+                className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50"
                 data-testid={`input-reply-content-${post.id}`}
                 onKeyDown={(e) => { if (e.key === "Enter") handleReply(); }}
               />
@@ -332,12 +332,12 @@ function PollsTab() {
     return (
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-6 animate-pulse">
-            <div className="h-5 bg-gray-800 rounded w-3/4 mb-4" />
+          <div key={i} className="bg-background border border-border rounded-xl p-6 animate-pulse">
+            <div className="h-5 bg-muted rounded w-3/4 mb-4" />
             <div className="space-y-2">
-              <div className="h-11 bg-gray-800 rounded-lg" />
-              <div className="h-11 bg-gray-800 rounded-lg" />
-              <div className="h-11 bg-gray-800 rounded-lg" />
+              <div className="h-11 bg-muted rounded-lg" />
+              <div className="h-11 bg-muted rounded-lg" />
+              <div className="h-11 bg-muted rounded-lg" />
             </div>
           </div>
         ))}
@@ -348,9 +348,9 @@ function PollsTab() {
   if (polls.length === 0) {
     return (
       <div className="text-center py-20" data-testid="empty-polls">
-        <BarChart3 className="h-16 w-16 text-gray-700 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-400 mb-2">No polls yet</h3>
-        <p className="text-gray-500">Community polls will appear here. Check back soon!</p>
+        <BarChart3 className="h-16 w-16 text-foreground/80 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-muted-foreground mb-2">No polls yet</h3>
+        <p className="text-muted-foreground">Community polls will appear here. Check back soon!</p>
       </div>
     );
   }
@@ -411,17 +411,17 @@ function DiscussionTab() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 animate-pulse">
-          <div className="h-10 bg-gray-800 rounded-lg mb-3" />
-          <div className="h-20 bg-gray-800 rounded-lg" />
+        <div className="bg-background border border-border rounded-xl p-5 animate-pulse">
+          <div className="h-10 bg-muted rounded-lg mb-3" />
+          <div className="h-20 bg-muted rounded-lg" />
         </div>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-5 animate-pulse">
+          <div key={i} className="bg-background border border-border rounded-xl p-5 animate-pulse">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-full bg-gray-800" />
+              <div className="h-10 w-10 rounded-full bg-muted" />
               <div className="space-y-2 flex-1">
-                <div className="h-4 bg-gray-800 rounded w-1/4" />
-                <div className="h-3 bg-gray-800 rounded w-full" />
+                <div className="h-4 bg-muted rounded w-1/4" />
+                <div className="h-3 bg-muted rounded w-full" />
               </div>
             </div>
           </div>
@@ -432,14 +432,14 @@ function DiscussionTab() {
 
   return (
     <div data-testid="discussion-tab">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6" data-testid="form-new-post">
-        <h4 className="text-sm font-semibold text-gray-400 mb-3">Write a post</h4>
+      <div className="bg-background border border-border rounded-xl p-5 mb-6" data-testid="form-new-post">
+        <h4 className="text-sm font-semibold text-muted-foreground mb-3">Write a post</h4>
         <input
           type="text"
           placeholder="Your name"
           value={authorName}
           onChange={(e) => setAuthorName(e.target.value)}
-          className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 mb-3"
+          className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 mb-3"
           data-testid="input-post-name"
         />
         <textarea
@@ -447,7 +447,7 @@ function DiscussionTab() {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={3}
-          className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 resize-none mb-3"
+          className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 resize-none mb-3"
           data-testid="input-post-content"
         />
         <div className="flex justify-end">
@@ -465,9 +465,9 @@ function DiscussionTab() {
 
       {posts.length === 0 ? (
         <div className="text-center py-20" data-testid="empty-discussion">
-          <MessageCircle className="h-16 w-16 text-gray-700 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-400 mb-2">No discussions yet</h3>
-          <p className="text-gray-500">Be the first to start a conversation!</p>
+          <MessageCircle className="h-16 w-16 text-foreground/80 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-muted-foreground mb-2">No discussions yet</h3>
+          <p className="text-muted-foreground">Be the first to start a conversation!</p>
         </div>
       ) : (
         <div className="space-y-1" data-testid="discussion-list">
@@ -487,28 +487,28 @@ export default function CommunityPage() {
   const [activeTab, setActiveTab] = useState<"polls" | "discussion">("polls");
 
   return (
-    <div className="bg-gray-950 text-white min-h-screen" data-testid="community-page">
-      <div className="relative py-16 px-4 text-center bg-gradient-to-b from-gray-900 to-gray-950">
+    <div className="bg-background text-foreground min-h-screen" data-testid="community-page">
+      <div className="relative py-16 px-4 text-center bg-gradient-to-b from-background to-background">
         <div className="max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-semibold mb-4">
             <Users className="h-3.5 w-3.5" />
             COMMUNITY HUB
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-3" data-testid="text-community-title">Community</h1>
-          <p className="text-gray-400 text-lg" data-testid="text-community-subtitle">
+          <p className="text-muted-foreground text-lg" data-testid="text-community-subtitle">
             Join the conversation, vote on polls, and connect with fellow members
           </p>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 pb-16">
-        <div className="flex border-b border-gray-800 mb-8" data-testid="tab-switcher">
+        <div className="flex border-b border-border mb-8" data-testid="tab-switcher">
           <button
             onClick={() => setActiveTab("polls")}
             className={`flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-colors border-b-2 -mb-[1px] ${
               activeTab === "polls"
                 ? "text-amber-400 border-amber-400"
-                : "text-gray-500 border-transparent hover:text-gray-300"
+                : "text-muted-foreground border-transparent hover:text-foreground/80"
             }`}
             data-testid="tab-polls"
           >
@@ -520,7 +520,7 @@ export default function CommunityPage() {
             className={`flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-colors border-b-2 -mb-[1px] ${
               activeTab === "discussion"
                 ? "text-amber-400 border-amber-400"
-                : "text-gray-500 border-transparent hover:text-gray-300"
+                : "text-muted-foreground border-transparent hover:text-foreground/80"
             }`}
             data-testid="tab-discussion"
           >

@@ -1,0 +1,186 @@
+Sprint S4: Build fully functional CRM pipelines with drag-and-drop, auto-segmentation, revenue tracking, and an AI sales engine that scores leads, predicts churn, suggests upsells, and automatically prompts advertisers to increase spend when campaigns perform well.
+
+PART A — COMMERCIAL CRM DATABASE:
+
+(1) Add commercial_leads table to Drizzle schema:
+- id: uuid, primary key
+- company_name: text, not null
+- contact_name: text
+- contact_email: text
+- contact_phone: text
+- source: text (inbound, referral, cold_outreach, ai_generated)
+- pipeline_stage: text, default 'lead' (lead, qualified, proposal, negotiation, closed_won, closed_lost)
+- pipeline_type: text, default 'new_logo' (new_logo, existing_client)
+- estimated_value: numeric, default 0
+- notes: text
+- ai_score: integer, nullable (0-100 AI-generated lead score)
+- ai_recommendation: text, nullable
+- last_activity_at: timestamp
+- created_at: timestamp, default now
+- updated_at: timestamp, default now
+
+(2) Add commercial_proposals table:
+- id: uuid, primary key
+- lead_id: text, references commercial_leads
+- proposal_name: text
+- products: jsonb (array of { product: string, quantity: number, price: number })
+- total_value: numeric
+- status: text, default 'draft' (draft, sent, viewed, accepted, rejected)
+- sent_at: timestamp, nullable
+- expires_at: timestamp, nullable
+- created_at: timestamp, default now
+
+(3) Add commercial_orders table:
+- id: uuid, primary key
+- lead_id: text, references commercial_leads
+- proposal_id: text, references commercial_proposals, nullable
+- order_name: text
+- products: jsonb
+- total_value: numeric
+- status: text, default 'active' (active, completed, cancelled)
+- start_date: timestamp
+- end_date: timestamp
+- created_at: timestamp, default now
+
+(4) Add campaign_performance table (links to ad campaigns and commercial orders):
+- id: uuid, primary key
+- order_id: text, references commercial_orders
+- campaign_name: text
+- impressions: integer, default 0
+- clicks: integer, default 0
+- conversions: integer, default 0
+- spend: numeric, default 0
+- revenue: numeric, default 0
+- ctr: numeric (computed: clicks/impressions)
+- roas: numeric (computed: revenue/spend)
+- period_start: timestamp
+- period_end: timestamp
+- created_at: timestamp, default now
+
+PART B — CRM API ENDPOINTS:
+
+(5) Add CRUD endpoints for commercial_leads:
+- GET /api/crm/leads?pipeline_type=new_logo&stage=lead (filterable)
+- GET /api/crm/leads/:id
+- POST /api/crm/leads (requireAuth)
+- PATCH /api/crm/leads/:id (requireAuth) — includes stage changes for drag-and-drop
+- DELETE /api/crm/leads/:id (requireAuth)
+
+(6) Add CRUD endpoints for commercial_proposals:
+- GET /api/crm/proposals?lead_id=xxx
+- POST /api/crm/proposals (requireAuth)
+- PATCH /api/crm/proposals/:id (requireAuth)
+
+(7) Add CRUD endpoints for commercial_orders:
+- GET /api/crm/orders?status=active
+- POST /api/crm/orders (requireAuth)
+- PATCH /api/crm/orders/:id (requireAuth)
+
+(8) Add revenue dashboard endpoints:
+- GET /api/crm/revenue/by-product?period=30d — revenue grouped by product type
+- GET /api/crm/revenue/by-rep?period=30d — placeholder (no rep assignment yet, group by lead creator)
+- GET /api/crm/revenue/pipeline-value — total value at each pipeline stage
+- GET /api/crm/revenue/monthly — monthly revenue for chart (last 12 months)
+
+PART C — AUDIENCE AUTO-SEGMENTATION:
+
+(9) Add engagement tracking to subscribers. Add columns to subscribers table (or create a subscriber_engagement table):
+- last_email_opened_at: timestamp, nullable
+- emails_opened_count: integer, default 0
+- last_push_clicked_at: timestamp, nullable
+- push_clicked_count: integer, default 0
+- last_visit_at: timestamp, nullable
+- visit_count: integer, default 0
+- engagement_stage: text, default 'new' (new, engaged, active, at_risk, churned)
+
+(10) Create server/audience-segmentation.ts — a function that runs on a schedule (or on-demand) to auto-classify subscribers:
+- New: subscribed in last 7 days
+- Engaged: opened 3+ emails OR visited 5+ times in last 30 days
+- Active: consistent engagement over 30+ days (opened emails in at least 3 of last 4 weeks)
+- At Risk: no email opens in 14+ days AND no site visits in 14+ days
+- Churned: no activity of any kind in 60+ days
+- Add endpoint: POST /api/crm/audience/resegment (requireAuth) — runs the segmentation and updates all subscribers
+
+PART D — PIPELINE UI:
+
+(11) Upgrade the PipelineBoard component from S1 to support drag-and-drop:
+- Use HTML5 drag and drop (no external library needed)
+- Each card is draggable. When dropped on a different column, call PATCH to update the stage.
+- Cards show: company name (bold), contact name, estimated value (formatted as currency), days in stage, AI score badge (colored: green 70+, yellow 40-69, red below 40)
+- Column headers show count and total value
+
+(12) Update the Network/CRM page:
+- Audience tab: Show PipelineBoard populated from subscriber engagement_stage data. Cards show subscriber email (masked: j***@email.com), engagement metrics, subscription date. No drag-and-drop on audience (auto-segmented only). Add "Resegment Now" button that calls the resegment endpoint.
+- Commercial tab: Show two pipeline boards — "New Business" (new_logo pipeline) and "Existing Clients" (existing_client pipeline). Both support drag-and-drop. Add "+ Add Lead" button that opens a form modal.
+
+(13) Add DataCards below the pipelines:
+- Revenue Leaderboard by Product: Ranked table from /api/crm/revenue/by-product
+- Revenue Leaderboard by Rep: Ranked table from /api/crm/revenue/by-rep
+- Pipeline vs Revenue Chart: Dual-axis Recharts chart — bar chart for pipeline value by stage, line for monthly closed revenue
+- Email Opens & CTR card: Metrics showing commercial email performance (placeholder data)
+- SMS Opens card: Placeholder metrics
+
+PART E — AI SALES ENGINE:
+
+(14) Create server/ai-sales-engine.ts — the AI-powered sales intelligence system. Uses the existing AI provider system.
+
+Function: scoreLeads(leads: Lead[])
+- Takes an array of leads with their activity history
+- Prompt: "You are a sales intelligence AI for a media advertising platform. Score each lead 0-100 based on: company size indicators in the name, source quality (inbound > referral > cold), engagement recency, pipeline velocity (how fast they moved through stages), and estimated deal value. Return a JSON array of { leadId, score, reasoning }."
+- Updates ai_score on each lead
+
+Function: suggestUpsells(orders: Order[])
+- Takes active orders with their campaign performance data
+- Prompt: "Analyze these active advertising orders and their campaign performance. For each order, determine if there's an upsell opportunity. Consider: campaigns with CTR above 2% are performing well and the client should increase spend. Campaigns with high impressions but low clicks need creative refresh. Clients spending on only one product should be offered bundles. Return JSON array of { orderId, opportunity: string, suggestedAction: string, estimatedAdditionalRevenue: number }."
+- Returns upsell opportunities
+
+Function: predictChurn(clients: Lead[])
+- Takes existing client leads
+- Prompt: "Analyze these existing advertising clients. Predict churn risk (high/medium/low) based on: contract end date proximity, recent campaign performance trends, communication frequency (last_activity_at), and whether they've reduced spend. For high-risk clients, suggest a retention action. Return JSON array of { leadId, churnRisk: 'high'|'medium'|'low', reasoning: string, retentionAction: string }."
+- Updates ai_recommendation on each lead
+
+Function: generateDealInsights(leadId: string)
+- Deep analysis of a single deal
+- Prompt: "Analyze this advertising deal in detail. The lead is [company] at stage [stage] with estimated value [$X]. Their campaign history shows [data]. Provide: 1) Probability of closing (percentage with reasoning), 2) Recommended next action, 3) Suggested proposal structure if at proposal stage, 4) Competitive positioning tips for a conservative media platform."
+- Returns: { closeProb: number, nextAction: string, proposalSuggestion: string, positioning: string }
+
+Function: autoPromptAdvertiser(orderId: string)
+- Called when campaign performance data is updated
+- Checks if any campaigns have CTR > 2% or ROAS > 3x
+- If performing well, generates a personalized message: "Your [campaign name] campaign is performing exceptionally well with a [X]% click-through rate, outperforming industry average by [Y]%. We recommend increasing your budget by [suggested amount] to capitalize on this momentum. Here's what additional spend could deliver: [projected impressions, clicks, conversions]."
+- Stores the generated message and flags the order for admin review
+- Returns: { shouldPrompt: boolean, message: string, suggestedIncrease: number, projections: object }
+
+(15) Add AI sales endpoints:
+- POST /api/crm/ai/score-leads — runs scoreLeads on all leads without recent scores
+- POST /api/crm/ai/suggest-upsells — runs suggestUpsells on all active orders
+- POST /api/crm/ai/predict-churn — runs predictChurn on existing clients
+- POST /api/crm/ai/deal-insights/:leadId — runs generateDealInsights for one lead
+- POST /api/crm/ai/auto-prompt/:orderId — runs autoPromptAdvertiser for one order
+- GET /api/crm/ai/pending-prompts — returns all generated advertiser prompts pending admin review
+
+(16) Wire the "AI Suggest" button on the Network/CRM PageHeader:
+- When clicked on Commercial tab, show a modal with three tabs: "Lead Scoring", "Upsell Opportunities", "Churn Predictions"
+- Lead Scoring tab: Shows all leads sorted by AI score with colored badges. Button to "Rescore All Leads".
+- Upsell tab: Shows cards for each opportunity with suggested action and estimated additional revenue. Admin can "Approve & Send" (generates email to advertiser) or "Dismiss".
+- Churn tab: Shows at-risk clients with risk level, reasoning, and suggested retention action.
+
+(17) Add an AI Insights panel to individual lead detail views:
+- When viewing a lead, show a "Get AI Insights" button
+- Calls generateDealInsights and shows: close probability gauge, recommended next action card, proposal suggestions, positioning tips
+- Cache results for 24 hours per lead
+
+(18) Auto-Prompt System:
+- Add an ai_advertiser_prompts table: id (uuid), order_id (text), lead_id (text), prompt_message (text), suggested_increase (numeric), projections (jsonb), status (text: pending, approved, sent, dismissed), created_at (timestamp), reviewed_at (timestamp, nullable)
+- When campaign_performance data is added/updated, automatically run autoPromptAdvertiser
+- Show a notification badge on the CRM page when there are pending prompts
+- Admin reviews pending prompts: can edit the message, approve (moves to "ready to send"), or dismiss
+- "Send" button generates an email draft (just stores it — actual sending is future sprint)
+
+(19) Add a daily AI job endpoint: POST /api/crm/ai/daily-run (requireAuth)
+- Runs scoreLeads for leads scored more than 7 days ago
+- Runs predictChurn for all existing clients
+- Runs suggestUpsells for all active orders
+- Runs autoPromptAdvertiser for orders with updated performance data
+- Stores results and generates a summary: "AI Daily Run: Scored X leads, found Y upsell opportunities, Z clients at high churn risk, W auto-prompts generated"
+- This can be triggered manually by admin or set up as a cron job later

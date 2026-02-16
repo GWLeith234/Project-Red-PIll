@@ -97,7 +97,7 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
       icon: <XIcon className="h-3.5 w-3.5" />,
       href: `https://x.com/share?text=${encodedTitle}&url=${encodedUrl}`,
       bg: "bg-black",
-      hoverBg: "hover:bg-gray-800",
+      hoverBg: "hover:bg-muted",
     },
     {
       label: "LinkedIn",
@@ -141,8 +141,8 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
       label: "Email",
       icon: <Mail className="h-4 w-4" />,
       href: `mailto:?subject=${encodedTitle}&body=Check%20this%20out:%20${encodedUrl}`,
-      bg: "bg-gray-600",
-      hoverBg: "hover:bg-gray-700",
+      bg: "bg-muted",
+      hoverBg: "hover:bg-muted",
     },
     {
       label: "Text",
@@ -165,7 +165,7 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
             target="_blank"
             rel="noopener noreferrer"
             title={`Share on ${item.label}`}
-            className={`inline-flex items-center justify-center rounded-full text-white transition-all duration-200 shadow-sm ${item.bg} ${item.hoverBg} ${btnSize}`}
+            className={`inline-flex items-center justify-center rounded-full text-foreground transition-all duration-200 shadow-sm ${item.bg} ${item.hoverBg} ${btnSize}`}
             data-testid={`button-share-${item.label.toLowerCase()}`}
           >
             {item.icon}
@@ -174,7 +174,7 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
         <button
           onClick={handleCopyLink}
           title="Copy link"
-          className={`inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-100 ${btnSize}`}
+          className={`inline-flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all duration-200 hover:bg-muted ${btnSize}`}
           data-testid="button-copy-link"
         >
           {copied ? <Check className="h-4 w-4 text-green-500" /> : <Link2 className="h-4 w-4" />}
@@ -183,7 +183,7 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
           <button
             onClick={handleNativeShare}
             title="Share"
-            className={`inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-100 ${btnSize}`}
+            className={`inline-flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all duration-200 hover:bg-muted ${btnSize}`}
             data-testid="button-native-share"
           >
             <Share2 className="h-4 w-4" />
@@ -192,7 +192,7 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
         <button
           onClick={() => setShowMore(!showMore)}
           title="More sharing options"
-          className={`inline-flex items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all duration-200 hover:bg-gray-100 text-xs font-bold ${btnSize}`}
+          className={`inline-flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-all duration-200 hover:bg-muted text-xs font-bold ${btnSize}`}
           data-testid="button-share-more"
         >
           •••
@@ -202,10 +202,10 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
       {showMore && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowMore(false)} />
-          <div className="absolute left-0 top-full mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-100 p-3 min-w-[220px] animate-in fade-in slide-in-from-top-2 duration-200" data-testid="share-more-menu">
-            <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">More ways to share</span>
-              <button onClick={() => setShowMore(false)} className="text-gray-400 hover:text-gray-600" data-testid="button-close-share-more">
+          <div className="absolute left-0 top-full mt-2 z-50 bg-card rounded-xl shadow-xl border border-border p-3 min-w-[220px] animate-in fade-in slide-in-from-top-2 duration-200" data-testid="share-more-menu">
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">More ways to share</span>
+              <button onClick={() => setShowMore(false)} className="text-muted-foreground hover:text-muted-foreground" data-testid="button-close-share-more">
                 <XClose className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -216,24 +216,24 @@ function ShareBar({ title, shareUrl, compact, description }: { title: string; sh
                   href={item.href}
                   target={item.label === "Email" || item.label === "Text" ? "_self" : "_blank"}
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                  className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors group"
                   data-testid={`button-share-more-${item.label.toLowerCase()}`}
                 >
-                  <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-white ${item.bg}`}>
+                  <span className={`inline-flex items-center justify-center h-8 w-8 rounded-full text-foreground ${item.bg}`}>
                     {item.icon}
                   </span>
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{item.label}</span>
+                  <span className="text-sm font-medium text-foreground/80 group-hover:text-foreground">{item.label}</span>
                 </a>
               ))}
               <button
                 onClick={() => { window.print(); setShowMore(false); }}
-                className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors group w-full"
+                className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors group w-full"
                 data-testid="button-share-more-print"
               >
-                <span className="inline-flex items-center justify-center h-8 w-8 rounded-full text-white bg-gray-500">
+                <span className="inline-flex items-center justify-center h-8 w-8 rounded-full text-foreground bg-muted">
                   <Printer className="h-4 w-4" />
                 </span>
-                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Print</span>
+                <span className="text-sm font-medium text-foreground/80 group-hover:text-foreground">Print</span>
               </button>
             </div>
           </div>
@@ -282,7 +282,7 @@ function FloatingShareButton({ title, shareUrl, description }: { title: string; 
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Share on ${item.label}`}
-                className={`inline-flex items-center justify-center h-10 w-10 rounded-full text-white shadow-lg transition-transform hover:scale-110 ${item.bg}`}
+                className={`inline-flex items-center justify-center h-10 w-10 rounded-full text-foreground shadow-lg transition-transform hover:scale-110 ${item.bg}`}
                 data-testid={`floating-share-${item.label.toLowerCase()}`}
               >
                 {item.icon}
@@ -293,7 +293,7 @@ function FloatingShareButton({ title, shareUrl, description }: { title: string; 
       )}
       <button
         onClick={handleFloatingClick}
-        className="h-12 w-12 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all duration-200 flex items-center justify-center hover:scale-105"
+        className="h-12 w-12 rounded-full bg-blue-600 text-foreground shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all duration-200 flex items-center justify-center hover:scale-105"
         title="Share this article"
         data-testid="button-floating-share"
       >
@@ -343,13 +343,13 @@ function CommentSection({ articleId }: { articleId: string }) {
   const commentsList = commentsData || [];
 
   return (
-    <div className="mt-10 pt-8 border-t border-gray-200" data-testid="comment-section">
-      <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2" data-testid="text-comments-heading">
+    <div className="mt-10 pt-8 border-t border-border" data-testid="comment-section">
+      <h3 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2" data-testid="text-comments-heading">
         <MessageSquare className="h-5 w-5" />
-        Comments {commentsList.length > 0 && <span className="text-sm font-normal text-gray-500">({commentsList.length})</span>}
+        Comments {commentsList.length > 0 && <span className="text-sm font-normal text-muted-foreground">({commentsList.length})</span>}
       </h3>
 
-      <form onSubmit={handleSubmit} className="mb-8 bg-white rounded-xl border border-gray-200 p-5 shadow-sm" data-testid="form-add-comment">
+      <form onSubmit={handleSubmit} className="mb-8 bg-card rounded-xl border border-border p-5 shadow-sm" data-testid="form-add-comment">
         <div className="mb-3">
           <input
             type="text"
@@ -358,7 +358,7 @@ function CommentSection({ articleId }: { articleId: string }) {
             onChange={(e) => setAuthorName(e.target.value)}
             required
             maxLength={100}
-            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition-colors"
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border focus:bg-card transition-colors"
             data-testid="input-comment-author"
           />
         </div>
@@ -370,7 +370,7 @@ function CommentSection({ articleId }: { articleId: string }) {
             required
             maxLength={2000}
             rows={3}
-            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-400 focus:bg-white transition-colors resize-none"
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-border focus:bg-card transition-colors resize-none"
             data-testid="input-comment-content"
           />
         </div>
@@ -378,7 +378,7 @@ function CommentSection({ articleId }: { articleId: string }) {
           <button
             type="submit"
             disabled={addComment.isPending || !authorName.trim() || !content.trim()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-background text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="button-submit-comment"
           >
             <Send className="h-3.5 w-3.5" />
@@ -390,34 +390,34 @@ function CommentSection({ articleId }: { articleId: string }) {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2].map(i => (
-            <div key={i} className="border-b border-gray-100 pb-4">
-              <Skeleton className="h-4 w-32 mb-2 bg-gray-200" />
-              <Skeleton className="h-4 w-full bg-gray-100" />
-              <Skeleton className="h-4 w-2/3 mt-1 bg-gray-100" />
+            <div key={i} className="border-b border-border pb-4">
+              <Skeleton className="h-4 w-32 mb-2 bg-muted" />
+              <Skeleton className="h-4 w-full bg-muted" />
+              <Skeleton className="h-4 w-2/3 mt-1 bg-muted" />
             </div>
           ))}
         </div>
       ) : commentsList.length === 0 ? (
-        <div className="text-center py-8 text-gray-400" data-testid="text-no-comments">
+        <div className="text-center py-8 text-muted-foreground" data-testid="text-no-comments">
           <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No comments yet. Be the first to share your thoughts!</p>
         </div>
       ) : (
-        <div className="space-y-0 divide-y divide-gray-100" data-testid="comments-list">
+        <div className="space-y-0 divide-y divide-border" data-testid="comments-list">
           {commentsList.map((comment: any) => (
             <div key={comment.id} className="py-4" data-testid={`comment-item-${comment.id}`}>
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-7 w-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                  <User className="h-3.5 w-3.5 text-gray-500" />
+                <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                <span className="text-sm font-semibold text-gray-900" data-testid={`text-comment-author-${comment.id}`}>
+                <span className="text-sm font-semibold text-foreground" data-testid={`text-comment-author-${comment.id}`}>
                   {comment.authorName}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   {comment.createdAt ? timeAgo(comment.createdAt) : "Just now"}
                 </span>
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed pl-9" data-testid={`text-comment-content-${comment.id}`}>
+              <p className="text-sm text-foreground/80 leading-relaxed pl-9" data-testid={`text-comment-content-${comment.id}`}>
                 {comment.content}
               </p>
             </div>
@@ -431,13 +431,13 @@ function CommentSection({ articleId }: { articleId: string }) {
 function ReadingProgressBar({ progress }: { progress: number }) {
   if (progress <= 0) return null;
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-gray-200/50 print:hidden" data-testid="reading-progress-bar">
+    <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-muted/50 print:hidden" data-testid="reading-progress-bar">
       <div
         className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}
       />
       {progress > 5 && (
-        <div className="absolute right-3 -bottom-6 bg-gray-900 text-white text-[10px] font-mono px-1.5 py-0.5 rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none" style={{ opacity: progress > 0 && progress < 100 ? 0.7 : 0 }}>
+        <div className="absolute right-3 -bottom-6 bg-background text-foreground text-[10px] font-mono px-1.5 py-0.5 rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none" style={{ opacity: progress > 0 && progress < 100 ? 0.7 : 0 }}>
           {progress}%
         </div>
       )}
@@ -470,10 +470,10 @@ function RecommendedArticles({ currentArticleId, podcastId }: { currentArticleId
       <div className="space-y-3" data-testid="recommendations-loading">
         {[1, 2, 3].map(i => (
           <div key={i} className="flex gap-3">
-            <Skeleton className="h-16 w-16 rounded-lg bg-gray-200 shrink-0" />
+            <Skeleton className="h-16 w-16 rounded-lg bg-muted shrink-0" />
             <div className="flex-1">
-              <Skeleton className="h-4 w-full mb-2 bg-gray-200" />
-              <Skeleton className="h-3 w-2/3 bg-gray-100" />
+              <Skeleton className="h-4 w-full mb-2 bg-muted" />
+              <Skeleton className="h-3 w-2/3 bg-muted" />
             </div>
           </div>
         ))}
@@ -489,26 +489,26 @@ function RecommendedArticles({ currentArticleId, podcastId }: { currentArticleId
         <ArticlePreviewPopup key={rec.id} article={rec} podcastId={podcastId}>
           <Link
             href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
-            className="flex gap-3 py-3 border-b border-gray-100 last:border-0 group cursor-pointer"
+            className="flex gap-3 py-3 border-b border-border last:border-0 group cursor-pointer"
             data-testid={`recommended-article-${rec.id}`}
           >
             {rec.coverImage ? (
-              <img src={rec.coverImage} alt="" className="h-16 w-16 rounded-lg object-cover bg-gray-100 shrink-0 group-hover:opacity-80 transition-opacity" />
+              <img src={rec.coverImage} alt="" className="h-16 w-16 rounded-lg object-cover bg-muted shrink-0 group-hover:opacity-80 transition-opacity" />
             ) : (
-              <div className="h-16 w-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                <Mic className="h-5 w-5 text-gray-400" />
+              <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Mic className="h-5 w-5 text-muted-foreground" />
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+              <h4 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
                 {rec.title}
               </h4>
               <div className="flex items-center gap-2 mt-1">
                 {rec.podcastTitle && (
-                  <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
+                  <span className="text-[11px] text-muted-foreground truncate">{rec.podcastTitle}</span>
                 )}
                 {rec.readingTime && (
-                  <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                     <Clock className="h-3 w-3" /> {rec.readingTime} min
                   </span>
                 )}
@@ -543,8 +543,8 @@ function RecommendedArticlesBottom({ currentArticleId, podcastId }: { currentArt
   if (isLoading || !filtered.length) return null;
 
   return (
-    <div className="mt-10 pt-8 border-t border-gray-200" data-testid="recommended-articles-bottom">
-      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+    <div className="mt-10 pt-8 border-t border-border" data-testid="recommended-articles-bottom">
+      <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-blue-500" />
         Recommended For You
       </h3>
@@ -553,7 +553,7 @@ function RecommendedArticlesBottom({ currentArticleId, podcastId }: { currentArt
           <ArticlePreviewPopup key={rec.id} article={rec} podcastId={podcastId}>
             <Link
               href={`/news/${rec.podcastId || podcastId}/article/${rec.id}`}
-              className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all cursor-pointer block"
+              className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-all cursor-pointer block"
               data-testid={`recommended-bottom-${rec.id}`}
             >
               {rec.coverImage ? (
@@ -561,20 +561,20 @@ function RecommendedArticlesBottom({ currentArticleId, podcastId }: { currentArt
                   <img src={rec.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 </div>
               ) : (
-                <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
-                  <Mic className="h-8 w-8 text-gray-300" />
+                <div className="h-32 bg-gradient-to-br from-muted to-background flex items-center justify-center">
+                  <Mic className="h-8 w-8 text-foreground/80" />
                 </div>
               )}
               <div className="p-3">
-                <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+                <h4 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
                   {rec.title}
                 </h4>
                 <div className="flex items-center gap-2 mt-2">
                   {rec.podcastTitle && (
-                    <span className="text-[11px] text-gray-500 truncate">{rec.podcastTitle}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{rec.podcastTitle}</span>
                   )}
                   {rec.readingTime && (
-                    <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                       <Clock className="h-3 w-3" /> {rec.readingTime} min
                     </span>
                   )}
@@ -629,14 +629,14 @@ export default function ArticlePage() {
 
   if (articleLoading) {
     return (
-      <div className="bg-gray-50 min-h-screen">
+      <div className="bg-background min-h-screen">
         <div className="max-w-5xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
-            <Skeleton className="h-10 w-3/4 mb-4 bg-gray-200" />
-            <Skeleton className="h-4 w-48 mb-8 bg-gray-100" />
-            <Skeleton className="h-5 w-full mb-3 bg-gray-100" />
-            <Skeleton className="h-5 w-full mb-3 bg-gray-100" />
-            <Skeleton className="h-5 w-3/4 mb-6 bg-gray-100" />
+          <div className="bg-card rounded-xl shadow-sm border border-border p-6 sm:p-8">
+            <Skeleton className="h-10 w-3/4 mb-4 bg-muted" />
+            <Skeleton className="h-4 w-48 mb-8 bg-muted" />
+            <Skeleton className="h-5 w-full mb-3 bg-muted" />
+            <Skeleton className="h-5 w-full mb-3 bg-muted" />
+            <Skeleton className="h-5 w-3/4 mb-6 bg-muted" />
           </div>
         </div>
       </div>
@@ -645,10 +645,10 @@ export default function ArticlePage() {
 
   if (articleError || !article) {
     return (
-      <div className="bg-gray-50 min-h-screen flex items-center justify-center py-20">
-        <div className="text-center bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Article not found</h1>
-          <p className="text-gray-500 mb-4">This article doesn't exist or has been removed.</p>
+      <div className="bg-background min-h-screen flex items-center justify-center py-20">
+        <div className="text-center bg-card rounded-xl shadow-sm border border-border p-8">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Article not found</h1>
+          <p className="text-muted-foreground mb-4">This article doesn't exist or has been removed.</p>
           <Link href="/news" className="text-blue-600 hover:underline text-sm">Back to News</Link>
         </div>
       </div>
@@ -663,14 +663,14 @@ export default function ArticlePage() {
     if (!trimmed) return null;
 
     if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
-      return <hr key={key} className="my-8 border-gray-200" />;
+      return <hr key={key} className="my-8 border-border" />;
     }
 
     if (trimmed.startsWith("## ")) {
-      return <h2 key={key} className="text-2xl font-bold text-gray-900 mt-10 mb-4">{trimmed.replace("## ", "")}</h2>;
+      return <h2 key={key} className="text-2xl font-bold text-foreground mt-10 mb-4">{trimmed.replace("## ", "")}</h2>;
     }
     if (trimmed.startsWith("### ")) {
-      return <h3 key={key} className="text-xl font-semibold text-gray-900 mt-8 mb-3">{trimmed.replace("### ", "")}</h3>;
+      return <h3 key={key} className="text-xl font-semibold text-foreground mt-8 mb-3">{trimmed.replace("### ", "")}</h3>;
     }
 
     const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
@@ -693,7 +693,7 @@ export default function ArticlePage() {
             <img src={src} alt={caption} className="w-full object-cover" />
           </div>
           {(caption || credit) && (
-            <figcaption className="text-sm text-gray-500 mt-2 italic">
+            <figcaption className="text-sm text-muted-foreground mt-2 italic">
               {caption}
               {credit && ` — ${credit}`}
             </figcaption>
@@ -708,8 +708,8 @@ export default function ArticlePage() {
       const attribution = lines.length > 1 ? lines[lines.length - 1].replace(/^—\s*/, "") : "";
       return (
         <blockquote key={key} className="border-l-4 border-blue-500 pl-6 my-8 py-2">
-          <p className="text-xl italic text-gray-700 leading-relaxed">"{quoteText}"</p>
-          {attribution && <cite className="text-sm text-gray-500 mt-2 block not-italic">— {attribution}</cite>}
+          <p className="text-xl italic text-foreground/80 leading-relaxed">"{quoteText}"</p>
+          {attribution && <cite className="text-sm text-muted-foreground mt-2 block not-italic">— {attribution}</cite>}
         </blockquote>
       );
     }
@@ -719,7 +719,7 @@ export default function ArticlePage() {
       return (
         <ul key={key} className="list-disc pl-6 space-y-2 my-6">
           {bulletLines.map((item, i) => (
-            <li key={i} className="text-gray-800 text-[17px] leading-relaxed">
+            <li key={i} className="text-foreground text-[17px] leading-relaxed">
               {item.trim().replace(/^[-*]\s+/, "")}
             </li>
           ))}
@@ -731,7 +731,7 @@ export default function ArticlePage() {
       return (
         <ol key={key} className="list-decimal pl-6 space-y-2 my-6">
           {bulletLines.map((item, i) => (
-            <li key={i} className="text-gray-800 text-[17px] leading-relaxed">
+            <li key={i} className="text-foreground text-[17px] leading-relaxed">
               {item.trim().replace(/^\d+\.\s+/, "")}
             </li>
           ))}
@@ -740,7 +740,7 @@ export default function ArticlePage() {
     }
 
     return (
-      <p key={key} className="text-gray-800 leading-relaxed mb-6 text-[17px]">
+      <p key={key} className="text-foreground leading-relaxed mb-6 text-[17px]">
         {trimmed}
       </p>
     );
@@ -749,19 +749,19 @@ export default function ArticlePage() {
   const contentBlocks = article.body ? article.body.split("\n\n") : [];
 
   return (
-    <div className="bg-gray-50 min-h-screen" data-testid="article-page">
+    <div className="bg-background min-h-screen" data-testid="article-page">
       <ReadingProgressBar progress={progress} />
 
       {progress > 10 && (
         <FloatingShareButton title={article.title} shareUrl={shareUrl} description={article.description || undefined} />
       )}
 
-      <nav className="bg-white border-b border-gray-100 shadow-sm">
+      <nav className="bg-card border-b border-border shadow-sm">
         <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-center space-x-1 text-sm text-gray-500 py-3">
-            <Link href="/news" className="hover:text-gray-900 cursor-pointer">{podcast?.title || "News"}</Link>
+          <div className="flex items-center space-x-1 text-sm text-muted-foreground py-3">
+            <Link href="/news" className="hover:text-foreground cursor-pointer">{podcast?.title || "News"}</Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-gray-900 font-medium truncate max-w-[300px]">{article.title}</span>
+            <span className="text-foreground font-medium truncate max-w-[300px]">{article.title}</span>
           </div>
         </div>
       </nav>
@@ -774,31 +774,31 @@ export default function ArticlePage() {
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0 max-w-[720px]">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+            <div className="bg-card rounded-xl shadow-sm border border-border p-6 sm:p-8">
               <article ref={articleContentRef} data-testid={`article-detail-${article.id}`}>
                 <header className="mb-6">
-                  <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-4" data-testid="text-article-headline">
+                  <h1 className="text-3xl sm:text-4xl font-bold text-foreground leading-tight mb-4" data-testid="text-article-headline">
                     {article.title}
                   </h1>
 
                   {article.description && (
-                    <p className="text-lg text-gray-500 leading-relaxed mb-5" data-testid="text-article-description">
+                    <p className="text-lg text-muted-foreground leading-relaxed mb-5" data-testid="text-article-description">
                       {article.description}
                     </p>
                   )}
 
-                  <div className="flex items-center text-sm text-gray-500 mb-4">
+                  <div className="flex items-center text-sm text-muted-foreground mb-4">
                     <div className="flex items-center space-x-3">
                       {article.author ? (
                         <>
                           {article.author.profilePhoto ? (
                             <img src={article.author.profilePhoto} alt={article.author.displayName} className="h-6 w-6 rounded-full object-cover" />
                           ) : (
-                            <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
-                              <User className="h-3 w-3 text-white" />
+                            <div className="h-6 w-6 rounded-full bg-background flex items-center justify-center">
+                              <User className="h-3 w-3 text-foreground" />
                             </div>
                           )}
-                          <Link href={`/author/${article.author.id}`} className="font-medium text-gray-700 hover:text-blue-600 hover:underline cursor-pointer" data-testid="link-article-author">
+                          <Link href={`/author/${article.author.id}`} className="font-medium text-foreground/80 hover:text-blue-600 hover:underline cursor-pointer" data-testid="link-article-author">
                             {article.author.displayName || "Staff Writer"}
                           </Link>
                         </>
@@ -807,20 +807,20 @@ export default function ArticlePage() {
                           {podcast?.coverImage ? (
                             <img src={podcast.coverImage} alt={podcast?.title} className="h-6 w-6 rounded-full object-cover" />
                           ) : (
-                            <div className="h-6 w-6 rounded-full bg-gray-900 flex items-center justify-center">
-                              <Mic className="h-3 w-3 text-white" />
+                            <div className="h-6 w-6 rounded-full bg-background flex items-center justify-center">
+                              <Mic className="h-3 w-3 text-foreground" />
                             </div>
                           )}
-                          <span className="font-medium text-gray-700">{podcast?.host || "Editorial Team"}</span>
+                          <span className="font-medium text-foreground/80">{podcast?.host || "Editorial Team"}</span>
                         </>
                       )}
                     </div>
-                    <span className="mx-3 text-gray-300">|</span>
+                    <span className="mx-3 text-foreground/80">|</span>
                     <Clock className="h-3.5 w-3.5 mr-1" />
                     <time>{article.publishedAt ? timeAgo(article.publishedAt) : "Just now"}</time>
                   </div>
 
-                  <div className="border-t border-b border-gray-100 py-3 flex items-center justify-between">
+                  <div className="border-t border-b border-border py-3 flex items-center justify-between">
                     <ShareBar title={article.title} shareUrl={shareUrl} description={article.description || undefined} />
                     <button
                       onClick={() =>
@@ -838,7 +838,7 @@ export default function ArticlePage() {
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                         isSaved(article.id)
                           ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          : "bg-muted text-muted-foreground hover:bg-muted"
                       }`}
                       data-testid="button-read-later"
                     >
@@ -853,7 +853,7 @@ export default function ArticlePage() {
                     <img
                       src={article.coverImage}
                       alt={article.title}
-                      className="w-full rounded-lg object-cover max-h-[400px] bg-gray-100"
+                      className="w-full rounded-lg object-cover max-h-[400px] bg-muted"
                       data-testid="img-article-cover"
                     />
                   </div>
@@ -889,16 +889,16 @@ export default function ArticlePage() {
                       </div>
                     ))
                   ) : article.description ? (
-                    <p className="text-gray-800 leading-relaxed mb-6 text-[17px]">
+                    <p className="text-foreground leading-relaxed mb-6 text-[17px]">
                       {article.description}
                     </p>
                   ) : (
-                    <p className="text-gray-400 italic">Full article content is being generated...</p>
+                    <p className="text-muted-foreground italic">Full article content is being generated...</p>
                   )}
                 </div>
 
-                <div className="mt-10 pt-6 border-t border-gray-200">
-                  <p className="text-sm text-gray-500 mb-3">Share this story</p>
+                <div className="mt-10 pt-6 border-t border-border">
+                  <p className="text-sm text-muted-foreground mb-3">Share this story</p>
                   <ShareBar title={article.title} shareUrl={shareUrl} description={article.description || undefined} />
                 </div>
 
@@ -911,23 +911,23 @@ export default function ArticlePage() {
                   <AdPlaceholder width={320} height={100} label="Mobile Leaderboard" className="md:hidden" />
                 </div>
 
-                <footer className="mt-8 pt-8 border-t border-gray-200">
+                <footer className="mt-8 pt-8 border-t border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       {podcast?.coverImage ? (
                         <img src={podcast.coverImage} alt={podcast?.title} className="h-10 w-10 rounded-full object-cover" />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-gray-900 flex items-center justify-center">
-                          <Mic className="h-5 w-5 text-white" />
+                        <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center">
+                          <Mic className="h-5 w-5 text-foreground" />
                         </div>
                       )}
                       <div>
-                        <p className="font-semibold text-gray-900 text-sm">{podcast?.host || "Editorial Team"}</p>
-                        <p className="text-gray-500 text-xs">{podcast?.title}</p>
+                        <p className="font-semibold text-foreground text-sm">{podcast?.host || "Editorial Team"}</p>
+                        <p className="text-muted-foreground text-xs">{podcast?.title}</p>
                       </div>
                     </div>
                     <Link href="/news">
-                      <Button variant="outline" size="sm" className="text-gray-600 border-gray-300 hover:bg-gray-50" data-testid="button-more-stories">
+                      <Button variant="outline" size="sm" className="text-muted-foreground border-border hover:bg-muted" data-testid="button-more-stories">
                         More Stories
                       </Button>
                     </Link>
@@ -949,8 +949,8 @@ export default function ArticlePage() {
                 subscriberName={subscriberName}
               />
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-blue-500" />
                   Recommended For You
                 </h3>
@@ -959,26 +959,26 @@ export default function ArticlePage() {
 
               <AdPlaceholder width={300} height={250} label="Sidebar Rectangle" />
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About the Show</h3>
+              <div className="bg-card rounded-xl shadow-sm border border-border p-4">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">About the Show</h3>
                 <div className="flex items-center space-x-3 mb-3">
                   {podcast?.coverImage ? (
                     <img src={podcast.coverImage} alt={podcast?.title} className="h-12 w-12 rounded-full object-cover" />
                   ) : (
-                    <div className="h-12 w-12 rounded-full bg-gray-900 flex items-center justify-center">
-                      <Mic className="h-6 w-6 text-white" />
+                    <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center">
+                      <Mic className="h-6 w-6 text-foreground" />
                     </div>
                   )}
                   <div>
-                    <p className="font-semibold text-gray-900 text-sm">{podcast?.title}</p>
-                    <p className="text-gray-500 text-xs">Hosted by {podcast?.host}</p>
+                    <p className="font-semibold text-foreground text-sm">{podcast?.title}</p>
+                    <p className="text-muted-foreground text-xs">Hosted by {podcast?.host}</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   {podcast?.subscribers ? `${(podcast.subscribers / 1000).toFixed(0)}K subscribers` : ""}
                 </p>
                 <Link href="/news">
-                  <Button variant="outline" size="sm" className="w-full mt-3 text-xs border-gray-300 rounded-lg" data-testid="button-sidebar-all-stories">
+                  <Button variant="outline" size="sm" className="w-full mt-3 text-xs border-border rounded-lg" data-testid="button-sidebar-all-stories">
                     View All Stories
                   </Button>
                 </Link>

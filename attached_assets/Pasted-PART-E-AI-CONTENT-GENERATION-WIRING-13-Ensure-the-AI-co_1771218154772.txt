@@ -1,0 +1,55 @@
+PART E — AI CONTENT GENERATION WIRING:
+
+(13) Ensure the AI content generation system (server/ai-providers.ts and server/ai-content-agent.ts) is wired into every content creation workflow. The AI Generate button and inline AI assistance should be available everywhere content is written.
+
+(14) Content Factory — AI Generate button:
+- When clicked, show a modal with content type selector: Article, Social Post, Email Campaign, Newsletter, Press Release, Ad Copy
+- For each type, show a form with relevant fields:
+  - Article: topic/headline, target keywords, tone (breaking news, opinion, analysis, feature), target word count
+  - Social Post: platform (Twitter/X, Facebook, Instagram, LinkedIn), topic, tone, include hashtags toggle
+  - Email Campaign: subject line, purpose (promotional, engagement, re-engagement, announcement), audience segment, key message
+  - Newsletter: edition name, number of sections, featured article (select from existing), tone (formal, conversational, urgent)
+  - Press Release: headline, key announcement, quotes to include, boilerplate
+  - Ad Copy: product/offer, target audience, format (banner headline, native ad, sponsored post), character limit
+- Submit calls the existing AI provider with a structured prompt tailored to each content type
+- Response populates the content editor with the generated text, ready for human review and editing
+- Include a "Regenerate" button and a tone adjustment dropdown (more formal, more casual, more urgent, more persuasive)
+
+(15) Inline AI Assist — add to any textarea or rich text editor across the platform:
+- When typing in any content field (article body, email body, newsletter section, campaign description), show a small purple AI sparkle button at the bottom-right of the field
+- Clicking it opens a popover with quick actions:
+  - "Improve writing" — rewrites the current text for clarity and engagement
+  - "Make shorter" — condenses while preserving key points
+  - "Make longer" — expands with supporting details
+  - "Change tone to..." — dropdown: professional, conversational, urgent, persuasive, authoritative
+  - "Generate headline options" — returns 5 headline variations
+  - "Add SEO keywords" — analyzes text and suggests keyword insertions
+  - "Write subject line" — for email fields, generates 5 subject line options with predicted open rate reasoning
+- Each action sends the current field text to the AI provider and replaces or appends the result
+- Build this as a reusable component: client/src/components/admin/InlineAIAssist.tsx
+
+(16) Newsletter Manager — AI integration:
+- "AI Generate" button on the newsletter composition page
+- Given a list of recent published articles, AI selects the best ones for the newsletter based on performance data and audience engagement
+- AI writes section headers, article summaries, and a compelling intro paragraph
+- AI generates subject line options with A/B test suggestions
+- Preview shows the assembled newsletter before sending
+
+(17) Campaign Builder — AI integration:
+- When creating an email campaign, the AI button generates:
+  - Subject line options (5 variations with reasoning for each)
+  - Preview text / preheader text
+  - Email body copy tailored to the campaign purpose and audience segment
+  - Call-to-action text options
+  - Send time recommendation based on audience engagement patterns (if analytics data available from S3)
+
+(18) SEO optimization on every article:
+- When an article is generated or edited, add an "AI SEO Check" button
+- Analyzes the article and returns: SEO score (0-100), missing meta description (generates one), keyword density analysis, suggested internal links to other articles, headline score with improvement suggestions, readability score
+- Results shown in a side panel next to the content editor
+
+(19) All AI content generation calls should:
+- Use the existing AI provider system (server/ai-providers.ts) with Claude as primary
+- Include the platform context in every prompt: "You are writing for a conservative media platform targeting an engaged audience of news readers and podcast listeners"
+- Log every generation in a new ai_content_log table: id (uuid), content_type (text), prompt_summary (text), model_used (text), tokens_used (integer), generated_at (timestamp), user_id (text)
+- Show a "tokens used today" counter in the AI Generate modal footer so admins can monitor usage

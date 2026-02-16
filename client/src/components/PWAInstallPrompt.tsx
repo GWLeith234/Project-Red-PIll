@@ -31,13 +31,13 @@ export default function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-20 lg:bottom-4 left-4 right-4 z-40 max-w-sm mx-auto" data-testid="pwa-install-prompt">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl flex items-center gap-3">
+      <div className="bg-popover border border-border rounded-xl p-4 shadow-2xl flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center flex-shrink-0">
           <Download className="h-5 w-5 text-gray-900" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white">Install App</p>
-          <p className="text-xs text-gray-400 truncate">Get the full experience on your device</p>
+          <p className="text-sm font-semibold text-foreground">Install App</p>
+          <p className="text-xs text-muted-foreground truncate">Get the full experience on your device</p>
         </div>
         <button
           onClick={handleInstall}
@@ -48,7 +48,7 @@ export default function PWAInstallPrompt() {
         </button>
         <button
           onClick={() => setDismissed(true)}
-          className="p-1 text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+          className="p-1 text-muted-foreground hover:text-foreground/80 transition-colors flex-shrink-0"
           data-testid="button-dismiss-install"
         >
           <X className="h-4 w-4" />

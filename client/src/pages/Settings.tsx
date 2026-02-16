@@ -5,6 +5,7 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/hooks/use-theme";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -29,11 +30,13 @@ import {
   LayoutDashboard, DollarSign, BarChart3, Settings as SettingsIcon,
   Briefcase, ContactRound, Network, Send, CalendarClock, Scaling,
   Kanban, ListTodo, PanelLeft, Heart, Blocks, Factory, Paintbrush,
+  Moon, Sun, Monitor,
   type LucideIcon,
 } from "lucide-react";
 
 const TABS = [
   { id: "platform", label: "Platform Settings", icon: Settings2 },
+  { id: "theme", label: "Theme", icon: Moon },
   { id: "page-config", label: "Page Configuration", icon: LayoutGrid },
 ] as const;
 
@@ -556,6 +559,8 @@ export default function Settings() {
           );
         })}
       </div>
+
+      {activeTab === "theme" && <ThemeSettingsTab canEdit={canEdit} />}
 
       {activeTab === "page-config" && <PageConfigurationTab />}
 
@@ -1183,6 +1188,127 @@ type PageCfg = {
   primaryActionLabel: string | null;
   aiActionLabel: string | null;
 };
+
+function ThemeSettingsTab({ canEdit }: { canEdit: boolean }) {
+  const { toast } = useToast();
+  const { mode, setTheme, theme } = useTheme();
+  const { data: branding } = useBranding();
+  const updateBranding = useUpdateBranding();
+  const [selectedMode, setSelectedMode] = useState<"light" | "dark" | "system">(mode);
+
+  useEffect(() => {
+    setSelectedMode(mode);
+  }, [mode]);
+
+  const handleSave = async () => {
+    setTheme(selectedMode);
+    try {
+      await updateBranding.mutateAsync({ themeMode: selectedMode });
+      toast({ title: "Theme updated", description: `Default theme set to ${selectedMode}` });
+    } catch {
+      toast({ title: "Error", description: "Failed to save theme", variant: "destructive" });
+    }
+  };
+
+  const themeOptions = [
+    { value: "dark" as const, label: "Dark Mode", icon: Moon, description: "Dark background with light text. Easier on the eyes in low light." },
+    { value: "light" as const, label: "Light Mode", icon: Sun, description: "Light background with dark text. Best for bright environments." },
+    { value: "system" as const, label: "System", icon: Monitor, description: "Automatically match your device's appearance settings." },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="theme-settings-tab">
+      <div className="bg-card border border-border p-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-1">Theme Preference</h3>
+        <p className="text-xs text-muted-foreground mb-6">Choose how the platform looks. This sets the default for all users. Individual users can override with the theme toggle button.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {themeOptions.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = selectedMode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  setSelectedMode(opt.value);
+                  setTheme(opt.value);
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-3 p-6 border-2 transition-all text-left",
+                  isSelected
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/30"
+                )}
+                disabled={!canEdit}
+                data-testid={`theme-option-${opt.value}`}
+              >
+                <div className={cn(
+                  "h-12 w-12 rounded-full flex items-center justify-center transition-colors",
+                  isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                )}>
+                  <Icon className="h-6 w-6" />
+                </div>
+                <div className="text-center">
+                  <p className={cn("text-sm font-semibold", isSelected ? "text-primary" : "text-foreground")}>{opt.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{opt.description}</p>
+                </div>
+                {isSelected && (
+                  <div className="flex items-center gap-1 text-primary text-xs font-medium">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Active
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="bg-muted/50 border border-border p-4 mb-6">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Preview</h4>
+          <div className={cn("rounded-lg overflow-hidden border border-border", theme === "dark" ? "bg-[hsl(222,47%,11%)]" : "bg-white")}>
+            <div className={cn("h-8 flex items-center px-3 gap-2 border-b", theme === "dark" ? "bg-[hsl(222,47%,9%)] border-[hsl(217,32%,17%)]" : "bg-[hsl(220,14%,96%)] border-[hsl(220,13%,91%)]")}>
+              <div className="flex gap-1">
+                <div className="h-2 w-2 rounded-full bg-red-500/70" />
+                <div className="h-2 w-2 rounded-full bg-yellow-500/70" />
+                <div className="h-2 w-2 rounded-full bg-green-500/70" />
+              </div>
+              <div className={cn("h-3 w-20 rounded-sm", theme === "dark" ? "bg-[hsl(217,19%,27%)]" : "bg-[hsl(220,13%,91%)]")} />
+            </div>
+            <div className="flex h-32">
+              <div className={cn("w-16 p-2 space-y-1.5 border-r", theme === "dark" ? "bg-[hsl(222,47%,9%)] border-[hsl(217,32%,17%)]" : "bg-[hsl(220,14%,96%)] border-[hsl(220,13%,91%)]")}>
+                {[1,2,3,4,5].map(i => (
+                  <div key={i} className={cn("h-2 rounded-sm", i === 1 ? "bg-[hsl(217,91%,60%)]" : theme === "dark" ? "bg-[hsl(217,19%,27%)]" : "bg-[hsl(220,13%,91%)]")} />
+                ))}
+              </div>
+              <div className="flex-1 p-3 space-y-2">
+                <div className={cn("h-3 w-24 rounded-sm", theme === "dark" ? "bg-[hsl(45,93%,47%)]" : "bg-[hsl(45,93%,37%)]")} />
+                <div className="grid grid-cols-3 gap-2">
+                  {[1,2,3].map(i => (
+                    <div key={i} className={cn("h-12 rounded-sm border", theme === "dark" ? "bg-[hsl(222,47%,13%)] border-[hsl(217,32%,17%)]" : "bg-white border-[hsl(220,13%,91%)]")}>
+                      <div className={cn("h-2 w-8 mt-2 mx-2 rounded-sm", theme === "dark" ? "bg-[hsl(215,20%,65%)]" : "bg-[hsl(220,9%,46%)]")} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {canEdit && (
+          <button
+            onClick={handleSave}
+            disabled={updateBranding.isPending}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+            data-testid="button-save-theme"
+          >
+            {updateBranding.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Theme Default
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PageConfigurationTab() {
   const { toast } = useToast();

@@ -68,7 +68,7 @@ export default function NpsWidget() {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 text-white border border-gray-700 shadow-lg hover:bg-gray-800 transition-all text-sm font-medium"
+        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-4 py-2 rounded-full bg-popover text-foreground border border-border shadow-lg hover:bg-muted transition-all text-sm font-medium"
         data-testid="nps-trigger-button"
       >
         <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
@@ -79,14 +79,14 @@ export default function NpsWidget() {
 
   return (
     <div
-      className="fixed bottom-20 right-4 z-40 w-80 rounded-xl bg-gray-900 border border-gray-700 shadow-2xl overflow-hidden"
+      className="fixed bottom-20 right-4 z-40 w-80 rounded-xl bg-popover border border-border shadow-2xl overflow-hidden"
       data-testid="nps-widget-panel"
     >
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
-        <h3 className="text-sm font-semibold text-white">How likely are you to recommend us?</h3>
+        <h3 className="text-sm font-semibold text-foreground">How likely are you to recommend us?</h3>
         <button
           onClick={dismiss}
-          className="text-gray-500 hover:text-white transition-colors p-0.5"
+          className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
           data-testid="nps-close-button"
         >
           <X className="h-4 w-4" />
@@ -107,7 +107,7 @@ export default function NpsWidget() {
                 className={`h-7 w-7 rounded text-xs font-bold transition-all flex-shrink-0 ${
                   selectedScore === i
                     ? `${getScoreColor(i)} text-white ring-2 ring-white/50 scale-110`
-                    : `bg-gray-800 text-gray-400 hover:text-white ${getScoreColor(i).split(" ")[1]}`
+                    : `bg-muted text-muted-foreground hover:text-foreground ${getScoreColor(i).split(" ")[1]}`
                 }`}
                 data-testid={`nps-score-${i}`}
               >
@@ -115,7 +115,7 @@ export default function NpsWidget() {
               </button>
             ))}
           </div>
-          <div className="flex justify-between text-[10px] text-gray-500 px-0.5">
+          <div className="flex justify-between text-[10px] text-muted-foreground px-0.5">
             <span>Not likely</span>
             <span>Very likely</span>
           </div>
@@ -124,7 +124,7 @@ export default function NpsWidget() {
             placeholder="Any additional feedback? (optional)"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 text-sm min-h-[60px] resize-none"
+            className="bg-muted border-border text-foreground placeholder:text-muted-foreground text-sm min-h-[60px] resize-none"
             rows={2}
             data-testid="nps-comment-input"
           />
@@ -132,7 +132,7 @@ export default function NpsWidget() {
           <Button
             onClick={handleSubmit}
             disabled={selectedScore === null || submitting}
-            className="w-full bg-white text-gray-900 hover:bg-gray-200 font-semibold text-sm"
+            className="w-full bg-card text-foreground hover:bg-muted font-semibold text-sm"
             data-testid="nps-submit-button"
           >
             {submitting ? "Submitting..." : "Submit"}

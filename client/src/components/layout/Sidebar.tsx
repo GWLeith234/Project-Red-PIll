@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   LayoutDashboard,
   FileText,
@@ -341,6 +342,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               {user?.role || "user"}
             </p>
           </div>
+          <ThemeToggle compact />
           <button
             onClick={logout}
             className="p-1.5 hover:bg-muted rounded-sm transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"

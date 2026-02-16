@@ -66,15 +66,15 @@ export default function EventsPage() {
     : events.filter((e: any) => (e.category || "General").toLowerCase() === activeCategory.toLowerCase());
 
   return (
-    <div className="bg-gray-950 text-white min-h-screen" data-testid="events-page">
-      <div className="relative py-16 px-4 text-center bg-gradient-to-b from-gray-900 to-gray-950">
+    <div className="bg-background text-foreground min-h-screen" data-testid="events-page">
+      <div className="relative py-16 px-4 text-center bg-gradient-to-b from-background to-background">
         <div className="max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-semibold mb-4">
             <CalendarDays className="h-3.5 w-3.5" />
             COMMUNITY CALENDAR
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-3" data-testid="text-events-title">Events</h1>
-          <p className="text-gray-400 text-lg" data-testid="text-events-subtitle">
+          <p className="text-muted-foreground text-lg" data-testid="text-events-subtitle">
             Discover upcoming community events, meetups, and experiences
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function EventsPage() {
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 activeCategory === cat
                   ? "bg-amber-500 text-gray-950"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+                  : "bg-muted text-foreground/80 hover:bg-muted hover:text-foreground"
               }`}
               data-testid={`filter-${cat.toLowerCase()}`}
             >
@@ -101,22 +101,22 @@ export default function EventsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden animate-pulse">
-                <div className="h-48 bg-gray-800" />
+              <div key={i} className="bg-background border border-border rounded-xl overflow-hidden animate-pulse">
+                <div className="h-48 bg-muted" />
                 <div className="p-5 space-y-3">
-                  <div className="h-4 bg-gray-800 rounded w-1/3" />
-                  <div className="h-5 bg-gray-800 rounded w-3/4" />
-                  <div className="h-4 bg-gray-800 rounded w-1/2" />
-                  <div className="h-4 bg-gray-800 rounded w-2/3" />
+                  <div className="h-4 bg-muted rounded w-1/3" />
+                  <div className="h-5 bg-muted rounded w-3/4" />
+                  <div className="h-4 bg-muted rounded w-1/2" />
+                  <div className="h-4 bg-muted rounded w-2/3" />
                 </div>
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20" data-testid="empty-events">
-            <CalendarDays className="h-16 w-16 text-gray-700 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-400 mb-2">No events found</h3>
-            <p className="text-gray-500">
+            <CalendarDays className="h-16 w-16 text-foreground/80 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-muted-foreground mb-2">No events found</h3>
+            <p className="text-muted-foreground">
               {activeCategory === "All"
                 ? "There are no upcoming events at the moment. Check back soon!"
                 : `No ${activeCategory} events right now. Try a different category.`}
@@ -136,12 +136,12 @@ export default function EventsPage() {
               return (
                 <div
                   key={event.id}
-                  className={`bg-gray-900 border rounded-xl overflow-hidden group transition-all hover:border-gray-600 ${
-                    isFeatured ? "border-amber-500/50 ring-1 ring-amber-500/20" : "border-gray-800"
+                  className={`bg-background border rounded-xl overflow-hidden group transition-all hover:border-border ${
+                    isFeatured ? "border-amber-500/50 ring-1 ring-amber-500/20" : "border-border"
                   }`}
                   data-testid={`card-event-${event.id}`}
                 >
-                  <div className="relative h-48 overflow-hidden bg-gray-800">
+                  <div className="relative h-48 overflow-hidden bg-muted">
                     {image ? (
                       <>
                         <img
@@ -149,11 +149,11 @@ export default function EventsPage() {
                           alt={event.title || ""}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
                       </>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                        <CalendarDays className="h-12 w-12 text-gray-700" />
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-background to-background">
+                        <CalendarDays className="h-12 w-12 text-foreground/80" />
                       </div>
                     )}
 
@@ -180,13 +180,13 @@ export default function EventsPage() {
                   </div>
 
                   <div className="p-5">
-                    <h3 className="text-lg font-bold text-white mb-3 line-clamp-2 group-hover:text-amber-400 transition-colors" data-testid={`text-event-title-${event.id}`}>
+                    <h3 className="text-lg font-bold text-foreground mb-3 line-clamp-2 group-hover:text-amber-400 transition-colors" data-testid={`text-event-title-${event.id}`}>
                       {event.title}
                     </h3>
 
                     {(event.startDate || event.date || event.eventDate) && (
-                      <div className="flex items-center gap-2 text-sm text-gray-400 mb-2" data-testid={`text-event-date-${event.id}`}>
-                        <CalendarDays className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2" data-testid={`text-event-date-${event.id}`}>
+                        <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span>
                           {formatEventDate(event.startDate || event.date || event.eventDate)}
                           {" · "}
@@ -196,14 +196,14 @@ export default function EventsPage() {
                     )}
 
                     {location && (
-                      <div className="flex items-center gap-2 text-sm text-gray-400 mb-3" data-testid={`text-event-location-${event.id}`}>
-                        <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3" data-testid={`text-event-location-${event.id}`}>
+                        <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span className="truncate">{location}</span>
                       </div>
                     )}
 
                     {event.description && (
-                      <p className="text-sm text-gray-500 line-clamp-2 mb-4">{event.description}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{event.description}</p>
                     )}
 
                     {link && (

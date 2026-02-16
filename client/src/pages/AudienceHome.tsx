@@ -116,14 +116,14 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
       <div className="absolute bottom-0 left-0 right-0 z-10 p-5 sm:p-8">
         {slide?.title && (
           <h2
-            className="text-white text-xl sm:text-2xl lg:text-4xl font-bold tracking-tight leading-tight mb-2"
+            className="text-foreground text-xl sm:text-2xl lg:text-4xl font-bold tracking-tight leading-tight mb-2"
             data-testid="text-hero-carousel-title"
           >
             {slide.title}
           </h2>
         )}
         {slide?.subtitle && (
-          <p className="text-gray-300 text-sm sm:text-base max-w-xl mb-3" data-testid="text-hero-carousel-subtitle">
+          <p className="text-foreground/80 text-sm sm:text-base max-w-xl mb-3" data-testid="text-hero-carousel-subtitle">
             {slide.subtitle}
           </p>
         )}
@@ -143,7 +143,7 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
         <>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); goPrev(); }}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/60 transition-all"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-black/60 transition-all"
             aria-label="Previous slide"
             data-testid="btn-hero-prev"
           >
@@ -151,7 +151,7 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
           </button>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); goNext(); }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/60 transition-all"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-black/60 transition-all"
             aria-label="Next slide"
             data-testid="btn-hero-next"
           >
@@ -164,7 +164,7 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
                 key={idx}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrent(idx); }}
                 className={`transition-all rounded-full ${
-                  idx === current ? "w-6 h-2" : "w-2 h-2 bg-white/40 hover:bg-white/60"
+                  idx === current ? "w-6 h-2" : "w-2 h-2 bg-card/40 hover:bg-card/60"
                 }`}
                 style={idx === current ? { backgroundColor: primaryColor } : undefined}
                 aria-label={`Go to slide ${idx + 1}`}
@@ -210,24 +210,24 @@ function ArticleCardCompact({ article }: { article: any }) {
     <ArticlePreviewPopup article={article} podcastId={article.podcastId}>
       <div className="relative group" data-testid={`card-article-${article.id}`}>
         <Link href={`/news/${article.podcastId}/article/${article.id}`} className="block">
-          <div className="bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all overflow-hidden">
+          <div className="bg-card rounded-xl border border-border hover:border-border hover:shadow-md transition-all overflow-hidden">
             {article.coverImage && (
-              <div className="aspect-[16/9] overflow-hidden bg-gray-100">
+              <div className="aspect-[16/9] overflow-hidden bg-muted">
                 <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
               </div>
             )}
             <div className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{article.podcastTitle}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{article.podcastTitle}</span>
               </div>
-              <h3 className="font-bold text-gray-900 text-sm leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 pr-6" data-testid={`text-art-title-${article.id}`}>
+              <h3 className="font-bold text-foreground text-sm leading-snug group-hover:text-amber-600 transition-colors line-clamp-2 pr-6" data-testid={`text-art-title-${article.id}`}>
                 {article.title}
               </h3>
-              <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                 {article.readingTime && <span>{article.readingTime} min read</span>}
                 {article.publishedAt && (
                   <>
-                    <span className="text-gray-200">|</span>
+                    <span className="text-muted-foreground">|</span>
                     <span>{timeAgo(article.publishedAt)}</span>
                   </>
                 )}
@@ -247,7 +247,7 @@ function ArticleCardCompact({ article }: { article: any }) {
           });
         }}
         className={`absolute top-3 right-3 p-1.5 rounded-full transition-all ${
-          saved ? "text-amber-600 bg-amber-50 hover:bg-amber-100" : "text-gray-300 hover:text-amber-500 hover:bg-white/80 opacity-0 group-hover:opacity-100"
+          saved ? "text-amber-600 bg-amber-50 hover:bg-amber-100" : "text-foreground/80 hover:text-amber-500 hover:bg-card/80 opacity-0 group-hover:opacity-100"
         }`}
         data-testid={`button-bookmark-${article.id}`}
       >
@@ -275,12 +275,12 @@ export default function AudienceHome() {
 
   if (isLoading) {
     return (
-      <div className="bg-gray-50">
+      <div className="bg-background">
         <div className="max-w-[1400px] mx-auto px-4 py-6">
-          <Skeleton className="h-[300px] w-full rounded-2xl mb-6 bg-gray-200" />
+          <Skeleton className="h-[300px] w-full rounded-2xl mb-6 bg-muted" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 rounded-xl bg-gray-200" />
+              <Skeleton key={i} className="h-48 rounded-xl bg-muted" />
             ))}
           </div>
         </div>
@@ -296,7 +296,7 @@ export default function AudienceHome() {
   const latestArticles = articles.slice(0, 8);
 
   return (
-    <div className="bg-gray-50" data-testid="audience-home">
+    <div className="bg-background" data-testid="audience-home">
       <div className="max-w-[1400px] mx-auto px-4 py-5">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
           <div className="lg:col-span-2">
@@ -310,12 +310,12 @@ export default function AudienceHome() {
                 className="block group h-full"
                 data-testid="card-featured-episode"
               >
-                <div className="relative rounded-2xl overflow-hidden bg-gray-900 h-full" style={{ minHeight: "220px" }}>
+                <div className="relative rounded-2xl overflow-hidden bg-background h-full" style={{ minHeight: "220px" }}>
                   {featuredEpisode.thumbnailUrl ? (
                     <img src={featuredEpisode.thumbnailUrl} alt="" className="w-full h-full object-cover opacity-50 group-hover:opacity-60 transition-opacity absolute inset-0" />
                   ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                      <Headphones className="h-16 w-16 text-gray-700" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-background to-background flex items-center justify-center">
+                      <Headphones className="h-16 w-16 text-foreground/80" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -326,19 +326,19 @@ export default function AudienceHome() {
                     <EpisodeTypeBadge type={featuredEpisode.episodeType || "audio"} />
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
-                      <Play className="h-6 w-6 text-gray-900 ml-0.5" />
+                    <div className="h-14 w-14 rounded-full bg-card/90 flex items-center justify-center shadow-xl">
+                      <Play className="h-6 w-6 text-foreground ml-0.5" />
                     </div>
                   </div>
                   <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <h3 className="text-white font-bold text-base leading-snug line-clamp-2 group-hover:text-amber-300 transition-colors" data-testid="text-featured-title">
+                    <h3 className="text-foreground font-bold text-base leading-snug line-clamp-2 group-hover:text-amber-300 transition-colors" data-testid="text-featured-title">
                       {featuredEpisode.title}
                     </h3>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                       <span>{featuredEpisode.podcastTitle}</span>
                       {featuredEpisode.duration && (
                         <>
-                          <span className="text-gray-600">|</span>
+                          <span className="text-muted-foreground">|</span>
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{featuredEpisode.duration}</span>
                         </>
                       )}
@@ -358,7 +358,7 @@ export default function AudienceHome() {
         {latestEpisodes.length > 0 && (
           <section className="mb-10" data-testid="section-latest-episodes">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: primaryColor }}>
                   <Headphones className="h-3.5 w-3.5 text-gray-900" />
                 </div>
@@ -376,17 +376,17 @@ export default function AudienceHome() {
                   className="block group"
                   data-testid={`card-episode-${ep.id}`}
                 >
-                  <div className="rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all overflow-hidden bg-white">
-                    <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                  <div className="rounded-xl border border-border hover:border-border hover:shadow-md transition-all overflow-hidden bg-card">
+                    <div className="relative aspect-square bg-muted overflow-hidden">
                       {ep.thumbnailUrl ? (
                         <img src={ep.thumbnailUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : ep.podcastCoverImage ? (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted">
                           <img src={ep.podcastCoverImage} alt="" className="h-16 w-16 rounded-xl object-cover shadow-sm" />
                         </div>
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                          <Headphones className="h-10 w-10 text-gray-300" />
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <Headphones className="h-10 w-10 text-foreground/80" />
                         </div>
                       )}
                       <div className="absolute top-2 left-2">
@@ -399,15 +399,15 @@ export default function AudienceHome() {
                       </div>
                     </div>
                     <div className="p-3">
-                      <h3 className="font-bold text-gray-900 text-xs leading-snug truncate group-hover:text-amber-600 transition-colors" data-testid={`text-ep-title-${ep.id}`}>
+                      <h3 className="font-bold text-foreground text-xs leading-snug truncate group-hover:text-amber-600 transition-colors" data-testid={`text-ep-title-${ep.id}`}>
                         {ep.title}
                       </h3>
-                      <p className="text-gray-400 text-[11px] mt-1 truncate">{ep.podcastTitle}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-400">
+                      <p className="text-muted-foreground text-[11px] mt-1 truncate">{ep.podcastTitle}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-muted-foreground">
                         {ep.publishedAt && <span>{timeAgo(ep.publishedAt)}</span>}
                         {ep.duration && (
                           <>
-                            <span className="text-gray-200">|</span>
+                            <span className="text-muted-foreground">|</span>
                             <span>{ep.duration}</span>
                           </>
                         )}
@@ -428,9 +428,9 @@ export default function AudienceHome() {
         {latestArticles.length > 0 && (
           <section className="mb-10" data-testid="section-latest-articles">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center">
-                  <Newspaper className="h-3.5 w-3.5 text-white" />
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-background flex items-center justify-center">
+                  <Newspaper className="h-3.5 w-3.5 text-foreground" />
                 </div>
                 Latest Stories
               </h2>
@@ -449,9 +449,9 @@ export default function AudienceHome() {
         {podcasts.length > 0 && (
           <section className="mb-8" data-testid="section-our-shows">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-gray-900 flex items-center justify-center">
-                  <Mic className="h-3.5 w-3.5 text-white" />
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-background flex items-center justify-center">
+                  <Mic className="h-3.5 w-3.5 text-foreground" />
                 </div>
                 Our Shows
               </h2>
@@ -463,20 +463,20 @@ export default function AudienceHome() {
               {podcasts.map((p: any) => (
                 <Link key={p.id} href={`/show/${p.id}`} className="block group" data-testid={`card-show-${p.id}`}>
                   <div className="text-center">
-                    <div className="aspect-square rounded-full overflow-hidden bg-gray-200 ring-2 ring-gray-100 group-hover:ring-4 transition-all mx-auto mb-2 shadow-md group-hover:shadow-lg" style={{ maxWidth: "140px" }}>
+                    <div className="aspect-square rounded-full overflow-hidden bg-muted ring-2 ring-border group-hover:ring-4 transition-all mx-auto mb-2 shadow-md group-hover:shadow-lg" style={{ maxWidth: "140px" }}>
                       {p.coverImage ? (
                         <img src={p.coverImage} alt={p.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                          <Mic className="h-8 w-8 text-gray-400" />
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted">
+                          <Mic className="h-8 w-8 text-muted-foreground" />
                         </div>
                       )}
                     </div>
-                    <h3 className="font-bold text-gray-900 text-xs leading-snug truncate group-hover:text-amber-600 transition-colors" data-testid={`text-show-title-${p.id}`}>
+                    <h3 className="font-bold text-foreground text-xs leading-snug truncate group-hover:text-amber-600 transition-colors" data-testid={`text-show-title-${p.id}`}>
                       {p.title}
                     </h3>
                     {p.subscribers && (
-                      <p className="text-gray-400 text-[10px] mt-0.5">{formatSubscribers(p.subscribers)} listeners</p>
+                      <p className="text-muted-foreground text-[10px] mt-0.5">{formatSubscribers(p.subscribers)} listeners</p>
                     )}
                   </div>
                 </Link>

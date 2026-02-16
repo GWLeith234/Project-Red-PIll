@@ -52,21 +52,21 @@ export default function ShowDetail() {
 
   if (isLoading) {
     return (
-      <div className="bg-gray-50 min-h-screen">
-        <div className="bg-gray-950 text-white">
+      <div className="bg-background min-h-screen">
+        <div className="bg-background text-foreground">
           <div className="max-w-6xl mx-auto px-4 py-12">
             <div className="flex items-center gap-6">
-              <Skeleton className="h-32 w-32 rounded-2xl bg-gray-800" />
+              <Skeleton className="h-32 w-32 rounded-2xl bg-muted" />
               <div>
-                <Skeleton className="h-8 w-64 mb-3 bg-gray-800" />
-                <Skeleton className="h-5 w-40 bg-gray-800" />
+                <Skeleton className="h-8 w-64 mb-3 bg-muted" />
+                <Skeleton className="h-5 w-40 bg-muted" />
               </div>
             </div>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 py-8">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full mb-4 bg-white rounded-xl shadow-sm" />
+            <Skeleton key={i} className="h-20 w-full mb-4 bg-card rounded-xl shadow-sm" />
           ))}
         </div>
       </div>
@@ -75,11 +75,11 @@ export default function ShowDetail() {
 
   if (error || !data) {
     return (
-      <div className="bg-gray-50 min-h-screen flex items-center justify-center py-20">
-        <div className="text-center bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
-          <Mic className="h-16 w-16 text-gray-200 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Show not found</h1>
-          <p className="text-gray-500 mb-4">This show doesn't exist or is no longer available.</p>
+      <div className="bg-background min-h-screen flex items-center justify-center py-20">
+        <div className="text-center bg-card rounded-2xl shadow-sm border border-border p-10">
+          <Mic className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">Show not found</h1>
+          <p className="text-muted-foreground mb-4">This show doesn't exist or is no longer available.</p>
           <Link href="/podcasts" className="text-amber-600 hover:text-amber-700 font-medium text-sm">
             Browse all shows
           </Link>
@@ -97,8 +97,8 @@ export default function ShowDetail() {
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen" data-testid="show-detail">
-      <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white relative overflow-hidden">
+    <div className="bg-background min-h-screen" data-testid="show-detail">
+      <div className="bg-gradient-to-br from-background via-background to-background text-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-transparent to-amber-500/5 pointer-events-none" />
         <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 relative">
           <div className="flex flex-col sm:flex-row items-start gap-8">
@@ -126,25 +126,25 @@ export default function ShowDetail() {
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3" data-testid="text-show-title">
                 {podcast.title}
               </h1>
-              <p className="text-gray-400 text-lg mb-4">with {podcast.host}</p>
+              <p className="text-muted-foreground text-lg mb-4">with {podcast.host}</p>
               {podcast.description && (
-                <p className="text-gray-400 text-sm leading-relaxed max-w-2xl line-clamp-3 mb-6">
+                <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl line-clamp-3 mb-6">
                   {podcast.description}
                 </p>
               )}
               <div className="flex items-center gap-6 text-sm">
                 {podcast.subscribers && (
-                  <span className="flex items-center gap-1.5 text-gray-400">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
                     <Users className="h-4 w-4" />
                     {formatSubscribers(podcast.subscribers)} subscribers
                   </span>
                 )}
-                <span className="flex items-center gap-1.5 text-gray-400">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
                   <Headphones className="h-4 w-4" />
                   {episodes.length} episodes
                 </span>
                 {articles.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-gray-400">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
                     <FileText className="h-4 w-4" />
                     {articles.length} articles
                   </span>
@@ -155,7 +155,7 @@ export default function ShowDetail() {
         </div>
       </div>
 
-      <div className="bg-white border-b border-gray-200 sticky top-16 z-30">
+      <div className="bg-card border-b border-border sticky top-16 z-30">
         <div className="max-w-6xl mx-auto px-4">
           <nav className="flex gap-2 py-3" data-testid="show-tabs">
             {tabs.map((tab) => {
@@ -166,8 +166,8 @@ export default function ShowDetail() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-full transition-all
                     ${activeTab === tab.id
-                      ? "bg-amber-500 text-white shadow-sm"
-                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                      ? "bg-amber-500 text-gray-900 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     }`}
                   data-testid={`tab-${tab.id}`}
                 >
@@ -175,7 +175,7 @@ export default function ShowDetail() {
                   {tab.label}
                   {tab.count > 0 && (
                     <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full
-                      ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"}`}>
+                      ${activeTab === tab.id ? "bg-card/20 text-foreground" : "bg-muted text-muted-foreground"}`}>
                       {tab.count}
                     </span>
                   )}
@@ -186,7 +186,7 @@ export default function ShowDetail() {
         </div>
       </div>
 
-      <div className="flex justify-center py-4 bg-gray-50 border-b border-gray-100">
+      <div className="flex justify-center py-4 bg-background border-b border-border">
         <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
         <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
@@ -207,7 +207,7 @@ export default function ShowDetail() {
 
           <aside className="hidden lg:block w-[300px] shrink-0 print:hidden">
             <div className="sticky top-32 space-y-6">
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="bg-card rounded-xl border border-border shadow-sm p-4">
                 <AdPlaceholder width={268} height={250} label="Sidebar Rectangle" />
               </div>
 
@@ -221,7 +221,7 @@ export default function ShowDetail() {
                 subscriberName={subscriberName}
               />
 
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="bg-card rounded-xl border border-border shadow-sm p-4">
                 <AdPlaceholder width={268} height={600} label="Sidebar Half Page" />
               </div>
             </div>
@@ -261,10 +261,10 @@ function EpisodeTypeBadge({ type }: { type: string }) {
 function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; podcastId: string; podcastTitle: string }) {
   if (episodes.length === 0) {
     return (
-      <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <Headphones className="h-12 w-12 text-gray-200 mx-auto mb-3" />
-        <p className="text-gray-500 text-lg font-medium">No episodes yet</p>
-        <p className="text-gray-400 text-sm mt-1">New episodes will appear here when published.</p>
+      <div className="text-center py-20 bg-card rounded-2xl border border-border shadow-sm">
+        <Headphones className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-muted-foreground text-lg font-medium">No episodes yet</p>
+        <p className="text-muted-foreground text-sm mt-1">New episodes will appear here when published.</p>
       </div>
     );
   }
@@ -278,22 +278,22 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
           className="block"
           data-testid={`card-episode-${ep.id}`}
         >
-          <div className="group flex gap-4 p-5 rounded-xl border border-gray-100 hover:border-amber-200 hover:shadow-md transition-all bg-white shadow-sm">
+          <div className="group flex gap-4 p-5 rounded-xl border border-border hover:border-amber-200 hover:shadow-md transition-all bg-card shadow-sm">
             <div className="flex-shrink-0 relative">
               {ep.thumbnailUrl ? (
-                <img src={ep.thumbnailUrl} alt="" className="h-20 w-20 sm:h-24 sm:w-28 rounded-xl object-cover bg-gray-100" />
+                <img src={ep.thumbnailUrl} alt="" className="h-20 w-20 sm:h-24 sm:w-28 rounded-xl object-cover bg-muted" />
               ) : (
-                <div className="h-20 w-20 sm:h-24 sm:w-28 rounded-xl bg-gray-50 flex items-center justify-center">
+                <div className="h-20 w-20 sm:h-24 sm:w-28 rounded-xl bg-background flex items-center justify-center">
                   {ep.episodeType === "video" || ep.episodeType === "both" ? (
-                    <Video className="h-8 w-8 text-gray-300" />
+                    <Video className="h-8 w-8 text-foreground/80" />
                   ) : (
-                    <Headphones className="h-8 w-8 text-gray-300" />
+                    <Headphones className="h-8 w-8 text-foreground/80" />
                   )}
                 </div>
               )}
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
-                  <Play className="h-4 w-4 text-white ml-0.5" />
+                  <Play className="h-4 w-4 text-gray-900 ml-0.5" />
                 </div>
               </div>
             </div>
@@ -301,13 +301,13 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
               <div className="flex items-center gap-2 mb-1.5">
                 <EpisodeTypeBadge type={ep.episodeType || "audio"} />
               </div>
-              <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-snug group-hover:text-amber-600 transition-colors truncate" data-testid={`text-episode-title-${ep.id}`}>
+              <h3 className="font-bold text-foreground text-sm sm:text-base leading-snug group-hover:text-amber-600 transition-colors truncate" data-testid={`text-episode-title-${ep.id}`}>
                 {ep.title}
               </h3>
               {ep.description && (
-                <p className="text-gray-500 text-xs sm:text-sm mt-1 line-clamp-2 leading-relaxed">{ep.description}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm mt-1 line-clamp-2 leading-relaxed">{ep.description}</p>
               )}
-              <div className="flex items-center gap-3 mt-2.5 text-xs text-gray-400">
+              <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
                 {ep.publishedAt && (
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -332,10 +332,10 @@ function EpisodesTab({ episodes, podcastId, podcastTitle }: { episodes: any[]; p
 function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: string }) {
   if (articles.length === 0) {
     return (
-      <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <FileText className="h-12 w-12 text-gray-200 mx-auto mb-3" />
-        <p className="text-gray-500 text-lg font-medium">No articles yet</p>
-        <p className="text-gray-400 text-sm mt-1">AI-generated articles from episodes will appear here.</p>
+      <div className="text-center py-20 bg-card rounded-2xl border border-border shadow-sm">
+        <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+        <p className="text-muted-foreground text-lg font-medium">No articles yet</p>
+        <p className="text-muted-foreground text-sm mt-1">AI-generated articles from episodes will appear here.</p>
       </div>
     );
   }
@@ -349,18 +349,18 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
             className="block"
             data-testid={`card-article-${article.id}`}
           >
-            <article className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-5 cursor-pointer">
+            <article className="group bg-card rounded-xl border border-border shadow-sm hover:shadow-md hover:border-amber-200 transition-all p-5 cursor-pointer">
               <div className="flex gap-5">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-amber-600 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
+                  <h3 className="text-lg font-bold text-foreground leading-snug group-hover:text-amber-600 transition-colors mb-2" data-testid={`text-article-title-${article.id}`}>
                     {article.title}
                   </h3>
                   {article.description && (
-                    <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">
+                    <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 mb-3">
                       {article.description}
                     </p>
                   )}
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     {article.publishedAt && (
                       <span>{timeAgo(article.publishedAt)}</span>
                     )}
@@ -375,7 +375,7 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
                     <img
                       src={article.coverImage}
                       alt=""
-                      className="w-[140px] h-[90px] object-cover rounded-xl bg-gray-100"
+                      className="w-[140px] h-[90px] object-cover rounded-xl bg-muted"
                     />
                   </div>
                 )}
@@ -391,7 +391,7 @@ function ArticlesTab({ articles, podcastId }: { articles: any[]; podcastId: stri
 function AboutTab({ podcast, episodeCount, articleCount }: { podcast: any; episodeCount: number; articleCount: number }) {
   return (
     <div className="max-w-2xl space-y-6" data-testid="about-section">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <div className="bg-card rounded-xl border border-border shadow-sm p-6">
         <div className="flex items-center gap-5 mb-6">
           {podcast.coverImage ? (
             <img src={podcast.coverImage} alt="" className="h-24 w-24 rounded-2xl object-cover shadow-md" />
@@ -401,31 +401,31 @@ function AboutTab({ podcast, episodeCount, articleCount }: { podcast: any; episo
             </div>
           )}
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{podcast.title}</h2>
-            <p className="text-gray-500 text-lg">with {podcast.host}</p>
+            <h2 className="text-2xl font-bold text-foreground">{podcast.title}</h2>
+            <p className="text-muted-foreground text-lg">with {podcast.host}</p>
           </div>
         </div>
 
         {podcast.description && (
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">About This Show</h3>
-            <p className="text-gray-600 leading-relaxed whitespace-pre-line">{podcast.description}</p>
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-3">About This Show</h3>
+            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{podcast.description}</p>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-          <p className="text-2xl font-bold text-gray-900">{episodeCount}</p>
-          <p className="text-gray-500 text-xs mt-1">Episodes</p>
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 text-center">
+          <p className="text-2xl font-bold text-foreground">{episodeCount}</p>
+          <p className="text-muted-foreground text-xs mt-1">Episodes</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-          <p className="text-2xl font-bold text-gray-900">{articleCount}</p>
-          <p className="text-gray-500 text-xs mt-1">Articles</p>
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 text-center">
+          <p className="text-2xl font-bold text-foreground">{articleCount}</p>
+          <p className="text-muted-foreground text-xs mt-1">Articles</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-          <p className="text-2xl font-bold text-gray-900">{formatSubscribers(podcast.subscribers) || "0"}</p>
-          <p className="text-gray-500 text-xs mt-1">Subscribers</p>
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5 text-center">
+          <p className="text-2xl font-bold text-foreground">{formatSubscribers(podcast.subscribers) || "0"}</p>
+          <p className="text-muted-foreground text-xs mt-1">Subscribers</p>
         </div>
       </div>
     </div>

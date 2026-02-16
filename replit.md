@@ -13,7 +13,8 @@ Preferred communication style: Simple, everyday language.
 - **Routing**: Wouter
 - **State Management**: TanStack React Query for server state
 - **UI Components**: shadcn/ui (new-york style) built on Radix UI with Tailwind CSS
-- **Styling**: Tailwind CSS v4 with CSS variables, dark theme by default, `tw-animate-css` for animations
+- **Styling**: Tailwind CSS v4 with CSS variables, light/dark theme support via `.dark` class strategy, `tw-animate-css` for animations
+- **Theme System**: Light/dark/system mode via `use-theme.ts` hook. CSS variables in `:root` (light) and `.dark` (dark). ThemeToggle component in sidebar and audience header. Settings page Theme tab for platform default. Inline script in index.html for flash-free loading. Branding table `theme_mode` column stores platform default.
 - **Charts**: Recharts for data visualization
 - **Build Tool**: Vite
 - **Fonts**: Inter (UI), JetBrains Mono (monospace/code), Rajdhani (display headings)
