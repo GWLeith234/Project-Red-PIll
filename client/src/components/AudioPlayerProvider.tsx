@@ -41,8 +41,19 @@ export function useAudioPlayerOptional() {
   return useContext(AudioPlayerContext);
 }
 
+let globalAudio: HTMLAudioElement | null = null;
+function getGlobalAudio(): HTMLAudioElement {
+  if (!globalAudio) {
+    globalAudio = document.createElement("audio");
+    globalAudio.preload = "metadata";
+    globalAudio.style.display = "none";
+    document.body.appendChild(globalAudio);
+  }
+  return globalAudio;
+}
+
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(getGlobalAudio());
   const [currentEpisode, setCurrentEpisode] = useState<AudioEpisode | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -68,18 +79,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log("AUDIO_PROVIDER: mounting");
-    const audio = document.createElement("audio");
-    audio.preload = "metadata";
-    audio.style.display = "none";
-    document.body.appendChild(audio);
+    const audio = getGlobalAudio();
     audioRef.current = audio;
 
-    audio.addEventListener("timeupdate", () => setCurrentTime(audio.currentTime));
-    audio.addEventListener("durationchange", () => setDuration(audio.duration || 0));
-    audio.addEventListener("loadedmetadata", () => setDuration(audio.duration || 0));
-    audio.addEventListener("play", () => setIsPlaying(true));
-    audio.addEventListener("pause", () => setIsPlaying(false));
-    audio.addEventListener("ended", () => {
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onDurationChange = () => setDuration(audio.duration || 0);
+    const onLoadedMetadata = () => setDuration(audio.duration || 0);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onEnded = () => {
       setIsPlaying(false);
       const q = queueRef.current;
       if (q.length > 0) {
@@ -87,13 +95,29 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setQueue(q.slice(1));
         playEpisodeRef.current(next);
       }
-    });
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("durationchange", onDurationChange);
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onEnded);
+
+    if (audio.src && !audio.paused) {
+      setIsPlaying(true);
+      setCurrentTime(audio.currentTime);
+      setDuration(audio.duration || 0);
+    }
 
     return () => {
-      console.log("AUDIO_PROVIDER: unmounting - THIS SHOULD ONLY HAPPEN ON APP CLOSE");
-      audio.pause();
-      audio.src = "";
-      document.body.removeChild(audio);
+      console.log("AUDIO_PROVIDER: re-mounting (audio persists via singleton)");
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("durationchange", onDurationChange);
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
     };
   }, []);
 

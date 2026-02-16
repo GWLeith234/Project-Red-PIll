@@ -1,0 +1,85 @@
+The AudioPlayerProvider unmounts during navigation even though it's at the App level. This is likely caused by Vite HMR or the Replit environment triggering full page reloads. Fix this by making the audio element completely independent of React's lifecycle:
+
+In client/src/components/AudioPlayerProvider.tsx, replace the current approach of creating the audio element inside useEffect with a module-level singleton that exists outside React entirely:
+
+At the TOP of the file, BEFORE any component or function definition, add:
+
+// Module-level audio singleton - survives React unmounts
+let globalAudio: HTMLAudioElement | null = null;
+function getGlobalAudio(): HTMLAudioElement {
+  if (!globalAudio) {
+    globalAudio = document.createElement("audio");
+    globalAudio.preload = "metadata";
+    globalAudio.style.display = "none";
+    document.body.appendChild(globalAudio);
+  }
+  return globalAudio;
+}
+
+Then in the AudioPlayerProvider component, change the useEffect that creates the audio element. Instead of creating a new Audio() or document.createElement("audio"), use:
+
+const audio = getGlobalAudio();
+audioRef.current = audio;
+
+And REMOVE the cleanup function that pauses and removes the audio element. The cleanup should be empty or just log:
+
+return () => {
+  console.log("AUDIO_PROVIDER: re-mounting (audio persists via singleton)");
+  // Do NOT pause or remove the audio - it's a global singleton
+};
+
+Also remove the line audioRef.current = audio from inside the useEffect since it should be set on every render:
+
+Change the audioRef initialization at the top of the component from:
+const audioRef = useRef<HTMLAudioElement | null>(null);
+
+To:
+const audioRef = useRef<HTMLAudioElement>(getGlobalAudio());
+
+This way even if React unmounts and remounts AudioPlayerProvider, the same audio element keeps playing because it lives outside React entirely. The audio element is attached to document.body and never removed.
+
+The event listeners in the useEffect should still be added and cleaned up properly to avoid duplicates. Change the useEffect to:
+
+useEffect(() => {
+  const audio = getGlobalAudio();
+  audioRef.current = audio;
+  
+  const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+  const onDurationChange = () => setDuration(audio.duration || 0);
+  const onLoadedMetadata = () => setDuration(audio.duration || 0);
+  const onPlay = () => setIsPlaying(true);
+  const onPause = () => setIsPlaying(false);
+  const onEnded = () => {
+    setIsPlaying(false);
+    const q = queueRef.current;
+    if (q.length > 0) {
+      const next = q[0];
+      setQueue(q.slice(1));
+      playEpisodeRef.current(next);
+    }
+  };
+
+  audio.addEventListener("timeupdate", onTimeUpdate);
+  audio.addEventListener("durationchange", onDurationChange);
+  audio.addEventListener("loadedmetadata", onLoadedMetadata);
+  audio.addEventListener("play", onPlay);
+  audio.addEventListener("pause", onPause);
+  audio.addEventListener("ended", onEnded);
+
+  // Restore state if audio is already playing (after remount)
+  if (audio.src && !audio.paused) {
+    setIsPlaying(true);
+    setCurrentTime(audio.currentTime);
+    setDuration(audio.duration || 0);
+  }
+
+  return () => {
+    audio.removeEventListener("timeupdate", onTimeUpdate);
+    audio.removeEventListener("durationchange", onDurationChange);
+    audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+    audio.removeEventListener("play", onPlay);
+    audio.removeEventListener("pause", onPause);
+    audio.removeEventListener("ended", onEnded);
+    // Do NOT pause or remove audio - singleton persists
+  };
+}, []);
