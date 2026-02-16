@@ -1,0 +1,189 @@
+Unify all Content section pages to share a consistent design pattern: PageHeader → Status Filters → MetricsStrip → Tool Section → Data Cards. Merge overlapping pages and ensure the same content lifecycle data flows through every view.
+
+THE CORE PRINCIPLE: All content (articles, social posts, newsletters, clips, emails) lives in the content_pieces table with one unified status lifecycle:
+draft → in_review → approved → scheduled → published (and rejected as a branch from in_review)
+
+Every Content section page is a DIFFERENT VIEW of the same underlying data, not a separate silo.
+
+PART A — UNIFIED STATUS SYSTEM:
+
+(1) Standardize content_pieces.status to use exactly these values everywhere: "draft", "in_review", "approved", "scheduled", "published", "rejected". Update any existing content that uses "pending", "ready", "generating", "review", "suggested", or other statuses to map to the closest new status:
+- "pending" → "in_review"
+- "ready" → "approved"
+- "generating" → "draft"
+- "review" → "in_review"
+- "suggested" → "draft"
+- All others → "draft"
+
+Run a migration/update query to normalize existing data.
+
+(2) Add or ensure these columns exist on content_pieces:
+- status: text, default 'draft' (using the statuses above)
+- source: text, default 'manual' (manual, ai_generated, ai_assisted, podcast_pipeline)
+- reviewer_notes: text, nullable
+- scheduled_publish_at: timestamp, nullable
+- submitted_for_review_at: timestamp, nullable
+- assigned_to: text, nullable (user who is responsible for this piece)
+- priority: text, default 'medium' (low, medium, high, urgent)
+
+PART B — SHARED CONTENT COMPONENTS:
+
+(3) Build a shared status filter bar component: client/src/components/admin/ContentStatusBar.tsx
+- Horizontal row of clickable filter pills: All | Drafts | In Review | Approved | Scheduled | Published | Rejected
+- Each shows a count badge with live data from a shared hook
+- Active filter is highlighted with the status color
+- Accepts onFilterChange callback and activeFilter prop
+- This component is reused on Content Factory, Moderation Queue, and Kanban Board
+
+(4) Build a shared content card component: client/src/components/admin/ContentCard.tsx
+- Renders a single content piece consistently everywhere it appears
+- Shows: status dot (colored) | type icon + label | title (bold, clickable) | author | date | priority badge | assigned user avatar
+- Compact mode (for tables/lists) and expanded mode (for kanban cards)
+- Actions dropdown: Edit, Preview, Submit for Review, Approve, Reject, Schedule, Publish, Delete (show only actions valid for current status)
+- Clicking opens the Content Editor (shared editor — see Part C)
+
+(5) Build a shared content metrics hook: client/src/hooks/use-content-metrics.ts
+- Returns: { total, drafts, inReview, approved, scheduled, published, rejected, aiGenerated, publishedThisWeek }
+- Used by MetricsStrip on every Content section page
+
+PART C — UNIFIED CONTENT EDITOR (shared across all pages):
+
+(6) Build client/src/components/admin/ContentEditor.tsx — a slide-out panel that opens from any Content page when creating or editing a piece:
+
+LEFT SIDE (65% width):
+- Title field (large input)
+- Type selector: Article | Blog | Social Post | Email | Newsletter | Ad Copy | Clip
+- Body editor (use existing ArticleEditor component or rich textarea)
+- For social posts: character counter, platform preview (show how it looks on Twitter/Facebook/etc.)
+- For emails: subject line field, preview text field, then body
+- Collapsible SEO section: meta title, meta description, keywords
+- Purple AI sparkle button with quick actions: Improve Writing, Make Shorter, Make Longer, Change Tone, Generate Headlines, SEO Check
+
+RIGHT SIDE (35% width) — Sidebar:
+- Status badge (large, colored, current status)
+- Status history timeline (shows: created → submitted → approved → published with dates)
+- Cover image upload (drag-and-drop)
+- Platform selector (for social: which platforms to post to)
+- Schedule toggle: "Publish now" vs "Schedule for later" with date/time picker
+- Priority selector: Low | Medium | High | Urgent
+- Assigned to: user dropdown
+- Source badge: Manual | AI Generated | Podcast Pipeline
+- Action buttons (stacked, full width):
+  - Draft: "Submit for Review" (primary) + "Save Draft" (secondary)
+  - In Review: "Approve" (green) + "Reject" (red, with feedback textarea that appears)
+  - Approved: "Publish Now" (primary) + "Schedule" (secondary)
+  - Scheduled: "Publish Now" + "Unschedule"
+  - Published: "Unpublish" (returns to draft)
+  - Rejected: Red callout showing reviewer_notes + "Edit & Resubmit"
+
+This editor is used everywhere. Content Factory, Moderation Queue, Kanban — clicking any content piece opens this same editor.
+
+PART D — CONTENT FACTORY REDESIGN:
+
+(7) Rebuild Content Factory as the primary content hub — the "home page" for all content:
+
+Layout:
+- PageHeader: "Content Factory" + "+ Create" button + "AI Generate" purple button
+- ContentStatusBar (the shared filter pills with counts)
+- MetricsStrip: Total Pieces, Published This Week, AI Generated, Pending Review, Scheduled Queue, Avg. Days to Publish
+- View toggle: Table View | Card Grid View (default to Table)
+- Table View: sortable table of all content pieces using ContentCard compact mode. Columns: Status | Type | Title | Author | Priority | Date | Actions
+- Card Grid View: responsive grid of ContentCard expanded mode
+- Search bar + filters: type dropdown, author dropdown, date range, priority
+- "+ Create" opens a type selector dropdown, creates a draft, opens ContentEditor
+- "AI Generate" opens the AI Generate modal, creates a draft with AI content, opens ContentEditor
+
+PART E — MODERATION QUEUE REDESIGN:
+
+(8) Rebuild Moderation Queue as a focused review view — same data, filtered to in_review:
+
+Layout:
+- PageHeader: "Moderation Queue" + "Approve All" action (bulk approve visible items)
+- ContentStatusBar (same component, but pre-filtered to "In Review" by default)
+- MetricsStrip: Pending Review (count), Reviewed Today, Avg Review Time, Rejected Rate, Auto-Approved (if any), Oldest Pending
+- Main area: list of content pieces with status "in_review", sorted by submitted_for_review_at (oldest first)
+- Each item uses ContentCard with review-specific actions prominent: Approve (green check) and Reject (red X) buttons visible without opening a dropdown
+- Clicking a card opens ContentEditor in review mode (approve/reject buttons in sidebar)
+- After approving or rejecting, the card animates out and the next one slides up
+- Add a side-by-side preview: left side shows the content as it will appear on the audience site, right side shows the ContentEditor
+
+PART F — KANBAN BOARD REDESIGN:
+
+(9) Rebuild Kanban Board to use the unified status columns instead of custom task columns:
+
+Layout:
+- PageHeader: "Kanban Board" + "+ Create" button
+- MetricsStrip: same content metrics
+- Board columns mapped to content lifecycle: Draft | In Review | Approved | Scheduled | Published
+- Each column shows ContentCard in expanded mode
+- Drag-and-drop between columns updates the content status via PATCH
+- Drag rules (enforce valid transitions):
+  - Can drag Draft → In Review
+  - Can drag In Review → Approved or Rejected (show reject feedback prompt)
+  - Can drag Approved → Scheduled or Published
+  - Cannot skip steps (e.g., cannot drag Draft → Published directly)
+- Column headers show count + total word count (for articles)
+- Rejected items show in a collapsed "Rejected" row at the bottom
+
+PART G — SCHEDULER REDESIGN:
+
+(10) Rebuild Scheduler to focus on the calendar view of scheduled and published content:
+
+Layout:
+- PageHeader: "Scheduler" + "+ Schedule" button
+- ContentStatusBar (pre-filtered to "scheduled" and "published")
+- MetricsStrip: Scheduled This Week, Published This Week, Gaps (days with no content), Avg Posts/Day, Next Scheduled, Overdue
+- Main area: Calendar view (month view default, with week view toggle)
+  - Each day cell shows content pieces scheduled for that day as small colored pills (color by type)
+  - Clicking a pill opens ContentEditor
+  - Clicking an empty day opens "+ Create" with that date pre-filled in scheduled_publish_at
+  - Drag pills between days to reschedule
+- Below calendar: upcoming queue — list of next 10 scheduled pieces with countdown timers
+- AI suggestion: "AI Suggest Schedule" button analyzes content and suggests optimal publish times based on audience engagement patterns
+
+PART H — MY TASKS REDESIGN:
+
+(11) Rebuild My Tasks as a personal filtered view:
+
+Layout:
+- PageHeader: "My Tasks" + "+ Create" button
+- ContentStatusBar (pre-filtered to content assigned to the current user)
+- MetricsStrip: My Drafts, My Pending Reviews, My Published This Week, Overdue Items
+- Two views:
+  - List view: content pieces where assigned_to = current user, sorted by priority then date
+  - Calendar view: same as Scheduler but filtered to current user's assignments
+- Each item uses ContentCard, clicking opens ContentEditor
+- Quick actions: "Submit for Review" button directly on draft cards without opening editor
+
+PART I — AI SITE EDITOR (keep separate but match design):
+
+(12) AI Site Editor stays functionally separate (it's page building, not content creation) but should match the visual design pattern:
+- PageHeader (already has it)
+- MetricsStrip: Total Pages, Published Pages, Draft Pages, Last Updated
+- Keep existing page builder functionality as the Tool Section
+- Ensure it uses the same card styling, button patterns, and color system as the other Content pages
+
+PART J — COMMUNITY (keep separate but match design):
+
+(13) Community stays functionally separate but should match the design pattern:
+- PageHeader (already has it)
+- ContentStatusBar equivalent: Events | Polls | Discussion tab pills (same visual style as status filters)
+- MetricsStrip (already has it)
+- Ensure cards, tables, and forms match the same design as Content pages
+
+PART K — AI GENERATE FLOW (end-to-end):
+
+(14) When AI Generate creates content:
+- Creates a content_pieces row with status: "draft", source: "ai_generated"
+- Opens ContentEditor with AI content pre-filled
+- User reviews, edits
+- Clicks "Submit for Review" → status becomes "in_review", appears in Moderation Queue
+- Reviewer approves → status becomes "approved"
+- Publisher publishes or schedules → goes live
+
+(15) When podcast pipeline generates content:
+- Creates content_pieces rows with status: "in_review", source: "podcast_pipeline"
+- These go directly to Moderation Queue (skip draft since they're auto-generated)
+- Reviewer can approve, edit, or reject
+
+(16) Wire the "AI Generate" button to be available on every Content page (Content Factory, Moderation Queue if reviewer wants to generate an alternative, Kanban, Scheduler). Same modal, same flow — always creates a draft and opens ContentEditor.

@@ -1,4 +1,4 @@
-import { eq, desc, sql, gte, lte, count, inArray } from "drizzle-orm";
+import { eq, desc, sql, gte, lte, count, inArray, ilike } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { and } from "drizzle-orm";
@@ -103,6 +103,8 @@ export interface IStorage {
   getContentPiece(id: string): Promise<ContentPiece | undefined>;
   getContentPieceBySlug(slug: string): Promise<ContentPiece | undefined>;
   getContentPiecesByStatus(status: string, type?: string): Promise<ContentPiece[]>;
+  getContentPiecesFiltered(filters: { status?: string; type?: string; assignedTo?: string; source?: string; priority?: string; search?: string }): Promise<ContentPiece[]>;
+  getContentMetricsCounts(): Promise<Record<string, number>>;
   createContentPiece(piece: InsertContentPiece): Promise<ContentPiece>;
   updateContentPiece(id: string, data: Partial<InsertContentPiece>): Promise<ContentPiece | undefined>;
   reorderContentPieces(pieceIds: string[]): Promise<void>;
@@ -544,6 +546,28 @@ export class DatabaseStorage implements IStorage {
   async updateContentPiece(id: string, data: Partial<InsertContentPiece>) {
     const [updated] = await db.update(contentPieces).set({ ...data, updatedAt: new Date() }).where(eq(contentPieces.id, id)).returning();
     return updated;
+  }
+  async getContentPiecesFiltered(filters: { status?: string; type?: string; assignedTo?: string; source?: string; priority?: string; search?: string }) {
+    const conditions = [];
+    if (filters.status) conditions.push(eq(contentPieces.status, filters.status));
+    if (filters.type) conditions.push(eq(contentPieces.type, filters.type));
+    if (filters.assignedTo) conditions.push(eq(contentPieces.assignedTo, filters.assignedTo));
+    if (filters.source) conditions.push(eq(contentPieces.source, filters.source));
+    if (filters.priority) conditions.push(eq(contentPieces.priority, filters.priority));
+    if (filters.search) conditions.push(ilike(contentPieces.title, `%${filters.search}%`));
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    return db.select().from(contentPieces).where(where).orderBy(desc(contentPieces.updatedAt));
+  }
+  async getContentMetricsCounts() {
+    const all = await db.select({ status: contentPieces.status }).from(contentPieces);
+    const counts: Record<string, number> = { total: all.length, draft: 0, in_review: 0, approved: 0, scheduled: 0, published: 0, rejected: 0, ai_generated: 0 };
+    for (const row of all) {
+      const s = row.status || "draft";
+      if (counts[s] !== undefined) counts[s]++;
+    }
+    const aiCount = await db.select().from(contentPieces).where(eq(contentPieces.source, "ai_generated"));
+    counts.ai_generated = aiCount.length;
+    return counts;
   }
   async reorderContentPieces(pieceIds: string[]) {
     if (pieceIds.length === 0) return;

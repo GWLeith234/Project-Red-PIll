@@ -108,14 +108,14 @@ export const episodes = pgTable("episodes", {
 
 export const contentPieces = pgTable("content_pieces", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  episodeId: varchar("episode_id").notNull(),
+  episodeId: varchar("episode_id"),
   type: text("type").notNull(),
   title: text("title").notNull(),
   description: text("description"),
   body: text("body"),
   coverImage: text("cover_image"),
   platform: text("platform"),
-  status: text("status").default("pending"),
+  status: text("status").default("draft"),
   slug: text("slug"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
@@ -123,16 +123,25 @@ export const contentPieces = pgTable("content_pieces", {
   summary: text("summary"),
   readingTime: integer("reading_time"),
   aiGenerated: boolean("ai_generated").default(false),
+  source: text("source").default("manual"),
   authorId: varchar("author_id"),
+  assignedTo: varchar("assigned_to"),
+  priority: text("priority").default("medium"),
+  reviewerNotes: text("reviewer_notes"),
   moderatedBy: varchar("moderated_by"),
   moderatedAt: timestamp("moderated_at"),
-  publishedAt: timestamp("published_at").defaultNow(),
+  submittedForReviewAt: timestamp("submitted_for_review_at"),
+  scheduledPublishAt: timestamp("scheduled_publish_at"),
+  publishedAt: timestamp("published_at"),
   sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("content_pieces_episode_id_idx").on(table.episodeId),
   index("content_pieces_status_idx").on(table.status),
   index("content_pieces_type_idx").on(table.type),
+  index("content_pieces_assigned_to_idx").on(table.assignedTo),
+  index("content_pieces_scheduled_idx").on(table.scheduledPublishAt),
 ]);
 
 export const advertisers = pgTable("advertisers", {

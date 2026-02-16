@@ -310,6 +310,11 @@ export async function registerRoutes(
   // ── Content Pieces ──
   app.get("/api/content-pieces", async (req, res) => {
     const episodeId = req.query.episodeId as string | undefined;
+    const { status, type, assignedTo, source, priority, search } = req.query as Record<string, string | undefined>;
+    if (status || type || assignedTo || source || priority || search) {
+      const data = await storage.getContentPiecesFiltered({ status, type, assignedTo, source, priority, search });
+      return res.json(data);
+    }
     if (req.query.page) {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
@@ -319,6 +324,11 @@ export async function registerRoutes(
     }
     const data = await storage.getContentPieces(episodeId);
     res.json(data);
+  });
+
+  app.get("/api/content-pieces/metrics", async (_req, res) => {
+    const counts = await storage.getContentMetricsCounts();
+    res.json(counts);
   });
 
   app.get("/api/podcasts/:id/articles", async (req, res) => {
