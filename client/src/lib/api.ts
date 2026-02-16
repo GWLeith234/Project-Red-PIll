@@ -28,6 +28,17 @@ export function useContentPieces(episodeId?: string) {
   return useQuery({ queryKey: ["/api/content-pieces", episodeId], queryFn: () => apiRequest(url) });
 }
 
+export function useContentPiecesFiltered(filters: { status?: string; type?: string; assignedTo?: string; source?: string; priority?: string; search?: string } = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+  const url = params.toString() ? `/api/content-pieces?${params}` : "/api/content-pieces";
+  return useQuery({ queryKey: ["/api/content-pieces", "filtered", filters], queryFn: () => apiRequest(url) });
+}
+
+export function useContentMetrics() {
+  return useQuery({ queryKey: ["/api/content-pieces/metrics"], queryFn: () => apiRequest("/api/content-pieces/metrics") });
+}
+
 export function useAdvertisers() {
   return useQuery({ queryKey: ["/api/advertisers"], queryFn: () => apiRequest("/api/advertisers") });
 }
