@@ -1,0 +1,105 @@
+The episode page shows a native <video> element that users click to play. This video element is destroyed on navigation, stopping playback. The AudioPlayerUI exists below it but users click the video instead. Fix this so that video playback is linked to the persistent AudioPlayerProvider and audio continues when navigating away.
+
+In client/src/pages/EpisodePage.tsx, make these changes:
+
+(1) Replace the VideoPlayerUI component with one that syncs with AudioPlayerProvider. Replace the entire VideoPlayerUI function with:
+
+function VideoPlayerUI({ episode, podcast }: { episode: any; podcast: any }) {
+  const { play, pause, resume, isPlaying, currentEpisode, currentTime, seek } = useAudioPlayer();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isThisEpisode = currentEpisode?.id === episode.id;
+  const isThisPlaying = isThisEpisode && isPlaying;
+  const [videoVisible, setVideoVisible] = useState(true);
+
+  // Sync video element with audio player state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isThisEpisode) return;
+
+    // Keep video in sync with audio player time
+    if (Math.abs(video.currentTime - currentTime) > 2) {
+      video.currentTime = currentTime;
+    }
+
+    if (isPlaying && video.paused) {
+      video.play().catch(() => {});
+    } else if (!isPlaying && !video.paused) {
+      video.pause();
+    }
+  }, [isThisEpisode, isPlaying, currentTime]);
+
+  const handleVideoPlay = () => {
+    if (!isThisEpisode) {
+      // Start playback through AudioPlayerProvider
+      const audioEp = {
+        id: episode.id,
+        title: episode.title,
+        podcastTitle: podcast?.title || "Podcast",
+        audioUrl: episode.audioUrl || episode.videoUrl || "",
+        coverImage: episode.thumbnailUrl || podcast?.coverImage,
+        duration: episode.duration,
+        podcastId: podcast?.id,
+      };
+      play(audioEp);
+    } else {
+      isPlaying ? pause() : resume();
+    }
+  };
+
+  return (
+    <div className="mb-8 rounded-xl overflow-hidden bg-black shadow-2xl" data-testid="video-player">
+      <div className="relative aspect-video cursor-pointer" onClick={handleVideoPlay}>
+        <video
+          ref={videoRef}
+          poster={episode.thumbnailUrl || undefined}
+          className="w-full h-full object-contain bg-black"
+          preload="metadata"
+          data-testid="video-element"
+          muted
+        >
+          <source src={episode.videoUrl} />
+        </video>
+        {!isThisPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="h-16 w-16 rounded-full bg-white/90 flex items-center justify-center">
+              <svg className="h-8 w-8 text-gray-900 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="bg-gray-900 px-4 py-3">
+        <p className="text-white text-sm font-semibold truncate">{episode.title}</p>
+        <p className="text-xs text-gray-400 mt-1">Audio continues when you leave this page</p>
+      </div>
+    </div>
+  );
+}
+
+Make sure to add useRef and useEffect to the imports if not already there. Also update the VideoPlayerUI call site to pass episode and podcast props instead of the old individual props. Find this around line 347:
+
+Change:
+<VideoPlayerUI
+  videoUrl={episode.videoUrl}
+  title={episode.title}
+  thumbnailUrl={episode.thumbnailUrl}
+/>
+
+To:
+<VideoPlayerUI episode={episode} podcast={podcast} />
+
+(2) The video element is muted because audio comes from the persistent <audio> element in AudioPlayerProvider. The <audio> element handles audio output so there's no double audio. The video provides the visual sync.
+
+(3) The AudioPlayerUI below the video should still work as before - it already falls back to videoUrl when audioUrl is missing. The user can use either the video click or the audio player controls.
+
+(4) Important: The "Navigated to" full page reload issue also needs to be fixed. In server/vite.ts, the nanoid cache-busting is still present. Find this line and DELETE it completely:
+
+template = template.replace(
+  `src="/src/main.tsx"`,
+  `src="/src/main.tsx?v=${nanoid()}"`,
+);
+
+Replace those 4 lines with just a comment:
+// No cache busting - Vite HMR handles updates
+
+Also remove the nanoid import at the top of the file:
+import { nanoid } from "nanoid";

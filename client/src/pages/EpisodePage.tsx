@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Mic, Clock, Play, Pause, ChevronRight, FileText, Video, MessageSquare, Share2, Headphones, Sparkles, ListPlus } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar, EpisodeSubscribeWidget } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
@@ -41,23 +41,68 @@ const contentTypeIcons: Record<string, typeof FileText> = {
   newsletter: Share2,
 };
 
-function VideoPlayerUI({ videoUrl, title, thumbnailUrl }: { videoUrl: string; title: string; thumbnailUrl?: string | null }) {
+function VideoPlayerUI({ episode, podcast }: { episode: any; podcast: any }) {
+  const { play, pause, resume, isPlaying, currentEpisode, currentTime } = useAudioPlayer();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isThisEpisode = currentEpisode?.id === episode.id;
+  const isThisPlaying = isThisEpisode && isPlaying;
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isThisEpisode) return;
+
+    if (Math.abs(video.currentTime - currentTime) > 2) {
+      video.currentTime = currentTime;
+    }
+
+    if (isPlaying && video.paused) {
+      video.play().catch(() => {});
+    } else if (!isPlaying && !video.paused) {
+      video.pause();
+    }
+  }, [isThisEpisode, isPlaying, currentTime]);
+
+  const handleVideoPlay = () => {
+    if (!isThisEpisode) {
+      const audioEp: AudioEpisode = {
+        id: episode.id,
+        title: episode.title,
+        podcastTitle: podcast?.title || "Podcast",
+        audioUrl: episode.audioUrl || episode.videoUrl || "",
+        coverImage: episode.thumbnailUrl || podcast?.coverImage,
+        duration: episode.duration,
+        podcastId: podcast?.id,
+      };
+      play(audioEp);
+    } else {
+      isPlaying ? pause() : resume();
+    }
+  };
+
   return (
     <div className="mb-8 rounded-xl overflow-hidden bg-black shadow-2xl" data-testid="video-player">
-      <div className="relative aspect-video">
+      <div className="relative aspect-video cursor-pointer" onClick={handleVideoPlay}>
         <video
-          controls
-          poster={thumbnailUrl || undefined}
+          ref={videoRef}
+          poster={episode.thumbnailUrl || undefined}
           className="w-full h-full object-contain bg-black"
           preload="metadata"
           data-testid="video-element"
+          muted
         >
-          <source src={videoUrl} />
-          Your browser does not support the video tag.
+          <source src={episode.videoUrl} />
         </video>
+        {!isThisPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="h-16 w-16 rounded-full bg-white/90 flex items-center justify-center">
+              <Play className="h-8 w-8 text-gray-900 ml-1" fill="currentColor" />
+            </div>
+          </div>
+        )}
       </div>
       <div className="bg-gray-900 px-4 py-3">
-        <p className="text-white text-sm font-semibold truncate">{title}</p>
+        <p className="text-white text-sm font-semibold truncate">{episode.title}</p>
+        <p className="text-xs text-gray-400 mt-1">Audio continues when you leave this page</p>
       </div>
     </div>
   );
@@ -345,11 +390,7 @@ export default function EpisodePage() {
             </div>
 
             {(episode.episodeType === "video" || episode.episodeType === "both") && episode.videoUrl && (
-              <VideoPlayerUI
-                videoUrl={episode.videoUrl}
-                title={episode.title}
-                thumbnailUrl={episode.thumbnailUrl}
-              />
+              <VideoPlayerUI episode={episode} podcast={podcast} />
             )}
 
             <AudioPlayerUI episode={episode} podcast={podcast} />
