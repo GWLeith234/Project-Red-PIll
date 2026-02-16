@@ -67,8 +67,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const playEpisodeRef = useRef<(episode: AudioEpisode) => void>(() => {});
 
   useEffect(() => {
-    const audio = new Audio();
+    const audio = document.createElement("audio");
     audio.preload = "metadata";
+    audio.style.display = "none";
+    document.body.appendChild(audio);
     audioRef.current = audio;
 
     audio.addEventListener("timeupdate", () => setCurrentTime(audio.currentTime));
@@ -87,12 +89,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      console.log("AUDIO PROVIDER CLEANUP - this should only happen on app close");
       audio.pause();
       audio.src = "";
+      document.body.removeChild(audio);
     };
   }, []);
 
   const playEpisode = useCallback((episode: AudioEpisode) => {
+    console.log("AUDIO: playing episode:", episode.title);
     const audio = audioRef.current;
     if (!audio) return;
     if (!episode.audioUrl) {
@@ -158,6 +163,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pause = useCallback(() => {
+    console.log("AUDIO: paused");
     audioRef.current?.pause();
   }, []);
 
