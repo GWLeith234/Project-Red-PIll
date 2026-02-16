@@ -539,8 +539,8 @@ export interface LayoutRow {
 export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   homepage: {
     type: "homepage",
-    label: "News Homepage",
-    description: "SooToday-style homepage with hero, articles, ads, and community widgets",
+    label: "Clean Canvas Homepage",
+    description: "Versatile homepage with hero, articles, ads, and community widgets",
     suggestedWidgets: ["hero_carousel", "breaking_news", "article_grid", "article_list", "ad_banner", "trending_stories", "weather", "community_poll", "newsletter_signup"],
     defaultLayout: [
       { columns: 1, widgets: [{ type: "navigation_menu", width: 12 }] },
@@ -555,8 +555,8 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   podcast_directory: {
     type: "podcast_directory",
-    label: "Podcast Directory",
-    description: "iHeart-style podcast discovery page with search, charts, and categories",
+    label: "Creative Showcase Directory",
+    description: "Podcast discovery page with search, charts, and categories",
     suggestedWidgets: ["search_bar", "podcast_carousel", "top_charts", "network_directory", "episode_feed", "ad_banner"],
     defaultLayout: [
       { columns: 1, widgets: [{ type: "navigation_menu", width: 12 }] },
@@ -570,7 +570,7 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   show_page: {
     type: "show_page",
-    label: "Show Page",
+    label: "Corporate Edge Show",
     description: "Individual podcast show page with player, episodes, and host profile",
     suggestedWidgets: ["player_embed", "episode_feed", "host_profile", "listen_on_badges", "ad_banner", "newsletter_signup"],
     defaultLayout: [
@@ -585,7 +585,7 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   community_hub: {
     type: "community_hub",
-    label: "Community Hub",
+    label: "Editorial Suite Hub",
     description: "Community-focused page with events, classifieds, polls, and announcements",
     suggestedWidgets: ["events_calendar", "obituaries", "classifieds", "community_poll", "announcements", "ad_banner", "business_directory"],
     defaultLayout: [
@@ -599,7 +599,7 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   article_page: {
     type: "article_page",
-    label: "Article/Story Page",
+    label: "Narrative Spotlight",
     description: "Article detail page with sidebar ads and related content",
     suggestedWidgets: ["article_hero", "rich_text", "ad_banner", "sidebar_ad", "article_list", "newsletter_signup"],
     defaultLayout: [
@@ -614,7 +614,7 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   landing_page: {
     type: "landing_page",
-    label: "Landing Page",
+    label: "Storefront Landing",
     description: "Marketing landing page for the network",
     suggestedWidgets: ["hero_carousel", "podcast_carousel", "article_carousel", "media_kit_cta", "newsletter_signup"],
     defaultLayout: [
@@ -628,8 +628,8 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   network_landing: {
     type: "network_landing",
-    label: "Network Landing",
-    description: "Cumulus-style network overview with all shows and branding",
+    label: "Broadcast Central",
+    description: "Network overview with all shows and branding",
     suggestedWidgets: ["hero_carousel", "network_directory", "podcast_carousel", "episode_feed", "ad_banner", "social_feed"],
     defaultLayout: [
       { columns: 1, widgets: [{ type: "navigation_menu", width: 12 }] },
@@ -642,7 +642,7 @@ export const PAGE_TYPE_PRESETS: Record<string, PageTypePreset> = {
   },
   blank: {
     type: "blank",
-    label: "Blank Page",
+    label: "Open Canvas",
     description: "Start from scratch with an empty canvas",
     suggestedWidgets: [],
     defaultLayout: [],

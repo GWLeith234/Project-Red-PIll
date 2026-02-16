@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import {
   Search, Calendar, Clock, Loader2, Filter, X,
   AlertCircle, CheckCircle2, ListTodo, ChevronLeft,
   ChevronRight, CalendarDays, ClipboardList, Target,
+  Plus, ChevronRightIcon, Check, Users,
 } from "lucide-react";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -39,6 +41,14 @@ const PRIORITY_CONFIG: Record<string, { label: string; className: string; calCol
   urgent: { label: "Urgent", className: "bg-red-500/10 text-red-400 border-red-500/20", calColor: "bg-red-500" },
 };
 
+const STATUS_FLOW = ["uploaded", "transcribed", "ai_processed", "in_review", "published"];
+
+function getNextStatus(current: string): string | null {
+  const idx = STATUS_FLOW.indexOf(current);
+  if (idx === -1 || idx >= STATUS_FLOW.length - 1) return null;
+  return STATUS_FLOW[idx + 1];
+}
+
 function isOverdue(date: string | Date | null | undefined, status?: string) {
   if (!date || status === "published") return false;
   return isBefore(new Date(date), startOfDay(new Date()));
@@ -54,6 +64,157 @@ type SortDir = "asc" | "desc";
 
 const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 const STATUS_ORDER: Record<string, number> = { uploaded: 0, transcribed: 1, ai_processed: 2, in_review: 3, published: 4 };
+
+function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    priority: "medium",
+    dueDate: "",
+    assigneeId: "",
+    contentPieceId: "",
+  });
+
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ["/api/auth/users"],
+    enabled: open,
+  });
+
+  const { data: contentPieces = [] } = useQuery<any[]>({
+    queryKey: ["/api/content-pieces"],
+    enabled: open,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to create task");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Task Created" });
+      setForm({ title: "", description: "", priority: "medium", dueDate: "", assigneeId: "", contentPieceId: "" });
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!form.title.trim()) return;
+    createMutation.mutate({
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      priority: form.priority,
+      dueDate: form.dueDate ? new Date(form.dueDate).toISOString() : null,
+      assigneeId: form.assigneeId || null,
+      contentPieceId: form.contentPieceId || null,
+      status: "uploaded",
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]" data-testid="dialog-create-task">
+        <DialogHeader>
+          <DialogTitle className="font-display font-bold text-sm uppercase tracking-wider text-primary">New Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Title *</Label>
+            <Input
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="Task title"
+              data-testid="input-create-title"
+            />
+          </div>
+          <div>
+            <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Description</Label>
+            <Textarea
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Optional description..."
+              className="min-h-[60px]"
+              data-testid="input-create-description"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Priority</Label>
+              <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
+                <SelectTrigger data-testid="select-create-priority"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Due Date</Label>
+              <DatePicker
+                value={form.dueDate}
+                onChange={v => setForm(f => ({ ...f, dueDate: v }))}
+                placeholder="Pick due date"
+                data-testid="input-create-due-date"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Assignee</Label>
+              <Select value={form.assigneeId || "__none__"} onValueChange={v => setForm(f => ({ ...f, assigneeId: v === "__none__" ? "" : v }))}>
+                <SelectTrigger data-testid="select-create-assignee"><SelectValue placeholder="Select assignee" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Unassigned</SelectItem>
+                  {users.map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{u.displayName || u.username || u.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Content Link</Label>
+              <Select value={form.contentPieceId || "__none__"} onValueChange={v => setForm(f => ({ ...f, contentPieceId: v === "__none__" ? "" : v }))}>
+                <SelectTrigger data-testid="select-create-content"><SelectValue placeholder="Link content" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {contentPieces.map((cp: any) => (
+                    <SelectItem key={cp.id} value={cp.id}>{cp.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} data-testid="button-cancel-create">Cancel</Button>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={!form.title.trim() || createMutation.isPending}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            data-testid="button-submit-create"
+          >
+            {createMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            Create Task
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function StatsHeader({ tasks }: { tasks: Task[] }) {
   const now = new Date();
@@ -192,13 +353,44 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
   );
 }
 
-function ListView({ tasks }: { tasks: Task[] }) {
+function ListView({ tasks, currentUserId }: { tasks: Task[]; currentUserId?: string }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("dueDate");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [viewMode, setViewMode] = useState<"my-tasks" | "assigned-by-me">("my-tasks");
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: allTasks = [] } = useQuery<Task[]>({
+    queryKey: ["/api/tasks"],
+    enabled: viewMode === "assigned-by-me",
+  });
+
+  const assignedByMeTasks = useMemo(() => {
+    if (!currentUserId) return [];
+    return allTasks.filter(t => t.createdById === currentUserId);
+  }, [allTasks, currentUserId]);
+
+  const activeTasks = viewMode === "my-tasks" ? tasks : assignedByMeTasks;
+
+  const quickUpdateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/tasks/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/my"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Task Updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -210,7 +402,7 @@ function ListView({ tasks }: { tasks: Task[] }) {
   };
 
   const filtered = useMemo(() => {
-    let result = [...tasks];
+    let result = [...activeTasks];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
@@ -232,7 +424,7 @@ function ListView({ tasks }: { tasks: Task[] }) {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return result;
-  }, [tasks, search, statusFilter, priorityFilter, sortKey, sortDir]);
+  }, [activeTasks, search, statusFilter, priorityFilter, sortKey, sortDir]);
 
   const SortButton = ({ label, field }: { label: string; field: SortKey }) => (
     <button
@@ -248,6 +440,35 @@ function ListView({ tasks }: { tasks: Task[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-2" data-testid="view-mode-toggle">
+        <button
+          className={cn(
+            "px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-md transition-colors flex items-center gap-1.5",
+            viewMode === "my-tasks"
+              ? "bg-primary/10 text-primary border border-primary/20"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/20"
+          )}
+          onClick={() => setViewMode("my-tasks")}
+          data-testid="toggle-my-tasks"
+        >
+          <ListTodo className="h-3 w-3" />
+          My Tasks
+        </button>
+        <button
+          className={cn(
+            "px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded-md transition-colors flex items-center gap-1.5",
+            viewMode === "assigned-by-me"
+              ? "bg-primary/10 text-primary border border-primary/20"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/20"
+          )}
+          onClick={() => setViewMode("assigned-by-me")}
+          data-testid="toggle-assigned-by-me"
+        >
+          <Users className="h-3 w-3" />
+          Assigned by Me
+        </button>
+      </div>
+
       <div className="flex items-center gap-3 flex-wrap" data-testid="filter-bar">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -286,12 +507,12 @@ function ListView({ tasks }: { tasks: Task[] }) {
       </div>
 
       <div className="border border-border/30 bg-card/50 rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[1fr_120px_100px_120px_140px] gap-4 px-4 py-2.5 border-b border-border/30 bg-muted/10">
+        <div className="grid grid-cols-[1fr_120px_100px_120px_100px] gap-4 px-4 py-2.5 border-b border-border/30 bg-muted/10">
           <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Title</span>
           <SortButton label="Status" field="status" />
           <SortButton label="Priority" field="priority" />
           <SortButton label="Due Date" field="dueDate" />
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Content</span>
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Actions</span>
         </div>
 
         {filtered.length === 0 && (
@@ -305,12 +526,14 @@ function ListView({ tasks }: { tasks: Task[] }) {
           const overdue = isOverdue(task.dueDate, task.status);
           const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.uploaded;
           const priorityCfg = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
+          const nextStatus = getNextStatus(task.status);
+          const isComplete = task.status === "published";
 
           return (
             <div key={task.id}>
               <div
                 className={cn(
-                  "grid grid-cols-[1fr_120px_100px_120px_140px] gap-4 px-4 py-3 border-b border-border/20 cursor-pointer hover:bg-muted/10 transition-colors items-center",
+                  "group grid grid-cols-[1fr_120px_100px_120px_100px] gap-4 px-4 py-3 border-b border-border/20 cursor-pointer hover:bg-muted/10 transition-colors items-center",
                   overdue && "border-l-2 border-l-red-500 bg-red-500/5",
                   selectedTask?.id === task.id && "bg-primary/5 border-l-2 border-l-primary"
                 )}
@@ -330,9 +553,36 @@ function ListView({ tasks }: { tasks: Task[] }) {
                 <span className={cn("text-xs font-mono", overdue ? "text-red-400" : "text-muted-foreground")} data-testid={`text-due-date-${task.id}`}>
                   {formatDate(task.dueDate)}
                 </span>
-                <span className="text-xs text-muted-foreground truncate" data-testid={`text-content-link-${task.id}`}>
-                  {task.episodeId ? "Episode linked" : task.contentPieceId ? "Content linked" : "—"}
-                </span>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                  {nextStatus && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-primary"
+                      onClick={() => quickUpdateMutation.mutate({ id: task.id, data: { status: nextStatus } })}
+                      title={`Move to ${STATUS_CONFIG[nextStatus]?.label}`}
+                      data-testid={`button-next-status-${task.id}`}
+                    >
+                      <ChevronRightIcon className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-6 w-6",
+                      isComplete ? "text-emerald-400 hover:text-muted-foreground" : "text-muted-foreground hover:text-emerald-400"
+                    )}
+                    onClick={() => quickUpdateMutation.mutate({
+                      id: task.id,
+                      data: { status: isComplete ? "uploaded" : "published" },
+                    })}
+                    title={isComplete ? "Reopen task" : "Mark complete"}
+                    data-testid={`button-toggle-complete-${task.id}`}
+                  >
+                    <Check className={cn("h-3.5 w-3.5", isComplete && "stroke-[3]")} />
+                  </Button>
+                </div>
               </div>
               {selectedTask?.id === task.id && (
                 <div className="px-4 py-3 border-b border-border/20 bg-muted/5">
@@ -518,6 +768,7 @@ function CalendarView({ currentUserId }: { currentUserId?: string }) {
 
 export default function MyTasks() {
   const [activeTab, setActiveTab] = useState<"list" | "calendar">("list");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks/my"],
@@ -540,7 +791,20 @@ export default function MyTasks() {
 
   return (
     <div className="space-y-6" data-testid="my-tasks-page">
-      <PageHeader pageKey="my-tasks" />
+      <div className="flex items-center justify-between">
+        <PageHeader pageKey="my-tasks" />
+        <Button
+          size="sm"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1.5"
+          onClick={() => setCreateDialogOpen(true)}
+          data-testid="button-new-task"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New Task
+        </Button>
+      </div>
+
+      <CreateTaskDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
 
       <StatsHeader tasks={tasks} />
 
@@ -569,7 +833,7 @@ export default function MyTasks() {
         </button>
       </div>
 
-      {activeTab === "list" && <ListView tasks={tasks} />}
+      {activeTab === "list" && <ListView tasks={tasks} currentUserId={me?.id} />}
       {activeTab === "calendar" && <CalendarView currentUserId={me?.id} />}
     </div>
   );

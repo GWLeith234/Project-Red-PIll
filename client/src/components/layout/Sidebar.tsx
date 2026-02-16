@@ -6,6 +6,7 @@ import { useBranding } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { getIcon } from "@/lib/icon-resolver";
 import ThemeToggle from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 import { LogOut, ChevronDown, Menu, X, Image as ImageIcon } from "lucide-react";
 
 type PageConfig = {
@@ -291,6 +292,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               {user?.role || "user"}
             </p>
           </div>
+          <NotificationBell />
           <ThemeToggle compact />
           <button
             onClick={logout}

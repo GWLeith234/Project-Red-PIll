@@ -15,8 +15,8 @@ async function seedPageTemplates() {
 
   await db.insert(pageTemplates).values([
     {
-      name: "SooToday-Style Homepage",
-      description: "A local news homepage inspired by SooToday with hero carousel, article grids, community sections, and local business directory.",
+      name: "Clean Canvas",
+      description: "A versatile news homepage with hero carousel, article grids, community sections, and local business directory.",
       templateType: "homepage",
       isDefault: true,
       rowsConfig: [
@@ -176,8 +176,8 @@ async function seedPageTemplates() {
       ],
     },
     {
-      name: "iHeart Podcast Directory",
-      description: "A podcast discovery page modeled after iHeart with category tabs, carousels, and a full directory grid.",
+      name: "Creative Showcase",
+      description: "A podcast discovery page with category tabs, carousels, and a full directory grid.",
       templateType: "podcast_directory",
       isDefault: false,
       rowsConfig: [
@@ -269,8 +269,8 @@ async function seedPageTemplates() {
       ],
     },
     {
-      name: "Cumulus Show Page",
-      description: "A single show detail page inspired by Cumulus with hero, listen-on badges, episode feed, host profile, and related shows.",
+      name: "Corporate Edge",
+      description: "A polished show detail page with hero, listen-on badges, episode feed, host profile, and related shows.",
       templateType: "show_detail",
       isDefault: false,
       rowsConfig: [
@@ -387,7 +387,7 @@ async function seedPageTemplates() {
       ],
     },
     {
-      name: "Community Events Page",
+      name: "Editorial Suite",
       description: "A community-focused page with events calendar, polls, classifieds, and advertising.",
       templateType: "events",
       isDefault: false,
@@ -480,7 +480,7 @@ async function seedPageTemplates() {
       ],
     },
     {
-      name: "Network Landing Page",
+      name: "Storefront",
       description: "A network-level landing page with hero carousel, about section, show directory, articles, media kit CTA, and newsletter signup.",
       templateType: "custom",
       isDefault: false,

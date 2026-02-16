@@ -1347,21 +1347,29 @@ type NavSectionData = {
   isCollapsedDefault: boolean | null;
 };
 
-function ManageSectionsArea({ navSections }: { navSections: NavSectionData[] }) {
+function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionData[]; configs: PageCfg[] }) {
   const { toast } = useToast();
-  const [editingSections, setEditingSections] = useState<NavSectionData[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [newSectionKey, setNewSectionKey] = useState("");
-  const [newSectionDisplay, setNewSectionDisplay] = useState("");
-  const [newSectionIcon, setNewSectionIcon] = useState("Blocks");
-  const [showAdd, setShowAdd] = useState(false);
+  const queryClient = useQueryClient();
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ displayName: string; iconName: string; sortOrder: number; isCollapsedDefault: boolean }>({ displayName: "", iconName: "Blocks", sortOrder: 0, isCollapsedDefault: false });
+  const [addingNew, setAddingNew] = useState(false);
+  const [newForm, setNewForm] = useState({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false });
+  const [dragItem, setDragItem] = useState<string | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (navSections) setEditingSections([...navSections]);
-  }, [navSections]);
+  const sorted = useMemo(() => [...navSections].sort((a, b) => a.sortOrder - b.sortOrder), [navSections]);
+
+  const pageCountMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of configs) {
+      const s = c.navSection ?? "";
+      m[s] = (m[s] || 0) + 1;
+    }
+    return m;
+  }, [configs]);
 
   const saveSectionMutation = useMutation({
-    mutationFn: async (section: { sectionKey: string; displayName: string; iconName: string | null; sortOrder: number }) => {
+    mutationFn: async (section: { sectionKey: string; displayName: string; iconName: string | null; sortOrder: number; isCollapsedDefault?: boolean }) => {
       const res = await fetch("/api/admin/nav-sections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1410,35 +1418,42 @@ function ManageSectionsArea({ navSections }: { navSections: NavSectionData[] }) 
     },
   });
 
-  const handleSaveAll = async () => {
-    try {
-      for (const section of editingSections) {
-        await updateSectionMutation.mutateAsync({
-          sectionKey: section.sectionKey,
-          data: { displayName: section.displayName, iconName: section.iconName, sortOrder: section.sortOrder },
-        });
+  const startEditing = (section: NavSectionData) => {
+    setEditingKey(section.sectionKey);
+    setEditForm({
+      displayName: section.displayName,
+      iconName: section.iconName || "Blocks",
+      sortOrder: section.sortOrder,
+      isCollapsedDefault: section.isCollapsedDefault ?? false,
+    });
+    setAddingNew(false);
+  };
+
+  const handleSave = (sectionKey: string) => {
+    updateSectionMutation.mutate(
+      { sectionKey, data: { displayName: editForm.displayName, iconName: editForm.iconName, sortOrder: editForm.sortOrder, isCollapsedDefault: editForm.isCollapsedDefault } },
+      {
+        onSuccess: () => {
+          setEditingKey(null);
+          toast({ title: "Section Updated", description: "Nav section has been saved." });
+        },
+        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
       }
-      setIsEditing(false);
-      toast({ title: "Sections Updated", description: "Nav sections have been saved." });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
+    );
   };
 
   const handleAddSection = () => {
-    if (!newSectionKey || !newSectionDisplay) {
+    if (!newForm.sectionKey || !newForm.displayName) {
       toast({ title: "Missing fields", description: "Section key and display name are required.", variant: "destructive" });
       return;
     }
-    const maxOrder = editingSections.length > 0 ? Math.max(...editingSections.map(s => s.sortOrder)) : 0;
+    const maxOrder = sorted.length > 0 ? Math.max(...sorted.map(s => s.sortOrder)) : 0;
     saveSectionMutation.mutate(
-      { sectionKey: newSectionKey, displayName: newSectionDisplay, iconName: newSectionIcon, sortOrder: maxOrder + 1 },
+      { sectionKey: newForm.sectionKey, displayName: newForm.displayName, iconName: newForm.iconName, sortOrder: maxOrder + 1, isCollapsedDefault: newForm.isCollapsedDefault },
       {
         onSuccess: () => {
-          setShowAdd(false);
-          setNewSectionKey("");
-          setNewSectionDisplay("");
-          setNewSectionIcon("Blocks");
+          setAddingNew(false);
+          setNewForm({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false });
           toast({ title: "Section Added" });
         },
         onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -1446,138 +1461,276 @@ function ManageSectionsArea({ navSections }: { navSections: NavSectionData[] }) 
     );
   };
 
+  const handleDragStart = (e: React.DragEvent, sectionKey: string) => {
+    setDragItem(sectionKey);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", sectionKey);
+  };
+
+  const handleDragOver = (e: React.DragEvent, sectionKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverItem(sectionKey);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetKey: string) => {
+    e.preventDefault();
+    const draggedKey = e.dataTransfer.getData("text/plain");
+    if (!draggedKey || draggedKey === targetKey) {
+      setDragItem(null);
+      setDragOverItem(null);
+      return;
+    }
+    const reordered = [...sorted];
+    const fromIdx = reordered.findIndex(s => s.sectionKey === draggedKey);
+    const toIdx = reordered.findIndex(s => s.sectionKey === targetKey);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    reordered.forEach((s, idx) => {
+      updateSectionMutation.mutate({ sectionKey: s.sectionKey, data: { sortOrder: idx } });
+    });
+    setDragItem(null);
+    setDragOverItem(null);
+  };
+
   return (
-    <div className="border border-border/50 rounded-sm p-4 space-y-3" data-testid="manage-sections-area">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">Manage Sections</h3>
-        <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <Button size="sm" onClick={handleSaveAll} disabled={updateSectionMutation.isPending} className="h-6 px-2 text-[10px] font-mono" data-testid="button-save-sections">
-                {updateSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
-                Save
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => { setIsEditing(false); setEditingSections([...navSections]); }} className="h-6 px-2 text-[10px]" data-testid="button-cancel-edit-sections">
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="h-6 px-2 text-[10px] font-mono" data-testid="button-edit-sections">
-              <Edit3 className="h-3 w-3 mr-1" />
-              Edit
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={() => setShowAdd(!showAdd)} className="h-6 px-2 text-[10px] font-mono" data-testid="button-add-section">
-            <Plus className="h-3 w-3 mr-1" />
-            Add Section
-          </Button>
-        </div>
+    <div className="border rounded-sm border-border/50 mb-4" data-testid="manage-sections-area">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-card/30 border-b border-border/30">
+        <span className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+          Sections
+        </span>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => { setAddingNew(true); setEditingKey(null); setNewForm({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false }); }}
+          className="h-6 px-2 text-[10px] font-mono text-muted-foreground hover:text-foreground"
+          data-testid="button-add-section"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Add Section
+        </Button>
       </div>
 
       <div className="divide-y divide-border/20">
-        {editingSections.sort((a, b) => a.sortOrder - b.sortOrder).map((section, idx) => {
+        {sorted.map((section) => {
           const SectionIcon = getIcon(section.iconName || "Blocks");
+          const isEditing = editingKey === section.sectionKey;
+          const isDragging = dragItem === section.sectionKey;
+          const isDragOver = dragOverItem === section.sectionKey;
+          const pageCount = pageCountMap[section.sectionKey] || 0;
+          const hasPages = pageCount > 0;
+
           return (
-            <div key={section.sectionKey} className="flex items-center gap-2 py-1.5" data-testid={`manage-section-${section.sectionKey}`}>
-              <GripVertical className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
-              <div className="flex items-center justify-center h-6 w-6 rounded bg-card border border-border/50 flex-shrink-0">
-                <SectionIcon className="h-3 w-3 text-muted-foreground" />
+            <div
+              key={section.sectionKey}
+              draggable={!isEditing}
+              onDragStart={(e) => handleDragStart(e, section.sectionKey)}
+              onDragEnd={() => { setDragItem(null); setDragOverItem(null); }}
+              onDragOver={(e) => handleDragOver(e, section.sectionKey)}
+              onDrop={(e) => handleDrop(e, section.sectionKey)}
+              className={cn(
+                "flex items-start gap-3 px-4 py-2.5 transition-all",
+                isDragging && "opacity-40",
+                isDragOver && "bg-primary/5",
+                isEditing ? "bg-primary/5" : "hover:bg-card/50"
+              )}
+              data-testid={`manage-section-${section.sectionKey}`}
+            >
+              <div className="flex items-center gap-2 pt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing">
+                <GripVertical className="h-4 w-4 text-muted-foreground/50" />
               </div>
-              {isEditing ? (
-                <>
-                  <Input
-                    value={section.displayName}
-                    onChange={(e) => {
-                      const updated = [...editingSections];
-                      updated[idx] = { ...updated[idx], displayName: e.target.value };
-                      setEditingSections(updated);
-                    }}
-                    className="h-6 text-xs flex-1"
-                    data-testid={`input-section-name-${section.sectionKey}`}
-                  />
-                  <IconPickerPopover
-                    value={section.iconName || "Blocks"}
-                    onChange={(v) => {
-                      const updated = [...editingSections];
-                      updated[idx] = { ...updated[idx], iconName: v };
-                      setEditingSections(updated);
-                    }}
-                    testId={`icon-picker-section-${section.sectionKey}`}
-                  />
-                  <Input
-                    type="number"
-                    value={section.sortOrder}
-                    onChange={(e) => {
-                      const updated = [...editingSections];
-                      updated[idx] = { ...updated[idx], sortOrder: parseInt(e.target.value) || 0 };
-                      setEditingSections(updated);
-                    }}
-                    className="h-6 text-xs w-16"
-                    data-testid={`input-section-order-${section.sectionKey}`}
-                  />
+
+              <div className="flex items-center justify-center h-8 w-8 rounded bg-card border border-border/50 flex-shrink-0">
+                <SectionIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
+                        <Input
+                          value={editForm.displayName}
+                          onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
+                          className="h-7 text-xs mt-0.5"
+                          data-testid={`input-section-name-${section.sectionKey}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+                        <IconPickerPopover
+                          value={editForm.iconName}
+                          onChange={(v) => setEditForm(f => ({ ...f, iconName: v }))}
+                          testId={`icon-picker-section-${section.sectionKey}`}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Sort Order</Label>
+                        <Input
+                          type="number"
+                          value={editForm.sortOrder}
+                          onChange={(e) => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
+                          className="h-7 text-xs mt-0.5"
+                          data-testid={`input-section-order-${section.sectionKey}`}
+                        />
+                      </div>
+                      <div className="flex items-end pb-0.5">
+                        <label className="flex items-center gap-2 cursor-pointer" data-testid={`toggle-collapsed-${section.sectionKey}`}>
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(f => ({ ...f, isCollapsedDefault: !f.isCollapsedDefault }))}
+                            className={cn(
+                              "relative w-9 h-5 rounded-sm transition-colors flex-shrink-0",
+                              editForm.isCollapsedDefault ? "bg-primary" : "bg-muted"
+                            )}
+                          >
+                            <span className={cn("absolute top-0.5 h-4 w-4 bg-background border border-border transition-transform", editForm.isCollapsedDefault ? "translate-x-4" : "translate-x-0.5")} />
+                          </button>
+                          <span className="text-[10px] font-mono uppercase text-muted-foreground">Collapsed by Default</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => handleSave(section.sectionKey)}
+                        disabled={updateSectionMutation.isPending}
+                        className="h-7 px-3 text-[10px] font-mono uppercase"
+                        data-testid={`button-save-section-${section.sectionKey}`}
+                      >
+                        {updateSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                        Save
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingKey(null)} className="h-7 px-2 text-[10px]" data-testid={`button-cancel-section-${section.sectionKey}`}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium block truncate">{section.displayName}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">{section.sectionKey}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {!isEditing && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0">
+                    {pageCount} {pageCount === 1 ? "page" : "pages"}
+                  </Badge>
+                  {section.isCollapsedDefault && (
+                    <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                      collapsed
+                    </Badge>
+                  )}
+                  <button
+                    onClick={() => startEditing(section)}
+                    className="p-1.5 rounded hover:bg-muted transition-colors"
+                    title="Edit section"
+                    data-testid={`button-edit-section-${section.sectionKey}`}
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
                   <button
                     onClick={() => {
-                      if (confirm(`Delete section "${section.displayName}"?`)) {
-                        deleteSectionMutation.mutate(section.sectionKey);
-                      }
+                      if (!hasPages) deleteSectionMutation.mutate(section.sectionKey);
                     }}
-                    className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                    disabled={hasPages}
+                    className={cn(
+                      "p-1.5 rounded transition-colors",
+                      hasPages ? "opacity-40 cursor-not-allowed" : "hover:bg-destructive/10"
+                    )}
+                    title={hasPages ? "Move all pages out first" : "Delete section"}
                     data-testid={`button-delete-section-${section.sectionKey}`}
                   >
-                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                    <Trash2 className={cn("h-3.5 w-3.5", hasPages ? "text-muted-foreground/50" : "text-muted-foreground hover:text-destructive")} />
                   </button>
-                </>
-              ) : (
-                <>
-                  <span className="text-xs font-medium flex-1">{section.displayName}</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">{section.sectionKey}</span>
-                  <span className="text-[10px] text-muted-foreground/60 font-mono">#{section.sortOrder}</span>
-                </>
+                </div>
               )}
             </div>
           );
         })}
-      </div>
 
-      {showAdd && (
-        <div className="border-t border-border/30 pt-3 space-y-2" data-testid="add-section-form">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Section Key</Label>
-              <Input
-                value={newSectionKey}
-                onChange={(e) => setNewSectionKey(e.target.value)}
-                placeholder="my-section"
-                className="h-7 text-xs mt-0.5"
-                data-testid="input-new-section-key"
-              />
+        {addingNew && (
+          <div className="flex items-start gap-3 px-4 py-2.5 bg-primary/5" data-testid="add-section-form">
+            <div className="flex items-center gap-2 pt-0.5 flex-shrink-0">
+              <GripVertical className="h-4 w-4 text-muted-foreground/20" />
             </div>
-            <div>
-              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
-              <Input
-                value={newSectionDisplay}
-                onChange={(e) => setNewSectionDisplay(e.target.value)}
-                placeholder="My Section"
-                className="h-7 text-xs mt-0.5"
-                data-testid="input-new-section-display"
-              />
+
+            <div className="flex items-center justify-center h-8 w-8 rounded bg-card border border-border/50 flex-shrink-0">
+              {(() => { const NewIcon = getIcon(newForm.iconName || "Blocks"); return <NewIcon className="h-4 w-4 text-muted-foreground" />; })()}
             </div>
-            <div>
-              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-              <IconPickerPopover value={newSectionIcon} onChange={setNewSectionIcon} testId="icon-picker-new-section" />
+
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Section Key</Label>
+                  <Input
+                    value={newForm.sectionKey}
+                    onChange={(e) => setNewForm(f => ({ ...f, sectionKey: e.target.value }))}
+                    placeholder="my-section"
+                    className="h-7 text-xs mt-0.5"
+                    data-testid="input-new-section-key"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
+                  <Input
+                    value={newForm.displayName}
+                    onChange={(e) => setNewForm(f => ({ ...f, displayName: e.target.value }))}
+                    placeholder="My Section"
+                    className="h-7 text-xs mt-0.5"
+                    data-testid="input-new-section-display"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+                  <IconPickerPopover value={newForm.iconName} onChange={(v) => setNewForm(f => ({ ...f, iconName: v }))} testId="icon-picker-new-section" />
+                </div>
+                <div className="flex items-end pb-0.5">
+                  <label className="flex items-center gap-2 cursor-pointer" data-testid="toggle-new-collapsed">
+                    <button
+                      type="button"
+                      onClick={() => setNewForm(f => ({ ...f, isCollapsedDefault: !f.isCollapsedDefault }))}
+                      className={cn(
+                        "relative w-9 h-5 rounded-sm transition-colors flex-shrink-0",
+                        newForm.isCollapsedDefault ? "bg-primary" : "bg-muted"
+                      )}
+                    >
+                      <span className={cn("absolute top-0.5 h-4 w-4 bg-background border border-border transition-transform", newForm.isCollapsedDefault ? "translate-x-4" : "translate-x-0.5")} />
+                    </button>
+                    <span className="text-[10px] font-mono uppercase text-muted-foreground">Collapsed by Default</span>
+                  </label>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={handleAddSection}
+                  disabled={saveSectionMutation.isPending}
+                  className="h-7 px-3 text-[10px] font-mono uppercase"
+                  data-testid="button-confirm-add-section"
+                >
+                  {saveSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+                  Add
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setAddingNew(false)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-section">
+                  Cancel
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleAddSection} disabled={saveSectionMutation.isPending} className="h-7 px-3 text-[10px] font-mono uppercase" data-testid="button-confirm-add-section">
-              {saveSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
-              Add
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setShowAdd(false)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-section">
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -1846,7 +1999,7 @@ function PageConfigurationTab() {
         </Button>
       </div>
 
-      {navSections && <ManageSectionsArea navSections={navSections} />}
+      {navSections && <ManageSectionsArea navSections={navSections} configs={configs || []} />}
 
       {sections.map((section) => {
         const isCollapsed = collapsedSections[section.key];

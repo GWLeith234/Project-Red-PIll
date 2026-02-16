@@ -7079,5 +7079,136 @@ Return ONLY valid JSON, no markdown.`
     }
   });
 
+  // ── Notification Routes ──
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      const items = await storage.getNotifications(userId);
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/notifications/unread-count", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      await storage.markNotificationRead(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).session?.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      await storage.markAllNotificationsRead(userId);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const notification = await storage.createNotification(req.body);
+      res.json(notification);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Community Enhanced Routes ──
+  app.get("/api/community-posts/topics/:topic", async (req, res) => {
+    try {
+      const posts = await storage.getCommunityPostsByTopic(req.params.topic);
+      res.json(posts);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/community-posts/:id/replies", async (req, res) => {
+    try {
+      const replies = await storage.getCommunityThreadReplies(req.params.id);
+      res.json(replies);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/community-posts/flagged", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    try {
+      const flagged = await storage.getFlaggedCommunityPosts();
+      res.json(flagged);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/community-posts/:id/flag", async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const updated = await storage.flagCommunityPost(req.params.id, reason || "Flagged by user");
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/community-posts/:id/moderate", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { status } = req.body;
+      const moderatedBy = (req as any).session?.userId || "system";
+      const updated = await storage.moderateCommunityPost(req.params.id, status, moderatedBy);
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── AI Agents Routes ──
+  app.get("/api/ai-agents", requireAuth, async (_req, res) => {
+    try {
+      const agents = await storage.getAiAgents();
+      res.json(agents);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/ai-agents/:id", requireAuth, async (req, res) => {
+    try {
+      const agent = await storage.getAiAgent(req.params.id);
+      if (!agent) return res.status(404).json({ message: "Agent not found" });
+      res.json(agent);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/ai-agents", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const agent = await storage.createAiAgent(req.body);
+      res.json(agent);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/ai-agents/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const agent = await storage.updateAiAgent(req.params.id, req.body);
+      res.json(agent);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/ai-agents/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      await storage.deleteAiAgent(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Comment Moderation Routes ──
+  app.post("/api/comments/:id/moderate", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { action } = req.body;
+      if (action === "delete") {
+        await storage.deleteComment(req.params.id);
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ message: "Invalid action" });
+      }
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }

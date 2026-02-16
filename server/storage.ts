@@ -73,6 +73,8 @@ import {
   campaignPerformance, type CampaignPerformance, type InsertCampaignPerformance,
   aiAdvertiserPrompts, type AiAdvertiserPrompt, type InsertAiAdvertiserPrompt,
   aiContentLog, type AiContentLog, type InsertAiContentLog,
+  notifications, type Notification, type InsertNotification,
+  aiAgents, type AiAgent, type InsertAiAgent,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -441,6 +443,27 @@ export interface IStorage {
   createAiContentLog(data: InsertAiContentLog): Promise<AiContentLog>;
   getAiContentLogs(limit?: number): Promise<AiContentLog[]>;
   getAiContentLogCountToday(): Promise<number>;
+
+  // Notifications
+  getNotifications(userId: string): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  createNotification(data: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
+
+  // Community Posts enhanced
+  getCommunityPostsByTopic(topic: string): Promise<CommunityPost[]>;
+  getCommunityThreadReplies(parentId: string): Promise<CommunityPost[]>;
+  getFlaggedCommunityPosts(): Promise<CommunityPost[]>;
+  moderateCommunityPost(id: string, status: string, moderatedBy: string): Promise<CommunityPost | undefined>;
+  flagCommunityPost(id: string, reason: string): Promise<CommunityPost | undefined>;
+
+  // AI Agents
+  getAiAgents(): Promise<AiAgent[]>;
+  getAiAgent(id: string): Promise<AiAgent | undefined>;
+  createAiAgent(data: InsertAiAgent): Promise<AiAgent>;
+  updateAiAgent(id: string, data: Partial<InsertAiAgent>): Promise<AiAgent | undefined>;
+  deleteAiAgent(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1884,6 +1907,64 @@ export class DatabaseStorage implements IStorage {
     today.setHours(0, 0, 0, 0);
     const [result] = await db.select({ count: count() }).from(aiContentLog).where(gte(aiContentLog.generatedAt, today));
     return result?.count ?? 0;
+  }
+
+  // Notifications
+  async getNotifications(userId: string) {
+    return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);
+  }
+  async getUnreadNotificationCount(userId: string) {
+    const [result] = await db.select({ count: count() }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return result?.count ?? 0;
+  }
+  async createNotification(data: InsertNotification) {
+    const [created] = await db.insert(notifications).values(data).returning();
+    return created;
+  }
+  async markNotificationRead(id: string) {
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
+  }
+  async markAllNotificationsRead(userId: string) {
+    await db.update(notifications).set({ isRead: true }).where(eq(notifications.userId, userId));
+  }
+
+  // Community Posts enhanced
+  async getCommunityPostsByTopic(topic: string) {
+    return db.select().from(communityPosts).where(and(eq(communityPosts.topic, topic), eq(communityPosts.isThreadStarter, true))).orderBy(desc(communityPosts.createdAt));
+  }
+  async getCommunityThreadReplies(parentId: string) {
+    return db.select().from(communityPosts).where(eq(communityPosts.parentId, parentId)).orderBy(communityPosts.createdAt);
+  }
+  async getFlaggedCommunityPosts() {
+    return db.select().from(communityPosts).where(eq(communityPosts.isFlagged, true)).orderBy(desc(communityPosts.createdAt));
+  }
+  async moderateCommunityPost(id: string, status: string, moderatedBy: string) {
+    const [updated] = await db.update(communityPosts).set({ moderationStatus: status, moderatedBy, moderatedAt: new Date() }).where(eq(communityPosts.id, id)).returning();
+    return updated;
+  }
+  async flagCommunityPost(id: string, reason: string) {
+    const [updated] = await db.update(communityPosts).set({ isFlagged: true, flaggedReason: reason }).where(eq(communityPosts.id, id)).returning();
+    return updated;
+  }
+
+  // AI Agents
+  async getAiAgents() {
+    return db.select().from(aiAgents).orderBy(desc(aiAgents.createdAt));
+  }
+  async getAiAgent(id: string) {
+    const [agent] = await db.select().from(aiAgents).where(eq(aiAgents.id, id));
+    return agent;
+  }
+  async createAiAgent(data: InsertAiAgent) {
+    const [created] = await db.insert(aiAgents).values(data).returning();
+    return created;
+  }
+  async updateAiAgent(id: string, data: Partial<InsertAiAgent>) {
+    const [updated] = await db.update(aiAgents).set(data).where(eq(aiAgents.id, id)).returning();
+    return updated;
+  }
+  async deleteAiAgent(id: string) {
+    await db.delete(aiAgents).where(eq(aiAgents.id, id));
   }
 }
 

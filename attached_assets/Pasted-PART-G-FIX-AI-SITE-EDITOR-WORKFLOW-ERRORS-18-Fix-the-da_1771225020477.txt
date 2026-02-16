@@ -1,0 +1,31 @@
+PART G — FIX AI SITE EDITOR WORKFLOW ERRORS:
+
+(18) Fix the data shape mismatch between the AI generate endpoint and the frontend:
+
+The API endpoint POST /api/ai-page-builder/generate returns: { layout: [...], reasoning: "..." }
+But the frontend (SiteBuilder.tsx) reads generatedLayout.rows everywhere.
+
+Fix by normalizing in the generateMutation onSuccess handler in SiteBuilder.tsx:
+- When the mutation succeeds, transform the response: if data.layout exists, set generatedLayout to { rows: data.layout, reasoning: data.reasoning }
+- This way generatedLayout.rows is always populated correctly
+- Also update the wizard step 4 preview and createFullPageMutation to consistently use .rows
+
+Alternatively, update the backend to return { rows: [...], reasoning: "..." } instead of { layout: [...] }. Pick one approach and make it consistent everywhere.
+
+(19) Fix error handling in the AI generation flow. Currently if the AI call fails, the wizard gets stuck on step 3 (the loading spinner) with no way to recover. Fix:
+- In generateMutation onError: show the error toast (already done) AND set the wizard back to step 2 so the user can try again
+- Add a "Retry" button on step 3 in case generation is taking too long (visible after 15 seconds)
+- If the AI returns a fallback template (the preset default when AI is unavailable), still display it properly in step 4 — don't show "No layout generated"
+
+(20) Fix error handling in the page creation flow (createFullPageMutation):
+- If creating rows or widgets fails partway through, the page gets created but is incomplete
+- Wrap the row/widget creation loop in a try-catch. If any row or widget fails, log the error but continue with remaining rows/widgets
+- After creation, show a summary: "Page created with X rows and Y widgets" or "Page created with errors: could not add Z widgets"
+- Add a loading state that shows progress: "Creating page... Adding row 1 of 5... Adding widgets..."
+
+(21) Fix the page type descriptions in /api/ai-page-builder/page-types — remove any references to iHeart, Cumulus, or SooToday from the returned data (the fix in seed-page-templates.ts from Part C must also be reflected here in the runtime endpoint responses).
+
+(22) If ANTHROPIC_API_KEY is not set or the AI call fails, the fallback should be clear to the user:
+- Show a warning banner on the AI Site Editor: "AI generation is using template defaults. Set up your AI provider in Settings to enable custom AI layouts."
+- The preset template should still be usable — user can create the page with the default layout and customize manually
+- Don't show a generic "Generation Failed" error — show "AI service unavailable, using template layout instead"

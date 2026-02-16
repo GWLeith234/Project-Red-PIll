@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import PageHeader from "@/components/admin/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -146,6 +146,9 @@ export default function SiteBuilder() {
   const [newPageSlug, setNewPageSlug] = useState("");
   const [newPagePrompt, setNewPagePrompt] = useState("");
   const [generatedLayout, setGeneratedLayout] = useState<any>(null);
+  const [aiUnavailable, setAiUnavailable] = useState(false);
+  const [createProgress, setCreateProgress] = useState("");
+  const [genStartTime, setGenStartTime] = useState<number | null>(null);
   const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
   const [dragOverCanvas, setDragOverCanvas] = useState(false);
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
@@ -196,14 +199,34 @@ export default function SiteBuilder() {
 
   const generateMutation = useMutation({
     mutationFn: async (data: { pageType: string; prompt: string }) => {
+      setGenStartTime(Date.now());
+      setAiUnavailable(false);
       const res = await apiRequest("POST", "/api/ai-page-builder/generate", data);
       return res.json();
     },
     onSuccess: (data: any) => {
-      setGeneratedLayout(data);
+      setGenStartTime(null);
+      const rawLayout = data.layout;
+      const rows = Array.isArray(rawLayout) ? rawLayout : (rawLayout?.rows ?? data.rows ?? []);
+      const reasoning = data.reasoning || "";
+      const isFallback = reasoning.includes("unavailable") || reasoning.includes("fallback") || reasoning.includes("template");
+      setGeneratedLayout({ rows, reasoning });
+      if (isFallback) {
+        setAiUnavailable(true);
+      }
       setWizardStep(4);
     },
-    onError: (err: any) => toast({ title: "Generation Failed", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      setGenStartTime(null);
+      setWizardStep(2);
+      toast({ title: "AI service unavailable, using template layout instead", description: "You can still create the page with a default layout, or try again.", variant: "destructive" });
+      const preset = pageTypes[selectedPageType];
+      if (preset?.defaultLayout) {
+        setGeneratedLayout({ rows: preset.defaultLayout, reasoning: "Using template default (AI unavailable)" });
+        setAiUnavailable(true);
+        setWizardStep(4);
+      }
+    },
   });
 
   const createPageMutation = useMutation({
@@ -219,31 +242,54 @@ export default function SiteBuilder() {
 
   const createFullPageMutation = useMutation({
     mutationFn: async () => {
+      setCreateProgress("Creating page...");
       const pageRes = await apiRequest("POST", "/api/site-pages", { title: newPageTitle, slug: newPageSlug });
       const page = await pageRes.json();
-      if (generatedLayout?.rows) {
-        for (const row of generatedLayout.rows) {
+      const rows = generatedLayout?.rows || [];
+      let rowsCreated = 0;
+      let widgetsCreated = 0;
+      let errors: string[] = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        setCreateProgress(`Adding row ${i + 1} of ${rows.length}...`);
+        try {
           const rowRes = await apiRequest("POST", `/api/site-pages/${page.id}/rows`, { columns: row.columns || 1 });
           const createdRow = await rowRes.json();
+          rowsCreated++;
           if (row.widgets) {
             for (const widget of row.widgets) {
-              await apiRequest("POST", `/api/page-rows/${createdRow.id}/widgets`, {
-                widgetType: widget.type,
-                config: widget.config || {},
-              });
+              try {
+                await apiRequest("POST", `/api/page-rows/${createdRow.id}/widgets`, {
+                  widgetType: widget.type,
+                  config: widget.config || {},
+                });
+                widgetsCreated++;
+              } catch (widgetErr: any) {
+                errors.push(`Widget ${widget.type}: ${widgetErr.message}`);
+              }
             }
           }
+        } catch (rowErr: any) {
+          errors.push(`Row ${i + 1}: ${rowErr.message}`);
         }
       }
-      return page;
+      setCreateProgress("");
+      return { page, rowsCreated, widgetsCreated, errors };
     },
-    onSuccess: (page: any) => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/site-pages"] });
       setShowNewPageDialog(false);
       resetWizard();
-      toast({ title: "Page Created", description: `"${page.title}" has been created with AI-generated layout.` });
+      if (result.errors.length > 0) {
+        toast({ title: "Page Created with Warnings", description: `Created with ${result.rowsCreated} rows and ${result.widgetsCreated} widgets. ${result.errors.length} item(s) could not be added.` });
+      } else {
+        toast({ title: "Page Created", description: `"${result.page.title}" created with ${result.rowsCreated} rows and ${result.widgetsCreated} widgets.` });
+      }
     },
-    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      setCreateProgress("");
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
   });
 
   const updatePageMutation = useMutation({
@@ -423,6 +469,9 @@ export default function SiteBuilder() {
     setNewPageSlug("");
     setNewPagePrompt("");
     setGeneratedLayout(null);
+    setAiUnavailable(false);
+    setCreateProgress("");
+    setGenStartTime(null);
   };
 
   const handleEditPage = (pageId: string) => {
@@ -639,6 +688,9 @@ export default function SiteBuilder() {
           prompt={newPagePrompt}
           setPrompt={setNewPagePrompt}
           generatedLayout={generatedLayout}
+          aiUnavailable={aiUnavailable}
+          createProgress={createProgress}
+          genStartTime={genStartTime}
           onGenerate={() => generateMutation.mutate({ pageType: selectedPageType, prompt: newPagePrompt })}
           onCreatePage={() => createFullPageMutation.mutate()}
           generating={generateMutation.isPending}
@@ -1003,15 +1055,26 @@ function AdComplianceBadge({ pageId }: { pageId: string }) {
 function NewPageWizardDialog({
   open, onOpenChange, step, setStep, pageTypes, selectedPageType, setSelectedPageType,
   title, setTitle, slug, setSlug, prompt, setPrompt, generatedLayout,
+  aiUnavailable, createProgress, genStartTime,
   onGenerate, onCreatePage, generating, creating, getWidgetIcon, getWidgetLabel,
 }: {
   open: boolean; onOpenChange: (open: boolean) => void; step: number; setStep: (s: number) => void;
   pageTypes: Record<string, any>; selectedPageType: string; setSelectedPageType: (t: string) => void;
   title: string; setTitle: (t: string) => void; slug: string; setSlug: (s: string) => void;
   prompt: string; setPrompt: (p: string) => void; generatedLayout: any;
+  aiUnavailable?: boolean; createProgress?: string; genStartTime?: number | null;
   onGenerate: () => void; onCreatePage: () => void; generating: boolean; creating: boolean;
   getWidgetIcon: (type: string) => React.ElementType; getWidgetLabel: (type: string) => string;
 }) {
+  const [showRetry, setShowRetry] = useState(false);
+
+  React.useEffect(() => {
+    if (generating && genStartTime) {
+      const timer = setTimeout(() => setShowRetry(true), 15000);
+      return () => clearTimeout(timer);
+    }
+    setShowRetry(false);
+  }, [generating, genStartTime]);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -1108,12 +1171,37 @@ function NewPageWizardDialog({
             <p className="text-sm font-display font-semibold mb-2">AI is generating your layout...</p>
             <p className="text-xs text-muted-foreground">This may take a few seconds</p>
             <Loader2 className="h-6 w-6 animate-spin text-primary mt-4" />
+            {showRetry && (
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <p className="text-xs text-muted-foreground">Taking longer than expected?</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { onGenerate(); setShowRetry(false); }} data-testid="button-retry-generate">
+                    Retry
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setStep(2)} data-testid="button-back-to-prompt">
+                    <ArrowLeft className="h-3 w-3 mr-1" /> Back
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {step === 4 && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Review the generated layout before creating your page:</p>
+            {aiUnavailable && (
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5" data-testid="banner-ai-unavailable">
+                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-amber-400">AI generation is using template defaults</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Set up your AI provider in Settings to enable custom AI layouts. You can still create this page and customize manually.</p>
+                </div>
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">Review the {aiUnavailable ? "template" : "generated"} layout before creating your page:</p>
+            {generatedLayout?.reasoning && (
+              <p className="text-[10px] text-muted-foreground font-mono italic">{generatedLayout.reasoning}</p>
+            )}
             <div className="space-y-2 max-h-[40vh] overflow-y-auto rounded-lg border border-border p-3">
               {generatedLayout?.rows?.map((row: any, i: number) => (
                 <div key={i} className="rounded border border-border p-2 bg-muted/30">
@@ -1139,7 +1227,7 @@ function NewPageWizardDialog({
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={onCreatePage} disabled={creating} data-testid="button-wizard-create">
                 {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Create Page
+                {createProgress || "Create Page"}
               </Button>
             </DialogFooter>
           </div>
