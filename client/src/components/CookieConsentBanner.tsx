@@ -154,7 +154,7 @@ export function CookieConsentBanner() {
     <CookieConsentContext.Provider value={{ openPreferences }}>
       {visible && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-700/50 bg-gray-950/98 backdrop-blur-sm shadow-2xl"
+          className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/98 backdrop-blur-sm shadow-2xl"
           role="region"
           aria-label="Cookie consent"
           data-testid="cookie-consent-banner"
@@ -163,28 +163,28 @@ export function CookieConsentBanner() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <Cookie className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                <p className="text-sm text-gray-300 leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   We process your data to deliver content and measure its performance. Some cookies are essential for the site to function.
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
                 <button
                   onClick={handleAcceptAll}
-                  className="flex-1 sm:flex-none min-h-[36px] px-5 py-2 text-sm font-semibold rounded-md bg-primary text-primary-foreground border border-primary/50 transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                  className="flex-1 sm:flex-none min-h-[36px] px-5 py-2 text-sm font-semibold rounded-md bg-primary text-primary-foreground border border-primary/50 transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   data-testid="button-accept-all-cookies"
                 >
                   Accept All
                 </button>
                 <button
                   onClick={handleRejectAll}
-                  className="flex-1 sm:flex-none min-h-[36px] px-5 py-2 text-sm font-semibold rounded-md bg-gray-800 text-gray-100 border border-gray-700 transition-colors hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                  className="flex-1 sm:flex-none min-h-[36px] px-5 py-2 text-sm font-semibold rounded-md bg-muted text-foreground border border-border transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   data-testid="button-reject-all-cookies"
                 >
                   Reject All
                 </button>
                 <button
                   onClick={handleManagePreferences}
-                  className="flex-1 sm:flex-none min-h-[36px] px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 rounded-md"
+                  className="flex-1 sm:flex-none min-h-[36px] px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md"
                   data-testid="button-manage-preferences"
                 >
                   Manage Preferences
@@ -197,11 +197,11 @@ export function CookieConsentBanner() {
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent
-          className="sm:max-w-lg bg-gray-950 border-gray-800 text-gray-100"
+          className="sm:max-w-lg bg-background border-border text-foreground"
           data-testid="cookie-preferences-modal"
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg text-white">
+            <DialogTitle className="flex items-center gap-2 text-lg text-foreground">
               <Cookie className="h-5 w-5 text-amber-400" aria-hidden="true" />
               Cookie Preferences
             </DialogTitle>
@@ -222,12 +222,12 @@ export function CookieConsentBanner() {
               return (
                 <div
                   key={cat.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-800/50 bg-gray-900/50 hover:bg-gray-900 transition-colors"
+                  className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card/50 hover:bg-card transition-colors"
                 >
-                  <Icon className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" aria-hidden="true" />
+                  <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-gray-200">{cat.label}</span>
+                      <span className="text-sm font-medium text-foreground">{cat.label}</span>
                       <Switch
                         checked={checked}
                         onCheckedChange={(val) => {
@@ -239,7 +239,7 @@ export function CookieConsentBanner() {
                         {...(cat.testId ? { "data-testid": cat.testId } : {})}
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">{cat.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cat.description}</p>
                     {cat.locked && (
                       <span className="inline-block mt-1.5 text-[10px] font-medium text-amber-500/80 uppercase tracking-wider">
                         Always active
@@ -251,18 +251,18 @@ export function CookieConsentBanner() {
             })}
           </div>
 
-          <div className="flex flex-col gap-2 pt-2 border-t border-gray-800">
+          <div className="flex flex-col gap-2 pt-2 border-t border-border">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleAcceptAll}
-                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-primary text-primary-foreground border border-primary/50 transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-primary text-primary-foreground border border-primary/50 transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 data-testid="button-accept-all-cookies"
               >
                 Accept All
               </button>
               <button
                 onClick={handleRejectAll}
-                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-gray-800 text-gray-100 border border-gray-700 transition-colors hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-muted text-foreground border border-border transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 data-testid="button-reject-all-cookies"
               >
                 Reject All
@@ -270,7 +270,7 @@ export function CookieConsentBanner() {
             </div>
             <button
               onClick={handleSavePreferences}
-              className="w-full min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-amber-500 text-gray-900 transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+              className="w-full min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-amber-500 text-gray-900 transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               data-testid="button-save-cookie-preferences"
             >
               Save Preferences
@@ -336,7 +336,7 @@ export function CookieSettingsLink({ className }: { className?: string }) {
     <>
       <button
         onClick={openPreferences}
-        className={className || "text-sm text-gray-500 hover:text-white transition-colors cursor-pointer"}
+        className={className || "text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"}
         data-testid="link-cookie-settings"
       >
         Cookie Settings
@@ -344,11 +344,11 @@ export function CookieSettingsLink({ className }: { className?: string }) {
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent
-          className="sm:max-w-lg bg-gray-950 border-gray-800 text-gray-100"
+          className="sm:max-w-lg bg-background border-border text-foreground"
           data-testid="cookie-preferences-modal"
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg text-white">
+            <DialogTitle className="flex items-center gap-2 text-lg text-foreground">
               <Cookie className="h-5 w-5 text-amber-400" aria-hidden="true" />
               Cookie Preferences
             </DialogTitle>
@@ -368,12 +368,12 @@ export function CookieSettingsLink({ className }: { className?: string }) {
               return (
                 <div
                   key={cat.id}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-gray-800/50 bg-gray-900/50 hover:bg-gray-900 transition-colors"
+                  className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-card/50 hover:bg-card transition-colors"
                 >
-                  <Icon className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" aria-hidden="true" />
+                  <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-gray-200">{cat.label}</span>
+                      <span className="text-sm font-medium text-foreground">{cat.label}</span>
                       <Switch
                         checked={checked}
                         onCheckedChange={(val) => {
@@ -385,7 +385,7 @@ export function CookieSettingsLink({ className }: { className?: string }) {
                         {...(cat.testId ? { "data-testid": cat.testId } : {})}
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">{cat.description}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{cat.description}</p>
                     {cat.locked && (
                       <span className="inline-block mt-1.5 text-[10px] font-medium text-amber-500/80 uppercase tracking-wider">
                         Always active
@@ -397,24 +397,24 @@ export function CookieSettingsLink({ className }: { className?: string }) {
             })}
           </div>
 
-          <div className="flex flex-col gap-2 pt-2 border-t border-gray-800">
+          <div className="flex flex-col gap-2 pt-2 border-t border-border">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleAcceptAll}
-                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-primary text-primary-foreground border border-primary/50 transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-primary text-primary-foreground border border-primary/50 transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Accept All
               </button>
               <button
                 onClick={handleRejectAll}
-                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-gray-800 text-gray-100 border border-gray-700 transition-colors hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                className="flex-1 min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-muted text-foreground border border-border transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Reject All
               </button>
             </div>
             <button
               onClick={handleSavePreferences}
-              className="w-full min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-amber-500 text-gray-900 transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+              className="w-full min-h-[36px] px-4 py-2 text-sm font-semibold rounded-md bg-amber-500 text-gray-900 transition-colors hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Save Preferences
             </button>

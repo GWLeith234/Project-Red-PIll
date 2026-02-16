@@ -77,7 +77,7 @@ export default function LiveActivityFeed() {
   return (
     <div data-testid="live-activity-feed">
       <div className="flex items-center gap-2 mb-3">
-        <span className={`inline-block w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-gray-500"}`} />
+        <span className={`inline-block w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
         <span className="text-xs font-mono uppercase tracking-wider text-green-400" data-testid="text-feed-status">
           {connected ? "Live" : "Connecting..."}
         </span>

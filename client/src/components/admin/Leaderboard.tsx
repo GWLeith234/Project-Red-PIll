@@ -12,7 +12,7 @@ interface LeaderboardProps {
 
 const RANK_COLORS: Record<number, string> = {
   1: "text-amber-400 border-amber-500/40 bg-amber-500/10",
-  2: "text-gray-300 border-gray-400/40 bg-gray-400/10",
+  2: "text-muted-foreground border-border bg-muted/30",
   3: "text-orange-400 border-orange-500/40 bg-orange-500/10",
 };
 

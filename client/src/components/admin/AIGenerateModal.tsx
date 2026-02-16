@@ -69,7 +69,7 @@ export default function AIGenerateModal({ onClose, onInsert }: AIGenerateModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose} data-testid="ai-generate-modal">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60" onClick={onClose} data-testid="ai-generate-modal">
       <div className="bg-card border border-border rounded-xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">

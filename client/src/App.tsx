@@ -1,8 +1,8 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useMemo } from "react";
 import { Sidebar, MobileHeader, MobileSidebarProvider, useMobileSidebar } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
 import { Switch, Route } from "wouter";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from "@/lib/auth";
@@ -57,6 +57,54 @@ function PageLoader() {
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const { open } = useMobileSidebar();
+  const { data: branding } = useQuery({
+    queryKey: ["/api/branding"],
+    queryFn: async () => {
+      const res = await fetch("/api/branding");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 30000,
+    retry: false,
+  });
+
+  const bgStyle = useMemo(() => {
+    if (!branding) return {};
+    const b = branding as any;
+    const type = b.backgroundType || "solid";
+    const style: React.CSSProperties = {};
+
+    if (type === "gradient" && b.backgroundGradient) {
+      style.backgroundImage = b.backgroundGradient;
+    } else if (type === "image" && b.backgroundImageUrl) {
+      style.backgroundImage = `url(${b.backgroundImageUrl})`;
+      style.backgroundSize = b.backgroundSize || "cover";
+      style.backgroundPosition = b.backgroundPosition || "center";
+      style.backgroundAttachment = "fixed";
+      style.backgroundRepeat = "no-repeat";
+    } else if (type === "pattern" && b.backgroundPattern) {
+      style.backgroundImage = b.backgroundPattern;
+    } else if (type === "solid" && b.backgroundColor) {
+      style.backgroundColor = b.backgroundColor;
+    }
+    return style;
+  }, [branding]);
+
+  const overlayOpacity = useMemo(() => {
+    if (!branding) return 0.9;
+    const b = branding as any;
+    const type = b.backgroundType || "solid";
+    if (type === "image" || type === "pattern") {
+      return parseFloat(b.backgroundOverlayOpacity || "0.8");
+    }
+    if (type === "gradient") {
+      return parseFloat(b.backgroundOverlayOpacity || "0");
+    }
+    return 0;
+  }, [branding]);
+
+  const hasCustomBg = branding && (branding as any).backgroundType;
+
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
       <MobileHeader />
@@ -65,9 +113,17 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         "flex-1 ml-0 lg:ml-64 flex flex-col h-screen transition-transform duration-300 ease-in-out",
         open ? "translate-x-72 lg:translate-x-0" : "translate-x-0"
       )}>
-        <main className="flex-1 pt-14 lg:pt-0 px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8 overflow-y-auto bg-[url('/images/command-center-bg.png')] bg-cover bg-center bg-fixed bg-no-repeat relative">
-          <div className="absolute inset-0 bg-background/90 z-0 pointer-events-none backdrop-blur-[2px]"></div>
-          <div className="relative z-10 max-w-7xl mx-auto">
+        <main
+          className="flex-1 pt-14 lg:pt-0 px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8 overflow-y-auto relative"
+          style={hasCustomBg ? bgStyle : {}}
+        >
+          {hasCustomBg && overlayOpacity > 0 && (
+            <div
+              className="absolute inset-0 z-0 pointer-events-none backdrop-blur-[2px]"
+              style={{ backgroundColor: `hsl(var(--background) / ${overlayOpacity})` }}
+            />
+          )}
+          <div className={cn("max-w-7xl mx-auto", hasCustomBg && overlayOpacity > 0 ? "relative z-10" : "")}>
             {children}
           </div>
         </main>

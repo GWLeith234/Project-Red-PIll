@@ -157,7 +157,7 @@ function NotificationPanel({ isSubscribed, preferences, subscribe, unsubscribe, 
 
   if (!isSubscribed) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose} data-testid="notification-modal-backdrop">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm" onClick={onClose} data-testid="notification-modal-backdrop">
         <div className="bg-popover border border-border rounded-2xl p-6 max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} data-testid="notification-modal">
           <div className="flex items-center justify-center w-14 h-14 rounded-full mx-auto mb-4" style={{ backgroundColor: `${primaryColor}20` }}>
             <BellRing className="h-7 w-7" style={{ color: primaryColor }} />

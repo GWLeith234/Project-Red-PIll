@@ -125,7 +125,7 @@ export function ArticlePreviewPopup({ article, podcastId, children }: ArticlePre
           ref={popupRef}
           onMouseEnter={handlePopupEnter}
           onMouseLeave={handlePopupLeave}
-          className="fixed z-[60] w-[340px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          className="fixed z-[60] w-[340px] bg-card rounded-xl shadow-2xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           style={{ top: position.top, left: position.left }}
           data-testid={`article-preview-popup-${article.id}`}
         >
@@ -138,7 +138,7 @@ export function ArticlePreviewPopup({ article, podcastId, children }: ArticlePre
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
               {article.type && (
-                <span className="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/90 text-gray-700">
+                <span className="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-card/90 text-foreground">
                   {article.type}
                 </span>
               )}
@@ -151,12 +151,12 @@ export function ArticlePreviewPopup({ article, podcastId, children }: ArticlePre
                 {article.podcastTitle}
               </span>
             )}
-            <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2">
+            <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-2 mb-2">
               {article.title}
             </h3>
 
             {excerpt && (
-              <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 mb-3">
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-3">
                 {excerpt}
               </p>
             )}
@@ -164,15 +164,15 @@ export function ArticlePreviewPopup({ article, podcastId, children }: ArticlePre
             {keywords.length > 0 && (
               <div className="flex flex-wrap gap-1 mb-3">
                 {keywords.map((kw) => (
-                  <span key={kw} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                  <span key={kw} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                     {kw}
                   </span>
                 ))}
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-              <div className="flex items-center gap-3 text-[11px] text-gray-400">
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                 {article.readingTime && (
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />

@@ -1679,7 +1679,7 @@ function ClipVideoPreview({ videoUrl, startTime }: { videoUrl: string; startTime
   }, [videoUrl, startTime]);
 
   return (
-    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black/50 relative">
+    <div className="aspect-video w-full rounded-lg overflow-hidden bg-background/50 relative">
       <video
         ref={videoRef}
         src={videoUrl}
@@ -1781,7 +1781,7 @@ function ClipsTab() {
                 {videoSrc ? (
                   <ClipVideoPreview videoUrl={videoSrc} startTime={clip.startTime} />
                 ) : (
-                  <div className="aspect-video w-full bg-black/30 flex items-center justify-center">
+                  <div className="aspect-video w-full bg-background/30 flex items-center justify-center">
                     <div className="text-center">
                       <Film className="h-8 w-8 text-muted-foreground/30 mx-auto mb-1" />
                       <span className="text-[10px] font-mono text-muted-foreground/50">Audio only</span>

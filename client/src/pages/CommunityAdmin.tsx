@@ -91,7 +91,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: "bg-red-500/15 text-red-400 border-red-500/30",
     active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
     sold: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    expired: "bg-gray-500/15 text-gray-400 border-gray-500/30",
+    expired: "bg-muted/50 text-muted-foreground border-border",
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border ${colors[status] || colors.pending}`} data-testid={`badge-status-${status}`}>
@@ -102,7 +102,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function DeleteConfirmation({ onConfirm, onCancel, isPending, name }: { onConfirm: () => void; onCancel: () => void; isPending: boolean; name: string }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" data-testid="delete-confirmation">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50" data-testid="delete-confirmation">
       <div className="bg-card border border-border rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
         <p className="text-sm text-foreground mb-4">
           Delete <span className="font-medium">{name}</span>? This cannot be undone.
@@ -120,7 +120,7 @@ function DeleteConfirmation({ onConfirm, onCancel, isPending, name }: { onConfir
 
 function FormOverlay({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-8" data-testid="form-overlay">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/50 overflow-y-auto py-8" data-testid="form-overlay">
       <div className="bg-card border border-border rounded-xl p-6 max-w-2xl w-full mx-4 shadow-xl">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground" data-testid="text-form-title">{title}</h2>
@@ -402,7 +402,7 @@ function ClassifiedsTab() {
                 {c.status === "active" && (
                   <>
                     <button onClick={() => updateMut.mutate({ id: c.id, data: { status: "sold" } })} className="p-1.5 hover:bg-blue-500/10 rounded-md text-muted-foreground hover:text-blue-400 text-[10px] font-medium" title="Mark Sold" data-testid={`button-sold-classified-${c.id}`}>Sold</button>
-                    <button onClick={() => updateMut.mutate({ id: c.id, data: { status: "expired" } })} className="p-1.5 hover:bg-gray-500/10 rounded-md text-muted-foreground hover:text-gray-400 text-[10px] font-medium" title="Mark Expired" data-testid={`button-expire-classified-${c.id}`}>Expire</button>
+                    <button onClick={() => updateMut.mutate({ id: c.id, data: { status: "expired" } })} className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-muted-foreground text-[10px] font-medium" title="Mark Expired" data-testid={`button-expire-classified-${c.id}`}>Expire</button>
                   </>
                 )}
                 <button onClick={() => setEditing(c)} className="p-1.5 hover:bg-muted/80 rounded-md text-muted-foreground hover:text-foreground" title="Edit" data-testid={`button-edit-classified-${c.id}`}><Pencil className="h-3.5 w-3.5" /></button>

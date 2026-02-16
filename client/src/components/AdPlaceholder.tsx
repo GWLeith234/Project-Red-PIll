@@ -36,7 +36,7 @@ export function AdPlaceholder({ width, height, label, className }: { width: numb
           style={{ display: "block", maxWidth: "100%", height: "auto" }}
           loading="lazy"
         />
-        <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 opacity-60">
+        <span className="absolute bottom-0 right-0 bg-background/60 text-foreground text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 opacity-60">
           Ad
         </span>
       </a>

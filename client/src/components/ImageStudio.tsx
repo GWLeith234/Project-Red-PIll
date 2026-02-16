@@ -186,7 +186,7 @@ export function ImageStudio({ open, onClose, onSelect, defaultPrompt = "" }: Ima
 
             {aiResult && (
               <div className="space-y-3">
-                <div className="relative aspect-video rounded-lg overflow-hidden border border-border/50 bg-black/20">
+                <div className="relative aspect-video rounded-lg overflow-hidden border border-border/50 bg-background/20">
                   <img src={aiResult} alt="AI generated" className="w-full h-full object-cover" data-testid="img-ai-result" />
                 </div>
                 <div className="flex gap-2">

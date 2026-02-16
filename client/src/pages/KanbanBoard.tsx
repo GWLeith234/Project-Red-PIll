@@ -22,7 +22,7 @@ import {
 import type { Task, TaskComment, TaskActivityLog } from "@shared/schema";
 
 const COLUMNS = [
-  { id: "uploaded", label: "Uploaded", description: "Raw media files waiting for transcription", color: "border-gray-500/30", headerColor: "text-gray-400", bg: "bg-gray-500/5" },
+  { id: "uploaded", label: "Uploaded", description: "Raw media files waiting for transcription", color: "border-border", headerColor: "text-muted-foreground", bg: "bg-muted/20" },
   { id: "transcribed", label: "Transcribed", description: "Transcript complete, ready for AI", color: "border-blue-500/30", headerColor: "text-blue-400", bg: "bg-blue-500/5" },
   { id: "ai_processed", label: "AI Processed", description: "AI content ready for review", color: "border-purple-500/30", headerColor: "text-purple-400", bg: "bg-purple-500/5" },
   { id: "in_review", label: "In Review", description: "Team reviewing and editing", color: "border-amber-500/30", headerColor: "text-amber-400", bg: "bg-amber-500/5" },
@@ -30,7 +30,7 @@ const COLUMNS = [
 ] as const;
 
 const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
-  low: { label: "Low", className: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+  low: { label: "Low", className: "bg-muted/50 text-muted-foreground border-border" },
   medium: { label: "Medium", className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
   high: { label: "High", className: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
   urgent: { label: "Urgent", className: "bg-red-500/10 text-red-400 border-red-500/20" },

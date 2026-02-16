@@ -547,7 +547,7 @@ function SubscriberDetail({ subscriberId, onBack }: { subscriberId: string; onBa
                           <Headphones className="h-5 w-5 text-primary/40" />
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 bg-background/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Play className="h-5 w-5 text-white fill-white" />
                       </div>
                     </div>

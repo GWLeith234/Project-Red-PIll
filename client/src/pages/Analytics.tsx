@@ -155,7 +155,7 @@ export default function Analytics() {
 
       {showAiPanel && (
         <div className="fixed inset-0 z-50 flex justify-end" data-testid="ai-panel-overlay">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAiPanel(false)} />
+          <div className="absolute inset-0 bg-background/50" onClick={() => setShowAiPanel(false)} />
           <div className="relative w-full max-w-lg bg-card border-l border-border overflow-y-auto p-6 space-y-6 animate-in slide-in-from-right">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-display font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400" /> AI Analytics</h2>
@@ -596,7 +596,7 @@ export default function Analytics() {
                   <span className="text-sm text-muted-foreground ml-1">/ 5</span>
                   <div className="flex justify-center mt-1">
                     {[1, 2, 3, 4, 5].map((s) => (
-                      <span key={s} className={`text-lg ${s <= Math.round(nps?.avgRating ?? 0) ? "text-yellow-400" : "text-gray-600"}`}>★</span>
+                      <span key={s} className={`text-lg ${s <= Math.round(nps?.avgRating ?? 0) ? "text-yellow-400" : "text-muted-foreground"}`}>★</span>
                     ))}
                   </div>
                   <span className="text-xs text-muted-foreground">{nps?.totalFeedback ?? 0} ratings</span>
@@ -611,7 +611,7 @@ export default function Analytics() {
                     return (
                       <div key={star} className="flex items-center gap-2 text-xs">
                         <span className="w-4 text-right text-muted-foreground">{star}★</span>
-                        <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${pct}%` }} />
                         </div>
                         <span className="w-8 text-right text-muted-foreground">{pct}%</span>
@@ -637,7 +637,7 @@ export default function Analytics() {
                           <span className={`text-xs px-1.5 py-0.5 rounded ${
                             fb.sentiment === "positive" ? "bg-green-500/20 text-green-400" :
                             fb.sentiment === "negative" ? "bg-red-500/20 text-red-400" :
-                            "bg-gray-500/20 text-gray-400"
+                            "bg-muted/50 text-muted-foreground"
                           }`}>{fb.sentiment}</span>
                         )}
                       </div>

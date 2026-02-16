@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import PageHeader from "@/components/admin/PageHeader";
 import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding, useAuditLogs, useApiKeys, useCreateApiKey, useRevokeApiKey, useDeleteApiKey } from "@/lib/api";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
@@ -19,6 +19,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getIcon, searchIcons } from "@/lib/icon-resolver";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Globe, Zap, FileText, Bell, Shield, Wifi, WifiOff,
   Save, Loader2, AlertTriangle, Sparkles, MapPin, Upload, X,
@@ -1152,28 +1154,6 @@ export default function Settings() {
   );
 }
 
-const PAGE_ICON_MAP: Record<string, LucideIcon> = {
-  LayoutDashboard, FileText, DollarSign, BarChart3, Settings: SettingsIcon,
-  Shield, Briefcase, ContactRound, Network, Send, CalendarClock, Scaling,
-  Kanban, ListTodo, Mail, PanelLeft, Heart, Factory, Blocks, Paintbrush,
-  Eye, Radio, Mic, Globe, Bell, Zap, Hash,
-};
-
-const ICON_OPTIONS = Object.keys(PAGE_ICON_MAP);
-
-function getPageIcon(name: string): LucideIcon {
-  return PAGE_ICON_MAP[name] || Blocks;
-}
-
-const SECTION_ORDER = ["", "content", "monetization", "network", "analytics", "admin"];
-const SECTION_DISPLAY: Record<string, string> = {
-  "": "Dashboard",
-  content: "Content",
-  monetization: "Monetization",
-  network: "Network",
-  analytics: "Analytics",
-  admin: "Admin",
-};
 
 type PageCfg = {
   pageKey: string;
@@ -1310,6 +1290,298 @@ function ThemeSettingsTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+function IconPickerPopover({ value, onChange, testId }: { value: string; onChange: (v: string) => void; testId: string }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const icons = useMemo(() => searchIcons(search, 60), [search]);
+  const CurrentIcon = getIcon(value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="h-7 text-xs mt-0.5 w-full justify-start gap-2" data-testid={testId}>
+          <CurrentIcon className="h-3 w-3" />
+          {value || "Select icon"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-2" align="start">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search icons..."
+          className="h-7 text-xs mb-2"
+          data-testid={`${testId}-search`}
+        />
+        <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto">
+          {icons.map((name) => {
+            const Ic = getIcon(name);
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => { onChange(name); setOpen(false); setSearch(""); }}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 p-1.5 rounded hover:bg-muted transition-colors text-center",
+                  value === name && "bg-primary/10 ring-1 ring-primary"
+                )}
+                title={name}
+                data-testid={`${testId}-option-${name}`}
+              >
+                <Ic className="h-4 w-4" />
+                <span className="text-[7px] leading-tight truncate w-full text-muted-foreground">{name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+type NavSectionData = {
+  id: string;
+  sectionKey: string;
+  displayName: string;
+  iconName: string | null;
+  sortOrder: number;
+  isCollapsedDefault: boolean | null;
+};
+
+function ManageSectionsArea({ navSections }: { navSections: NavSectionData[] }) {
+  const { toast } = useToast();
+  const [editingSections, setEditingSections] = useState<NavSectionData[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newSectionKey, setNewSectionKey] = useState("");
+  const [newSectionDisplay, setNewSectionDisplay] = useState("");
+  const [newSectionIcon, setNewSectionIcon] = useState("Blocks");
+  const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    if (navSections) setEditingSections([...navSections]);
+  }, [navSections]);
+
+  const saveSectionMutation = useMutation({
+    mutationFn: async (section: { sectionKey: string; displayName: string; iconName: string | null; sortOrder: number }) => {
+      const res = await fetch("/api/admin/nav-sections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(section),
+      });
+      if (!res.ok) throw new Error("Failed to save section");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+    },
+  });
+
+  const updateSectionMutation = useMutation({
+    mutationFn: async ({ sectionKey, data }: { sectionKey: string; data: Record<string, any> }) => {
+      const res = await fetch(`/api/admin/nav-sections/${sectionKey}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update section");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+    },
+  });
+
+  const deleteSectionMutation = useMutation({
+    mutationFn: async (sectionKey: string) => {
+      const res = await fetch(`/api/admin/nav-sections/${sectionKey}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete section");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      toast({ title: "Section Deleted" });
+    },
+  });
+
+  const handleSaveAll = async () => {
+    try {
+      for (const section of editingSections) {
+        await updateSectionMutation.mutateAsync({
+          sectionKey: section.sectionKey,
+          data: { displayName: section.displayName, iconName: section.iconName, sortOrder: section.sortOrder },
+        });
+      }
+      setIsEditing(false);
+      toast({ title: "Sections Updated", description: "Nav sections have been saved." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleAddSection = () => {
+    if (!newSectionKey || !newSectionDisplay) {
+      toast({ title: "Missing fields", description: "Section key and display name are required.", variant: "destructive" });
+      return;
+    }
+    const maxOrder = editingSections.length > 0 ? Math.max(...editingSections.map(s => s.sortOrder)) : 0;
+    saveSectionMutation.mutate(
+      { sectionKey: newSectionKey, displayName: newSectionDisplay, iconName: newSectionIcon, sortOrder: maxOrder + 1 },
+      {
+        onSuccess: () => {
+          setShowAdd(false);
+          setNewSectionKey("");
+          setNewSectionDisplay("");
+          setNewSectionIcon("Blocks");
+          toast({ title: "Section Added" });
+        },
+        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <div className="border border-border/50 rounded-sm p-4 space-y-3" data-testid="manage-sections-area">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">Manage Sections</h3>
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <>
+              <Button size="sm" onClick={handleSaveAll} disabled={updateSectionMutation.isPending} className="h-6 px-2 text-[10px] font-mono" data-testid="button-save-sections">
+                {updateSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setIsEditing(false); setEditingSections([...navSections]); }} className="h-6 px-2 text-[10px]" data-testid="button-cancel-edit-sections">
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="h-6 px-2 text-[10px] font-mono" data-testid="button-edit-sections">
+              <Edit3 className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setShowAdd(!showAdd)} className="h-6 px-2 text-[10px] font-mono" data-testid="button-add-section">
+            <Plus className="h-3 w-3 mr-1" />
+            Add Section
+          </Button>
+        </div>
+      </div>
+
+      <div className="divide-y divide-border/20">
+        {editingSections.sort((a, b) => a.sortOrder - b.sortOrder).map((section, idx) => {
+          const SectionIcon = getIcon(section.iconName || "Blocks");
+          return (
+            <div key={section.sectionKey} className="flex items-center gap-2 py-1.5" data-testid={`manage-section-${section.sectionKey}`}>
+              <GripVertical className="h-3 w-3 text-muted-foreground/40 flex-shrink-0" />
+              <div className="flex items-center justify-center h-6 w-6 rounded bg-card border border-border/50 flex-shrink-0">
+                <SectionIcon className="h-3 w-3 text-muted-foreground" />
+              </div>
+              {isEditing ? (
+                <>
+                  <Input
+                    value={section.displayName}
+                    onChange={(e) => {
+                      const updated = [...editingSections];
+                      updated[idx] = { ...updated[idx], displayName: e.target.value };
+                      setEditingSections(updated);
+                    }}
+                    className="h-6 text-xs flex-1"
+                    data-testid={`input-section-name-${section.sectionKey}`}
+                  />
+                  <IconPickerPopover
+                    value={section.iconName || "Blocks"}
+                    onChange={(v) => {
+                      const updated = [...editingSections];
+                      updated[idx] = { ...updated[idx], iconName: v };
+                      setEditingSections(updated);
+                    }}
+                    testId={`icon-picker-section-${section.sectionKey}`}
+                  />
+                  <Input
+                    type="number"
+                    value={section.sortOrder}
+                    onChange={(e) => {
+                      const updated = [...editingSections];
+                      updated[idx] = { ...updated[idx], sortOrder: parseInt(e.target.value) || 0 };
+                      setEditingSections(updated);
+                    }}
+                    className="h-6 text-xs w-16"
+                    data-testid={`input-section-order-${section.sectionKey}`}
+                  />
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete section "${section.displayName}"?`)) {
+                        deleteSectionMutation.mutate(section.sectionKey);
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                    data-testid={`button-delete-section-${section.sectionKey}`}
+                  >
+                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-medium flex-1">{section.displayName}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{section.sectionKey}</span>
+                  <span className="text-[10px] text-muted-foreground/60 font-mono">#{section.sortOrder}</span>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {showAdd && (
+        <div className="border-t border-border/30 pt-3 space-y-2" data-testid="add-section-form">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Section Key</Label>
+              <Input
+                value={newSectionKey}
+                onChange={(e) => setNewSectionKey(e.target.value)}
+                placeholder="my-section"
+                className="h-7 text-xs mt-0.5"
+                data-testid="input-new-section-key"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
+              <Input
+                value={newSectionDisplay}
+                onChange={(e) => setNewSectionDisplay(e.target.value)}
+                placeholder="My Section"
+                className="h-7 text-xs mt-0.5"
+                data-testid="input-new-section-display"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+              <IconPickerPopover value={newSectionIcon} onChange={setNewSectionIcon} testId="icon-picker-new-section" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleAddSection} disabled={saveSectionMutation.isPending} className="h-7 px-3 text-[10px] font-mono uppercase" data-testid="button-confirm-add-section">
+              {saveSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+              Add
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowAdd(false)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-section">
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PageConfigurationTab() {
   const { toast } = useToast();
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -1320,6 +1592,7 @@ function PageConfigurationTab() {
   const [showAddPage, setShowAddPage] = useState<string | null>(null);
   const [newPageForm, setNewPageForm] = useState({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [editNewSection, setEditNewSection] = useState("");
 
   const { data: configs, isLoading } = useQuery<PageCfg[]>({
     queryKey: ["/api/admin/page-config"],
@@ -1329,6 +1602,28 @@ function PageConfigurationTab() {
       return res.json();
     },
   });
+
+  const { data: navSections } = useQuery<NavSectionData[]>({
+    queryKey: ["/api/admin/nav-sections"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/nav-sections", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30000,
+  });
+
+  const sectionOrderMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    const displayMap: Record<string, string> = {};
+    if (navSections) {
+      for (const ns of navSections) {
+        m[ns.sectionKey] = ns.sortOrder;
+        displayMap[ns.sectionKey] = ns.displayName;
+      }
+    }
+    return { order: m, display: displayMap };
+  }, [navSections]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ pageKey, data }: { pageKey: string; data: Record<string, any> }) => {
@@ -1416,7 +1711,7 @@ function PageConfigurationTab() {
     },
   });
 
-  const sections = (() => {
+  const sections = useMemo(() => {
     if (!configs) return [];
     const grouped: Record<string, PageCfg[]> = {};
     for (const cfg of configs) {
@@ -1427,14 +1722,18 @@ function PageConfigurationTab() {
     for (const key of Object.keys(grouped)) {
       grouped[key].sort((a, b) => a.sortOrder - b.sortOrder);
     }
-    const knownSections = SECTION_ORDER.filter(s => grouped[s]);
-    const customSections = Object.keys(grouped).filter(s => !SECTION_ORDER.includes(s)).sort();
-    return [...knownSections, ...customSections].map(s => ({
+    const allKeys = Object.keys(grouped);
+    allKeys.sort((a, b) => {
+      const orderA = sectionOrderMap.order[a] ?? 999;
+      const orderB = sectionOrderMap.order[b] ?? 999;
+      return orderA - orderB;
+    });
+    return allKeys.map(s => ({
       key: s,
-      label: SECTION_DISPLAY[s] ?? s.charAt(0).toUpperCase() + s.slice(1),
+      label: sectionOrderMap.display[s] ?? s.charAt(0).toUpperCase() + s.slice(1),
       items: grouped[s] || [],
     }));
-  })();
+  }, [configs, sectionOrderMap]);
 
   const handleDragStart = (e: React.DragEvent, pageKey: string) => {
     setDragItem(pageKey);
@@ -1496,11 +1795,17 @@ function PageConfigurationTab() {
       iconName: config.iconName || "",
       primaryActionLabel: config.primaryActionLabel || "",
       aiActionLabel: config.aiActionLabel || "",
+      navSection: config.navSection || "",
     });
+    setEditNewSection("");
   };
 
   const handleSave = (pageKey: string) => {
-    updateMutation.mutate({ pageKey, data: editForm });
+    const data: Record<string, any> = { ...editForm };
+    if (editForm.navSection === "__new__" && editNewSection) {
+      data.navSection = editNewSection;
+    }
+    updateMutation.mutate({ pageKey, data });
   };
 
   const handleAddPage = (sectionKey: string) => {
@@ -1540,6 +1845,8 @@ function PageConfigurationTab() {
           Reset to Default
         </Button>
       </div>
+
+      {navSections && <ManageSectionsArea navSections={navSections} />}
 
       {sections.map((section) => {
         const isCollapsed = collapsedSections[section.key];
@@ -1588,7 +1895,7 @@ function PageConfigurationTab() {
             {!isCollapsed && (
               <div className="divide-y divide-border/20">
                 {section.items.map((config, idx) => {
-                  const Icon = getPageIcon(config.iconName);
+                  const Icon = getIcon(config.iconName);
                   const isEditing = editingKey === config.pageKey;
                   const isDragging = dragItem === config.pageKey;
                   const isHidden = config.isVisible === false;
@@ -1632,24 +1939,11 @@ function PageConfigurationTab() {
                               </div>
                               <div>
                                 <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-                                <Select value={editForm.iconName} onValueChange={(v) => setEditForm(f => ({ ...f, iconName: v }))}>
-                                  <SelectTrigger className="h-7 text-xs mt-0.5" data-testid={`select-icon-${config.pageKey}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {ICON_OPTIONS.map(name => {
-                                      const Ic = PAGE_ICON_MAP[name];
-                                      return (
-                                        <SelectItem key={name} value={name}>
-                                          <span className="flex items-center gap-2">
-                                            <Ic className="h-3 w-3" />
-                                            {name}
-                                          </span>
-                                        </SelectItem>
-                                      );
-                                    })}
-                                  </SelectContent>
-                                </Select>
+                                <IconPickerPopover
+                                  value={editForm.iconName}
+                                  onChange={(v) => setEditForm(f => ({ ...f, iconName: v }))}
+                                  testId={`icon-picker-${config.pageKey}`}
+                                />
                               </div>
                             </div>
                             <div>
@@ -1663,6 +1957,29 @@ function PageConfigurationTab() {
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
+                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Nav Section</Label>
+                                <Select value={editForm.navSection} onValueChange={(v) => setEditForm(f => ({ ...f, navSection: v }))}>
+                                  <SelectTrigger className="h-7 text-xs mt-0.5" data-testid={`select-navsection-${config.pageKey}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {navSections?.map(ns => (
+                                      <SelectItem key={ns.sectionKey} value={ns.sectionKey}>{ns.displayName}</SelectItem>
+                                    ))}
+                                    <SelectItem value="__new__">New Section...</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {editForm.navSection === "__new__" && (
+                                  <Input
+                                    value={editNewSection}
+                                    onChange={(e) => setEditNewSection(e.target.value)}
+                                    placeholder="new-section-key"
+                                    className="h-7 text-xs mt-1"
+                                    data-testid={`input-new-navsection-${config.pageKey}`}
+                                  />
+                                )}
+                              </div>
+                              <div>
                                 <Label className="text-[10px] font-mono uppercase text-muted-foreground">Primary Action Label</Label>
                                 <Input
                                   value={editForm.primaryActionLabel}
@@ -1671,15 +1988,15 @@ function PageConfigurationTab() {
                                   data-testid={`input-primary-action-${config.pageKey}`}
                                 />
                               </div>
-                              <div>
-                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">AI Action Label</Label>
-                                <Input
-                                  value={editForm.aiActionLabel}
-                                  onChange={(e) => setEditForm(f => ({ ...f, aiActionLabel: e.target.value }))}
-                                  className="h-7 text-xs mt-0.5"
-                                  data-testid={`input-ai-action-${config.pageKey}`}
-                                />
-                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-[10px] font-mono uppercase text-muted-foreground">AI Action Label</Label>
+                              <Input
+                                value={editForm.aiActionLabel}
+                                onChange={(e) => setEditForm(f => ({ ...f, aiActionLabel: e.target.value }))}
+                                className="h-7 text-xs mt-0.5"
+                                data-testid={`input-ai-action-${config.pageKey}`}
+                              />
                             </div>
                             <div className="flex items-center gap-2 pt-1">
                               <Button
@@ -1780,17 +2097,11 @@ function PageConfigurationTab() {
                       </div>
                       <div>
                         <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-                        <Select value={newPageForm.iconName} onValueChange={(v) => setNewPageForm(f => ({ ...f, iconName: v }))}>
-                          <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-new-page-icon">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ICON_OPTIONS.map(name => {
-                              const Ic = PAGE_ICON_MAP[name];
-                              return <SelectItem key={name} value={name}><span className="flex items-center gap-2"><Ic className="h-3 w-3" />{name}</span></SelectItem>;
-                            })}
-                          </SelectContent>
-                        </Select>
+                        <IconPickerPopover
+                          value={newPageForm.iconName}
+                          onChange={(v) => setNewPageForm(f => ({ ...f, iconName: v }))}
+                          testId="icon-picker-new-page"
+                        />
                       </div>
                       <div>
                         <Label className="text-[10px] font-mono uppercase text-muted-foreground">Permission</Label>

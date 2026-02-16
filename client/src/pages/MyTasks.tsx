@@ -25,7 +25,7 @@ import {
 import type { Task } from "@shared/schema";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  uploaded: { label: "Uploaded", className: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+  uploaded: { label: "Uploaded", className: "bg-muted/50 text-muted-foreground border-border" },
   transcribed: { label: "Transcribed", className: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
   ai_processed: { label: "AI Processed", className: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
   in_review: { label: "In Review", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
@@ -33,7 +33,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 const PRIORITY_CONFIG: Record<string, { label: string; className: string; calColor: string }> = {
-  low: { label: "Low", className: "bg-gray-500/10 text-gray-400 border-gray-500/20", calColor: "bg-gray-500" },
+  low: { label: "Low", className: "bg-muted/50 text-muted-foreground border-border", calColor: "bg-muted-foreground" },
   medium: { label: "Medium", className: "bg-blue-500/10 text-blue-400 border-blue-500/20", calColor: "bg-blue-500" },
   high: { label: "High", className: "bg-orange-500/10 text-orange-400 border-orange-500/20", calColor: "bg-orange-500" },
   urgent: { label: "Urgent", className: "bg-red-500/10 text-red-400 border-red-500/20", calColor: "bg-red-500" },

@@ -48,7 +48,7 @@ import type { Product } from "@shared/schema";
 const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
 
 const STAGE_CONFIG: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  lead: { label: "Lead", color: "text-gray-400", bgColor: "bg-gray-500/10", borderColor: "border-gray-500/20" },
+  lead: { label: "Lead", color: "text-muted-foreground", bgColor: "bg-muted/50", borderColor: "border-border" },
   qualified: { label: "Qualified", color: "text-blue-400", bgColor: "bg-blue-500/10", borderColor: "border-blue-500/20" },
   proposal: { label: "Proposal", color: "text-amber-400", bgColor: "bg-amber-500/10", borderColor: "border-amber-500/20" },
   negotiation: { label: "Negotiation", color: "text-purple-400", bgColor: "bg-purple-500/10", borderColor: "border-purple-500/20" },
@@ -1687,7 +1687,7 @@ function DealDetail({ dealId, companies, contacts, onBack }: {
                             act.contentStatus === "live" && "bg-green-500/10 text-green-400 border-green-500/20",
                             act.contentStatus === "approved" && "bg-blue-500/10 text-blue-400 border-blue-500/20",
                             act.contentStatus === "review" && "bg-amber-500/10 text-amber-400 border-amber-500/20",
-                            act.contentStatus === "draft" && "bg-gray-500/10 text-gray-400 border-gray-500/20",
+                            act.contentStatus === "draft" && "bg-muted/50 text-muted-foreground border-border",
                           )}>{act.contentStatus}</Badge>
                         )}
                       </div>
@@ -1731,7 +1731,7 @@ const AD_FORMAT_CONFIG: Record<string, { label: string; icon: any; description: 
 };
 
 const CREATIVE_STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
-  draft: { label: "Draft", color: "text-gray-400", bgColor: "bg-gray-500/10 border-gray-500/20" },
+  draft: { label: "Draft", color: "text-muted-foreground", bgColor: "bg-muted/50 border-border" },
   pending_review: { label: "Pending Review", color: "text-amber-400", bgColor: "bg-amber-500/10 border-amber-500/20" },
   approved: { label: "Approved", color: "text-blue-400", bgColor: "bg-blue-500/10 border-blue-500/20" },
   live: { label: "Live", color: "text-green-400", bgColor: "bg-green-500/10 border-green-500/20" },
@@ -3005,7 +3005,7 @@ function DealsTab() {
                             <div className="flex items-center gap-1">
                               {deal.priority === "high" && <AlertCircle className="h-3 w-3 text-red-400" />}
                               {deal.priority === "medium" && <AlertCircle className="h-3 w-3 text-amber-400" />}
-                              {deal.priority === "low" && <AlertCircle className="h-3 w-3 text-gray-400" />}
+                              {deal.priority === "low" && <AlertCircle className="h-3 w-3 text-muted-foreground" />}
                               <span className="text-[10px] text-muted-foreground capitalize">{deal.priority}</span>
                             </div>
                             <span className="text-[10px] text-muted-foreground font-mono">{deal.probability}%</span>

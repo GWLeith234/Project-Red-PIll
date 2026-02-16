@@ -211,7 +211,7 @@ export default function LiveVisitorMap({ fullscreen = false }: Props) {
           </svg>
         </button>
         {showSettings && (
-          <div className="absolute top-10 right-0 bg-black/80 rounded-lg p-3 space-y-2 min-w-[160px] text-xs text-white">
+          <div className="absolute top-10 right-0 bg-background/80 rounded-lg p-3 space-y-2 min-w-[160px] text-xs text-foreground">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={showStats} onChange={(e) => setShowStats(e.target.checked)} className="rounded" />
               Stats Bar
@@ -226,16 +226,16 @@ export default function LiveVisitorMap({ fullscreen = false }: Props) {
 
       {/* Stats overlay bar */}
       {showStats && (
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-white" data-testid="map-stats-bar">
+        <div className="absolute bottom-0 left-0 right-0 bg-background/60 backdrop-blur-sm px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-foreground" data-testid="map-stats-bar">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className={`inline-block w-2 h-2 rounded-full ${connected ? "bg-red-500 animate-pulse" : "bg-gray-500"}`} />
+              <span className={`inline-block w-2 h-2 rounded-full ${connected ? "bg-red-500 animate-pulse" : "bg-muted-foreground"}`} />
               <span className="text-xs font-mono uppercase tracking-wider text-red-400">LIVE</span>
             </div>
             <span className="text-2xl font-bold font-mono tabular-nums" data-testid="text-active-visitors">
               {activeSessions}
             </span>
-            <span className="text-xs text-white/60">visitors</span>
+            <span className="text-xs text-foreground/60">visitors</span>
           </div>
 
           <div className="flex items-center gap-3 text-xs">
@@ -248,7 +248,7 @@ export default function LiveVisitorMap({ fullscreen = false }: Props) {
           </div>
 
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-white/60">Pages/min:</span>
+            <span className="text-foreground/60">Pages/min:</span>
             <span className="font-mono font-semibold text-amber-400" data-testid="text-pages-per-min">{pagesPerMinute}</span>
           </div>
         </div>

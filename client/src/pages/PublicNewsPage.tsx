@@ -199,7 +199,7 @@ function GridSection({ section }: { section: any }) {
                       />
                       {item.podcastTitle && (
                         <div className="absolute top-2.5 left-2.5">
-                          <span className="px-2 py-0.5 bg-black/50 backdrop-blur-sm text-foreground text-[10px] font-semibold rounded-full">
+                          <span className="px-2 py-0.5 bg-background/50 backdrop-blur-sm text-foreground text-[10px] font-semibold rounded-full">
                             {item.podcastTitle}
                           </span>
                         </div>

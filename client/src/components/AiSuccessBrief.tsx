@@ -105,7 +105,7 @@ export function AiSuccessBrief({ open, onClose }: AiSuccessBriefProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" data-testid="ai-brief-overlay">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
       <div className={cn(
         "relative w-full max-w-lg mx-4 rounded-xl border border-violet-500/30 bg-background/95 backdrop-blur-xl shadow-2xl shadow-violet-500/10",
         "animate-in fade-in zoom-in-95 duration-300"

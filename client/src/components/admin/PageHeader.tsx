@@ -55,9 +55,9 @@ export default function PageHeader({
             style={{ color: primaryColor }}
           />
           {config.description && (
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 text-xs text-white bg-gray-900 border border-gray-700 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 text-xs text-foreground bg-background border border-border rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
               {config.description}
-              <div className="absolute left-1/2 -translate-x-1/2 top-full -mt-px border-4 border-transparent border-t-gray-900" />
+              <div className="absolute left-1/2 -translate-x-1/2 top-full -mt-px border-4 border-transparent border-t-background" />
             </div>
           )}
         </div>

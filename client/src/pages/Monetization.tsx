@@ -706,7 +706,7 @@ function ProductPerformanceTab() {
               {allCampaigns.map((c: any) => (
                 <div key={c.id} className="flex items-center justify-between p-4 bg-card/30 rounded border border-transparent hover:border-primary/20 transition-colors" data-testid={`row-campaign-${c.id}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded flex items-center justify-center border ${c.status === 'active' ? 'bg-green-500/10 border-green-500/20 text-green-400' : c.status === 'scheduled' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-gray-500/10 border-gray-500/20 text-gray-400'}`}>
+                    <div className={`h-9 w-9 rounded flex items-center justify-center border ${c.status === 'active' ? 'bg-green-500/10 border-green-500/20 text-green-400' : c.status === 'scheduled' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-muted/50 border-border text-muted-foreground'}`}>
                       {c.status === "active" ? <Play className="h-4 w-4" /> : c.status === "scheduled" ? <Clock className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                     </div>
                     <div>
@@ -717,7 +717,7 @@ function ProductPerformanceTab() {
                       </p>
                     </div>
                   </div>
-                  <Badge variant="outline" className={`font-mono text-[10px] uppercase ${c.status === 'active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : c.status === 'scheduled' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
+                  <Badge variant="outline" className={`font-mono text-[10px] uppercase ${c.status === 'active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : c.status === 'scheduled' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-muted/50 text-muted-foreground border-border'}`}>
                     {c.status}
                   </Badge>
                 </div>

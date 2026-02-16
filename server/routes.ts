@@ -7011,5 +7011,64 @@ Provide comprehensive social listening intelligence including trending topics, k
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  app.post("/api/ai/branding-suggestions", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { companyName, tagline, primaryColor, accentColor } = req.body;
+      const { claude } = await import("./ai-providers");
+      const message = await claude.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: `You are a brand strategist. Given this brand:
+Company: ${companyName || "Unknown"}
+Tagline: ${tagline || "None"}
+Primary Color: ${primaryColor || "#E5C100"}
+Accent Color: ${accentColor || "#22C55E"}
+
+Generate branding suggestions as JSON:
+{
+  "palette": [{"hex": "#...", "name": "Color Name", "usage": "What to use it for"}] (5 colors),
+  "fontPair": "Recommended font pairing description",
+  "taglines": ["tagline1", "tagline2", "tagline3", "tagline4", "tagline5"],
+  "backgroundStyle": "Recommended background style description"
+}
+Return ONLY valid JSON, no markdown.`
+        }]
+      });
+      const text = message.content[0].type === "text" ? message.content[0].text : "";
+      const parsed = JSON.parse(text.trim());
+      res.json(parsed);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/ai/banner-copy", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { companyName, tagline } = req.body;
+      const { claude } = await import("./ai-providers");
+      const message = await claude.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 256,
+        messages: [{
+          role: "user",
+          content: `Write compelling banner copy for a media company:
+Company: ${companyName || "MediaTech Empire"}
+Tagline: ${tagline || "AI-Powered Media Platform"}
+
+Return JSON:
+{"heading": "...", "subheading": "...", "ctaText": "..."}
+Return ONLY valid JSON, no markdown.`
+        }]
+      });
+      const text = message.content[0].type === "text" ? message.content[0].text : "";
+      const parsed = JSON.parse(text.trim());
+      res.json(parsed);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   return httpServer;
 }

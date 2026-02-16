@@ -19,12 +19,12 @@ function FullScreenPlayer({ onClose }: { onClose: () => void }) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-gray-950 flex flex-col" data-testid="fullscreen-player">
+    <div className="fixed inset-0 z-[200] bg-background flex flex-col" data-testid="fullscreen-player">
       <div className="flex items-center justify-between px-4 py-3 safe-area-top">
-        <button onClick={onClose} className="p-2 text-gray-400 hover:text-white transition-colors" data-testid="button-close-fullscreen">
+        <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground transition-colors" data-testid="button-close-fullscreen">
           <ChevronDown className="h-6 w-6" />
         </button>
-        <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Now Playing</span>
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Now Playing</span>
         <div className="w-10" />
       </div>
 
@@ -33,20 +33,20 @@ function FullScreenPlayer({ onClose }: { onClose: () => void }) {
           {currentEpisode.coverImage ? (
             <img src={currentEpisode.coverImage} alt="" className="w-full h-full object-cover" data-testid="img-fullscreen-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-              <Mic className="h-20 w-20 text-gray-600" />
+            <div className="w-full h-full bg-gradient-to-br from-muted to-background flex items-center justify-center">
+              <Mic className="h-20 w-20 text-muted-foreground" />
             </div>
           )}
         </div>
 
         <div className="w-full text-center mb-6">
-          <h2 className="text-xl font-bold text-white truncate" data-testid="text-fullscreen-title">{currentEpisode.title}</h2>
-          <p className="text-sm text-gray-400 mt-1 truncate" data-testid="text-fullscreen-podcast">{currentEpisode.podcastTitle}</p>
+          <h2 className="text-xl font-bold text-foreground truncate" data-testid="text-fullscreen-title">{currentEpisode.title}</h2>
+          <p className="text-sm text-muted-foreground mt-1 truncate" data-testid="text-fullscreen-podcast">{currentEpisode.podcastTitle}</p>
         </div>
 
         <div className="w-full mb-6">
           <div
-            className="relative w-full h-2 bg-gray-800 rounded-full cursor-pointer group"
+            className="relative w-full h-2 bg-muted rounded-full cursor-pointer group"
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const pct = (e.clientX - rect.left) / rect.width;
@@ -61,19 +61,19 @@ function FullScreenPlayer({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div className="flex justify-between mt-2">
-            <span className="text-xs text-gray-500 font-mono">{formatTime(currentTime)}</span>
-            <span className="text-xs text-gray-500 font-mono">{formatTime(duration)}</span>
+            <span className="text-xs text-muted-foreground font-mono">{formatTime(currentTime)}</span>
+            <span className="text-xs text-muted-foreground font-mono">{formatTime(duration)}</span>
           </div>
         </div>
 
         <div className="flex items-center justify-center gap-8 mb-8">
           <button
             onClick={() => seek(Math.max(0, currentTime - 15))}
-            className="p-3 text-gray-300 hover:text-white transition-colors relative"
+            className="p-3 text-muted-foreground hover:text-foreground transition-colors relative"
             data-testid="button-fullscreen-skip-back"
           >
             <SkipBack className="h-7 w-7" />
-            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-gray-500 font-mono">15</span>
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-muted-foreground font-mono">15</span>
           </button>
           <button
             onClick={() => (isPlaying ? pause() : resume())}
@@ -88,11 +88,11 @@ function FullScreenPlayer({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={() => seek(Math.min(duration, currentTime + 30))}
-            className="p-3 text-gray-300 hover:text-white transition-colors relative"
+            className="p-3 text-muted-foreground hover:text-foreground transition-colors relative"
             data-testid="button-fullscreen-skip-forward"
           >
             <SkipForward className="h-7 w-7" />
-            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-gray-500 font-mono">30</span>
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] text-muted-foreground font-mono">30</span>
           </button>
         </div>
 
@@ -100,7 +100,7 @@ function FullScreenPlayer({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setVolume(volume === 0 ? 1 : 0)}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors"
               data-testid="button-fullscreen-mute"
             >
               {volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -122,13 +122,13 @@ function FullScreenPlayer({ onClose }: { onClose: () => void }) {
               const idx = rates.indexOf(playbackRate);
               setPlaybackRate(rates[(idx + 1) % rates.length]);
             }}
-            className="px-3 py-1 text-xs font-mono text-gray-400 hover:text-white border border-gray-700 rounded-full hover:border-gray-500 transition-colors"
+            className="px-3 py-1 text-xs font-mono text-muted-foreground hover:text-foreground border border-border rounded-full hover:border-border transition-colors"
             data-testid="button-fullscreen-speed"
           >
             {playbackRate}x
           </button>
           {queue.length > 0 && (
-            <div className="flex items-center gap-1 text-gray-500 text-xs">
+            <div className="flex items-center gap-1 text-muted-foreground text-xs">
               <ListMusic className="h-3.5 w-3.5" />
               <span>{queue.length}</span>
             </div>
@@ -153,7 +153,7 @@ export default function MiniPlayer() {
 
   return (
     <div
-      className="fixed left-0 right-0 bottom-14 lg:bottom-0 z-40 bg-gray-900/95 backdrop-blur-lg border-t border-gray-800/50"
+      className="fixed left-0 right-0 bottom-14 lg:bottom-0 z-40 bg-background/95 backdrop-blur-lg border-t border-border"
       data-testid="mini-player"
     >
       <div
@@ -168,39 +168,39 @@ export default function MiniPlayer() {
           className="flex items-center gap-3 flex-1 min-w-0 text-left"
           data-testid="button-expand-player"
         >
-          <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
+          <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
             {currentEpisode.coverImage ? (
               <img src={currentEpisode.coverImage} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full flex items-center justify-center">
-                <Mic className="h-4 w-4 text-gray-500" />
+                <Mic className="h-4 w-4 text-muted-foreground" />
               </div>
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate" data-testid="text-mini-title">{currentEpisode.title}</p>
-            <p className="text-xs text-gray-400 truncate" data-testid="text-mini-podcast">{currentEpisode.podcastTitle}</p>
+            <p className="text-sm font-semibold text-foreground truncate" data-testid="text-mini-title">{currentEpisode.title}</p>
+            <p className="text-xs text-muted-foreground truncate" data-testid="text-mini-podcast">{currentEpisode.podcastTitle}</p>
           </div>
         </button>
 
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => seek(Math.max(0, currentTime - 15))}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
             data-testid="button-mini-skip-back"
           >
             <SkipBack className="h-4 w-4" />
           </button>
           <button
             onClick={() => (isPlaying ? pause() : resume())}
-            className="p-2 text-white hover:text-amber-500 transition-colors"
+            className="p-2 text-foreground hover:text-amber-500 transition-colors"
             data-testid="button-mini-play-pause"
           >
             {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
           </button>
           <button
             onClick={() => seek(Math.min(duration, currentTime + 30))}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
             data-testid="button-mini-skip-forward"
           >
             <SkipForward className="h-4 w-4" />

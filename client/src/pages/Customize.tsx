@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBranding, useUpdateBranding } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X, Globe, Wand2, Check, Sparkles, ArrowRight, Plus, GripVertical, Power, ExternalLink, Layers } from "lucide-react";
+import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, X, Globe, Wand2, Check, Sparkles, ArrowRight, Plus, GripVertical, Power, ExternalLink, Layers, Paintbrush, Blend, Grid3X3, Link, FileText, RectangleHorizontal, Square, SlidersHorizontal } from "lucide-react";
 import { SortableList } from "@/components/ui/sortable-list";
 import type { Branding, HeroSlide } from "@shared/schema";
 import NewsLayoutAdmin from "@/components/NewsLayoutAdmin";
@@ -226,6 +226,18 @@ export default function Customize() {
     bannerUrl: "" as string | null,
     primaryColor: "#E5C100",
     accentColor: "#22C55E",
+    backgroundType: "solid" as string,
+    backgroundColor: "#0f172a",
+    backgroundGradient: "",
+    backgroundImageUrl: "" as string | null,
+    backgroundOverlayOpacity: "0.8",
+    backgroundPosition: "center",
+    backgroundSize: "cover",
+    backgroundPattern: "",
+    bannerHeading: "",
+    bannerSubheading: "",
+    bannerCtaText: "",
+    bannerCtaLink: "",
   });
 
   const [showPreview, setShowPreview] = useState(false);
@@ -233,6 +245,13 @@ export default function Customize() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<WebsiteAnalysis | null>(null);
   const [appliedFields, setAppliedFields] = useState<Set<string>>(new Set());
+  const [gradientColor1, setGradientColor1] = useState("#0f172a");
+  const [gradientColor2, setGradientColor2] = useState("#1e3a5f");
+  const [gradientAngle, setGradientAngle] = useState(135);
+  const [bannerAspectRatio, setBannerAspectRatio] = useState("16:9");
+  const [aiBrandingSuggestions, setAiBrandingSuggestions] = useState<any>(null);
+  const [loadingAiBranding, setLoadingAiBranding] = useState(false);
+  const [loadingBannerCopy, setLoadingBannerCopy] = useState(false);
 
   useEffect(() => {
     if (branding) {
@@ -244,6 +263,18 @@ export default function Customize() {
         bannerUrl: branding.bannerUrl || null,
         primaryColor: branding.primaryColor || "#E5C100",
         accentColor: branding.accentColor || "#22C55E",
+        backgroundType: (branding as any).backgroundType || "solid",
+        backgroundColor: (branding as any).backgroundColor || "#0f172a",
+        backgroundGradient: (branding as any).backgroundGradient || "",
+        backgroundImageUrl: (branding as any).backgroundImageUrl || null,
+        backgroundOverlayOpacity: (branding as any).backgroundOverlayOpacity || "0.8",
+        backgroundPosition: (branding as any).backgroundPosition || "center",
+        backgroundSize: (branding as any).backgroundSize || "cover",
+        backgroundPattern: (branding as any).backgroundPattern || "",
+        bannerHeading: (branding as any).bannerHeading || "",
+        bannerSubheading: (branding as any).bannerSubheading || "",
+        bannerCtaText: (branding as any).bannerCtaText || "",
+        bannerCtaLink: (branding as any).bannerCtaLink || "",
       });
     }
   }, [branding]);
@@ -290,6 +321,58 @@ export default function Customize() {
     setForm(f => ({ ...f, ...updates }));
     setAppliedFields(new Set(["companyName", "tagline", "logoUrl", "faviconUrl", "primaryColor", "accentColor"]));
     toast({ title: "All Suggestions Applied", description: "Review the changes and save when ready." });
+  };
+
+  const handleAiBrandingSuggestions = async () => {
+    setLoadingAiBranding(true);
+    setAiBrandingSuggestions(null);
+    try {
+      const res = await fetch("/api/ai/branding-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: form.companyName,
+          tagline: form.tagline,
+          primaryColor: form.primaryColor,
+          accentColor: form.accentColor,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to get AI suggestions");
+      const data = await res.json();
+      setAiBrandingSuggestions(data);
+      toast({ title: "AI Suggestions Ready", description: "Review and apply suggestions below." });
+    } catch (err: any) {
+      toast({ title: "AI Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoadingAiBranding(false);
+    }
+  };
+
+  const handleAiBannerCopy = async () => {
+    setLoadingBannerCopy(true);
+    try {
+      const res = await fetch("/api/ai/banner-copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: form.companyName,
+          tagline: form.tagline,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to generate banner copy");
+      const data = await res.json();
+      setForm(f => ({
+        ...f,
+        bannerHeading: data.heading || "",
+        bannerSubheading: data.subheading || "",
+        bannerCtaText: data.ctaText || "",
+      }));
+      toast({ title: "Banner Copy Generated", description: "Text fields have been filled." });
+    } catch (err: any) {
+      toast({ title: "AI Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoadingBannerCopy(false);
+    }
   };
 
   const handleSave = () => {
@@ -610,6 +693,472 @@ export default function Customize() {
         </div>
       </div>
 
+      {/* Section 1: Background Selector */}
+      <div className="border border-border bg-card/30 p-5" data-testid="section-background-selector">
+        <div className="flex items-center gap-2 mb-4">
+          <Paintbrush className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-mono uppercase tracking-widest text-primary">Background</h2>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-5">
+          {(["solid", "gradient", "image", "pattern"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setForm({ ...form, backgroundType: mode })}
+              className={`flex items-center gap-2 px-4 py-2 border text-sm font-semibold uppercase tracking-wider transition-all ${
+                form.backgroundType === mode
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50"
+              }`}
+              data-testid={`btn-bg-mode-${mode}`}
+            >
+              {mode === "solid" && <Palette className="h-4 w-4" />}
+              {mode === "gradient" && <Blend className="h-4 w-4" />}
+              {mode === "image" && <ImageIcon className="h-4 w-4" />}
+              {mode === "pattern" && <Grid3X3 className="h-4 w-4" />}
+              {mode === "solid" ? "Solid Color" : mode === "gradient" ? "Gradient" : mode === "image" ? "Image" : "Pattern"}
+            </button>
+          ))}
+        </div>
+
+        {form.backgroundType === "solid" && (
+          <div className="space-y-4" data-testid="bg-solid-options">
+            <ColorInput
+              label="Background Color"
+              value={form.backgroundColor}
+              onChange={(v) => setForm({ ...form, backgroundColor: v })}
+              testId="color-background"
+            />
+          </div>
+        )}
+
+        {form.backgroundType === "gradient" && (
+          <div className="space-y-4" data-testid="bg-gradient-options">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Preset Gradients</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  "linear-gradient(135deg, #0f172a, #1e3a5f)",
+                  "linear-gradient(135deg, #1a1a2e, #16213e)",
+                  "linear-gradient(135deg, #0c0c1d, #1a1a3e)",
+                  "linear-gradient(135deg, #1b2838, #2a4a6b)",
+                  "linear-gradient(135deg, #0d1117, #161b22)",
+                  "linear-gradient(135deg, #1e1e2e, #313244)",
+                  "linear-gradient(135deg, #0f0f23, #1a1a40)",
+                  "linear-gradient(135deg, #1c1c3c, #2d2d5f)",
+                  "linear-gradient(135deg, #141e30, #243b55)",
+                  "linear-gradient(135deg, #232526, #414345)",
+                ].map((gradient, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setForm({ ...form, backgroundGradient: gradient })}
+                    className={`h-12 border-2 transition-all ${
+                      form.backgroundGradient === gradient ? "border-primary scale-105" : "border-border/50 hover:border-primary/50"
+                    }`}
+                    style={{ background: gradient }}
+                    data-testid={`btn-preset-gradient-${i}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Custom Gradient</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] text-muted-foreground font-mono block mb-1">Color 1</label>
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 border border-border flex-shrink-0 cursor-pointer relative overflow-hidden" style={{ backgroundColor: gradientColor1 }}>
+                      <input type="color" value={gradientColor1} onChange={(e) => setGradientColor1(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" data-testid="input-gradient-color1" />
+                    </div>
+                    <input type="text" value={gradientColor1} onChange={(e) => setGradientColor1(e.target.value)} className="w-full bg-background border border-border px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary" data-testid="input-text-gradient-color1" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground font-mono block mb-1">Color 2</label>
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 border border-border flex-shrink-0 cursor-pointer relative overflow-hidden" style={{ backgroundColor: gradientColor2 }}>
+                      <input type="color" value={gradientColor2} onChange={(e) => setGradientColor2(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" data-testid="input-gradient-color2" />
+                    </div>
+                    <input type="text" value={gradientColor2} onChange={(e) => setGradientColor2(e.target.value)} className="w-full bg-background border border-border px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary" data-testid="input-text-gradient-color2" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground font-mono block mb-1">Angle: {gradientAngle}°</label>
+                  <input type="range" min="0" max="360" value={gradientAngle} onChange={(e) => setGradientAngle(Number(e.target.value))} className="w-full accent-primary" data-testid="input-gradient-angle" />
+                </div>
+              </div>
+              <button
+                onClick={() => setForm({ ...form, backgroundGradient: `linear-gradient(${gradientAngle}deg, ${gradientColor1}, ${gradientColor2})` })}
+                className="mt-3 flex items-center gap-2 px-4 py-2 border border-primary/30 text-sm text-primary hover:bg-primary/10 transition-colors"
+                data-testid="btn-apply-custom-gradient"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Apply Custom Gradient
+              </button>
+            </div>
+          </div>
+        )}
+
+        {form.backgroundType === "image" && (
+          <div className="space-y-4" data-testid="bg-image-options">
+            <UploadZone
+              label="Background Image"
+              description="Upload a background image. High-resolution recommended."
+              currentUrl={form.backgroundImageUrl}
+              accept="image/*"
+              onUpload={(path) => setForm({ ...form, backgroundImageUrl: path })}
+              onClear={() => setForm({ ...form, backgroundImageUrl: null })}
+              previewHeight="120px"
+              testId="upload-bg-image"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">
+                  Overlay Opacity: {Math.round(parseFloat(form.backgroundOverlayOpacity) * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round(parseFloat(form.backgroundOverlayOpacity) * 100)}
+                  onChange={(e) => setForm({ ...form, backgroundOverlayOpacity: (Number(e.target.value) / 100).toFixed(2) })}
+                  className="w-full accent-primary"
+                  data-testid="input-overlay-opacity"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Position</label>
+                <select
+                  value={form.backgroundPosition}
+                  onChange={(e) => setForm({ ...form, backgroundPosition: e.target.value })}
+                  className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                  data-testid="select-bg-position"
+                >
+                  <option value="center">Center</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Size</label>
+                <select
+                  value={form.backgroundSize}
+                  onChange={(e) => setForm({ ...form, backgroundSize: e.target.value })}
+                  className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                  data-testid="select-bg-size"
+                >
+                  <option value="cover">Cover</option>
+                  <option value="contain">Contain</option>
+                  <option value="auto">Auto</option>
+                </select>
+              </div>
+            </div>
+            {form.backgroundImageUrl && (
+              <div className="relative w-full h-32 border border-border overflow-hidden" data-testid="bg-image-preview-with-overlay">
+                <img src={form.backgroundImageUrl} alt="Background" className="w-full h-full object-cover" style={{ objectPosition: form.backgroundPosition }} />
+                <div className="absolute inset-0 bg-black" style={{ opacity: parseFloat(form.backgroundOverlayOpacity) }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {form.backgroundType === "pattern" && (
+          <div className="space-y-4" data-testid="bg-pattern-options">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Select a Pattern</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { name: "Subtle Dots", css: "radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)", size: "20px 20px" },
+                { name: "Diagonal Lines", css: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 11px)", size: "" },
+                { name: "Grid", css: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)", size: "20px 20px" },
+                { name: "Chevron", css: "linear-gradient(135deg, rgba(255,255,255,0.04) 25%, transparent 25%) -10px 0, linear-gradient(225deg, rgba(255,255,255,0.04) 25%, transparent 25%) -10px 0, linear-gradient(315deg, rgba(255,255,255,0.04) 25%, transparent 25%), linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%)", size: "20px 20px" },
+                { name: "Cross-hatch", css: "repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 11px), repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 11px)", size: "" },
+                { name: "Diamond", css: "linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.04) 75%), linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.04) 75%)", size: "20px 20px" },
+                { name: "Waves", css: "repeating-radial-gradient(circle at 0 0, transparent 0, rgba(255,255,255,0.03) 10px), repeating-linear-gradient(rgba(255,255,255,0.02), rgba(255,255,255,0.04))", size: "" },
+                { name: "Polka", css: "radial-gradient(circle, rgba(255,255,255,0.06) 2px, transparent 2px)", size: "30px 30px" },
+              ].map((pattern, i) => (
+                <button
+                  key={i}
+                  onClick={() => setForm({ ...form, backgroundPattern: JSON.stringify(pattern) })}
+                  className={`flex flex-col items-center gap-2 p-3 border transition-all ${
+                    (() => { try { return JSON.parse(form.backgroundPattern)?.name === pattern.name; } catch { return false; } })()
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  data-testid={`btn-pattern-${i}`}
+                >
+                  <div
+                    className="w-full h-16 border border-border/30"
+                    style={{
+                      backgroundColor: "#0f172a",
+                      backgroundImage: pattern.css,
+                      backgroundSize: pattern.size || "auto",
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground font-mono">{pattern.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Live Preview</label>
+          <div
+            className="w-full max-w-[200px] h-[120px] border border-border relative overflow-hidden"
+            data-testid="bg-live-preview"
+            style={{
+              ...(form.backgroundType === "solid" ? { backgroundColor: form.backgroundColor } : {}),
+              ...(form.backgroundType === "gradient" && form.backgroundGradient ? { background: form.backgroundGradient } : {}),
+              ...(form.backgroundType === "image" && form.backgroundImageUrl
+                ? { backgroundImage: `url(${form.backgroundImageUrl})`, backgroundPosition: form.backgroundPosition, backgroundSize: form.backgroundSize }
+                : {}),
+              ...(form.backgroundType === "pattern"
+                ? (() => { try { const p = JSON.parse(form.backgroundPattern); return { backgroundColor: "#0f172a", backgroundImage: p.css, backgroundSize: p.size || "auto" }; } catch { return { backgroundColor: "#0f172a" }; } })()
+                : {}),
+            }}
+          >
+            {form.backgroundType === "image" && form.backgroundImageUrl && (
+              <div className="absolute inset-0 bg-black" style={{ opacity: parseFloat(form.backgroundOverlayOpacity) }} />
+            )}
+            <div className="absolute inset-3 bg-card/80 border border-border/50 p-2 flex flex-col justify-center items-center">
+              <div className="h-2 w-16 bg-primary/60 mb-1" />
+              <div className="h-1.5 w-12 bg-muted-foreground/30" />
+              <div className="h-1.5 w-20 bg-muted-foreground/20 mt-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 2: AI Branding Suggestions */}
+      <div className="border border-primary/30 bg-gradient-to-r from-primary/5 to-transparent p-5" data-testid="section-ai-branding">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-sm font-mono uppercase tracking-widest text-primary font-semibold">AI Branding Suggestions</h2>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Let AI analyze your brand and suggest color palettes, fonts, taglines, and background styles.
+        </p>
+        <button
+          onClick={handleAiBrandingSuggestions}
+          disabled={loadingAiBranding}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+          data-testid="btn-ai-suggest-branding"
+        >
+          {loadingAiBranding ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Wand2 className="h-4 w-4" />
+              AI Suggest Branding
+            </>
+          )}
+        </button>
+
+        {aiBrandingSuggestions && (
+          <div className="mt-5 space-y-5" data-testid="ai-branding-results">
+            {aiBrandingSuggestions.palette && aiBrandingSuggestions.palette.length > 0 && (
+              <div data-testid="ai-color-palette">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block mb-2">Suggested Color Palette</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {aiBrandingSuggestions.palette.map((c: any, i: number) => (
+                    <div key={i} className="flex items-center gap-3 border border-border p-3" data-testid={`ai-palette-${i}`}>
+                      <div className="h-10 w-10 border border-white/20 flex-shrink-0" style={{ backgroundColor: c.hex }} />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-foreground block">{c.name}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground">{c.hex}</span>
+                        {c.usage && <span className="text-[10px] text-muted-foreground block">{c.usage}</span>}
+                      </div>
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => setForm(f => ({ ...f, primaryColor: c.hex }))}
+                          className="text-[10px] px-2 py-1 border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-colors"
+                          data-testid={`btn-apply-primary-${i}`}
+                        >
+                          Primary
+                        </button>
+                        <button
+                          onClick={() => setForm(f => ({ ...f, accentColor: c.hex }))}
+                          className="text-[10px] px-2 py-1 border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-colors"
+                          data-testid={`btn-apply-accent-${i}`}
+                        >
+                          Accent
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiBrandingSuggestions.fontPair && (
+              <div className="border border-border p-4" data-testid="ai-font-pair">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block mb-1">Font Pairing Recommendation</span>
+                <p className="text-sm text-foreground">{aiBrandingSuggestions.fontPair}</p>
+              </div>
+            )}
+
+            {aiBrandingSuggestions.taglines && aiBrandingSuggestions.taglines.length > 0 && (
+              <div data-testid="ai-taglines">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block mb-2">Tagline Suggestions</span>
+                <div className="space-y-2">
+                  {aiBrandingSuggestions.taglines.map((tagline: string, i: number) => (
+                    <div key={i} className="flex items-center justify-between gap-3 border border-border p-3" data-testid={`ai-tagline-${i}`}>
+                      <span className="text-sm text-foreground flex-1">{tagline}</span>
+                      <button
+                        onClick={() => setForm(f => ({ ...f, tagline }))}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                        data-testid={`btn-use-tagline-${i}`}
+                      >
+                        <ArrowRight className="h-3 w-3" />
+                        Use This
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiBrandingSuggestions.backgroundStyle && (
+              <div className="border border-border p-4" data-testid="ai-bg-style">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono block mb-1">Recommended Background Style</span>
+                <p className="text-sm text-foreground">{aiBrandingSuggestions.backgroundStyle}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Section 3: Banner Management */}
+      <div className="border border-border bg-card/30 p-5" data-testid="section-banner-management">
+        <div className="flex items-center gap-2 mb-4">
+          <RectangleHorizontal className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-mono uppercase tracking-widest text-primary">Banner Management</h2>
+        </div>
+
+        <UploadZone
+          label="Banner / Hero Image"
+          description="Upload a banner image for your site header area."
+          currentUrl={form.bannerUrl}
+          accept="image/*"
+          onUpload={(path) => setForm({ ...form, bannerUrl: path })}
+          onClear={() => setForm({ ...form, bannerUrl: null })}
+          previewHeight="120px"
+          testId="upload-banner-hero"
+        />
+
+        <div className="mt-4">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Aspect Ratio</label>
+          <div className="flex flex-wrap gap-2">
+            {["16:9", "4:3", "3:1", "1:1"].map((ratio) => (
+              <button
+                key={ratio}
+                onClick={() => setBannerAspectRatio(ratio)}
+                className={`flex items-center gap-1.5 px-4 py-2 border text-sm font-mono transition-all ${
+                  bannerAspectRatio === ratio
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                }`}
+                data-testid={`btn-aspect-${ratio.replace(":", "-")}`}
+              >
+                {ratio === "1:1" ? <Square className="h-3.5 w-3.5" /> : <RectangleHorizontal className="h-3.5 w-3.5" />}
+                {ratio}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {form.bannerUrl && (
+          <div className="mt-4">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Preview</label>
+            <div
+              className="border border-border overflow-hidden bg-background"
+              style={{
+                aspectRatio: bannerAspectRatio.replace(":", "/"),
+                maxHeight: "300px",
+              }}
+              data-testid="banner-aspect-preview"
+            >
+              <img src={form.bannerUrl} alt="Banner preview" className="w-full h-full object-cover" />
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono">Banner Text</label>
+            <button
+              onClick={handleAiBannerCopy}
+              disabled={loadingBannerCopy}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/30 hover:bg-primary/10 transition-colors uppercase tracking-wider disabled:opacity-50"
+              data-testid="btn-ai-banner-copy"
+            >
+              {loadingBannerCopy ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Writing...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-3 w-3" />
+                  AI Write Banner Copy
+                </>
+              )}
+            </button>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Heading</label>
+            <input
+              type="text"
+              value={form.bannerHeading}
+              onChange={(e) => setForm({ ...form, bannerHeading: e.target.value })}
+              placeholder="e.g. Welcome to Our Platform"
+              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+              data-testid="input-banner-heading"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Subheading</label>
+            <input
+              type="text"
+              value={form.bannerSubheading}
+              onChange={(e) => setForm({ ...form, bannerSubheading: e.target.value })}
+              placeholder="e.g. Discover the latest in media and technology"
+              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+              data-testid="input-banner-subheading"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">CTA Button Text</label>
+              <input
+                type="text"
+                value={form.bannerCtaText}
+                onChange={(e) => setForm({ ...form, bannerCtaText: e.target.value })}
+                placeholder="e.g. Get Started"
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                data-testid="input-banner-cta-text"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">CTA Link</label>
+              <input
+                type="text"
+                value={form.bannerCtaLink}
+                onChange={(e) => setForm({ ...form, bannerCtaLink: e.target.value })}
+                placeholder="e.g. /subscribe or https://..."
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
+                data-testid="input-banner-cta-link"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <HeroCarouselManager />
 
       <NewsLayoutAdmin />
@@ -873,7 +1422,7 @@ function HeroSlideForm({
             <img src={form.imageUrl} alt="Preview" className="w-full max-h-48 object-cover" data-testid="img-hero-preview" />
             <button
               onClick={() => setForm({ ...form, imageUrl: "" })}
-              className="absolute top-3 right-3 p-1 bg-black/60 text-white rounded-full hover:bg-black/80"
+              className="absolute top-3 right-3 p-1 bg-background/60 text-foreground rounded-full hover:bg-background/80"
             >
               <X className="h-4 w-4" />
             </button>

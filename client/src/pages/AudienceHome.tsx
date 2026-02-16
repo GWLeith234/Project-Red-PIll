@@ -143,7 +143,7 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
         <>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); goPrev(); }}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-black/60 transition-all"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-background/40 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background/60 transition-all"
             aria-label="Previous slide"
             data-testid="btn-hero-prev"
           >
@@ -151,7 +151,7 @@ function HeroCarousel({ primaryColor }: { primaryColor: string }) {
           </button>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); goNext(); }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-black/60 transition-all"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-background/40 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background/60 transition-all"
             aria-label="Next slide"
             data-testid="btn-hero-next"
           >
