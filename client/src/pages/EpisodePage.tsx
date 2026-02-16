@@ -76,7 +76,7 @@ function AudioPlayerUI({ episode, podcast }: { episode: any; podcast: any }) {
         id: episode.id,
         title: episode.title,
         podcastTitle: podcast?.title || "Podcast",
-        audioUrl: episode.audioUrl || "",
+        audioUrl: episode.audioUrl || episode.videoUrl || "",
         coverImage: episode.thumbnailUrl || podcast?.coverImage,
         duration: episode.duration,
         podcastId: podcast?.id,
@@ -90,15 +90,23 @@ function AudioPlayerUI({ episode, podcast }: { episode: any; podcast: any }) {
       id: episode.id,
       title: episode.title,
       podcastTitle: podcast?.title || "Podcast",
-      audioUrl: episode.audioUrl || "",
+      audioUrl: episode.audioUrl || episode.videoUrl || "",
       coverImage: episode.thumbnailUrl || podcast?.coverImage,
       duration: episode.duration,
       podcastId: podcast?.id,
     });
   };
 
+  const isVideoOnly = episode.videoUrl && !episode.audioUrl;
+
   return (
     <div className="bg-gray-900 rounded-lg p-5 mb-8" data-testid="audio-player">
+      {isVideoOnly && (
+        <p className="text-xs text-gray-400 mb-3 flex items-center gap-1.5">
+          <Headphones className="h-3 w-3" />
+          Listen in background
+        </p>
+      )}
       <div className="flex items-center gap-4">
         <button
           onClick={handlePlay}
@@ -344,9 +352,7 @@ export default function EpisodePage() {
               />
             )}
 
-            {(episode.episodeType !== "video") && (
-              <AudioPlayerUI episode={episode} podcast={podcast} />
-            )}
+            <AudioPlayerUI episode={episode} podcast={podcast} />
 
             <InlineSubscribeWidget
               podcastId={podcast?.id}

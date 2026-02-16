@@ -1,0 +1,38 @@
+The persistent audio player only works with episodes that have an audioUrl. Many episodes only have a videoUrl (episodeType "video"). The HTML audio element can play the audio track from MP4 video files, so we should use videoUrl as a fallback.
+
+Fix these files:
+
+(1) In client/src/pages/EpisodePage.tsx, change the AudioPlayerUI component to use videoUrl when audioUrl is not available. Find the handlePlay function where it creates the audioEp object (around line 75-85). Change:
+
+audioUrl: episode.audioUrl || "",
+
+To:
+
+audioUrl: episode.audioUrl || episode.videoUrl || "",
+
+Do the same in the handleQueue function (around line 90-95).
+
+(2) Also in EpisodePage.tsx, change the rendering logic so AudioPlayerUI ALWAYS shows for all episode types, not just non-video. Find the section around line 347:
+
+{(episode.episodeType !== "video") && (
+  <AudioPlayerUI episode={episode} podcast={podcast} />
+)}
+
+Change it to:
+
+<AudioPlayerUI episode={episode} podcast={podcast} />
+
+This way video episodes get BOTH the video player (for watching) AND the persistent audio play button (for background listening). Users can choose to watch the video or just listen to audio.
+
+(3) Add a label to distinguish the two options. In the AudioPlayerUI component, add a label above or on the play button that says "Listen in Background" when the episode has a videoUrl but the user might want audio-only playback. Wrap the existing AudioPlayerUI return JSX: if the episode has a videoUrl AND an audioUrl, show both without changes. If the episode has a videoUrl but NO audioUrl, add a small note above the play button: <p className="text-xs text-gray-400 mb-2">Play audio in background while you browse</p>.
+
+(4) We also need to fix the full-page reload problem. The navigation tabs are still causing full page reloads. In server/vite.ts, the nanoid cache-busting line was NOT removed in the previous fix. Find and DELETE these two lines:
+
+template = template.replace(
+  `src="/src/main.tsx"`,
+  `src="/src/main.tsx?v=${nanoid()}"`,
+);
+
+Just delete them entirely. Also remove the nanoid import at the top: import { nanoid } from "nanoid";
+
+This is critical — every time the server serves index.html it generates a new script URL which forces the browser to re-execute the entire JavaScript bundle from scratch, destroying all React state.
