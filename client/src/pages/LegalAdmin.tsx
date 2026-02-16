@@ -8,6 +8,7 @@ import {
   FileText, Plus, Save, Trash2, Loader2, Eye, X, Shield,
   CheckCircle2, XCircle,
 } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
 
 async function apiRequest(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: "include", headers: { "Content-Type": "application/json" }, ...options });
@@ -161,29 +162,7 @@ export default function LegalAdmin() {
 
   return (
     <div className="space-y-6" data-testid="legal-admin-page">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 border border-primary/30 bg-primary/5 flex items-center justify-center flex-shrink-0">
-            <Shield className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-page-title">
-              Legal Templates
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage legal document templates for your platform</p>
-          </div>
-        </div>
-        {canEdit && (
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors"
-            data-testid="button-add-template"
-          >
-            <Plus className="h-4 w-4" />
-            Add Template
-          </button>
-        )}
-      </div>
+      <PageHeader pageKey="legal" onPrimaryAction={canEdit ? openCreate : undefined} />
 
       {isFormOpen && (
         <div className="border border-border bg-card/60 backdrop-blur-sm p-6" data-testid="template-form">

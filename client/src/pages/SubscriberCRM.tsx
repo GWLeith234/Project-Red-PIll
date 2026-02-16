@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1363,14 +1364,7 @@ export default function SubscriberCRM() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-foreground">Subscriber</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-xs sm:text-sm">
-            {activeTab === "subscribers"
-              ? `${filteredSubscribers.length} subscriber${filteredSubscribers.length !== 1 ? "s" : ""} | Cross-Pollination Engine Active`
-              : `${(campaignsList || []).length} campaign${(campaignsList || []).length !== 1 ? "s" : ""}`}
-          </p>
-        </div>
+        <PageHeader pageKey="subscriber-crm" />
         {activeTab === "subscribers" ? (
           <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider w-full sm:w-auto" data-testid="button-add-subscriber">
             <UserPlus className="mr-2 h-3 w-3" />

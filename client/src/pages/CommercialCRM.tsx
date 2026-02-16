@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -3198,10 +3199,7 @@ function ContactCampaignsTab() {
 export default function CommercialCRM() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Commercial</h1>
-        <p className="text-muted-foreground mt-1 font-mono text-sm">Pipeline Management | Deals & Partnerships</p>
-      </div>
+      <PageHeader pageKey="commercial-crm" />
 
       <Tabs defaultValue="companies" className="w-full">
         <TabsList className="bg-card/50 border border-border/50 w-full overflow-x-auto" data-testid="crm-tabs">

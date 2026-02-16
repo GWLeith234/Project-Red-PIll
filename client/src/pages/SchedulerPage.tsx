@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -382,34 +383,14 @@ export default function SchedulerPage() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Content Calendar</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Schedule, visualize, and optimize your content distribution</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => {
+      <PageHeader pageKey="scheduler" onPrimaryAction={() => openNewDialog()} onAIAction={() => {
               setSmartFillRange({
                 from: new Date(currentYear, currentMonth, 1),
                 to: new Date(currentYear, currentMonth + 1, 0),
               });
               setSmartFillMode("review");
               setSmartFillOpen(true);
-            }}
-            disabled={autoSchedule.isPending}
-            variant="outline"
-            className="font-mono text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-            data-testid="button-ai-auto-schedule"
-          >
-            {autoSchedule.isPending ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
-            AI Smart Fill
-          </Button>
-          <Button onClick={() => openNewDialog()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-schedule-post">
-            <Plus className="mr-1.5 h-3 w-3" /> Schedule Post
-          </Button>
-        </div>
-      </div>
+            }} isAILoading={autoSchedule.isPending} />
 
       <div className="flex flex-wrap gap-2 items-center">
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Channels:</span>

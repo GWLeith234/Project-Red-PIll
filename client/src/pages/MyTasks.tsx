@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import PageHeader from "@/components/admin/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -529,10 +530,7 @@ export default function MyTasks() {
   if (isLoading) {
     return (
       <div className="space-y-6" data-testid="my-tasks-loading">
-        <div className="flex items-center gap-3">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-display font-bold text-primary uppercase tracking-wider">My Tasks</h1>
-        </div>
+        <PageHeader pageKey="my-tasks" />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
@@ -542,12 +540,7 @@ export default function MyTasks() {
 
   return (
     <div className="space-y-6" data-testid="my-tasks-page">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-page-title">My Tasks</h1>
-        </div>
-      </div>
+      <PageHeader pageKey="my-tasks" />
 
       <StatsHeader tasks={tasks} />
 

@@ -1,0 +1,61 @@
+Sprint S2: Apply the standardized layout to every admin page. Every page must now follow the 5-layer structure: Title Bar (PageHeader), Navigation Tabs, MetricsStrip, Tool Section, Data Cards. Navigation order: Dashboard, then Content section (Content Factory, AI Site Editor, Community), then Monetization, Network, Analytics, Settings.
+
+(1) DASHBOARD PAGE:
+- Already has PageHeader from S1
+- Add MetricsStrip with 6 metrics: Total Subscribers (query subscribers count), Active Users Today (placeholder 0), Content Published This Week (query articles published in last 7 days), Revenue MTD (placeholder $0), Push Notification Delivery Rate (placeholder 0%), Avg. Session Duration (placeholder 0m)
+- Add a Live Activity Feed card below the metrics: a scrolling list showing recent platform actions (latest published articles, new subscribers, new community posts). Query the 20 most recent items across these tables sorted by created_at desc. Each entry shows an icon, description, and relative timestamp.
+- Add Quick Access DataCards in a 2x2 grid linking to: Content Factory (with article count), Network/CRM (with subscriber count), Analytics (placeholder), Community (with events + polls count). Each card shows the title, a count, and a mini sparkline placeholder.
+
+(2) CONTENT FACTORY PAGE:
+- Ensure PageHeader with pageKey="content-factory" is in place
+- Add MetricsStrip: Total Pieces (all articles), Published (status=published), In Moderation (status=in_moderation or pending), Drafts (status=draft), AI Generated (where ai_generated=true or source contains 'ai'), Avg. Time to Publish (placeholder)
+- Keep existing content table as the Tool Section
+- Add DataCard below the table: Content Performance Leaderboard — ranked table of top 10 articles by views (or placeholder data if no view tracking yet)
+
+(3) AI SITE EDITOR PAGE (formerly Site Builder):
+- Ensure PageHeader with pageKey="ai-site-editor" (add to admin_page_config: title "AI Site Editor", icon "PanelLeft", primary_action_label: "+ New Page", ai_action_label: "AI Build", sort_order after Content Factory)
+- Keep existing site builder functionality as the Tool Section
+- This page lives in the Content section of the sidebar, after Content Factory and before Community
+
+(4) COMMUNITY ADMIN PAGE:
+- Ensure PageHeader with pageKey="community"
+- Should already have only Events, Polls, Discussion tabs from S1
+- Add MetricsStrip: Active Events (count upcoming events), Open Polls (count active polls), Total Votes (sum of total_votes from polls), Community Posts Today (count posts created today), Flagged Posts (placeholder 0), Active Users (placeholder 0)
+- This page is nested under AI Site Editor in the Content section of the sidebar. In the sidebar, indent it visually so it appears as a sub-item within the Content group.
+
+(5) MONETIZATION PAGE:
+- Ensure PageHeader with pageKey="monetization"
+- Add MetricsStrip: Revenue MTD (placeholder $0), Active Campaigns (count from campaigns table if exists, else placeholder), Ad Fill Rate (placeholder 0%), CPM Average (placeholder $0), Impressions Today (placeholder 0), Click-Through Rate (placeholder 0%)
+- Keep existing campaign/ad management as Tool Section
+- Add DataCards: Revenue Chart placeholder (empty chart card with "Coming in Analytics Sprint" message), Revenue by Product Leaderboard placeholder, Revenue by Rep Leaderboard placeholder
+
+(6) NETWORK / CRM PAGE:
+- Ensure PageHeader with pageKey="network"
+- Add tabs if not already present: Audience | Commercial
+- Audience tab: Add MetricsStrip (New Subscribers this week, Total Subscribers, Active Campaigns, Campaign Status). Below metrics, add PipelineBoard with columns: New Subscribers, Engaged, Active, At Risk, Churned. For now populate with placeholder counts from subscriber data (all subscribers go in "New Subscribers" column — auto-segmentation comes in S4).
+- Commercial tab: Add MetricsStrip (New Leads, Active Proposals, Pending Orders, Revenue MTD, Pipeline Value — all placeholder 0). Add PipelineBoard with columns: Leads, Qualified, Proposal, Negotiation, Closed Won, Closed Lost — all empty for now with EmptyState saying "No leads yet".
+- Add DataCards below pipeline: Email Opens placeholder card, SMS Opens placeholder card
+
+(7) ANALYTICS PAGE:
+- Ensure PageHeader with pageKey="analytics"
+- Add MetricsStrip: Total Pageviews (placeholder), Unique Visitors (placeholder), Avg. Session Duration (placeholder), Bounce Rate (placeholder), Top Referrer (placeholder), NPS Score (placeholder)
+- Add placeholder DataCards for each analytics widget: "Website Analytics — Coming Soon", "Content Performance — Coming Soon", "NPS & Satisfaction — Coming Soon". Each card uses EmptyState with appropriate icon and description.
+
+(8) SETTINGS PAGE:
+- Ensure PageHeader with pageKey="settings" (add to admin_page_config if missing: title "Settings", icon "Settings", no primary action, no AI action)
+- Add a new tab or section: "Page Configuration" that shows a table of all admin_page_config rows. Each row is editable inline — admin can change title, description, icon_name, primary_action_label, ai_action_label. Save via PATCH /api/admin/page-config/:pageKey.
+
+(9) SIDEBAR NAVIGATION UPDATE:
+- The sidebar must reflect this exact grouping and order:
+  1. Dashboard
+  2. Content section header (collapsible group):
+     - Content Factory
+     - AI Site Editor
+     - Community
+  3. Monetization
+  4. Network
+  5. Analytics
+  6. Settings
+- The Content section should have a subtle section header label "Content" and the three items indented beneath it. Clicking the section header toggles collapse/expand. Default to expanded.
+
+(10) Verify every page follows the 5-layer pattern. No admin page should have a custom header, hardcoded title, or inconsistent layout. The MetricsStrip should be present on every page even if some values are placeholders.

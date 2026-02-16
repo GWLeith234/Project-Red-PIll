@@ -21,6 +21,7 @@ import {
   TrendingUp, Target, BarChart3, Lightbulb, Hash, RefreshCw, BellRing
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PageHeader from "@/components/admin/PageHeader";
 import {
   useEpisodes, useContentPieces, usePodcasts, useCreateEpisode,
   useQueueTranscription, useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
@@ -198,12 +199,7 @@ export default function ContentFactory() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-foreground">AI Content Generator</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">AI-Powered Content Production Pipeline</p>
-        </div>
-      </div>
+      <PageHeader pageKey="content-factory" />
 
       <ProcessingQueue />
 

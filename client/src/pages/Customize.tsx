@@ -7,6 +7,7 @@ import { Upload, Image as ImageIcon, Palette, Type, Save, Eye, Loader2, Trash2, 
 import { SortableList } from "@/components/ui/sortable-list";
 import type { Branding, HeroSlide } from "@shared/schema";
 import NewsLayoutAdmin from "@/components/NewsLayoutAdmin";
+import PageHeader from "@/components/admin/PageHeader";
 
 function UploadZone({
   label,
@@ -312,38 +313,29 @@ export default function Customize() {
 
   return (
     <div className="space-y-8" data-testid="page-customize">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight" data-testid="heading-customize">
-            CUSTOMIZE BRANDING
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage your platform's logo, favicon, banner, colors, and identity
-          </p>
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="flex items-center justify-center gap-2 px-4 py-2 border border-border text-sm text-muted-foreground hover:text-primary hover:border-primary transition-colors flex-1 sm:flex-none"
-            data-testid="btn-toggle-preview"
-          >
-            {showPreview ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {showPreview ? "Close Preview" : "Preview"}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={updateBranding.isPending}
-            className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex-1 sm:flex-none"
-            data-testid="btn-save-branding"
-          >
-            {updateBranding.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Save Changes
-          </button>
-        </div>
+      <PageHeader pageKey="customize" onPrimaryAction={handleSave} />
+      <div className="flex items-center gap-3 w-full sm:w-auto justify-end -mt-4 mb-4">
+        <button
+          onClick={() => setShowPreview(!showPreview)}
+          className="flex items-center justify-center gap-2 px-4 py-2 border border-border text-sm text-muted-foreground hover:text-primary hover:border-primary transition-colors flex-1 sm:flex-none"
+          data-testid="btn-toggle-preview"
+        >
+          {showPreview ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {showPreview ? "Close Preview" : "Preview"}
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={updateBranding.isPending}
+          className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex-1 sm:flex-none"
+          data-testid="btn-save-branding"
+        >
+          {updateBranding.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          Save Changes
+        </button>
       </div>
 
       <div className="border border-primary/30 bg-gradient-to-r from-primary/5 to-transparent p-5" data-testid="section-smart-analyzer">

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -201,16 +202,7 @@ export default function CampaignBuilderPage() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground" data-testid="text-campaigns-title">AI Campaign Builder</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Drag-and-Drop Email Builder & Outreach Engine</p>
-        </div>
-        <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider gap-2" data-testid="button-new-campaign">
-          <Plus className="h-3.5 w-3.5" />
-          New Campaign
-        </Button>
-      </div>
+      <PageHeader pageKey="campaigns" onPrimaryAction={() => openBuilder()} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[

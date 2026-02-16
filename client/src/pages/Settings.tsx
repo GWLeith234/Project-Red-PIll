@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding, useAuditLogs, useApiKeys, useCreateApiKey, useRevokeApiKey, useDeleteApiKey } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -520,37 +521,30 @@ export default function Settings() {
 
   return (
     <div className="space-y-6" data-testid="settings-page">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-settings-title">
-            Platform Settings
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Configure your platform preferences and security policies</p>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {canEdit && (
-            <button
-              onClick={handleSmartDefaults}
-              disabled={smartLoading}
-              className="flex items-center gap-2 bg-card border border-primary/30 text-primary px-4 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/10 transition-colors disabled:opacity-50"
-              data-testid="button-smart-defaults"
-            >
-              {smartLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Smart Defaults
-            </button>
-          )}
-          {canEdit && (
-            <button
-              onClick={handleSave}
-              disabled={updateSettings.isPending}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
-              data-testid="button-save-settings"
-            >
-              {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Changes
-            </button>
-          )}
-        </div>
+      <PageHeader pageKey="settings" onPrimaryAction={canEdit ? handleSave : undefined} />
+      <div className="flex items-center gap-3 flex-shrink-0 justify-end -mt-4 mb-4">
+        {canEdit && (
+          <button
+            onClick={handleSmartDefaults}
+            disabled={smartLoading}
+            className="flex items-center gap-2 bg-card border border-primary/30 text-primary px-4 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/10 transition-colors disabled:opacity-50"
+            data-testid="button-smart-defaults"
+          >
+            {smartLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Smart Defaults
+          </button>
+        )}
+        {canEdit && (
+          <button
+            onClick={handleSave}
+            disabled={updateSettings.isPending}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+            data-testid="button-save-settings"
+          >
+            {updateSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Changes
+          </button>
+        )}
       </div>
 
       {!canEdit && (

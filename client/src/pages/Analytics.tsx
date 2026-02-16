@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEmailCampaignAnalytics, useWebsiteAnalytics, useNpsAnalytics } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import PageHeader from "@/components/admin/PageHeader";
 import { useSearch, useLocation } from "wouter";
 
 function KpiCard({ icon: Icon, label, value, subValue, trend, trendUp, color, testId }: {
@@ -552,14 +553,7 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500" data-testid="analytics-page">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-primary uppercase tracking-wider" data-testid="text-analytics-title">
-            Analytics
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">{SECTION_DESCRIPTIONS[activeSection]}</p>
-        </div>
-      </div>
+      <PageHeader pageKey="analytics" />
 
       <div className="flex gap-1 border-b border-border overflow-x-auto">
         {SECTION_TABS.map(tab => (

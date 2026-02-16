@@ -7,6 +7,7 @@ import {
   ShieldCheck, ShieldOff, Search, Loader2, Heart, Pin, PinOff,
 } from "lucide-react";
 import { DatePicker } from "@/components/ui/date-picker";
+import PageHeader from "@/components/admin/PageHeader";
 
 async function api(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: "include", headers: { "Content-Type": "application/json" }, ...options });
@@ -31,12 +32,7 @@ export default function CommunityAdmin() {
 
   return (
     <div data-testid="community-admin-page" className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight" data-testid="text-page-title">
-          Community Content
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage community events, announcements, classifieds, and more</p>
-      </div>
+      <PageHeader pageKey="community" />
 
       <div className="flex items-center gap-1 mb-6 flex-wrap border-b border-border" data-testid="community-tabs">
         {TABS.map(tab => (

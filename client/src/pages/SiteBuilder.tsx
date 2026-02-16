@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -549,14 +550,7 @@ export default function SiteBuilder() {
     return (
       <div className="h-[calc(100vh-3.5rem)] lg:h-screen -mx-4 sm:-mx-6 lg:-mx-8 -mb-4 sm:-mb-6 lg:-mb-8 flex flex-col" data-testid="page-site-builder">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div>
-            <h1 className="text-2xl font-display font-bold" data-testid="text-page-builder-title">AI Page Builder</h1>
-            <p className="text-sm text-muted-foreground">Design and manage your site pages with AI assistance</p>
-          </div>
-          <Button onClick={() => { resetWizard(); setShowNewPageDialog(true); }} data-testid="button-build-new-page">
-            <Sparkles className="h-4 w-4 mr-2" />
-            Build New Page
-          </Button>
+          <PageHeader pageKey="site-builder" onPrimaryAction={() => { resetWizard(); setShowNewPageDialog(true); }} />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">

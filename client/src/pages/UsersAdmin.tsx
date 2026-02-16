@@ -7,6 +7,7 @@ import {
   Shield, UserPlus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp,
   Search, Users, Crown, Eye, KeyRound, Mail, User as UserIcon
 } from "lucide-react";
+import PageHeader from "@/components/admin/PageHeader";
 
 async function apiRequest(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: "include", headers: { "Content-Type": "application/json" }, ...options });
@@ -142,20 +143,7 @@ export default function UsersAdmin() {
 
   return (
     <div data-testid="users-admin-page" className="max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight" data-testid="text-page-title">User Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage team members, roles, and permissions</p>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setEditingUser(null); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 w-full sm:w-auto justify-center"
-          data-testid="button-add-user"
-        >
-          <UserPlus className="h-4 w-4" />
-          Add User
-        </button>
-      </div>
+      <PageHeader pageKey="users" onPrimaryAction={() => { setShowForm(true); setEditingUser(null); }} />
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {[

@@ -20,6 +20,7 @@ import { SortableList } from "@/components/ui/sortable-list";
 import { useToast } from "@/hooks/use-toast";
 import { PRODUCT_CATEGORIES, RATE_MODELS, type Product } from "@shared/schema";
 import { useAuth } from "@/lib/auth";
+import PageHeader from "@/components/admin/PageHeader";
 
 const cpmData = [
   { time: "00:00", value: 12 }, { time: "04:00", value: 10 }, { time: "08:00", value: 25 },
@@ -730,12 +731,7 @@ export default function Monetization() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Monetization</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Ad Server: ONLINE | Yield Optimization: ACTIVE</p>
-        </div>
-      </div>
+      <PageHeader pageKey="monetization" />
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="bg-card/50 border border-border/50 p-1 w-full overflow-x-auto flex-wrap sm:flex-nowrap">

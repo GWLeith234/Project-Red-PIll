@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import PageHeader from "@/components/admin/PageHeader";
 
 interface ResizedImage {
   name: string;
@@ -183,22 +184,14 @@ export default function AdResizer() {
 
   return (
     <div className="p-6 space-y-6" data-testid="ad-resizer-page">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-display flex items-center gap-3" data-testid="text-page-title">
-            <Scaling className="h-8 w-8 text-primary" />
-            Ad Resizer Studio
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Upload one image, get it resized for {sizesData?.totalSizes || "70+"}  ad formats across {platforms.length || 10} platforms
-          </p>
-        </div>
-        {results && (
+      <PageHeader pageKey="ad-resizer" />
+      {results && (
+        <div className="flex justify-end -mt-4">
           <Button variant="outline" onClick={clearAll} data-testid="button-clear-all">
             <X className="h-4 w-4 mr-2" /> Clear All
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">

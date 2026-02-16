@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
+import PageHeader from "@/components/admin/PageHeader";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -764,10 +765,7 @@ export default function KanbanBoard() {
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" data-testid="kanban-board">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-foreground">Kanban Board</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Content Production Pipeline</p>
-        </div>
+        <PageHeader pageKey="kanban" />
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="font-mono text-xs border-border/50">
             {tasks.length} tasks

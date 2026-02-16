@@ -5964,11 +5964,25 @@ Provide comprehensive social listening intelligence including trending topics, k
   // Seed admin page configs
   const SEED_CONFIGS = [
     { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", description: "Command center overview with KPIs and alerts", aiActionLabel: "AI Insights", sortOrder: 1 },
-    { pageKey: "content-factory", title: "Content Factory", iconName: "FileText", description: "AI content production pipeline", primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", sortOrder: 2 },
-    { pageKey: "monetization", title: "Monetization", iconName: "DollarSign", description: "Revenue tracking and campaign management", primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Optimize", sortOrder: 3 },
-    { pageKey: "network", title: "Network", iconName: "Users2", description: "Podcast network and contact management", primaryActionLabel: "+ Add Contact", aiActionLabel: "AI Suggest", sortOrder: 4 },
-    { pageKey: "community", title: "Community", iconName: "Users", description: "Community events, polls, and discussions", primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", sortOrder: 5 },
-    { pageKey: "analytics", title: "Analytics", iconName: "BarChart3", description: "Audience analytics and reporting", primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", sortOrder: 6 },
+    { pageKey: "content-factory", title: "AI Content Generator", iconName: "Factory", description: "AI content production pipeline", primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", sortOrder: 2 },
+    { pageKey: "scheduler", title: "Content Calendar", iconName: "CalendarClock", description: "Schedule and manage content publishing", primaryActionLabel: "+ Schedule", aiActionLabel: "AI Schedule", sortOrder: 3 },
+    { pageKey: "campaigns", title: "AI Campaign Builder", iconName: "Send", description: "Create and manage marketing campaigns", primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Build", sortOrder: 4 },
+    { pageKey: "newsletters", title: "Newsletters", iconName: "Mail", description: "Manage newsletter templates and sends", primaryActionLabel: "+ New Newsletter", aiActionLabel: "AI Draft", sortOrder: 5 },
+    { pageKey: "moderation", title: "AI Content Editor", iconName: "Bot", description: "Review and approve AI-generated content", aiActionLabel: "AI Review", sortOrder: 6 },
+    { pageKey: "site-builder", title: "AI Site Editor", iconName: "Blocks", description: "Build and customize site pages", primaryActionLabel: "+ New Page", aiActionLabel: "AI Design", sortOrder: 7 },
+    { pageKey: "community", title: "Community", iconName: "Heart", description: "Community events, polls, and discussions", primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", sortOrder: 8 },
+    { pageKey: "kanban", title: "Kanban Board", iconName: "Kanban", description: "Visual project workflow management", primaryActionLabel: "+ New Task", sortOrder: 9 },
+    { pageKey: "my-tasks", title: "My Tasks", iconName: "ListTodo", description: "Personal task list and calendar", primaryActionLabel: "+ New Task", sortOrder: 10 },
+    { pageKey: "monetization", title: "Monetization", iconName: "DollarSign", description: "Revenue tracking and product management", primaryActionLabel: "+ New Product", aiActionLabel: "AI Optimize", sortOrder: 11 },
+    { pageKey: "ad-resizer", title: "Ad Resizer Studio", iconName: "Scaling", description: "Resize ad creatives for all platforms", primaryActionLabel: "+ Upload Image", sortOrder: 12 },
+    { pageKey: "commercial-crm", title: "Commercial CRM", iconName: "Briefcase", description: "B2B sales pipeline and deal management", primaryActionLabel: "+ New Deal", aiActionLabel: "AI Prospect", sortOrder: 13 },
+    { pageKey: "subscriber-crm", title: "Subscriber CRM", iconName: "Users", description: "Audience management and engagement", primaryActionLabel: "+ Add Subscriber", aiActionLabel: "AI Segment", sortOrder: 14 },
+    { pageKey: "podcasts", title: "Podcasts", iconName: "Mic", description: "Podcast network and show management", primaryActionLabel: "+ Add Show", aiActionLabel: "AI Suggest", sortOrder: 15 },
+    { pageKey: "analytics", title: "Analytics", iconName: "BarChart3", description: "Audience analytics and reporting", primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", sortOrder: 16 },
+    { pageKey: "customize", title: "Customize", iconName: "Paintbrush", description: "Branding, logos, and theme configuration", sortOrder: 17 },
+    { pageKey: "users", title: "User Management", iconName: "Shield", description: "Manage users, roles, and permissions", primaryActionLabel: "+ Add User", sortOrder: 18 },
+    { pageKey: "legal", title: "Legal Pages", iconName: "FileText", description: "Manage terms, privacy, and legal documents", primaryActionLabel: "+ New Page", sortOrder: 19 },
+    { pageKey: "settings", title: "Settings", iconName: "Settings", description: "Platform configuration and preferences", sortOrder: 20 },
   ];
   (async () => {
     try {

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Mic, Users, Plus, MoreHorizontal, Settings, BarChart3, Globe, Loader2, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PageHeader from "@/components/admin/PageHeader";
 import { Link } from "wouter";
 import { usePodcasts, useCreatePodcast } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -40,20 +41,7 @@ export default function Network() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground">Podcasts</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">
-            Managing {podcasts?.length || 0} Shows | Total Reach: {
-              podcasts ? (podcasts.reduce((acc: number, p: any) => acc + (p.subscribers || 0), 0) / 1000000).toFixed(1) + "M" : "..."
-            }
-          </p>
-        </div>
-        <Button onClick={() => setOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider" data-testid="button-add-show">
-          <Plus className="mr-2 h-3 w-3" />
-          Add Show
-        </Button>
-      </div>
+      <PageHeader pageKey="podcasts" onPrimaryAction={() => setOpen(true)} />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="glass-panel border-border">

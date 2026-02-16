@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import PageHeader from "@/components/admin/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,19 +197,7 @@ export default function ModerationQueue() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" data-testid="moderation-queue-page">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/50 pb-6 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-display tracking-tight text-foreground flex items-center gap-3" data-testid="text-page-title">
-            <Bot className="w-8 h-8 text-primary" />
-            AI Content Editor
-          </h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">Review, edit &amp; approve AI-generated content before publishing</p>
-        </div>
-        <Button onClick={() => setGenerateOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 font-mono text-xs uppercase tracking-wider" data-testid="button-generate-story">
-          <Wand2 className="w-4 h-4 mr-2" />
-          Generate Story
-        </Button>
-      </div>
+      <PageHeader pageKey="moderation" onPrimaryAction={() => setGenerateOpen(true)} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {CONTENT_TABS.filter(t => t.id !== "all").map(tab => {
