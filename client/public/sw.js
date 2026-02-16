@@ -1,9 +1,5 @@
-const CACHE_NAME = 'mediatech-v1';
-const STATIC_ASSETS = [
-  '/home',
-  '/podcasts',
-  '/search',
-];
+const CACHE_NAME = 'mediatech-v2';
+const STATIC_ASSETS = [];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -26,6 +22,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (request.method !== 'GET') return;
+
+  if (request.mode === 'navigate') return;
 
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(

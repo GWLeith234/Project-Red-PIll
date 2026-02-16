@@ -1,0 +1,79 @@
+template = template.replace(
+  `src="/src/main.tsx"`,
+  `src="/src/main.tsx?v=${nanoid()}"`,
+);
+```
+
+Every time the server serves index.html, it generates a **new random script URL**, which forces the browser to re-evaluate the entire app. Combined with the service worker caching `/home`, `/podcasts`, `/search` as separate full HTML pages, any navigation that hits the server or SW cache causes a complete app restart.
+
+Paste this into Replit Agent:
+```
+Audio stops during navigation because of two bugs causing full page reloads:
+
+BUG 1: In server/vite.ts, the catch-all handler adds a random nanoid to main.tsx on every request (line ~51): template = template.replace(`src="/src/main.tsx"`, `src="/src/main.tsx?v=${nanoid()}"`). This forces the browser to re-evaluate the entire app on every page serve. Remove the nanoid cache-busting. Change:
+
+template = template.replace(
+  `src="/src/main.tsx"`,
+  `src="/src/main.tsx?v=${nanoid()}"`,
+);
+
+To just:
+
+// template served as-is, no cache busting needed in dev mode
+
+Delete or comment out that replace line entirely. The Vite dev server already handles HMR for updates.
+
+BUG 2: The service worker in client/public/sw.js pre-caches /home, /podcasts, /search as full HTML pages in STATIC_ASSETS. When the browser navigates to these URLs, the SW intercepts the request and returns a cached HTML document, causing a full page reload instead of client-side routing. Fix the service worker fetch handler to SKIP navigation requests. Change the fetch handler to:
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (request.method !== 'GET') return;
+
+  // Never intercept navigation requests - let the SPA handle routing
+  if (request.mode === 'navigate') return;
+
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.match(request).then((cached) => {
+        const fetchPromise = fetch(request).then((response) => {
+          if (response.ok) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        });
+        return cached || fetchPromise;
+      })
+    )
+  );
+});
+
+Also remove /home, /podcasts, /search from STATIC_ASSETS since they are SPA routes, not static files. Change STATIC_ASSETS to an empty array:
+
+const STATIC_ASSETS = [];
+
+BUG 3: After making these changes, we need to clear the old cached pages. Add a cache version bump by changing:
+
+const CACHE_NAME = 'mediatech-v1';
+
+To:
+
+const CACHE_NAME = 'mediatech-v2';
+
+This will cause the activate handler to delete the old v1 cache that has the incorrectly cached HTML pages.
+
+After making all three changes, restart the server. Then in the browser: open DevTools > Application > Service Workers > click "Unregister" next to the old SW. Then hard-refresh with Cmd+Shift+R. Then test: play an episode, tap Home tab, audio should keep playing.
