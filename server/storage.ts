@@ -66,6 +66,7 @@ import {
   adInjectionLog, type AdInjectionLog, type InsertAdInjectionLog,
   devicePushSubscriptions, type DevicePushSubscription, type InsertDevicePushSubscription,
   adminPageConfigs, type AdminPageConfig, type InsertAdminPageConfig,
+  adminNavSections, type AdminNavSection, type InsertAdminNavSection,
   commercialLeads, type CommercialLead, type InsertCommercialLead,
   commercialProposals, type CommercialProposal, type InsertCommercialProposal,
   commercialOrders, type CommercialOrder, type InsertCommercialOrder,
@@ -1724,6 +1725,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllAdminPageConfigs(): Promise<void> {
     await db.delete(adminPageConfigs);
+  }
+
+  async getAdminNavSections(): Promise<AdminNavSection[]> {
+    return db.select().from(adminNavSections).orderBy(adminNavSections.sortOrder);
+  }
+
+  async upsertAdminNavSection(data: InsertAdminNavSection): Promise<AdminNavSection> {
+    const [result] = await db.insert(adminNavSections).values(data).onConflictDoUpdate({ target: adminNavSections.sectionKey, set: data }).returning();
+    return result;
+  }
+
+  async updateAdminNavSection(sectionKey: string, data: Partial<InsertAdminNavSection>): Promise<AdminNavSection | undefined> {
+    const [updated] = await db.update(adminNavSections).set(data).where(eq(adminNavSections.sectionKey, sectionKey)).returning();
+    return updated;
+  }
+
+  async deleteAdminNavSection(sectionKey: string): Promise<boolean> {
+    const result = await db.delete(adminNavSections).where(eq(adminNavSections.sectionKey, sectionKey)).returning();
+    return result.length > 0;
+  }
+
+  async batchUpdateNavSectionOrder(sections: { sectionKey: string; sortOrder: number }[]): Promise<void> {
+    for (const s of sections) {
+      await db.update(adminNavSections).set({ sortOrder: s.sortOrder }).where(eq(adminNavSections.sectionKey, s.sectionKey));
+    }
   }
 
   // Commercial Leads

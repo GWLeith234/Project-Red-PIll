@@ -1,0 +1,150 @@
+Fix sprint: Platform configuration, theming, and branding need major upgrades. The sidebar titles are hardcoded, themes are unreadable, and branding lacks image management.
+
+PART A — FULLY DATA-DRIVEN SIDEBAR (titles, icons, nesting, ordering):
+
+(1) The sidebar in client/src/components/layout/Sidebar.tsx still has hardcoded elements. Make it 100% driven by admin_page_config data:
+- Remove ALL hardcoded navGroups, nav item arrays, section labels, and icon imports that define specific pages
+- Fetch ALL navigation data from GET /api/admin/page-config on mount
+- Group by nav_section, sort by sort_order within each group
+- The section header labels come from the data (capitalize nav_section value), NOT from hardcoded strings
+- Page titles come from the config title field, NOT hardcoded
+- Icons come from the config icon_name field, dynamically resolved
+
+(2) Build a dynamic Lucide icon resolver. Create client/src/lib/icon-resolver.ts:
+- Import ALL icons from lucide-react using: import * as LucideIcons from "lucide-react"
+- Export a function: getIcon(iconName: string): LucideIcon | null
+- It looks up iconName in the LucideIcons object and returns the component
+- This means ANY of the 1400+ Lucide icons can be used just by typing the name in Page Configuration
+- If the icon name doesn't match, return a default fallback icon (Circle or HelpCircle)
+- Use this resolver everywhere icons are rendered from config: Sidebar, PageHeader, Page Configuration preview
+
+(3) Update the Page Configuration tool in Settings to support full editing:
+- Title: editable text input (changes sidebar label AND page header)
+- Description: editable text input (used as tooltip)
+- Icon: searchable dropdown showing ALL available Lucide icons. Show a grid of icon previews (render actual icons) that filters as you type. User picks an icon visually, not by typing a name they have to guess.
+- Nav Section: dropdown to pick which sidebar group (Content, Monetization, Network, Analytics, Admin, or type a new custom section name)
+- Sort Order: drag handle to reorder within section (or number input)
+- Visibility: toggle switch
+- Primary Action Label: text input
+- AI Action Label: text input
+- All changes save immediately via PATCH and the sidebar updates in real time (invalidate the query cache on save)
+
+(4) Add ability to create custom nav sections:
+- In Page Configuration, add a "Manage Sections" area at the top
+- Shows all current sections with editable display names
+- "Add Section" button creates a new empty section
+- Sections can be reordered by drag-and-drop
+- Sections can be renamed (e.g., rename "Content" to "Editorial")
+- Store section display names in a new admin_nav_sections table: id (uuid), section_key (text, unique), display_name (text), icon_name (text, nullable), sort_order (integer), is_collapsed_default (boolean, default false)
+
+PART B — THEME FIX (light and dark must both be readable):
+
+(5) The light/dark theme has readability issues. Do a comprehensive audit and fix:
+- Ensure the app uses Tailwind's dark mode class strategy correctly: <html class="dark"> for dark mode
+- Replace ALL hardcoded color classes with semantic theme tokens from shadcn/ui:
+  - bg-gray-900, bg-gray-950, bg-black → bg-background
+  - bg-gray-800, bg-gray-850 → bg-card or bg-muted
+  - text-white → text-foreground
+  - text-gray-400, text-gray-500 → text-muted-foreground
+  - border-gray-700, border-gray-800 → border-border
+  - bg-gray-700/50 → bg-accent
+- Update client/src/index.css (or wherever the theme CSS variables are defined) to have proper light AND dark values:
+
+Light theme (default / no .dark class):
+--background: 0 0% 100%;
+--foreground: 222 47% 11%;
+--card: 0 0% 98%;
+--card-foreground: 222 47% 11%;
+--muted: 210 40% 96%;
+--muted-foreground: 215 16% 47%;
+--border: 214 32% 91%;
+--input: 214 32% 91%;
+--primary: (from branding);
+--primary-foreground: 0 0% 100%;
+--accent: 210 40% 96%;
+--accent-foreground: 222 47% 11%;
+
+Dark theme (.dark class):
+--background: 222 47% 6%;
+--foreground: 210 40% 98%;
+--card: 222 47% 9%;
+--card-foreground: 210 40% 98%;
+--muted: 217 33% 14%;
+--muted-foreground: 215 20% 65%;
+--border: 217 33% 18%;
+--input: 217 33% 18%;
+--primary: (from branding);
+--primary-foreground: 0 0% 100%;
+--accent: 217 33% 14%;
+--accent-foreground: 210 40% 98%;
+
+(6) Go through EVERY component file and replace hardcoded colors:
+- Sidebar.tsx: all backgrounds, text colors, borders, hover states
+- PageHeader.tsx, MetricsStrip.tsx, DataCard.tsx, PipelineBoard.tsx, Leaderboard.tsx, SearchFilterBar.tsx, EmptyState.tsx
+- Every admin page: Dashboard, ContentFactory, Monetization, Network, Analytics, Community, Settings, etc.
+- Every audience page: AudienceLayout, AudienceHome, PodcastDirectory, NewsPage, EpisodePage, EventsPage, CommunityPage, SearchPage, ReadLater
+- MiniPlayer.tsx and AudioPlayerProvider-related UI
+- Modals, forms, dropdowns, tooltips, toasts
+- The purple AI buttons (#6C3FC5) should remain purple in both themes — that's intentional
+
+(7) Test both themes by toggling back and forth. Every page must be fully readable with good contrast in both modes. No white text on white backgrounds, no black text on black backgrounds, no invisible borders.
+
+PART C — BACKGROUND IMAGE MANAGEMENT:
+
+(8) Add background image support to the branding system. Add columns to the branding/site_settings table:
+- background_type: text, default 'solid' (options: solid, gradient, image, pattern)
+- background_color: text, default '#0f172a' (used for solid)
+- background_gradient: text, nullable (CSS gradient string, e.g., 'linear-gradient(135deg, #0f172a, #1e3a5f)')
+- background_image_url: text, nullable (URL to uploaded image)
+- background_overlay_opacity: numeric, default 0.8 (dark overlay on images for readability)
+- background_position: text, default 'center' (CSS background-position)
+- background_size: text, default 'cover' (CSS background-size)
+
+(9) Build a Background Selector in the Branding/Customize page:
+- Tab or section: "Background"
+- Four mode buttons: Solid Color | Gradient | Image | Pattern
+- Solid Color mode: color picker for background_color
+- Gradient mode: preset gradient options (8-10 premade dark gradients that look professional) plus a custom gradient builder (pick 2 colors and angle)
+- Image mode:
+  - Upload button: accepts .jpg, .png, .webp. Upload to server (store in /uploads/backgrounds/ or use existing upload system). Save URL to background_image_url.
+  - Catalog: show a grid of 12-16 built-in background images (dark cityscapes, abstract patterns, American flag subtle, patriotic textures, dark textures). Store these in client/public/backgrounds/ as static assets. When selected, set background_image_url to the static path.
+  - Overlay opacity slider (0-100%): controls how dark the overlay is on top of the image (readability)
+  - Position controls: dropdown for background-position (center, top, bottom)
+- Pattern mode: 6-8 subtle repeating patterns (dark geometric, subtle lines, dot grid, etc.) stored as small tileable PNGs
+- Live preview: show a miniature preview of the admin layout with the selected background applied
+- Save button: updates branding via existing PATCH endpoint
+
+(10) Apply the background in the admin layout:
+- Read background settings from branding
+- Apply to the main content area (not sidebar):
+  - Solid: background-color
+  - Gradient: background-image CSS gradient
+  - Image: background-image URL with a dark overlay div on top (opacity from setting)
+  - Pattern: background-image with repeat
+- The overlay ensures text remains readable regardless of background image
+
+PART D — AI BANNER & IMAGE CREATOR IN BRANDING:
+
+(11) Add an AI Image Creator to the Branding/Customize page. New section or tab: "AI Image Studio"
+- Purpose: generate banner images, header images, background images, social media graphics using AI
+- Uses the existing AI provider system to generate image prompts, then uses a placeholder approach:
+
+Since we don't have a direct image generation API integrated yet, build it as a prompt generator and placeholder system:
+- User describes what they want: "Dark patriotic background with subtle American flag texture"
+- AI generates a detailed image generation prompt optimized for the request
+- Display the prompt with a "Copy Prompt" button (user can paste into Midjourney, DALL-E, etc.)
+- Add an upload area: "Upload your generated image here" — user generates externally and uploads the result
+- The uploaded image is saved and can be set as: site banner, background image, open graph image, or app icon
+
+(12) Build AI-powered branding suggestions:
+- "AI Suggest Branding" button on the Branding page
+- Sends current branding settings (colors, name, description) to AI
+- AI returns suggestions for: complementary color palette (5 colors with hex codes and usage — primary, secondary, accent, background, text), font pairing recommendation, tagline options (5 variations), recommended background style
+- Show suggestions in a card layout. Each suggestion has an "Apply" button that updates the branding fields.
+
+(13) Banner management section in Branding:
+- Upload area for site banner/hero image
+- Crop/resize tool: simple aspect ratio selector (16:9, 4:3, 3:1 for banner, 1:1 for square)
+- Image preview at the actual display size
+- Fields for: banner heading text, banner subheading text, banner CTA button text, banner CTA link
+- AI button: "AI Write Banner Copy" — generates heading, subheading, and CTA text based on the platform's content and audience

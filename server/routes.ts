@@ -6106,6 +6106,42 @@ Provide comprehensive social listening intelligence including trending topics, k
     } catch (e) { console.error("Failed to seed admin page configs:", e); }
   })();
 
+  app.get("/api/admin/nav-sections", requireAuth, async (_req, res) => {
+    try { res.json(await storage.getAdminNavSections()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/admin/nav-sections", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const result = await storage.upsertAdminNavSection(req.body);
+      res.json(result);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/nav-sections/:sectionKey", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const updated = await storage.updateAdminNavSection(req.params.sectionKey, req.body);
+      if (!updated) return res.status(404).json({ message: "Section not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/admin/nav-sections/:sectionKey", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const deleted = await storage.deleteAdminNavSection(req.params.sectionKey);
+      if (!deleted) return res.status(404).json({ message: "Section not found" });
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/nav-sections/reorder", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const { sections } = req.body;
+      if (!Array.isArray(sections)) return res.status(400).json({ message: "sections array required" });
+      await storage.batchUpdateNavSectionOrder(sections);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   // --- Analytics Tracking (public) ---
   const publicTrackingLimit = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests" } });
 

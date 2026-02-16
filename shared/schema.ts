@@ -203,6 +203,18 @@ export const branding = pgTable("branding", {
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
   themeMode: text("theme_mode").default("dark"),
+  backgroundType: text("background_type").default("solid"),
+  backgroundColor: text("background_color").default("#0f172a"),
+  backgroundGradient: text("background_gradient"),
+  backgroundImageUrl: text("background_image_url"),
+  backgroundOverlayOpacity: text("background_overlay_opacity").default("0.8"),
+  backgroundPosition: text("background_position").default("center"),
+  backgroundSize: text("background_size").default("cover"),
+  backgroundPattern: text("background_pattern"),
+  bannerHeading: text("banner_heading"),
+  bannerSubheading: text("banner_subheading"),
+  bannerCtaText: text("banner_cta_text"),
+  bannerCtaLink: text("banner_cta_link"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -1301,6 +1313,19 @@ export const adminPageConfigs = pgTable("admin_page_configs", {
 export const insertAdminPageConfigSchema = createInsertSchema(adminPageConfigs).omit({ id: true });
 export type InsertAdminPageConfig = z.infer<typeof insertAdminPageConfigSchema>;
 export type AdminPageConfig = typeof adminPageConfigs.$inferSelect;
+
+export const adminNavSections = pgTable("admin_nav_sections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sectionKey: text("section_key").unique().notNull(),
+  displayName: text("display_name").notNull(),
+  iconName: text("icon_name"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isCollapsedDefault: boolean("is_collapsed_default").default(false),
+});
+
+export const insertAdminNavSectionSchema = createInsertSchema(adminNavSections).omit({ id: true });
+export type InsertAdminNavSection = z.infer<typeof insertAdminNavSectionSchema>;
+export type AdminNavSection = typeof adminNavSections.$inferSelect;
 
 export const pageAnalytics = pgTable("page_analytics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
