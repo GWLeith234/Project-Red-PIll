@@ -1,0 +1,36 @@
+Prepare all assets and metadata needed for App Store (iOS) and Google Play (Android) submission. This is preparation only — no actual submission.
+
+(1) Generate app icons in all required sizes. Using the existing icon-512.png as the source, create these icon files in a new directory client/public/app-icons/:
+- icon-20.png (20x20)
+- icon-29.png (29x29)
+- icon-40.png (40x40)
+- icon-60.png (60x60)
+- icon-76.png (76x76)
+- icon-83.5.png (83x83)
+- icon-1024.png (1024x1024)
+Use the sharp npm package to resize: npm install sharp --save-dev, then create a script called scripts/generate-icons.ts that reads icon-512.png and generates all sizes. Run the script.
+
+(2) Generate splash screen images in client/public/app-icons/:
+- splash-2732x2732.png (centered logo on solid background matching the brand's primary color)
+- splash-1284x2778.png (iPhone portrait)
+- splash-2778x1284.png (iPhone landscape)
+Use sharp to create these: fill with the primary color (#1e3a5f or read from branding), then composite the icon-512.png centered.
+
+(3) Create a file at docs/app-store-metadata.md containing:
+- App Name: MediaTech Empire
+- Subtitle: Conservative News & Podcasts
+- Description (4000 char max): Write a compelling App Store description highlighting features: breaking news alerts, podcast streaming with background playback, personalized notifications, read later bookmarks, and a clean ad-free reading experience.
+- Keywords: conservative, news, podcast, politics, media, streaming, alerts
+- Category: News
+- Content Rating: 12+ (for news content)
+- Privacy Policy URL: https://mediatechempire.com/privacy (placeholder)
+- Support URL: https://mediatechempire.com/support (placeholder)
+
+(4) Create a file at docs/google-play-metadata.md with the same content adapted for Google Play's format:
+- Short description (80 chars max)
+- Full description (4000 chars max)
+- Category: News & Magazines
+- Content rating: Teen
+- Same privacy/support URLs
+
+(5) Update the web app manifest at client/public/manifest.json to ensure all fields are complete: name, short_name, description, start_url: "/home", display: "standalone", background_color, theme_color (from branding), orientation: "portrait-primary", categories: ["news", "entertainment"], icons array with all sizes including purpose: "any maskable" for the main icons.
