@@ -66,6 +66,12 @@ import {
   adInjectionLog, type AdInjectionLog, type InsertAdInjectionLog,
   devicePushSubscriptions, type DevicePushSubscription, type InsertDevicePushSubscription,
   adminPageConfigs, type AdminPageConfig, type InsertAdminPageConfig,
+  commercialLeads, type CommercialLead, type InsertCommercialLead,
+  commercialProposals, type CommercialProposal, type InsertCommercialProposal,
+  commercialOrders, type CommercialOrder, type InsertCommercialOrder,
+  campaignPerformance, type CampaignPerformance, type InsertCampaignPerformance,
+  aiAdvertiserPrompts, type AiAdvertiserPrompt, type InsertAiAdvertiserPrompt,
+  aiContentLog, type AiContentLog, type InsertAiContentLog,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -398,6 +404,40 @@ export interface IStorage {
   deleteAdminPageConfig(pageKey: string): Promise<boolean>;
   batchUpdatePageConfigOrder(pages: { pageKey: string; sortOrder: number; navSection: string }[]): Promise<void>;
   deleteAllAdminPageConfigs(): Promise<void>;
+
+  // Commercial Leads
+  getCommercialLeads(filters?: { pipelineType?: string; pipelineStage?: string }): Promise<CommercialLead[]>;
+  getCommercialLead(id: string): Promise<CommercialLead | undefined>;
+  createCommercialLead(data: InsertCommercialLead): Promise<CommercialLead>;
+  updateCommercialLead(id: string, data: Partial<InsertCommercialLead>): Promise<CommercialLead | undefined>;
+  deleteCommercialLead(id: string): Promise<void>;
+
+  // Commercial Proposals
+  getCommercialProposals(leadId?: string): Promise<CommercialProposal[]>;
+  getCommercialProposal(id: string): Promise<CommercialProposal | undefined>;
+  createCommercialProposal(data: InsertCommercialProposal): Promise<CommercialProposal>;
+  updateCommercialProposal(id: string, data: Partial<InsertCommercialProposal>): Promise<CommercialProposal | undefined>;
+
+  // Commercial Orders
+  getCommercialOrders(filters?: { leadId?: string; status?: string }): Promise<CommercialOrder[]>;
+  getCommercialOrder(id: string): Promise<CommercialOrder | undefined>;
+  createCommercialOrder(data: InsertCommercialOrder): Promise<CommercialOrder>;
+  updateCommercialOrder(id: string, data: Partial<InsertCommercialOrder>): Promise<CommercialOrder | undefined>;
+
+  // Campaign Performance
+  getCampaignPerformance(orderId?: string): Promise<CampaignPerformance[]>;
+  createCampaignPerformance(data: InsertCampaignPerformance): Promise<CampaignPerformance>;
+  updateCampaignPerformance(id: string, data: Partial<InsertCampaignPerformance>): Promise<CampaignPerformance | undefined>;
+
+  // AI Advertiser Prompts
+  getAiAdvertiserPrompts(status?: string): Promise<AiAdvertiserPrompt[]>;
+  createAiAdvertiserPrompt(data: InsertAiAdvertiserPrompt): Promise<AiAdvertiserPrompt>;
+  updateAiAdvertiserPrompt(id: string, data: Partial<InsertAiAdvertiserPrompt>): Promise<AiAdvertiserPrompt | undefined>;
+
+  // AI Content Log
+  createAiContentLog(data: InsertAiContentLog): Promise<AiContentLog>;
+  getAiContentLogs(limit?: number): Promise<AiContentLog[]>;
+  getAiContentLogCountToday(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1684,6 +1724,116 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllAdminPageConfigs(): Promise<void> {
     await db.delete(adminPageConfigs);
+  }
+
+  // Commercial Leads
+  async getCommercialLeads(filters?: { pipelineType?: string; pipelineStage?: string }) {
+    const conditions = [];
+    if (filters?.pipelineType) conditions.push(eq(commercialLeads.pipelineType, filters.pipelineType));
+    if (filters?.pipelineStage) conditions.push(eq(commercialLeads.pipelineStage, filters.pipelineStage));
+    return db.select().from(commercialLeads).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(commercialLeads.createdAt));
+  }
+  async getCommercialLead(id: string) {
+    const [lead] = await db.select().from(commercialLeads).where(eq(commercialLeads.id, id));
+    return lead;
+  }
+  async createCommercialLead(data: InsertCommercialLead) {
+    const [created] = await db.insert(commercialLeads).values(data).returning();
+    return created;
+  }
+  async updateCommercialLead(id: string, data: Partial<InsertCommercialLead>) {
+    const [updated] = await db.update(commercialLeads).set({ ...data, updatedAt: new Date() }).where(eq(commercialLeads.id, id)).returning();
+    return updated;
+  }
+  async deleteCommercialLead(id: string) {
+    await db.delete(commercialLeads).where(eq(commercialLeads.id, id));
+  }
+
+  // Commercial Proposals
+  async getCommercialProposals(leadId?: string) {
+    if (leadId) {
+      return db.select().from(commercialProposals).where(eq(commercialProposals.leadId, leadId)).orderBy(desc(commercialProposals.createdAt));
+    }
+    return db.select().from(commercialProposals).orderBy(desc(commercialProposals.createdAt));
+  }
+  async getCommercialProposal(id: string) {
+    const [proposal] = await db.select().from(commercialProposals).where(eq(commercialProposals.id, id));
+    return proposal;
+  }
+  async createCommercialProposal(data: InsertCommercialProposal) {
+    const [created] = await db.insert(commercialProposals).values(data).returning();
+    return created;
+  }
+  async updateCommercialProposal(id: string, data: Partial<InsertCommercialProposal>) {
+    const [updated] = await db.update(commercialProposals).set(data).where(eq(commercialProposals.id, id)).returning();
+    return updated;
+  }
+
+  // Commercial Orders
+  async getCommercialOrders(filters?: { leadId?: string; status?: string }) {
+    const conditions = [];
+    if (filters?.leadId) conditions.push(eq(commercialOrders.leadId, filters.leadId));
+    if (filters?.status) conditions.push(eq(commercialOrders.status, filters.status));
+    return db.select().from(commercialOrders).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(commercialOrders.createdAt));
+  }
+  async getCommercialOrder(id: string) {
+    const [order] = await db.select().from(commercialOrders).where(eq(commercialOrders.id, id));
+    return order;
+  }
+  async createCommercialOrder(data: InsertCommercialOrder) {
+    const [created] = await db.insert(commercialOrders).values(data).returning();
+    return created;
+  }
+  async updateCommercialOrder(id: string, data: Partial<InsertCommercialOrder>) {
+    const [updated] = await db.update(commercialOrders).set(data).where(eq(commercialOrders.id, id)).returning();
+    return updated;
+  }
+
+  // Campaign Performance
+  async getCampaignPerformance(orderId?: string) {
+    if (orderId) {
+      return db.select().from(campaignPerformance).where(eq(campaignPerformance.orderId, orderId)).orderBy(desc(campaignPerformance.createdAt));
+    }
+    return db.select().from(campaignPerformance).orderBy(desc(campaignPerformance.createdAt));
+  }
+  async createCampaignPerformance(data: InsertCampaignPerformance) {
+    const [created] = await db.insert(campaignPerformance).values(data).returning();
+    return created;
+  }
+  async updateCampaignPerformance(id: string, data: Partial<InsertCampaignPerformance>) {
+    const [updated] = await db.update(campaignPerformance).set(data).where(eq(campaignPerformance.id, id)).returning();
+    return updated;
+  }
+
+  // AI Advertiser Prompts
+  async getAiAdvertiserPrompts(status?: string) {
+    if (status) {
+      return db.select().from(aiAdvertiserPrompts).where(eq(aiAdvertiserPrompts.status, status)).orderBy(desc(aiAdvertiserPrompts.createdAt));
+    }
+    return db.select().from(aiAdvertiserPrompts).orderBy(desc(aiAdvertiserPrompts.createdAt));
+  }
+  async createAiAdvertiserPrompt(data: InsertAiAdvertiserPrompt) {
+    const [created] = await db.insert(aiAdvertiserPrompts).values(data).returning();
+    return created;
+  }
+  async updateAiAdvertiserPrompt(id: string, data: Partial<InsertAiAdvertiserPrompt>) {
+    const [updated] = await db.update(aiAdvertiserPrompts).set(data).where(eq(aiAdvertiserPrompts.id, id)).returning();
+    return updated;
+  }
+
+  // AI Content Log
+  async createAiContentLog(data: InsertAiContentLog) {
+    const [created] = await db.insert(aiContentLog).values(data).returning();
+    return created;
+  }
+  async getAiContentLogs(limit = 50) {
+    return db.select().from(aiContentLog).orderBy(desc(aiContentLog.generatedAt)).limit(limit);
+  }
+  async getAiContentLogCountToday() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [result] = await db.select({ count: count() }).from(aiContentLog).where(gte(aiContentLog.generatedAt, today));
+    return result?.count ?? 0;
   }
 }
 

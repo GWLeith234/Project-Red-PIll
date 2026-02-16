@@ -18,6 +18,7 @@ import {
   insertCommunityPollSchema, insertCommunityAnnouncementSchema, insertBusinessListingSchema,
   insertPollVoteSchema, insertCommunityPostSchema, insertCommunityLikeSchema,
   insertAdminPageConfigSchema,
+  insertCommercialLeadSchema, insertCommercialProposalSchema, insertCommercialOrderSchema, insertCampaignPerformanceSchema, insertAiAdvertiserPromptSchema, insertAiContentLogSchema,
   DEFAULT_ROLE_PERMISSIONS,
   type Role,
 } from "@shared/schema";
@@ -45,6 +46,7 @@ const DATE_FIELDS = [
   "marketingConsentAt", "smsConsentAt", "lastActiveAt", "bookmarkedAt",
   "moderatedAt", "revokedAt", "lastUsedAt", "tokenExpiresAt", "lastPostedAt",
   "lastRunAt", "nextRunAt", "injectedAt", "savedAt",
+  "lastActivityAt", "reviewedAt", "periodStart", "periodEnd", "generatedAt",
 ];
 function coerceDateFields(body: any) {
   if (!body || typeof body !== "object") return;
@@ -6485,6 +6487,328 @@ Provide comprehensive social listening intelligence including trending topics, k
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }
+  });
+
+  // ── Commercial Leads CRUD ──
+  app.get("/api/crm/leads", requireAuth, async (req, res) => {
+    const filters: any = {};
+    if (req.query.pipeline_type) filters.pipelineType = req.query.pipeline_type;
+    if (req.query.stage) filters.pipelineStage = req.query.stage;
+    const leads = await storage.getCommercialLeads(filters);
+    res.json(leads);
+  });
+
+  app.get("/api/crm/leads/:id", requireAuth, async (req, res) => {
+    const lead = await storage.getCommercialLead(req.params.id);
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+    res.json(lead);
+  });
+
+  app.post("/api/crm/leads", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const parsed = insertCommercialLeadSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    const lead = await storage.createCommercialLead(parsed.data);
+    res.status(201).json(lead);
+  });
+
+  app.patch("/api/crm/leads/:id", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const updated = await storage.updateCommercialLead(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ message: "Lead not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/crm/leads/:id", requireAuth, async (req, res) => {
+    await storage.deleteCommercialLead(req.params.id);
+    res.json({ success: true });
+  });
+
+  // ── Commercial Proposals CRUD ──
+  app.get("/api/crm/proposals", requireAuth, async (req, res) => {
+    const leadId = req.query.lead_id as string | undefined;
+    const proposals = await storage.getCommercialProposals(leadId);
+    res.json(proposals);
+  });
+
+  app.post("/api/crm/proposals", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const parsed = insertCommercialProposalSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    const proposal = await storage.createCommercialProposal(parsed.data);
+    res.status(201).json(proposal);
+  });
+
+  app.patch("/api/crm/proposals/:id", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const updated = await storage.updateCommercialProposal(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ message: "Proposal not found" });
+    res.json(updated);
+  });
+
+  // ── Commercial Orders CRUD ──
+  app.get("/api/crm/orders", requireAuth, async (req, res) => {
+    const filters: any = {};
+    if (req.query.lead_id) filters.leadId = req.query.lead_id;
+    if (req.query.status) filters.status = req.query.status;
+    const orders = await storage.getCommercialOrders(filters);
+    res.json(orders);
+  });
+
+  app.post("/api/crm/orders", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const parsed = insertCommercialOrderSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    const order = await storage.createCommercialOrder(parsed.data);
+    res.status(201).json(order);
+  });
+
+  app.patch("/api/crm/orders/:id", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const updated = await storage.updateCommercialOrder(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ message: "Order not found" });
+    res.json(updated);
+  });
+
+  // ── Revenue Dashboard ──
+  app.get("/api/crm/revenue/by-product", requireAuth, async (req, res) => {
+    try {
+      const orders = await storage.getCommercialOrders({ status: "active" });
+      const productRevenue: Record<string, number> = {};
+      for (const order of orders) {
+        const products = (order.products as any[]) || [];
+        for (const p of products) {
+          const name = p.product || p.name || "Unknown";
+          productRevenue[name] = (productRevenue[name] || 0) + (p.price || 0) * (p.quantity || 1);
+        }
+      }
+      const result = Object.entries(productRevenue).map(([product, revenue]) => ({ product, revenue })).sort((a, b) => b.revenue - a.revenue);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/crm/revenue/by-rep", requireAuth, async (req, res) => {
+    try {
+      const leads = await storage.getCommercialLeads();
+      const repRevenue: Record<string, number> = {};
+      for (const lead of leads) {
+        if (lead.pipelineStage === "closed_won") {
+          const rep = lead.assignedTo || "Unassigned";
+          repRevenue[rep] = (repRevenue[rep] || 0) + (lead.estimatedValue || 0);
+        }
+      }
+      const result = Object.entries(repRevenue).map(([rep, revenue]) => ({ rep, revenue })).sort((a, b) => b.revenue - a.revenue);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/crm/revenue/pipeline-value", requireAuth, async (req, res) => {
+    try {
+      const leads = await storage.getCommercialLeads();
+      const stages: Record<string, { count: number; value: number }> = {};
+      for (const lead of leads) {
+        const stage = lead.pipelineStage || "lead";
+        if (!stages[stage]) stages[stage] = { count: 0, value: 0 };
+        stages[stage].count++;
+        stages[stage].value += lead.estimatedValue || 0;
+      }
+      res.json(stages);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/crm/revenue/monthly", requireAuth, async (req, res) => {
+    try {
+      const leads = await storage.getCommercialLeads();
+      const monthly: Record<string, number> = {};
+      for (const lead of leads) {
+        if (lead.pipelineStage === "closed_won" && lead.updatedAt) {
+          const key = new Date(lead.updatedAt).toISOString().slice(0, 7);
+          monthly[key] = (monthly[key] || 0) + (lead.estimatedValue || 0);
+        }
+      }
+      const sorted = Object.entries(monthly).sort(([a], [b]) => a.localeCompare(b)).map(([month, revenue]) => ({ month, revenue }));
+      res.json(sorted);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Campaign Performance ──
+  app.get("/api/crm/campaign-performance", requireAuth, async (req, res) => {
+    const orderId = req.query.order_id as string | undefined;
+    const data = await storage.getCampaignPerformance(orderId);
+    res.json(data);
+  });
+
+  app.post("/api/crm/campaign-performance", requireAuth, async (req, res) => {
+    coerceDateFields(req.body);
+    const parsed = insertCampaignPerformanceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Invalid data", errors: parsed.error.errors });
+    const perf = await storage.createCampaignPerformance(parsed.data);
+    res.status(201).json(perf);
+  });
+
+  // ── AI Advertiser Prompts ──
+  app.get("/api/crm/ai/pending-prompts", requireAuth, async (req, res) => {
+    const prompts = await storage.getAiAdvertiserPrompts("pending");
+    res.json(prompts);
+  });
+
+  app.patch("/api/crm/ai/prompts/:id", requireAuth, async (req, res) => {
+    const updated = await storage.updateAiAdvertiserPrompt(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ message: "Prompt not found" });
+    res.json(updated);
+  });
+
+  // ── AI Content Log ──
+  app.get("/api/ai/content-log", requireAuth, async (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const logs = await storage.getAiContentLogs(limit);
+    res.json(logs);
+  });
+
+  app.get("/api/ai/tokens-today", requireAuth, async (req, res) => {
+    const count = await storage.getAiContentLogCountToday();
+    res.json({ count });
+  });
+
+  // ── Audience Resegment ──
+  app.post("/api/crm/audience/resegment", requireAuth, async (req, res) => {
+    try {
+      const { runSegmentation } = await import("./audience-segmentation");
+      const result = await runSegmentation();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // ── AI Sales Endpoints ──
+  app.post("/api/crm/ai/score-leads", requireAuth, async (req, res) => {
+    try {
+      const { scoreLeads } = await import("./ai-sales-engine");
+      const leads = await storage.getCommercialLeads();
+      const result = await scoreLeads(leads);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/crm/ai/suggest-upsells", requireAuth, async (req, res) => {
+    try {
+      const { suggestUpsells } = await import("./ai-sales-engine");
+      const orders = await storage.getCommercialOrders({ status: "active" });
+      const result = await suggestUpsells(orders);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/crm/ai/predict-churn", requireAuth, async (req, res) => {
+    try {
+      const { predictChurn } = await import("./ai-sales-engine");
+      const leads = await storage.getCommercialLeads({ pipelineType: "existing_client" });
+      const result = await predictChurn(leads);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/crm/ai/deal-insights/:leadId", requireAuth, async (req, res) => {
+    try {
+      const { generateDealInsights } = await import("./ai-sales-engine");
+      const lead = await storage.getCommercialLead(req.params.leadId);
+      if (!lead) return res.status(404).json({ message: "Lead not found" });
+      const result = await generateDealInsights(lead);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/crm/ai/auto-prompt/:orderId", requireAuth, async (req, res) => {
+    try {
+      const { autoPromptAdvertiser } = await import("./ai-sales-engine");
+      const order = await storage.getCommercialOrder(req.params.orderId);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      const perfData = await storage.getCampaignPerformance(req.params.orderId);
+      const result = await autoPromptAdvertiser(order, perfData);
+      if (result.shouldPrompt) {
+        await storage.createAiAdvertiserPrompt({
+          orderId: order.id,
+          leadId: order.leadId,
+          promptMessage: result.message,
+          suggestedIncrease: result.suggestedIncrease,
+          projections: result.projections,
+        });
+      }
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/crm/ai/daily-run", requireAuth, async (req, res) => {
+    try {
+      const { scoreLeads, suggestUpsells, predictChurn, autoPromptAdvertiser } = await import("./ai-sales-engine");
+      const allLeads = await storage.getCommercialLeads();
+      const staleLeads = allLeads.filter(l => !l.aiScore || (l.updatedAt && Date.now() - new Date(l.updatedAt).getTime() > 7 * 24 * 60 * 60 * 1000));
+      const scoreResult = staleLeads.length > 0 ? await scoreLeads(staleLeads) : [];
+      const existingClients = allLeads.filter(l => l.pipelineType === "existing_client");
+      const churnResult = existingClients.length > 0 ? await predictChurn(existingClients) : [];
+      const activeOrders = await storage.getCommercialOrders({ status: "active" });
+      const upsellResult = activeOrders.length > 0 ? await suggestUpsells(activeOrders) : [];
+      let autoPromptCount = 0;
+      for (const order of activeOrders) {
+        const perfData = await storage.getCampaignPerformance(order.id);
+        if (perfData.length > 0) {
+          const result = await autoPromptAdvertiser(order, perfData);
+          if (result.shouldPrompt) {
+            await storage.createAiAdvertiserPrompt({
+              orderId: order.id,
+              leadId: order.leadId,
+              promptMessage: result.message,
+              suggestedIncrease: result.suggestedIncrease,
+              projections: result.projections,
+            });
+            autoPromptCount++;
+          }
+        }
+      }
+      res.json({
+        summary: `AI Daily Run: Scored ${scoreResult.length} leads, found ${upsellResult.length} upsell opportunities, ${churnResult.filter((c: any) => c.churnRisk === 'high').length} clients at high churn risk, ${autoPromptCount} auto-prompts generated`,
+        scores: scoreResult,
+        upsells: upsellResult,
+        churn: churnResult,
+        autoPrompts: autoPromptCount,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── AI Content Generation ──
+  app.post("/api/ai/generate-content", requireAuth, async (req, res) => {
+    try {
+      const { contentType, params } = req.body;
+      if (!contentType) return res.status(400).json({ message: "contentType is required" });
+      const { generateContent } = await import("./ai-content-agent");
+      const result = await generateContent(contentType, params);
+      await storage.createAiContentLog({
+        contentType,
+        promptSummary: params?.topic || params?.headline || contentType,
+        modelUsed: "claude-sonnet-4-5-20250929",
+        tokensUsed: result.tokensUsed || 0,
+        userId: (req as any).session?.userId || null,
+      });
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/ai/inline-assist", requireAuth, async (req, res) => {
+    try {
+      const { action, text, options } = req.body;
+      if (!action || !text) return res.status(400).json({ message: "action and text are required" });
+      const { inlineAssist } = await import("./ai-content-agent");
+      const result = await inlineAssist(action, text, options);
+      await storage.createAiContentLog({
+        contentType: `inline_${action}`,
+        promptSummary: text.substring(0, 100),
+        modelUsed: "claude-sonnet-4-5-20250929",
+        tokensUsed: result.tokensUsed || 0,
+        userId: (req as any).session?.userId || null,
+      });
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   return httpServer;

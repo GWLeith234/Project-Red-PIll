@@ -1148,6 +1148,97 @@ export async function generateStoryFromText(
   return generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
 }
 
+const CONTENT_TYPE_PROMPTS: Record<string, (params: any) => string> = {
+  article: (p) => `Write a news article for a conservative media platform.
+Topic/Headline: ${p.headline || p.topic || "General news"}
+Target Keywords: ${p.keywords || "none specified"}
+Tone: ${p.tone || "breaking news"}
+Target Word Count: ${p.wordCount || 800}
+
+Write a compelling, well-structured article with a strong headline, lead paragraph, supporting details, and conclusion. Include relevant quotes where appropriate.`,
+
+  social: (p) => `Write a social media post for a conservative media platform.
+Platform: ${p.platform || "Twitter/X"}
+Topic: ${p.topic || "General"}
+Tone: ${p.tone || "engaging"}
+Include Hashtags: ${p.includeHashtags !== false ? "Yes" : "No"}
+
+Write platform-appropriate content with the right length and style for ${p.platform || "Twitter/X"}.`,
+
+  email: (p) => `Write an email campaign for a conservative media platform.
+Subject Line: ${p.subjectLine || "Generate one"}
+Purpose: ${p.purpose || "engagement"}
+Audience Segment: ${p.audienceSegment || "general subscribers"}
+Key Message: ${p.keyMessage || ""}
+
+Write a compelling email with subject line, preview text, body copy, and clear call-to-action.`,
+
+  newsletter: (p) => `Write a newsletter edition for a conservative media platform.
+Edition Name: ${p.editionName || "Weekly Digest"}
+Number of Sections: ${p.sections || 4}
+Tone: ${p.tone || "conversational"}
+
+Create a newsletter with an engaging intro paragraph, ${p.sections || 4} content sections with headers and summaries, and a closing section.`,
+
+  press_release: (p) => `Write a press release for a conservative media platform.
+Headline: ${p.headline || ""}
+Key Announcement: ${p.announcement || ""}
+Quotes to Include: ${p.quotes || "Generate appropriate quotes"}
+Boilerplate: ${p.boilerplate || "Include standard media platform boilerplate"}
+
+Write a professional press release following AP style with dateline, lead, body, quotes, and boilerplate.`,
+
+  ad_copy: (p) => `Write advertising copy for a conservative media platform.
+Product/Offer: ${p.product || ""}
+Target Audience: ${p.targetAudience || "conservative news readers"}
+Format: ${p.format || "banner headline"}
+Character Limit: ${p.characterLimit || "no limit"}
+
+Write compelling ad copy that drives action. Keep within character limits if specified.`,
+};
+
+const INLINE_ASSIST_PROMPTS: Record<string, (text: string, options?: any) => string> = {
+  improve: (text) => `Improve this text for clarity and engagement while maintaining the same meaning and tone. Return only the improved text:\n\n${text}`,
+  shorten: (text) => `Condense this text while preserving all key points. Make it approximately 50% shorter. Return only the shortened text:\n\n${text}`,
+  lengthen: (text) => `Expand this text with supporting details, examples, and context. Make it approximately 50% longer. Return only the expanded text:\n\n${text}`,
+  change_tone: (text, opts) => `Rewrite this text in a ${opts?.tone || "professional"} tone. Return only the rewritten text:\n\n${text}`,
+  headlines: (text) => `Generate 5 compelling headline variations for this content. Return as a JSON array of strings:\n\n${text}`,
+  seo_keywords: (text) => `Analyze this text and suggest SEO keyword insertions. Return a JSON object with: { "keywords": ["keyword1", "keyword2", ...], "suggestions": ["insert X at paragraph Y", ...] }:\n\n${text}`,
+  subject_lines: (text) => `Generate 5 email subject line options for this content with predicted effectiveness reasoning. Return as a JSON array of { "subjectLine": "...", "reasoning": "..." }:\n\n${text}`,
+};
+
+export async function generateContent(contentType: string, params: any = {}): Promise<{ content: string; tokensUsed: number }> {
+  const promptFn = CONTENT_TYPE_PROMPTS[contentType];
+  if (!promptFn) throw new Error(`Unknown content type: ${contentType}`);
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 4096,
+    system: "You are writing for a conservative media platform targeting an engaged audience of news readers and podcast listeners. Write high-quality, professional content.",
+    messages: [{ role: "user", content: promptFn(params) }],
+  });
+
+  const text = response.content[0].type === "text" ? response.content[0].text : "";
+  const tokensUsed = (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
+  return { content: text, tokensUsed };
+}
+
+export async function inlineAssist(action: string, text: string, options?: any): Promise<{ result: string; tokensUsed: number }> {
+  const promptFn = INLINE_ASSIST_PROMPTS[action];
+  if (!promptFn) throw new Error(`Unknown action: ${action}`);
+
+  const response = await claude.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: 4096,
+    system: "You are an AI writing assistant for a conservative media platform. Provide clear, direct results without preamble or explanation.",
+    messages: [{ role: "user", content: promptFn(text, options) }],
+  });
+
+  const result = response.content[0].type === "text" ? response.content[0].text : "";
+  const tokensUsed = (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
+  return { result, tokensUsed };
+}
+
 export async function backgroundTranscribe(episodeId: string): Promise<void> {
   const episode = await storage.getEpisode(episodeId);
   if (!episode) return;
