@@ -1,0 +1,112 @@
+Sprint S5: Build real-time features including a broadcast-ready live visitor map and a live activity feed for the Dashboard.
+
+PART A — SERVER-SENT EVENTS INFRASTRUCTURE:
+
+(1) Add a live_sessions table to the Drizzle schema:
+- id: uuid, primary key
+- session_id: text, not null, unique
+- ip_address: text
+- latitude: numeric, nullable
+- longitude: numeric, nullable
+- country: text, nullable
+- city: text, nullable
+- current_page: text
+- user_agent: text
+- device_type: text
+- connected_at: timestamp, default now
+- last_activity_at: timestamp, default now
+
+(2) Add IP geolocation support. Install a lightweight IP lookup package or use a free API. Create server/geo-lookup.ts:
+- Function: lookupIP(ip: string) => Promise<{ lat: number, lng: number, country: string, city: string } | null>
+- Use the free ip-api.com JSON endpoint (http://ip-api.com/json/{ip}) with a rate limit of 45 requests per minute
+- Cache results in memory (Map<string, result>) for 1 hour so repeat IPs don't burn rate limits
+- For localhost/private IPs, return null (or a default location for dev testing)
+- Add a fallback: if ip-api fails, return null gracefully
+
+(3) Update the POST /api/public/analytics/pageview endpoint to also create or update a live_sessions record:
+- On each pageview, upsert by session_id: set current_page, last_activity_at = now, and if latitude is null, run lookupIP and store the result
+- This means live_sessions always reflects the most recent state of active visitors
+
+(4) Add a cleanup function: DELETE from live_sessions WHERE last_activity_at < now - 10 minutes. Run this every 60 seconds using setInterval on the server. This keeps the table showing only truly active visitors.
+
+(5) Build the SSE endpoint: GET /api/analytics/live-visitors (requires auth)
+- Uses Server-Sent Events (res.setHeader('Content-Type', 'text/event-stream'), etc.)
+- On connection, send all current live_sessions as an initial "snapshot" event: { type: 'snapshot', sessions: [...] }
+- Every 5 seconds, query live_sessions and send a "update" event with: { type: 'update', activeSessions: count, sessions: [...], topCountries: [...top 5], pagesPerMinute: number }
+- When a new pageview comes in, broadcast a "ping" event immediately: { type: 'ping', lat: number, lng: number, country: string, page: string } — this is what makes dots appear in real time
+- Keep connection alive with a comment line every 30 seconds (: keepalive\n\n)
+- Track connected SSE clients in an array. On client disconnect, remove from array.
+
+PART B — LIVE VISITOR MAP:
+
+(6) Build client/src/components/admin/LiveVisitorMap.tsx:
+- Full-width component with 16:9 aspect ratio
+- Dark theme map background using D3.js with TopoJSON world map data
+- Install: npm install d3 topojson-client @types/d3 @types/topojson-client
+- Fetch the world TopoJSON from a CDN: https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json
+- Render countries as dark gray (#1a1a2e) outlines on a near-black background (#0d0d1a)
+- Country borders in subtle dark blue (#16213e)
+
+(7) Dot animation system on the map:
+- Connect to the SSE endpoint using EventSource
+- On "snapshot" event: render existing sessions as dim dots at their lat/lng coordinates
+- On "ping" event: add a new dot with a pulse animation:
+  1. Dot appears as a bright colored circle (use branding primary color or amber #f59e0b)
+  2. Pulse ring expands outward from the dot and fades (CSS animation, 2 seconds)
+  3. Dot glows brightly for 3 seconds, then dims to a smaller persistent dot
+  4. Persistent dot remains while the session is active
+- On "update" event: remove dots for sessions no longer in the active list (fade out over 1 second)
+- When dots overlap (within 20px), cluster them into a larger circle with a count badge
+
+(8) Stats overlay bar at the bottom of the map:
+- Semi-transparent dark bar across the bottom
+- Left: "LIVE" badge (pulsing red dot) + active user count (large, animated number)
+- Center: Top 5 countries with flag emoji and visitor count
+- Right: Pages per minute (calculated from pageview frequency)
+- All stats update in real time from the SSE "update" events
+
+(9) Create a dedicated broadcast route: /analytics/live-map
+- This route renders ONLY the LiveVisitorMap component — no sidebar, no header, no admin chrome
+- Full viewport, edge-to-edge, black background
+- Purpose: can be opened in a separate browser window and cast to a TV/monitor for office display
+- Add a small gear icon in the top-right corner (fades in on hover) to toggle: show/hide stats bar, show/hide country labels, zoom level
+
+(10) Add the LiveVisitorMap to the admin Analytics page as the first widget at the top, spanning full width. Below it, show the existing analytics widgets from S3.
+
+PART C — LIVE ACTIVITY FEED:
+
+(11) Build a server-side activity tracking system. Create server/activity-feed.ts:
+- Maintain an in-memory circular buffer of the last 100 platform activities
+- Each activity: { id: string, type: string, icon: string, description: string, timestamp: Date, metadata?: any }
+- Track these events by hooking into existing endpoints:
+  - New subscriber: when POST /api/public/subscribe succeeds → { type: 'subscriber', icon: 'UserPlus', description: 'New subscriber: j***@email.com' }
+  - Article published: when article status changes to published → { type: 'content', icon: 'FileText', description: 'Published: "Article Title"' }
+  - Push notification sent: when push endpoint fires → { type: 'push', icon: 'Bell', description: 'Push notification delivered to X subscribers' }
+  - Community post: when POST /api/public/community succeeds → { type: 'community', icon: 'MessageSquare', description: 'New community post by Name' }
+  - Poll vote: when POST /api/public/polls/:id/vote succeeds → { type: 'poll', icon: 'BarChart', description: 'Vote cast on: "Poll Question"' }
+  - Event created: when POST /api/events succeeds → { type: 'event', icon: 'Calendar', description: 'New event: "Event Title"' }
+  - NPS submission: when POST /api/public/feedback/nps succeeds → { type: 'feedback', icon: 'Star', description: 'NPS score received: X/10' }
+- Mask emails for privacy (show first letter + *** + @domain.com)
+
+(12) Add an SSE endpoint for the activity feed: GET /api/analytics/live-feed (requires auth)
+- On connection, send last 20 activities as a "history" event
+- When a new activity is added to the buffer, broadcast it to all connected clients as an "activity" event
+- Same keepalive pattern as the visitor map SSE
+
+(13) Build client/src/components/admin/LiveActivityFeed.tsx:
+- Connects to the SSE endpoint
+- Renders a scrollable list of activity entries
+- Each entry: icon (Lucide, dynamically loaded), description text, relative timestamp ("2s ago", "1m ago")
+- New entries slide in from the top with a subtle animation (translateY + opacity transition)
+- Auto-scrolls to keep newest at top, but pauses auto-scroll if user has scrolled down
+- Max height: 500px with overflow-y scroll
+- Show a pulsing green dot and "Live" indicator at the top
+
+(14) Add the LiveActivityFeed to the Dashboard page, replacing any placeholder activity feed from S2. Position it as a DataCard below the MetricsStrip, full width.
+
+PART D — DEV MODE TESTING:
+
+(15) Since the app runs on localhost in dev and IP geolocation won't work for 127.0.0.1, add dev mode helpers:
+- In server/geo-lookup.ts: if the IP is localhost/private, return a random location from a predefined list of 20 major cities worldwide (New York, London, Tokyo, Sydney, etc.) — this makes the map interesting during development
+- Add a dev endpoint: POST /api/analytics/simulate-visitor (only available in dev mode) — creates a fake live_session with a random city, sends an SSE ping event. This lets you test the map animation without real traffic.
+- Add a button on the Analytics page (dev mode only): "Simulate 10 Visitors" that calls the simulate endpoint 10 times with 500ms delays, creating a burst of dots on the map

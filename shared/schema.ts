@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, real, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, real, jsonb, index, uniqueIndex, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1483,5 +1483,24 @@ export const aiContentLog = pgTable("ai_content_log", {
 export const insertAiContentLogSchema = createInsertSchema(aiContentLog).omit({ id: true, generatedAt: true });
 export type InsertAiContentLog = z.infer<typeof insertAiContentLogSchema>;
 export type AiContentLog = typeof aiContentLog.$inferSelect;
+
+export const liveSessions = pgTable("live_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: text("session_id").notNull().unique(),
+  ipAddress: text("ip_address"),
+  latitude: numeric("latitude"),
+  longitude: numeric("longitude"),
+  country: text("country"),
+  city: text("city"),
+  currentPage: text("current_page"),
+  userAgent: text("user_agent"),
+  deviceType: text("device_type"),
+  connectedAt: timestamp("connected_at").defaultNow(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+});
+
+export const insertLiveSessionSchema = createInsertSchema(liveSessions).omit({ id: true, connectedAt: true, lastActivityAt: true });
+export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
+export type LiveSession = typeof liveSessions.$inferSelect;
 
 export * from "./models/chat";
