@@ -1197,4 +1197,26 @@ export const insertDevicePushSubscriptionSchema = createInsertSchema(devicePushS
 export type InsertDevicePushSubscription = z.infer<typeof insertDevicePushSubscriptionSchema>;
 export type DevicePushSubscription = typeof devicePushSubscriptions.$inferSelect;
 
+// ── Subscriber Bookmarks ──
+export const subscriberBookmarks = pgTable("subscriber_bookmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriberEmail: text("subscriber_email").notNull(),
+  articleId: text("article_id").notNull(),
+  articleTitle: text("article_title"),
+  articleDescription: text("article_description"),
+  coverImage: text("cover_image"),
+  podcastId: text("podcast_id"),
+  podcastTitle: text("podcast_title"),
+  readingTime: text("reading_time"),
+  publishedAt: timestamp("published_at"),
+  savedAt: timestamp("saved_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("subscriber_bookmarks_email_article_idx").on(table.subscriberEmail, table.articleId),
+  index("subscriber_bookmarks_email_idx").on(table.subscriberEmail),
+]);
+
+export const insertSubscriberBookmarkSchema = createInsertSchema(subscriberBookmarks).omit({ id: true, savedAt: true });
+export type InsertSubscriberBookmark = z.infer<typeof insertSubscriberBookmarkSchema>;
+export type SubscriberBookmark = typeof subscriberBookmarks.$inferSelect;
+
 export * from "./models/chat";
