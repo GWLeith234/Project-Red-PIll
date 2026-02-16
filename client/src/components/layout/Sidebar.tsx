@@ -56,13 +56,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Content Factory",
+    label: "Content",
     items: [
       { name: "AI Content Generator", href: "/content", icon: Factory, permission: "content.view" },
       { name: "AI Content Scheduler", href: "/scheduler", icon: CalendarClock, permission: "content.view" },
       { name: "AI Campaign Builder", href: "/campaigns", icon: Send, permission: "content.view" },
       { name: "Newsletters", href: "/newsletters", icon: Mail, permission: "content.view" },
       { name: "AI Content Editor", href: "/moderation", icon: Bot, permission: "content.edit" },
+      { name: "AI Site Editor", href: "/site-builder", icon: Blocks, permission: "customize.edit" },
       { name: "Community", href: "/community", icon: Heart, permission: "content.view" },
     ],
   },
@@ -74,7 +75,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Revenue Factory",
+    label: "Monetization",
     items: [
       { name: "Monetization", href: "/monetization", icon: DollarSign, permission: "monetization.view" },
       { name: "Ad Resizer", href: "/ad-resizer", icon: Scaling, permission: "monetization.view" },
@@ -89,7 +90,7 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Audience",
+    label: "Network",
     items: [
       { name: "Podcasts", href: "/network", icon: Network, permission: "network.view" },
       { name: "View Live Site", href: "/home", icon: ExternalLink, permission: "dashboard.view" },
@@ -104,7 +105,6 @@ const navGroups: NavGroup[] = [
   {
     label: "Admin",
     items: [
-      { name: "Site Builder", href: "/site-builder", icon: Blocks, permission: "customize.edit" },
       { name: "Customize", href: "/customize", icon: Paintbrush, permission: "customize.view" },
       { name: "User Management", href: "/users", icon: Shield, permission: "users.view" },
       { name: "Legal", href: "/legal-admin", icon: FileText, permission: "settings.view" },
