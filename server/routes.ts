@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache } from "@shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
@@ -11,7 +11,7 @@ import {
   insertCompanyContactSchema, insertDealSchema, insertDealActivitySchema, insertProductSchema, insertAdCreativeSchema,
   insertOutboundCampaignSchema, insertHeroSlideSchema, insertNewsLayoutSectionSchema, insertDealLineItemSchema, insertCampaignEmailSchema,
   insertApiKeySchema, insertTaskSchema, insertTaskCommentSchema, insertTaskActivityLogSchema, insertNewsletterScheduleSchema,
-  insertNpsSurveySchema,
+  insertNpsSurveySchema, insertPageAnalyticsSchema, insertNpsResponseSchema, insertUserFeedbackSchema, insertAiInsightsCacheSchema,
   insertLegalTemplateSchema, insertDeviceRegistrationSchema, insertContentBookmarkSchema,
   insertSitePageSchema, insertPageRowSchema, insertPageWidgetSchema, insertPageTemplateSchema,
   insertCommunityEventSchema, insertObituarySchema, insertClassifiedSchema,
@@ -26,6 +26,7 @@ import { z } from "zod";
 import { hashPassword, verifyPassword, sanitizeUser, requireAuth, requirePermission } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import multer from "multer";
+import { UAParser } from "ua-parser-js";
 import { adSizes } from "./ad-sizes";
 import { fetchImageFromUrl, processImageForSizes, getImageMetadata, validateFit } from "./image-resizer";
 import rateLimit from "express-rate-limit";
@@ -6060,6 +6061,395 @@ Provide comprehensive social listening intelligence including trending topics, k
       }
     } catch (e) { console.error("Failed to seed admin page configs:", e); }
   })();
+
+  // --- Analytics Tracking (public) ---
+  const publicTrackingLimit = rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests" } });
+
+  app.post("/api/public/analytics/pageview", publicTrackingLimit, async (req, res) => {
+    try {
+      const { url, pageTitle, sessionId, visitorId, referrer, userAgent } = req.body;
+      if (!url || !sessionId) return res.status(400).json({ message: "url and sessionId required" });
+      const parser = new UAParser(userAgent || "");
+      const result = parser.getResult();
+      const deviceType = result.device.type || "desktop";
+      const browser = result.browser.name || "unknown";
+      const os = result.os.name || "unknown";
+      const ipAddress = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+      const [row] = await db.insert(pageAnalytics).values({
+        url, pageTitle: pageTitle || null, sessionId, visitorId: visitorId || null,
+        ipAddress, userAgent: userAgent || null, referrer: referrer || null,
+        deviceType, browser, os,
+      }).returning();
+      res.json({ id: row.id });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/public/analytics/pageview/:id", async (req, res) => {
+    try {
+      const { timeOnPage } = req.body;
+      if (typeof timeOnPage !== "number") return res.status(400).json({ message: "timeOnPage required" });
+      await db.update(pageAnalytics).set({ timeOnPage }).where(eq(pageAnalytics.id, req.params.id));
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // --- NPS & Feedback (public) ---
+  const publicFeedbackLimit = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { message: "Too many requests" } });
+
+  app.post("/api/public/feedback/nps", publicFeedbackLimit, async (req, res) => {
+    try {
+      const { score, comment, email } = req.body;
+      if (typeof score !== "number" || score < 0 || score > 10) return res.status(400).json({ message: "score must be 0-10" });
+      const [row] = await db.insert(npsResponses).values({
+        score, comment: comment || null, respondentEmail: email || null,
+      }).returning();
+      res.json(row);
+      if (comment) {
+        import("./ai-analytics").then(({ analyzeFeedbackSentiment }) => {
+          analyzeFeedbackSentiment([{ id: row.id, text: comment, type: "nps" }]).catch(() => {});
+        }).catch(() => {});
+      }
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/public/feedback/rating", publicFeedbackLimit, async (req, res) => {
+    try {
+      const { rating, feedbackText, email, pageUrl } = req.body;
+      if (typeof rating !== "number" || rating < 1 || rating > 5) return res.status(400).json({ message: "rating must be 1-5" });
+      const [row] = await db.insert(userFeedback).values({
+        rating, feedbackText: feedbackText || null, respondentEmail: email || null, pageUrl: pageUrl || null,
+      }).returning();
+      res.json(row);
+      if (feedbackText) {
+        import("./ai-analytics").then(({ analyzeFeedbackSentiment }) => {
+          analyzeFeedbackSentiment([{ id: row.id, text: feedbackText, type: "feedback" }]).catch(() => {});
+        }).catch(() => {});
+      }
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // --- Analytics Dashboard (auth required) ---
+  app.get("/api/analytics/overview", requireAuth, async (_req, res) => {
+    try {
+      const now = new Date();
+      const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      const liveResult = await db.execute(sql`SELECT COUNT(DISTINCT session_id) as count FROM page_analytics WHERE created_at >= ${fiveMinAgo}`);
+      const totalResult = await db.execute(sql`SELECT COUNT(*) as count FROM page_analytics WHERE created_at >= ${thirtyDaysAgo}`);
+      const uniqueResult = await db.execute(sql`SELECT COUNT(DISTINCT visitor_id) as count FROM page_analytics WHERE created_at >= ${thirtyDaysAgo} AND visitor_id IS NOT NULL`);
+      const avgDurationResult = await db.execute(sql`SELECT COALESCE(AVG(time_on_page), 0) as avg FROM page_analytics WHERE created_at >= ${thirtyDaysAgo} AND time_on_page IS NOT NULL`);
+      
+      const totalSessions = await db.execute(sql`SELECT COUNT(DISTINCT session_id) as total FROM page_analytics WHERE created_at >= ${thirtyDaysAgo}`);
+      const bounceSessions = await db.execute(sql`SELECT COUNT(*) as bounced FROM (SELECT session_id FROM page_analytics WHERE created_at >= ${thirtyDaysAgo} GROUP BY session_id HAVING COUNT(*) = 1) sub`);
+      
+      const totalS = Number(totalSessions.rows[0]?.total || 1);
+      const bouncedS = Number(bounceSessions.rows[0]?.bounced || 0);
+      
+      res.json({
+        liveVisitors: Number(liveResult.rows[0]?.count || 0),
+        totalPageviews: Number(totalResult.rows[0]?.count || 0),
+        uniqueVisitors: Number(uniqueResult.rows[0]?.count || 0),
+        avgSessionDuration: Math.round(Number(avgDurationResult.rows[0]?.avg || 0)),
+        bounceRate: totalS > 0 ? Math.round((bouncedS / totalS) * 100) : 0,
+      });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/pageviews", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const prevStartDate = new Date(startDate.getTime() - days * 24 * 60 * 60 * 1000);
+      
+      const current = await db.execute(sql`SELECT DATE(created_at) as date, COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} GROUP BY DATE(created_at) ORDER BY date`);
+      const previous = await db.execute(sql`SELECT DATE(created_at) as date, COUNT(*) as count FROM page_analytics WHERE created_at >= ${prevStartDate} AND created_at < ${startDate} GROUP BY DATE(created_at) ORDER BY date`);
+      
+      res.json({ current: current.rows, previous: previous.rows });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/top-pages", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const result = await db.execute(sql`
+        SELECT url, COUNT(*) as views, 
+          COALESCE(AVG(time_on_page), 0) as avg_time,
+          ROUND(100.0 * SUM(CASE WHEN session_id IN (
+            SELECT session_id FROM page_analytics WHERE created_at >= ${startDate} GROUP BY session_id HAVING COUNT(*) = 1
+          ) THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as bounce_rate
+        FROM page_analytics WHERE created_at >= ${startDate}
+        GROUP BY url ORDER BY views DESC LIMIT ${limit}
+      `);
+      res.json(result.rows);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/devices", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const devices = await db.execute(sql`SELECT device_type, COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} GROUP BY device_type ORDER BY count DESC`);
+      const browsers = await db.execute(sql`SELECT browser, COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} GROUP BY browser ORDER BY count DESC LIMIT 5`);
+      const oses = await db.execute(sql`SELECT os, COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} GROUP BY os ORDER BY count DESC LIMIT 5`);
+      
+      res.json({ devices: devices.rows, browsers: browsers.rows, os: oses.rows });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/referrers", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const result = await db.execute(sql`SELECT referrer, COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} GROUP BY referrer ORDER BY count DESC LIMIT 30`);
+      
+      const sources: Record<string, { count: number; type: string }> = {};
+      for (const row of result.rows as any[]) {
+        const ref = (row.referrer || "").toLowerCase();
+        let type = "direct";
+        if (!ref || ref === "" || ref === "null") type = "direct";
+        else if (ref.includes("google") || ref.includes("bing") || ref.includes("yahoo") || ref.includes("duckduckgo")) type = "search";
+        else if (ref.includes("facebook") || ref.includes("twitter") || ref.includes("instagram") || ref.includes("linkedin") || ref.includes("tiktok") || ref.includes("reddit")) type = "social";
+        else type = "referral";
+        
+        if (!sources[type]) sources[type] = { count: 0, type };
+        sources[type].count += Number(row.count);
+      }
+      
+      res.json(Object.values(sources).sort((a, b) => b.count - a.count));
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/geo", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const result = await db.execute(sql`SELECT country, COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} AND country IS NOT NULL GROUP BY country ORDER BY count DESC LIMIT 10`);
+      res.json(result.rows);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/sessions", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const result = await db.execute(sql`
+        SELECT 
+          CASE 
+            WHEN COALESCE(time_on_page, 0) <= 30 THEN '0-30s'
+            WHEN time_on_page <= 60 THEN '30s-1m'
+            WHEN time_on_page <= 180 THEN '1-3m'
+            WHEN time_on_page <= 300 THEN '3-5m'
+            WHEN time_on_page <= 600 THEN '5-10m'
+            ELSE '10m+'
+          END as bucket,
+          COUNT(*) as count
+        FROM page_analytics WHERE created_at >= ${startDate} AND time_on_page IS NOT NULL
+        GROUP BY bucket ORDER BY MIN(COALESCE(time_on_page, 0))
+      `);
+      res.json(result.rows);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/bounce-rate", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const result = await db.execute(sql`
+        WITH daily AS (
+          SELECT DATE(created_at) as date,
+            COUNT(DISTINCT session_id) as total_sessions
+          FROM page_analytics WHERE created_at >= ${startDate}
+          GROUP BY DATE(created_at)
+        ),
+        bounced AS (
+          SELECT DATE(created_at) as date,
+            COUNT(DISTINCT session_id) as bounce_sessions
+          FROM page_analytics WHERE created_at >= ${startDate}
+            AND session_id IN (
+              SELECT session_id FROM page_analytics WHERE created_at >= ${startDate}
+              GROUP BY session_id HAVING COUNT(*) = 1
+            )
+          GROUP BY DATE(created_at)
+        )
+        SELECT daily.date, 
+          CASE WHEN daily.total_sessions > 0 
+            THEN ROUND(100.0 * COALESCE(bounced.bounce_sessions, 0) / daily.total_sessions, 1)
+            ELSE 0 END as bounce_rate
+        FROM daily LEFT JOIN bounced ON daily.date = bounced.date
+        ORDER BY daily.date
+      `);
+      res.json(result.rows);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // --- NPS Analytics (auth required) ---
+  app.get("/api/analytics/nps", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 90;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const all = await db.execute(sql`SELECT score, created_at FROM nps_responses WHERE created_at >= ${startDate}`);
+      const rows = all.rows as any[];
+      
+      const promoters = rows.filter(r => r.score >= 9).length;
+      const detractors = rows.filter(r => r.score <= 6).length;
+      const total = rows.length || 1;
+      const npsScore = Math.round(((promoters - detractors) / total) * 100);
+      
+      const monthly = await db.execute(sql`
+        SELECT DATE_TRUNC('month', created_at) as month,
+          COUNT(*) as total,
+          SUM(CASE WHEN score >= 9 THEN 1 ELSE 0 END) as promoters,
+          SUM(CASE WHEN score <= 6 THEN 1 ELSE 0 END) as detractors
+        FROM nps_responses WHERE created_at >= ${startDate}
+        GROUP BY DATE_TRUNC('month', created_at) ORDER BY month
+      `);
+      
+      const feedback = await db.execute(sql`SELECT * FROM user_feedback ORDER BY created_at DESC LIMIT 20`);
+      const avgRating = await db.execute(sql`SELECT COALESCE(AVG(rating), 0) as avg, COUNT(*) as count FROM user_feedback`);
+      const ratingDist = await db.execute(sql`SELECT rating, COUNT(*) as count FROM user_feedback GROUP BY rating ORDER BY rating`);
+      
+      res.json({
+        npsScore,
+        totalResponses: rows.length,
+        promoters, detractors, passives: rows.length - promoters - detractors,
+        monthlyTrend: monthly.rows,
+        recentFeedback: feedback.rows,
+        avgRating: Number(avgRating.rows[0]?.avg || 0),
+        totalFeedback: Number(avgRating.rows[0]?.count || 0),
+        ratingDistribution: ratingDist.rows,
+      });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // --- Content Performance Analytics (auth required) ---
+  app.get("/api/analytics/content-performance", requireAuth, async (req, res) => {
+    try {
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      
+      const byTactic = await db.execute(sql`
+        SELECT cp.type, COUNT(pa.id) as views, COALESCE(AVG(pa.time_on_page), 0) as avg_time
+        FROM content_pieces cp 
+        LEFT JOIN page_analytics pa ON pa.url LIKE '%' || cp.id || '%' AND pa.created_at >= ${startDate}
+        GROUP BY cp.type ORDER BY views DESC
+      `);
+      
+      const topArticles = await db.execute(sql`
+        SELECT cp.id, cp.title, cp.type, cp.author, COUNT(pa.id) as views, COALESCE(AVG(pa.time_on_page), 0) as avg_time
+        FROM content_pieces cp 
+        LEFT JOIN page_analytics pa ON pa.url LIKE '%' || cp.id || '%' AND pa.created_at >= ${startDate}
+        GROUP BY cp.id, cp.title, cp.type, cp.author
+        ORDER BY views DESC LIMIT 20
+      `);
+      
+      const byAuthor = await db.execute(sql`
+        SELECT cp.author, COUNT(pa.id) as views, COUNT(DISTINCT cp.id) as pieces
+        FROM content_pieces cp 
+        LEFT JOIN page_analytics pa ON pa.url LIKE '%' || cp.id || '%' AND pa.created_at >= ${startDate}
+        WHERE cp.author IS NOT NULL
+        GROUP BY cp.author ORDER BY views DESC LIMIT 10
+      `);
+      
+      const totalViews = await db.execute(sql`SELECT COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate}`);
+      const reads = await db.execute(sql`SELECT COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate} AND time_on_page > 30`);
+      const newSubs = await db.execute(sql`SELECT COUNT(*) as count FROM subscribers WHERE created_at >= ${startDate}`);
+      
+      res.json({
+        byTactic: byTactic.rows,
+        topContent: topArticles.rows,
+        byAuthor: byAuthor.rows,
+        funnel: {
+          impressions: Number(totalViews.rows[0]?.count || 0),
+          reads: Number(reads.rows[0]?.count || 0),
+          shares: 0,
+          subscribes: Number(newSubs.rows[0]?.count || 0),
+        },
+      });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // --- AI Analytics Endpoints ---
+  app.post("/api/analytics/ai/insights", requireAuth, async (req, res) => {
+    try {
+      const { generateAnalyticsInsights, getCachedInsight, cacheInsight } = await import("./ai-analytics");
+      const period = (req.body.period || "30d") as "7d" | "30d" | "90d";
+      const result = await generateAnalyticsInsights(period);
+      await cacheInsight("insights", result);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/analytics/ai/content-analysis", requireAuth, async (_req, res) => {
+    try {
+      const { analyzeContentPerformance } = await import("./ai-analytics");
+      const result = await analyzeContentPerformance();
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/analytics/ai/digest", requireAuth, async (_req, res) => {
+    try {
+      const { generateWeeklyDigest, cacheInsight } = await import("./ai-analytics");
+      const result = await generateWeeklyDigest();
+      await cacheInsight("digest", result);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/analytics/ai/cached", requireAuth, async (req, res) => {
+    try {
+      const { getCachedInsight } = await import("./ai-analytics");
+      const type = (req.query.type as string) || "insights";
+      const cached = await getCachedInsight(type);
+      res.json(cached ? { data: cached.data, generatedAt: cached.generated_at } : null);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
 
   return httpServer;
 }

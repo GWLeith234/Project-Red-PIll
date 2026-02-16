@@ -4,10 +4,12 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp, CalendarDays, Users } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { usePageTracking } from "@/hooks/use-page-tracking";
 import { useAudioPlayerOptional } from "@/components/AudioPlayerProvider";
 import MiniPlayer from "@/components/MiniPlayer";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
+import NpsWidget from "@/components/NpsWidget";
 
 function usePublicPodcasts() {
   return useQuery({
@@ -235,6 +237,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
   const audioPlayer = useAudioPlayerOptional();
   const hasActivePlayer = !!audioPlayer?.currentEpisode;
   const [location, navigate] = useLocation();
+  usePageTracking();
 
   const platformName = branding?.companyName || "MediaTech Empire";
   const tagline = branding?.tagline || "AI-Powered Media Platform";
@@ -518,6 +521,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
 
       <PWAInstallPrompt />
       <CookieConsentBanner />
+      <NpsWidget />
 
       <footer className="bg-gray-950 text-gray-400 print:hidden" data-testid="audience-footer">
         <div className="max-w-[1400px] mx-auto px-4 py-10">
