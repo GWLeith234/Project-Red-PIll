@@ -1,0 +1,301 @@
+# Sprint: Advertising System — Sponsorship-First Model
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build the MediaTech Empire Advertising System. The core philosophy is sponsorship packages first — selling trusted voice association with podcast hosts — with traditional banner ads as a secondary product. The system covers four jobs: Sell it, Show it, Prove it, Grow it.
+
+---
+
+PART A — DATABASE:
+
+(1) Add these tables to the Drizzle schema and run migrations:
+
+sponsorship_packages table:
+- id: uuid, primary key
+- name: text (e.g. "Bronze Episode Sponsor", "Gold Presenting Sponsor")
+- tier: text (bronze, silver, gold, platinum)
+- description: text
+- price_monthly: numeric
+- price_per_episode: numeric, nullable
+- includes_show_hero: boolean, default false (logo appears in show page hero)
+- includes_episode_cards: boolean, default false (logo on every episode card in browse grid)
+- includes_article_injection: boolean, default false (sponsor banner injected into AI-generated articles)
+- includes_push_mention: boolean, default false (sponsor mentioned in push notifications)
+- includes_qr_code: boolean, default false (QR code on podcast player and show pages)
+- includes_host_read_copy: boolean, default false (AI generates host-read ad copy for episodes)
+- includes_network_wide: boolean, default false (platinum — appears across ALL shows)
+- max_shows: integer, nullable (how many shows included, null = unlimited)
+- impression_estimate: integer, nullable (estimated monthly impressions for sales proposals)
+- is_active: boolean, default true
+- created_at: timestamp, default now()
+
+Seed 4 tiers:
+- Bronze "Episode Sponsor": $500/mo, 4 episodes, includes_qr_code, includes_episode_cards
+- Silver "Show Sponsor": $1500/mo, includes_show_hero, includes_episode_cards, includes_qr_code, includes_article_injection
+- Gold "Presenting Sponsor": $3500/mo, all Silver + includes_push_mention, includes_host_read_copy, max_shows: 1
+- Platinum "Network Sponsor": $8500/mo, all Gold + includes_network_wide, max_shows: null
+
+sponsorships table (active advertiser sponsorships):
+- id: uuid, primary key
+- advertiser_name: text, not null
+- advertiser_url: text (their website)
+- contact_name: text
+- contact_email: text
+- package_id: uuid, references sponsorship_packages
+- show_ids: jsonb (array of podcast/show IDs this sponsorship covers)
+- logo_url: text (uploaded sponsor logo)
+- logo_dark_url: text, nullable (dark version of logo for light backgrounds)
+- tagline: text, nullable (short sponsor tagline, max 60 chars)
+- qr_code_url: text, nullable (URL the QR code points to — their landing page)
+- qr_code_image_url: text, nullable (generated QR code image)
+- host_read_copy: text, nullable (AI-generated or custom host read script)
+- cta_text: text, nullable (e.g. "Learn More", "Get Started")
+- status: text, default 'active' (active, paused, expired, pending)
+- start_date: timestamp
+- end_date: timestamp
+- monthly_value: numeric
+- notes: text, nullable
+- created_at: timestamp, default now()
+- updated_at: timestamp, default now()
+
+ad_units table (traditional banner ads — secondary product):
+- id: uuid, primary key
+- advertiser_name: text
+- advertiser_url: text
+- contact_email: text
+- zone: text (leaderboard_728x90, rectangle_300x250, sidebar_300x600, mobile_320x50)
+- image_url: text
+- click_url: text
+- alt_text: text
+- status: text, default 'active' (active, paused, expired)
+- start_date: timestamp
+- end_date: timestamp
+- monthly_value: numeric
+- priority: integer, default 1 (higher = shown more often when multiple ads in zone)
+- created_at: timestamp, default now()
+
+ad_impressions table (tracking):
+- id: uuid, primary key
+- entity_type: text (sponsorship, ad_unit)
+- entity_id: uuid
+- placement: text (show_hero, episode_card, article_injection, push_mention, qr_scan, banner_leaderboard, etc.)
+- show_id: uuid, nullable
+- episode_id: uuid, nullable
+- article_id: uuid, nullable
+- visitor_id: text, nullable
+- page_url: text
+- created_at: timestamp, default now()
+
+ad_clicks table (tracking):
+- id: uuid, primary key
+- entity_type: text (sponsorship, ad_unit)
+- entity_id: uuid
+- placement: text
+- visitor_id: text, nullable
+- page_url: text
+- created_at: timestamp, default now()
+
+qr_scans table:
+- id: uuid, primary key
+- sponsorship_id: uuid, references sponsorships
+- visitor_id: text, nullable
+- page_url: text
+- created_at: timestamp, default now()
+
+---
+
+PART B — API ENDPOINTS:
+
+(2) Sponsorship package endpoints (all require auth):
+- GET /api/ad/packages — list all packages
+- POST /api/ad/packages — create package
+- PATCH /api/ad/packages/:id — update package
+- DELETE /api/ad/packages/:id — soft delete
+
+(3) Sponsorship endpoints:
+- GET /api/ad/sponsorships — list all with package and show details
+- GET /api/ad/sponsorships/:id — single sponsorship
+- POST /api/ad/sponsorships — create new sponsorship (requireAuth)
+- PATCH /api/ad/sponsorships/:id — update (requireAuth)
+- DELETE /api/ad/sponsorships/:id — soft delete (requireAuth)
+
+(4) Ad unit endpoints:
+- GET /api/ad/units — list all (requireAuth)
+- POST /api/ad/units — create (requireAuth)
+- PATCH /api/ad/units/:id — update (requireAuth)
+
+(5) Public serving endpoints (no auth — called by audience site):
+- GET /api/public/ad/sponsorship/:showId — returns active sponsorship for a show (logo, tagline, qr_code_image_url, cta_text, package details)
+- GET /api/public/ad/network-sponsor — returns active platinum/network-wide sponsorship if exists
+- GET /api/public/ad/unit/:zone — returns active ad unit for a placement zone (random selection weighted by priority)
+- POST /api/public/ad/impression — records an impression { entityType, entityId, placement, showId, visitorId, pageUrl }
+- POST /api/public/ad/click — records a click { entityType, entityId, placement, visitorId, pageUrl }
+- POST /api/public/ad/qr-scan — records a QR scan { sponsorshipId, visitorId, pageUrl }
+
+(6) QR code generation:
+- POST /api/ad/sponsorships/:id/generate-qr — generates a QR code image for the sponsorship's qr_code_url
+- Use the 'qrcode' npm package (install it): QRCode.toDataURL(url) 
+- Save the base64 image to qr_code_image_url column
+- Return the image URL
+
+(7) Analytics endpoints:
+- GET /api/ad/analytics/overview — total impressions, clicks, QR scans, revenue MTD across all active sponsorships and ad units
+- GET /api/ad/analytics/sponsorship/:id — impressions, clicks, QR scans, CTR for a single sponsorship
+- GET /api/ad/analytics/by-placement — breakdown of impressions by placement type
+- GET /api/ad/analytics/revenue — monthly revenue chart (last 12 months) from sponsorships + ad units
+
+---
+
+PART C — AUDIENCE SITE: SPONSORSHIP PLACEMENTS:
+
+(8) Show Page Hero Sponsorship (Silver/Gold/Platinum):
+On the individual show/podcast page, if an active sponsorship exists for that show with includes_show_hero = true:
+- Add a "Presented by" strip just below the show title in the hero section
+- Layout: "Presented by" label (small, muted white) + sponsor logo (white/light version, max 120px wide, max 40px tall) + optional tagline
+- Clicking the sponsor logo opens advertiser_url in a new tab and fires a click event
+- Record an impression on page load with placement: 'show_hero'
+- If includes_network_wide is true on the package, show this on ALL show pages
+
+(9) Episode Cards — Sponsor Badge (Bronze/Silver/Gold/Platinum):
+On every episode card in the browse grid and on the show page episode list, if the show has an active sponsorship with includes_episode_cards = true:
+- Add a small "Sponsored by [Logo]" badge in the bottom-left corner of the card
+- Logo max 60px wide, 20px tall, white/light version
+- Subtle semi-transparent dark background behind the badge
+- Record impression with placement: 'episode_card'
+
+(10) Article Injection — Sponsor Banner (Silver/Gold/Platinum):
+On every article page that was generated from an episode of a sponsored show:
+- Inject a sponsor banner between the article header and the first paragraph
+- Banner layout (full width, ~80px tall, dark background with subtle border):
+  - Left: "This content is brought to you by" (small muted text)
+  - Center: Sponsor logo (dark or light version, 100px max)
+  - Right: Tagline + CTA button (uses cta_text, links to advertiser_url)
+  - Far right: QR code image (small, ~60px, only if includes_qr_code = true)
+- Record impression with placement: 'article_injection'
+- CTA button click records a click event
+
+(11) Podcast Player — QR Code Panel (all tiers with includes_qr_code):
+On the podcast episode player page or embedded player:
+- Add a collapsible "Sponsor" panel below the player controls
+- When collapsed: shows "Sponsored by [Logo]" in a slim bar
+- When expanded (default on desktop, collapsed on mobile):
+  - Sponsor logo (large, ~150px)
+  - Tagline
+  - QR code image (200px, scannable)
+  - "Scan to learn more" label
+  - CTA button as fallback for desktop users who can't scan
+- QR code image click opens qr_code_url in new tab and records a qr_scan event
+- Record impression with placement: 'qr_panel'
+
+(12) Host Read Copy Injection (Gold/Platinum):
+On the show page and episode pages, if includes_host_read_copy = true and host_read_copy is not empty:
+- Add a "From our sponsor" section with a play/read icon
+- Show the host_read_copy text in a styled quote block with sponsor logo
+- This is the AI-generated or custom ad script the host would read
+
+---
+
+PART D — ADMIN: MONETIZATION MODULE:
+
+(13) Build the Advertising admin section. Add it to the Revenue Factory section in the sidebar as "Advertising". Use the existing admin page layout pattern (PageHeader + MetricsStrip + tabs).
+
+PageHeader:
+- Icon: Megaphone (Lucide)
+- Title: "Advertising"
+- Primary Action: "+ New Sponsorship"
+- AI Action: "AI Suggest" (purple)
+
+MetricsStrip:
+- Active Sponsorships (count)
+- Revenue MTD (sum of monthly_value for active sponsorships + ad units)
+- Total Impressions (this month)
+- Total Clicks (this month)
+- Avg CTR (clicks/impressions as percentage)
+- QR Scans (this month)
+
+Tabs: Sponsorships | Ad Units | Packages | Analytics
+
+(14) Sponsorships Tab:
+- Table showing all sponsorships: Advertiser, Shows, Package Tier (colored badge), Status, Monthly Value, Start/End dates, Impressions, Actions
+- Status badges: Active (green), Paused (yellow), Expired (gray), Pending (blue)
+- "+ New Sponsorship" button opens a modal/drawer:
+  - Advertiser Name, Website URL, Contact Name, Contact Email
+  - Package selector (shows tier name, price, features checklist)
+  - Show selector (multi-select from list of podcasts — unless platinum)
+  - Logo upload (image URL input + preview)
+  - Dark logo URL input (optional)
+  - Tagline input (60 char max with counter)
+  - QR Code URL input + "Generate QR" button (calls generate-qr endpoint, shows preview)
+  - CTA Text input
+  - Start Date / End Date pickers
+  - Monthly Value (auto-populated from package price, editable)
+  - Notes textarea
+  - Save button
+- Each row has: Edit, Pause/Resume, View Analytics, Delete actions
+- Clicking "View Analytics" opens a stats panel showing impressions by placement, clicks, QR scans, CTR, estimated vs actual impressions
+
+(15) AI Host Read Copy Generator:
+- In the sponsorship edit form, if package includes_host_read_copy = true, show a "Generate Host Read" section
+- Input: "What should the host say about this sponsor?" textarea
+- "AI Generate" button calls the AI with prompt: "Write a 30-second host-read advertisement script for [advertiser_name]. Their product/service: [user input]. The host is a conservative media personality. Tone: authentic, conversational, not salesy. Include: what the product does, why the audience would want it, and a clear call to action directing listeners to [advertiser_url] or to scan the QR code. Max 75 words."
+- Generated copy appears in the host_read_copy field, editable before saving
+
+(16) Ad Units Tab:
+- Table showing banner ads: Advertiser, Zone, Status, Monthly Value, Impressions, Clicks, CTR, Expiry
+- "+ New Ad Unit" button opens a simple form: Advertiser info, Zone selector (with size preview), Image URL + preview, Click URL, Start/End dates, Priority, Monthly Value
+- Zone selector shows visual representation of each ad size
+
+(17) Packages Tab:
+- Shows the 4 tier packages as feature comparison cards (Bronze/Silver/Gold/Platinum)
+- Each card shows: tier name, price, feature checklist (checkmarks for what's included), "Edit" button
+- Admin can edit prices and features
+- Visual design: cards side by side, Platinum highlighted as most popular
+
+(18) Analytics Tab:
+- Revenue chart: monthly bar chart for last 12 months (sponsorships + ad units combined)
+- Impressions by placement: donut chart showing show_hero vs episode_card vs article_injection vs qr_panel vs banner
+- Top performing sponsorships: ranked table by CTR
+- QR scan tracking: line chart of daily QR scans
+- All data from the ad analytics endpoints
+
+---
+
+PART E — AI SUGGEST (AdvisorAI):
+
+(19) Wire the "AI Suggest" button on the Advertising PageHeader:
+- Opens a modal with two sections:
+
+Section 1 — "Upsell Opportunities":
+- Queries sponsorships where CTR > 1.5% or QR scans > 50 in last 30 days
+- For each, generates a message: "Your [advertiser] sponsorship on [show] is performing exceptionally — [X]% CTR vs 0.8% industry average. We recommend upgrading to [next tier] to capture [estimated additional impressions] more monthly impressions. Estimated additional monthly investment: $[price diff]."
+- Shows as cards with "Approve Message" button (saves to a drafts table) and "Dismiss" button
+
+Section 2 — "Package Recommendations for New Leads":
+- Pulls from commercial_leads table (from S4 CRM) that don't have an active sponsorship
+- For each lead, suggests the best package based on their estimated_value: under $1000 → Bronze, $1000-$3000 → Silver, $3000-$6000 → Gold, $6000+ → Platinum
+- Shows as a list with "Create Sponsorship" quick action
+
+(20) Auto-upsell drafts table:
+- id: uuid, primary key
+- sponsorship_id: uuid
+- message: text (AI generated)
+- suggested_upgrade_package_id: uuid
+- estimated_additional_revenue: numeric
+- status: text, default 'draft' (draft, approved, sent, dismissed)
+- created_at: timestamp
+
+---
+
+VERIFICATION CHECKLIST:
+1. /admin/advertising loads with MetricsStrip and 4 tabs
+2. Create a new sponsorship — fill in all fields, upload logo URL, generate QR code — QR code preview appears
+3. On the audience show page for the sponsored show — "Presented by" strip appears in hero with sponsor logo
+4. Episode cards in the browse grid show "Sponsored by [logo]" badge
+5. Navigate to an article from a sponsored show — sponsor banner appears between header and first paragraph with QR code
+6. Podcast player shows the collapsible sponsor panel with QR code
+7. Click "AI Suggest" in admin — shows upsell opportunities and lead recommendations
+8. Analytics tab shows impressions chart and placement breakdown
+9. Packages tab shows 4 tier comparison cards
+10. "Generate Host Read" produces AI copy in the sponsorship form
+```

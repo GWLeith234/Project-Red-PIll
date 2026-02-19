@@ -1650,4 +1650,138 @@ export const insertPushCampaignLogSchema = createInsertSchema(pushCampaignLogs).
 export type InsertPushCampaignLog = z.infer<typeof insertPushCampaignLogSchema>;
 export type PushCampaignLog = typeof pushCampaignLogs.$inferSelect;
 
+// ── Advertising System Tables ──
+
+export const sponsorshipPackages = pgTable("sponsorship_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  tier: text("tier").notNull(),
+  description: text("description"),
+  priceMonthly: numeric("price_monthly"),
+  pricePerEpisode: numeric("price_per_episode"),
+  includesShowHero: boolean("includes_show_hero").default(false),
+  includesEpisodeCards: boolean("includes_episode_cards").default(false),
+  includesArticleInjection: boolean("includes_article_injection").default(false),
+  includesPushMention: boolean("includes_push_mention").default(false),
+  includesQrCode: boolean("includes_qr_code").default(false),
+  includesHostReadCopy: boolean("includes_host_read_copy").default(false),
+  includesNetworkWide: boolean("includes_network_wide").default(false),
+  maxShows: integer("max_shows"),
+  impressionEstimate: integer("impression_estimate"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSponsorshipPackageSchema = createInsertSchema(sponsorshipPackages).omit({ id: true, createdAt: true });
+export type InsertSponsorshipPackage = z.infer<typeof insertSponsorshipPackageSchema>;
+export type SponsorshipPackage = typeof sponsorshipPackages.$inferSelect;
+
+export const sponsorships = pgTable("sponsorships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  advertiserName: text("advertiser_name").notNull(),
+  advertiserUrl: text("advertiser_url"),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  packageId: varchar("package_id"),
+  showIds: jsonb("show_ids"),
+  logoUrl: text("logo_url"),
+  logoDarkUrl: text("logo_dark_url"),
+  tagline: text("tagline"),
+  qrCodeUrl: text("qr_code_url"),
+  qrCodeImageUrl: text("qr_code_image_url"),
+  hostReadCopy: text("host_read_copy"),
+  ctaText: text("cta_text"),
+  status: text("status").default("active"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  monthlyValue: numeric("monthly_value"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSponsorshipSchema = createInsertSchema(sponsorships).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSponsorship = z.infer<typeof insertSponsorshipSchema>;
+export type Sponsorship = typeof sponsorships.$inferSelect;
+
+export const adUnits = pgTable("ad_units", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  advertiserName: text("advertiser_name").notNull(),
+  advertiserUrl: text("advertiser_url"),
+  contactEmail: text("contact_email"),
+  zone: text("zone").notNull(),
+  imageUrl: text("image_url"),
+  clickUrl: text("click_url"),
+  altText: text("alt_text"),
+  status: text("status").default("active"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  monthlyValue: numeric("monthly_value"),
+  priority: integer("priority").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAdUnitSchema = createInsertSchema(adUnits).omit({ id: true, createdAt: true });
+export type InsertAdUnit = z.infer<typeof insertAdUnitSchema>;
+export type AdUnit = typeof adUnits.$inferSelect;
+
+export const adImpressions = pgTable("ad_impressions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  placement: text("placement").notNull(),
+  showId: varchar("show_id"),
+  episodeId: varchar("episode_id"),
+  articleId: varchar("article_id"),
+  visitorId: text("visitor_id"),
+  pageUrl: text("page_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("ad_impressions_entity_idx").on(table.entityId, table.entityType),
+]);
+
+export const insertAdImpressionSchema = createInsertSchema(adImpressions).omit({ id: true, createdAt: true });
+export type InsertAdImpression = z.infer<typeof insertAdImpressionSchema>;
+export type AdImpression = typeof adImpressions.$inferSelect;
+
+export const adClicks = pgTable("ad_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  placement: text("placement").notNull(),
+  visitorId: text("visitor_id"),
+  pageUrl: text("page_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAdClickSchema = createInsertSchema(adClicks).omit({ id: true, createdAt: true });
+export type InsertAdClick = z.infer<typeof insertAdClickSchema>;
+export type AdClick = typeof adClicks.$inferSelect;
+
+export const qrScans = pgTable("qr_scans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sponsorshipId: varchar("sponsorship_id").notNull(),
+  visitorId: text("visitor_id"),
+  pageUrl: text("page_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertQrScanSchema = createInsertSchema(qrScans).omit({ id: true, createdAt: true });
+export type InsertQrScan = z.infer<typeof insertQrScanSchema>;
+export type QrScan = typeof qrScans.$inferSelect;
+
+export const autoUpsellDrafts = pgTable("auto_upsell_drafts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sponsorshipId: varchar("sponsorship_id").notNull(),
+  message: text("message"),
+  suggestedUpgradePackageId: varchar("suggested_upgrade_package_id"),
+  estimatedAdditionalRevenue: numeric("estimated_additional_revenue"),
+  status: text("status").default("draft"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAutoUpsellDraftSchema = createInsertSchema(autoUpsellDrafts).omit({ id: true, createdAt: true });
+export type InsertAutoUpsellDraft = z.infer<typeof insertAutoUpsellDraftSchema>;
+export type AutoUpsellDraft = typeof autoUpsellDrafts.$inferSelect;
+
 export * from "./models/chat";
