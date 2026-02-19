@@ -6504,12 +6504,28 @@ Return ONLY the JSON array, no markdown formatting.`;
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  const SEED_NAV_SECTIONS = [
+    { sectionKey: "command_center", displayName: "COMMAND CENTER", iconName: "LayoutDashboard", sortOrder: 0, isCollapsedDefault: false },
+    { sectionKey: "content", displayName: "CONTENT FACTORY", iconName: "FileText", sortOrder: 10, isCollapsedDefault: false },
+    { sectionKey: "monetization", displayName: "REVENUE FACTORY", iconName: "DollarSign", sortOrder: 20, isCollapsedDefault: false },
+    { sectionKey: "network", displayName: "AUDIENCE", iconName: "Radio", sortOrder: 30, isCollapsedDefault: false },
+    { sectionKey: "analytics", displayName: "Analytics", iconName: "BarChart3", sortOrder: 40, isCollapsedDefault: false },
+    { sectionKey: "admin", displayName: "Admin", iconName: "Settings", sortOrder: 50, isCollapsedDefault: false },
+  ];
+
   (async () => {
     try {
+      const existingSections = await storage.getAdminNavSections();
+      const existingKeys = new Set(existingSections.map(s => s.sectionKey));
+      for (const section of SEED_NAV_SECTIONS) {
+        if (!existingKeys.has(section.sectionKey)) {
+          await storage.upsertAdminNavSection(section as any);
+        }
+      }
       for (const cfg of SEED_CONFIGS) {
         await storage.upsertAdminPageConfig(cfg as any);
       }
-    } catch (e) { console.error("Failed to seed admin page configs:", e); }
+    } catch (e) { console.error("Failed to seed admin page/nav configs:", e); }
   })();
 
   app.get("/api/admin/nav-sections", requireAuth, async (_req, res) => {
