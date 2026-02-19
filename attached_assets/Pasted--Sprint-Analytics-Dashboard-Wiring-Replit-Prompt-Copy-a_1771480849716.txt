@@ -1,0 +1,187 @@
+# Sprint: Analytics Dashboard Wiring
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Sprint: Wire the Analytics admin dashboard with real data. The analytics UI is already built from a previous sprint but shows placeholder/mock data. This sprint connects it to real tracking data, fixes the data collection pipeline, and ensures every widget displays live numbers.
+
+CONTEXT:
+- The Analytics admin page exists at /admin/analytics
+- A page_analytics table may or may not exist — check the Drizzle schema first
+- A client-side tracking hook use-page-tracking.ts may exist — verify it's firing correctly
+- The audience site uses AudienceLayout.tsx which should call usePageTracking on every route change
+
+---
+
+PART A — VERIFY AND FIX DATA COLLECTION:
+
+(1) Check if the page_analytics table exists in the Drizzle schema. If it does not exist, create it:
+- id: uuid, primary key, default gen_random_uuid()
+- url: text, not null
+- page_title: text
+- session_id: text, not null
+- visitor_id: text
+- ip_address: text
+- user_agent: text
+- referrer: text
+- device_type: text (mobile/desktop/tablet)
+- browser: text
+- os: text
+- country: text, nullable
+- region: text, nullable
+- time_on_page: integer, nullable (seconds)
+- created_at: timestamp, default now()
+Run the migration.
+
+(2) Check if POST /api/public/analytics/pageview exists. If not, create it:
+- Accepts: { url, pageTitle, sessionId, visitorId, referrer, userAgent }
+- Parse device_type from userAgent: if /mobile/i test passes → "mobile", if /tablet/i → "tablet", else "desktop"
+- Parse browser: check for Chrome, Firefox, Safari, Edge in userAgent string
+- Parse os: check for Windows, Mac, Linux, iOS, Android in userAgent string
+- Store ip_address from req.ip or req.headers['x-forwarded-for']
+- Rate limit: 60 requests per minute per IP
+- Returns: { id } of the created record
+
+(3) Check if PATCH /api/public/analytics/pageview/:id exists. If not, create it:
+- Accepts: { timeOnPage } (integer, seconds)
+- Updates the time_on_page column for that record
+- No auth required (public endpoint)
+
+(4) Check if client/src/hooks/use-page-tracking.ts exists. If not, create it. If it exists, verify it works correctly:
+- On every route change (use useLocation from wouter), fire POST /api/public/analytics/pageview
+- Generate sessionId: check sessionStorage for 'mte_session_id', if not present generate a uuid and store it
+- Generate visitorId: check localStorage for 'mte_visitor_id', if not present generate a uuid and store it
+- Send: current URL, document.title, sessionId, visitorId, document.referrer, navigator.userAgent
+- Store the returned record id in a ref
+- On route change or page unload (use window addEventListener 'beforeunload' + visibilitychange), send PATCH with timeOnPage (Date.now() - pageLoadTime in seconds) using navigator.sendBeacon
+- Export as default hook: export function usePageTracking()
+
+(5) Verify AudienceLayout.tsx calls usePageTracking(). If it doesn't, add the import and call it inside AudienceLayoutInner. This ensures every audience page visit is tracked automatically.
+
+---
+
+PART B — ANALYTICS API ENDPOINTS:
+
+(6) Build or fix these analytics data endpoints. All require auth:
+
+GET /api/analytics/overview?period=7d
+Returns: { liveVisitors, totalPageviews, uniqueVisitors, avgSessionDuration, bounceRate }
+- liveVisitors: count of distinct session_ids with created_at in last 5 minutes
+- totalPageviews: count of rows in period
+- uniqueVisitors: count of distinct visitor_ids in period
+- avgSessionDuration: avg of time_on_page where time_on_page is not null, in seconds
+- bounceRate: percentage of session_ids with only 1 pageview
+
+GET /api/analytics/pageviews?period=30d
+Returns: array of { date: 'YYYY-MM-DD', count: number } for each day in the period
+
+GET /api/analytics/top-pages?period=30d&limit=20
+Returns: array of { url, pageTitle, views, avgTimeOnPage, bounceRate } sorted by views desc
+
+GET /api/analytics/devices?period=30d
+Returns: { devices: [{type, count, percentage}], browsers: [{name, count}], os: [{name, count}] }
+
+GET /api/analytics/referrers?period=30d
+Returns: array of { source, type, count, percentage }
+- type: 'direct' if referrer is empty, 'search' if referrer contains google/bing/yahoo/duckduckgo, 'social' if contains facebook/twitter/x.com/linkedin/instagram, 'referral' otherwise
+- source: the domain of the referrer
+
+GET /api/analytics/sessions?period=30d
+Returns: array of { bucket: string, count: number }
+Buckets: '0-30s', '30s-1m', '1-3m', '3-5m', '5-10m', '10m+'
+
+GET /api/analytics/live-visitors
+Returns: { count: number, recentPages: [{url, count}] }
+- count: distinct session_ids with created_at in last 5 minutes
+- recentPages: top 5 pages visited in last 5 minutes
+
+(7) Add period parsing helper: accept period param as '7d', '30d', '90d' and convert to a start date (now minus N days).
+
+---
+
+PART C — WIRE THE DASHBOARD WIDGETS:
+
+(8) In the Analytics admin page component, replace all mock/placeholder data with real API calls using react-query (useQuery). Wire each widget:
+
+Widget: Live Visitors counter
+- Call GET /api/analytics/live-visitors every 10 seconds (refetchInterval: 10000)
+- Show the count as a large animated number
+- Show recentPages as a small list below
+
+Widget: Pageviews Chart (line chart)
+- Call GET /api/analytics/pageviews?period=30d
+- Render with Recharts LineChart
+- X axis: date, Y axis: count
+- Add a period selector (7d / 30d / 90d) that refetches with the new period
+
+Widget: Overview Metrics Strip
+- Call GET /api/analytics/overview?period=30d
+- Wire: Total Pageviews, Unique Visitors, Avg Session Duration (format as "Xm Ys"), Bounce Rate (format as "X%")
+
+Widget: Top Pages table
+- Call GET /api/analytics/top-pages?period=30d&limit=20
+- Render as a sortable table: URL (truncated), Views, Avg Time, Bounce Rate
+
+Widget: Device Breakdown donut chart
+- Call GET /api/analytics/devices?period=30d
+- Render devices as Recharts PieChart (donut)
+- Render browsers and OS as horizontal bar lists below
+
+Widget: Referral Sources table
+- Call GET /api/analytics/referrers?period=30d
+- Render as ranked table with source, type badge, count, percentage bar
+
+Widget: Session Duration histogram
+- Call GET /api/analytics/sessions?period=30d
+- Render as Recharts BarChart with bucket labels on X axis
+
+(9) Add a global period selector at the top of the Analytics page (7 days / 30 days / 90 days). Changing it updates all widgets simultaneously by passing the period as a shared state variable down to each widget's query.
+
+(10) Add loading skeletons to every widget — show a pulsing gray placeholder while data is fetching. Use the existing skeleton/loading patterns from the codebase.
+
+(11) Add empty states to every widget — if no data exists yet (fresh install), show a friendly message like "Start browsing the audience site to generate analytics data" with a link to the live site.
+
+---
+
+PART D — CONTENT PERFORMANCE:
+
+(12) Build the Content Performance section on the Analytics page:
+
+Content Leaderboard by Type:
+- Query page_analytics joined with articles table (match on url containing article slug or article id)
+- Group by content type (articles, episodes)
+- Show: type, total views, avg time on page
+- If join is too complex, show top URLs that match /news/ or /listen/ patterns
+
+Content Leaderboard by Author:
+- Join page_analytics with articles on url, then group by author
+- Show: author name, total article views, top article
+
+Engagement Funnel (simplified):
+- Impressions: total pageviews in period
+- Reads: pageviews where time_on_page > 30 seconds
+- Show as two big numbers with a conversion rate between them
+
+---
+
+PART E — NPS & SATISFACTION (if nps_responses table exists):
+
+(13) Check if nps_responses and user_feedback tables exist. If they do:
+- Wire the NPS gauge widget with real score calculation: (promoters% - detractors%)
+- Wire the feedback feed with real recent feedback entries
+- Show sentiment tags if sentiment column is populated
+
+If tables don't exist, show placeholder widgets with "No survey data yet" empty states.
+
+---
+
+VERIFICATION CHECKLIST:
+1. Browse 5+ pages on the audience site, then check Analytics — pageview count should increase
+2. Live Visitors counter shows > 0 while actively browsing
+3. Pageviews chart shows a line with data points for days you've visited
+4. Device breakdown shows correct device type for your browser
+5. Top Pages table shows the pages you visited
+6. Period selector changes all widgets when switched
+7. All widgets show loading skeletons while fetching, not blank screens
+8. Empty states appear gracefully if no data exists for a widget
+```
