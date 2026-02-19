@@ -1,7 +1,7 @@
 import React, { Suspense, useMemo } from "react";
 import { Sidebar, MobileHeader, MobileSidebarProvider, useMobileSidebar } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,8 +34,6 @@ import Analytics from "@/pages/Analytics";
 import CampaignBuilderPage from "@/pages/CampaignBuilderPage";
 import SchedulerPage from "@/pages/SchedulerPage";
 import AdResizer from "@/pages/AdResizer";
-import KanbanBoard from "@/pages/KanbanBoard";
-import MyTasks from "@/pages/MyTasks";
 import NewsletterManager from "@/pages/NewsletterManager";
 import LegalAdmin from "@/pages/LegalAdmin";
 import SiteBuilder from "@/pages/SiteBuilder";
@@ -235,8 +233,8 @@ function ProtectedRoutes() {
           <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
           <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>
           <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
-          <Route path="/kanban">{() => <PermissionGate permission="content.view"><KanbanBoard /></PermissionGate>}</Route>
-          <Route path="/my-tasks">{() => <PermissionGate permission="content.view"><MyTasks /></PermissionGate>}</Route>
+          <Route path="/kanban">{() => <Redirect to="/" />}</Route>
+          <Route path="/my-tasks">{() => <Redirect to="/" />}</Route>
           <Route path="/newsletters">{() => <PermissionGate permission="content.view"><NewsletterManager /></PermissionGate>}</Route>
           <Route path="/legal-admin">{() => <PermissionGate permission="settings.view"><LegalAdmin /></PermissionGate>}</Route>
           <Route path="/community">{() => <PermissionGate permission="content.view"><CommunityAdmin /></PermissionGate>}</Route>
