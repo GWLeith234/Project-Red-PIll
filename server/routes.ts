@@ -7759,5 +7759,390 @@ Return ONLY valid JSON, no markdown.`
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // ── Advertising: Sponsorship Packages ──
+  app.get("/api/ad/packages", requireAuth, async (req, res) => {
+    try {
+      const packages = await storage.getSponsorshipPackages();
+      res.json(packages);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/ad/packages", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const pkg = await storage.createSponsorshipPackage(req.body);
+      res.json(pkg);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/ad/packages/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const pkg = await storage.updateSponsorshipPackage(req.params.id, req.body);
+      if (!pkg) return res.status(404).json({ message: "Package not found" });
+      res.json(pkg);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/ad/packages/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      await storage.updateSponsorshipPackage(req.params.id, { isActive: false });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: Sponsorships ──
+  app.get("/api/ad/sponsorships", requireAuth, async (req, res) => {
+    try {
+      const sponsorships = await storage.getSponsorships();
+      const packages = await storage.getSponsorshipPackages();
+      const podcasts = await storage.getPodcasts();
+      const enriched = sponsorships.map(s => {
+        const pkg = packages.find(p => p.id === s.packageId);
+        const showNames = Array.isArray(s.showIds) ? (s.showIds as string[]).map(id => podcasts.find(p => p.id === id)?.title || id) : [];
+        return { ...s, package: pkg, showNames };
+      });
+      res.json(enriched);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/ad/sponsorships/:id", requireAuth, async (req, res) => {
+    try {
+      const s = await storage.getSponsorship(req.params.id);
+      if (!s) return res.status(404).json({ message: "Sponsorship not found" });
+      const pkg = s.packageId ? await storage.getSponsorshipPackage(s.packageId) : null;
+      res.json({ ...s, package: pkg });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/ad/sponsorships", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const s = await storage.createSponsorship(req.body);
+      res.json(s);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/ad/sponsorships/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const s = await storage.updateSponsorship(req.params.id, req.body);
+      if (!s) return res.status(404).json({ message: "Sponsorship not found" });
+      res.json(s);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/ad/sponsorships/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      await storage.updateSponsorship(req.params.id, { status: "expired" });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: QR Code Generation ──
+  app.post("/api/ad/sponsorships/:id/generate-qr", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const s = await storage.getSponsorship(req.params.id);
+      if (!s) return res.status(404).json({ message: "Sponsorship not found" });
+      if (!s.qrCodeUrl) return res.status(400).json({ message: "No QR code URL set for this sponsorship" });
+      const QRCode = (await import("qrcode")).default;
+      const qrImageUrl = await QRCode.toDataURL(s.qrCodeUrl, { width: 300, margin: 2 });
+      await storage.updateSponsorship(req.params.id, { qrCodeImageUrl: qrImageUrl });
+      res.json({ qrCodeImageUrl: qrImageUrl });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: Ad Units ──
+  app.get("/api/ad/units", requireAuth, async (req, res) => {
+    try {
+      const units = await storage.getAdUnits();
+      res.json(units);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/ad/units", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const unit = await storage.createAdUnit(req.body);
+      res.json(unit);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/ad/units/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const unit = await storage.updateAdUnit(req.params.id, req.body);
+      if (!unit) return res.status(404).json({ message: "Ad unit not found" });
+      res.json(unit);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: Public Serving ──
+  app.get("/api/public/ad/sponsorship/:showId", async (req, res) => {
+    try {
+      const sponsorships = await storage.getSponsorshipsByShow(req.params.showId);
+      if (!sponsorships.length) return res.json(null);
+      const s = sponsorships[0];
+      const pkg = s.packageId ? await storage.getSponsorshipPackage(s.packageId) : null;
+      res.json({
+        id: s.id,
+        advertiserName: s.advertiserName,
+        advertiserUrl: s.advertiserUrl,
+        logoUrl: s.logoUrl,
+        logoDarkUrl: s.logoDarkUrl,
+        tagline: s.tagline,
+        qrCodeUrl: s.qrCodeUrl,
+        qrCodeImageUrl: s.qrCodeImageUrl,
+        ctaText: s.ctaText,
+        hostReadCopy: s.hostReadCopy,
+        package: pkg ? {
+          tier: pkg.tier,
+          includesShowHero: pkg.includesShowHero,
+          includesEpisodeCards: pkg.includesEpisodeCards,
+          includesArticleInjection: pkg.includesArticleInjection,
+          includesQrCode: pkg.includesQrCode,
+          includesHostReadCopy: pkg.includesHostReadCopy,
+          includesPushMention: pkg.includesPushMention,
+          includesNetworkWide: pkg.includesNetworkWide,
+        } : null,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/public/ad/network-sponsor", async (req, res) => {
+    try {
+      const s = await storage.getActiveNetworkSponsorship();
+      if (!s) return res.json(null);
+      const pkg = s.packageId ? await storage.getSponsorshipPackage(s.packageId) : null;
+      res.json({
+        id: s.id,
+        advertiserName: s.advertiserName,
+        advertiserUrl: s.advertiserUrl,
+        logoUrl: s.logoUrl,
+        logoDarkUrl: s.logoDarkUrl,
+        tagline: s.tagline,
+        qrCodeImageUrl: s.qrCodeImageUrl,
+        ctaText: s.ctaText,
+        package: pkg ? { tier: pkg.tier } : null,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/public/ad/unit/:zone", async (req, res) => {
+    try {
+      const units = await storage.getAdUnitsByZone(req.params.zone);
+      if (!units.length) return res.json(null);
+      const totalPriority = units.reduce((sum, u) => sum + (u.priority || 1), 0);
+      let rand = Math.random() * totalPriority;
+      let selected = units[0];
+      for (const u of units) {
+        rand -= (u.priority || 1);
+        if (rand <= 0) { selected = u; break; }
+      }
+      res.json({
+        id: selected.id,
+        advertiserName: selected.advertiserName,
+        imageUrl: selected.imageUrl,
+        clickUrl: selected.clickUrl,
+        altText: selected.altText,
+        zone: selected.zone,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/public/ad/impression", async (req, res) => {
+    try {
+      const { entityType, entityId, placement, showId, episodeId, articleId, visitorId, pageUrl } = req.body;
+      if (!entityType || !entityId || !placement) return res.status(400).json({ message: "Missing required fields" });
+      await storage.createAdImpression({ entityType, entityId, placement, showId, episodeId, articleId, visitorId, pageUrl });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/public/ad/click", async (req, res) => {
+    try {
+      const { entityType, entityId, placement, visitorId, pageUrl } = req.body;
+      if (!entityType || !entityId || !placement) return res.status(400).json({ message: "Missing required fields" });
+      await storage.createAdClick({ entityType, entityId, placement, visitorId, pageUrl });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/public/ad/qr-scan", async (req, res) => {
+    try {
+      const { sponsorshipId, visitorId, pageUrl } = req.body;
+      if (!sponsorshipId) return res.status(400).json({ message: "Missing sponsorshipId" });
+      await storage.createQrScan({ sponsorshipId, visitorId, pageUrl });
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: Analytics ──
+  app.get("/api/ad/analytics/overview", requireAuth, async (req, res) => {
+    try {
+      const sponsorships = await storage.getSponsorships();
+      const adUnits = await storage.getAdUnits();
+      const active = sponsorships.filter(s => s.status === "active");
+      const activeUnits = adUnits.filter(u => u.status === "active");
+      const revenueMTD = active.reduce((sum, s) => sum + Number(s.monthlyValue || 0), 0) + activeUnits.reduce((sum, u) => sum + Number(u.monthlyValue || 0), 0);
+      
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      let totalImpressions = 0;
+      let totalClicks = 0;
+      let totalQrScans = 0;
+      
+      for (const s of sponsorships) {
+        const imps = await storage.getAdImpressions(s.id, "sponsorship");
+        const clks = await storage.getAdClicks(s.id, "sponsorship");
+        totalImpressions += imps.filter(i => i.createdAt && new Date(i.createdAt) >= monthStart).length;
+        totalClicks += clks.filter(c => c.createdAt && new Date(c.createdAt) >= monthStart).length;
+        const scans = await storage.getQrScans(s.id);
+        totalQrScans += scans.filter(q => q.createdAt && new Date(q.createdAt) >= monthStart).length;
+      }
+      for (const u of adUnits) {
+        const imps = await storage.getAdImpressions(u.id, "ad_unit");
+        const clks = await storage.getAdClicks(u.id, "ad_unit");
+        totalImpressions += imps.filter(i => i.createdAt && new Date(i.createdAt) >= monthStart).length;
+        totalClicks += clks.filter(c => c.createdAt && new Date(c.createdAt) >= monthStart).length;
+      }
+      
+      const avgCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : "0.00";
+      
+      res.json({
+        activeSponsorships: active.length,
+        revenueMTD,
+        totalImpressions,
+        totalClicks,
+        avgCTR: parseFloat(avgCTR),
+        totalQrScans,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/ad/analytics/sponsorship/:id", requireAuth, async (req, res) => {
+    try {
+      const s = await storage.getSponsorship(req.params.id);
+      if (!s) return res.status(404).json({ message: "Sponsorship not found" });
+      const impressions = await storage.getAdImpressions(req.params.id, "sponsorship");
+      const clicks = await storage.getAdClicks(req.params.id, "sponsorship");
+      const qrScans = await storage.getQrScans(req.params.id);
+      const pkg = s.packageId ? await storage.getSponsorshipPackage(s.packageId) : null;
+      
+      const byPlacement: Record<string, number> = {};
+      impressions.forEach(i => { byPlacement[i.placement] = (byPlacement[i.placement] || 0) + 1; });
+      
+      const ctr = impressions.length > 0 ? ((clicks.length / impressions.length) * 100).toFixed(2) : "0.00";
+      
+      res.json({
+        sponsorship: s,
+        package: pkg,
+        totalImpressions: impressions.length,
+        totalClicks: clicks.length,
+        totalQrScans: qrScans.length,
+        ctr: parseFloat(ctr),
+        impressionsByPlacement: byPlacement,
+        estimatedImpressions: pkg?.impressionEstimate || 0,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/ad/analytics/by-placement", requireAuth, async (req, res) => {
+    try {
+      const sponsorships = await storage.getSponsorships();
+      const adUnits = await storage.getAdUnits();
+      const byPlacement: Record<string, number> = {};
+      
+      for (const s of sponsorships) {
+        const imps = await storage.getAdImpressions(s.id, "sponsorship");
+        imps.forEach(i => { byPlacement[i.placement] = (byPlacement[i.placement] || 0) + 1; });
+      }
+      for (const u of adUnits) {
+        const imps = await storage.getAdImpressions(u.id, "ad_unit");
+        imps.forEach(i => { byPlacement[i.placement] = (byPlacement[i.placement] || 0) + 1; });
+      }
+      
+      res.json(byPlacement);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/ad/analytics/revenue", requireAuth, async (req, res) => {
+    try {
+      const sponsorships = await storage.getSponsorships();
+      const adUnits = await storage.getAdUnits();
+      const months: { month: string; sponsorshipRevenue: number; adUnitRevenue: number; total: number }[] = [];
+      
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthStr = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        
+        let sr = 0, ar = 0;
+        sponsorships.forEach(s => {
+          if (s.startDate && s.endDate && new Date(s.startDate) <= monthEnd && new Date(s.endDate) >= monthStart) {
+            sr += Number(s.monthlyValue || 0);
+          }
+        });
+        adUnits.forEach(u => {
+          if (u.startDate && u.endDate && new Date(u.startDate) <= monthEnd && new Date(u.endDate) >= monthStart) {
+            ar += Number(u.monthlyValue || 0);
+          }
+        });
+        
+        months.push({ month: monthStr, sponsorshipRevenue: sr, adUnitRevenue: ar, total: sr + ar });
+      }
+      
+      res.json(months);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: Auto Upsell Drafts ──
+  app.get("/api/ad/upsell-drafts", requireAuth, async (req, res) => {
+    try {
+      const drafts = await storage.getAutoUpsellDrafts(req.query.status as string);
+      res.json(drafts);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/ad/upsell-drafts", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const draft = await storage.createAutoUpsellDraft(req.body);
+      res.json(draft);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/ad/upsell-drafts/:id", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const draft = await storage.updateAutoUpsellDraft(req.params.id, req.body);
+      if (!draft) return res.status(404).json({ message: "Draft not found" });
+      res.json(draft);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Advertising: AI Host Read Copy ──
+  app.post("/api/ad/sponsorships/:id/generate-host-read", requireAuth, requirePermission("monetization.edit"), async (req, res) => {
+    try {
+      const s = await storage.getSponsorship(req.params.id);
+      if (!s) return res.status(404).json({ message: "Sponsorship not found" });
+      const { productDescription } = req.body;
+      if (!productDescription) return res.status(400).json({ message: "Product description required" });
+      
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI();
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{
+          role: "system",
+          content: "You are a podcast advertising copywriter. Write authentic, conversational host-read ad scripts for conservative media podcasts."
+        }, {
+          role: "user",
+          content: `Write a 30-second host-read advertisement script for ${s.advertiserName}. Their product/service: ${productDescription}. The host is a conservative media personality. Tone: authentic, conversational, not salesy. Include: what the product does, why the audience would want it, and a clear call to action directing listeners to ${s.advertiserUrl || 'their website'} or to scan the QR code. Max 75 words.`
+        }],
+        max_tokens: 200,
+      });
+      
+      const hostReadCopy = completion.choices[0]?.message?.content || "";
+      await storage.updateSponsorship(req.params.id, { hostReadCopy });
+      res.json({ hostReadCopy });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }
