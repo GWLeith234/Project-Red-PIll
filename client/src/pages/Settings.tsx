@@ -2117,7 +2117,7 @@ function PageConfigurationTab() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {navSections?.map(ns => (
+                                    {navSections?.filter(ns => ns.sectionKey).map(ns => (
                                       <SelectItem key={ns.sectionKey} value={ns.sectionKey}>{ns.displayName}</SelectItem>
                                     ))}
                                     <SelectItem value="__new__">New Section...</SelectItem>
@@ -2565,7 +2565,7 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
                 <Building2 className="h-3 w-3" /> Company-wide
               </span>
             </SelectItem>
-            {podcasts?.map((p: any) => (
+            {podcasts?.filter((p: any) => p.id).map((p: any) => (
               <SelectItem key={p.id} value={p.id}>
                 <span className="flex items-center gap-2">
                   <Radio className="h-3 w-3" /> {p.title}
@@ -2766,7 +2766,7 @@ function SocialConnectionsSection({ canEdit }: { canEdit: boolean }) {
                         <SelectValue placeholder="Choose a podcast..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {podcasts?.map((p: any) => (
+                        {podcasts?.filter((p: any) => p.id).map((p: any) => (
                           <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
                         ))}
                       </SelectContent>

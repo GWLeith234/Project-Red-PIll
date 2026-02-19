@@ -6426,7 +6426,7 @@ Return ONLY the JSON array, no markdown formatting.`;
 
   // ── Admin Page Config ──
   const SEED_CONFIGS: Array<Record<string, any>> = [
-    { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", route: "/", permission: "dashboard.view", navSection: "", sortOrder: 1, aiActionLabel: "AI Insights", description: "Command center overview with KPIs and alerts" },
+    { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", route: "/", permission: "dashboard.view", navSection: "command_center", sortOrder: 1, aiActionLabel: "AI Insights", description: "Command center overview with KPIs and alerts" },
     { pageKey: "content-factory", title: "Content Factory", iconName: "FileText", route: "/content", permission: "content.view", navSection: "content", sortOrder: 10, primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", description: "AI content production pipeline" },
     { pageKey: "scheduler", title: "Scheduler", iconName: "CalendarClock", route: "/scheduler", permission: "content.view", navSection: "content", sortOrder: 11, description: "Schedule and manage content publishing" },
     { pageKey: "moderation", title: "Moderation Queue", iconName: "Shield", route: "/moderation", permission: "content.edit", navSection: "content", sortOrder: 12, description: "Review and approve AI-generated content" },
