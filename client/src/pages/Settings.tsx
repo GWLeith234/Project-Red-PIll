@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import { useSettings, useUpdateSettings, useSocialAccounts, useCreateSocialAccount, useUpdateSocialAccount, useDeleteSocialAccount, usePodcasts, useBranding, useUpdateBranding, useAuditLogs, useApiKeys, useCreateApiKey, useRevokeApiKey, useDeleteApiKey } from "@/lib/api";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -546,7 +547,16 @@ export default function Settings() {
     <div className="space-y-6" data-testid="settings-page">
       <PageHeader pageKey="settings" onPrimaryAction={canEdit ? handleSave : undefined} />
 
-      <div className="flex items-center gap-1 border-b border-border -mt-2 mb-4 overflow-x-auto" data-testid="settings-tabs">
+      <MetricsStrip metrics={[
+        { label: "Active Integrations", value: "N/A" },
+        { label: "AI Tokens Used Today", value: 0 },
+        { label: "Pages Published", value: "N/A" },
+        { label: "Active Sponsorships", value: "N/A" },
+        { label: "Team Members", value: "N/A" },
+        { label: "System Uptime", value: "99.9%" },
+      ]} />
+
+      <div className="flex items-center gap-1 border-b border-border mb-4 overflow-x-auto" data-testid="settings-tabs">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -554,9 +564,9 @@ export default function Settings() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold uppercase tracking-wider transition-colors whitespace-nowrap border-b-2 -mb-px",
+                "flex items-center gap-2 px-4 py-2.5 text-[14px] font-medium transition-colors whitespace-nowrap border-b-2 -mb-px",
                 activeTab === tab.id
-                  ? "border-primary text-primary"
+                  ? "border-primary text-primary font-semibold"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
               )}
               data-testid={`tab-${tab.id}`}

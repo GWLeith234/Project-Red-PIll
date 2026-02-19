@@ -268,15 +268,16 @@ export default function Analytics() {
         <LiveVisitorMap />
       </DataCard>
 
+      <MetricsStrip metrics={metrics} />
+
       <Tabs defaultValue="website" data-testid="analytics-tabs">
-        <TabsList data-testid="analytics-tabs-list">
-          <TabsTrigger value="website" data-testid="tab-website">Website</TabsTrigger>
-          <TabsTrigger value="nps" data-testid="tab-nps">NPS &amp; Satisfaction</TabsTrigger>
-          <TabsTrigger value="content" data-testid="tab-content">Content Performance</TabsTrigger>
+        <TabsList className="bg-transparent border-b border-border rounded-none h-auto p-0 w-full overflow-x-auto justify-start" data-testid="analytics-tabs-list">
+          <TabsTrigger value="website" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-website">Website</TabsTrigger>
+          <TabsTrigger value="nps" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-nps">NPS &amp; Satisfaction</TabsTrigger>
+          <TabsTrigger value="content" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-content">Content Performance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="website" className="space-y-6 mt-4">
-          <MetricsStrip metrics={metrics} />
 
           {cachedInsights?.data ? (
             <DataCard title="AI Insights" data-testid="card-ai-insights-cached">

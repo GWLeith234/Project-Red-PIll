@@ -6439,10 +6439,13 @@ Return ONLY the JSON array, no markdown formatting.`;
     { pageKey: "moderation", title: "Moderation Queue", iconName: "Shield", route: "/moderation", permission: "content.edit", navSection: "content", sortOrder: 12, description: "Review and approve AI-generated content" },
     { pageKey: "ai-site-editor", title: "AI Site Editor", iconName: "PanelLeft", route: "/site-builder", permission: "customize.edit", navSection: "content", sortOrder: 15, primaryActionLabel: "+ New Page", aiActionLabel: "AI Build", description: "Build and customize site pages" },
     { pageKey: "community", title: "Community", iconName: "Heart", route: "/community", permission: "content.view", navSection: "content", sortOrder: 16, primaryActionLabel: "+ Add Event", aiActionLabel: "AI Moderate", description: "Community events, polls, and discussions" },
+    { pageKey: "page-builder", title: "Page Builder", iconName: "LayoutGrid", route: "/page-builder", permission: "customize.edit", navSection: "content", sortOrder: 17, primaryActionLabel: "Create New Page", description: "Build custom pages with drag-and-drop blocks" },
+    { pageKey: "advertising", title: "Advertising", iconName: "Megaphone", route: "/advertising", permission: "monetization.view", navSection: "monetization", sortOrder: 19, primaryActionLabel: "+ New Sponsorship", aiActionLabel: "AI Suggest", description: "Manage sponsorships, ad units, and packages" },
     { pageKey: "monetization", title: "Monetization", iconName: "DollarSign", route: "/monetization", permission: "monetization.view", navSection: "monetization", sortOrder: 20, primaryActionLabel: "+ New Campaign", aiActionLabel: "AI Optimize", description: "Revenue tracking and product management" },
     { pageKey: "campaigns", title: "Campaign Builder", iconName: "Send", route: "/campaigns", permission: "content.view", navSection: "monetization", sortOrder: 21, description: "Create and manage marketing campaigns" },
     { pageKey: "ad-resizer", title: "Ad Resizer", iconName: "Scaling", route: "/ad-resizer", permission: "monetization.view", navSection: "monetization", sortOrder: 22, description: "Resize ad creatives for all platforms" },
     { pageKey: "newsletters", title: "Newsletters", iconName: "Mail", route: "/newsletters", permission: "content.view", navSection: "monetization", sortOrder: 23, description: "Manage newsletter templates and sends", primaryActionLabel: "+ New Newsletter", aiActionLabel: "AI Draft" },
+    { pageKey: "push-campaigns", title: "Push Campaigns", iconName: "BellRing", route: "/push-campaigns", permission: "content.edit", navSection: "monetization", sortOrder: 24, description: "Push notification campaigns", primaryActionLabel: "+ New Campaign" },
     { pageKey: "network", title: "Network", iconName: "Network", route: "/network", permission: "network.view", navSection: "network", sortOrder: 30, primaryActionLabel: "+ Add Contact", aiActionLabel: "AI Suggest", description: "Podcast network and show management" },
     { pageKey: "audience", title: "Audience CRM", iconName: "ContactRound", route: "/audience", permission: "audience.view", navSection: "network", sortOrder: 31, description: "Audience management and engagement" },
     { pageKey: "sales", title: "Sales CRM", iconName: "Briefcase", route: "/sales", permission: "sales.view", navSection: "network", sortOrder: 32, description: "B2B sales pipeline and deal management" },
@@ -6507,8 +6510,8 @@ Return ONLY the JSON array, no markdown formatting.`;
     { sectionKey: "content", displayName: "CONTENT FACTORY", iconName: "FileText", sortOrder: 10, isCollapsedDefault: false },
     { sectionKey: "monetization", displayName: "REVENUE FACTORY", iconName: "DollarSign", sortOrder: 20, isCollapsedDefault: false },
     { sectionKey: "network", displayName: "AUDIENCE", iconName: "Radio", sortOrder: 30, isCollapsedDefault: false },
-    { sectionKey: "analytics", displayName: "Analytics", iconName: "BarChart3", sortOrder: 40, isCollapsedDefault: false },
-    { sectionKey: "admin", displayName: "Admin", iconName: "Settings", sortOrder: 50, isCollapsedDefault: false },
+    { sectionKey: "analytics", displayName: "ANALYTICS", iconName: "BarChart3", sortOrder: 40, isCollapsedDefault: false },
+    { sectionKey: "admin", displayName: "ADMIN", iconName: "Settings", sortOrder: 50, isCollapsedDefault: false },
   ];
 
   (async () => {

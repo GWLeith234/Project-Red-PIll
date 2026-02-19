@@ -213,21 +213,21 @@ export default function ContentFactory() {
       <ProcessingQueue />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-card/50 border border-border/50 p-1 h-auto flex-wrap w-full overflow-x-auto" data-testid="tabs-content-factory">
-          <TabsTrigger value="pipeline" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-pipeline">
-            <Zap className="mr-1.5 h-3 w-3" /> Pipeline
+        <TabsList className="bg-transparent border-b border-border rounded-none h-auto p-0 w-full overflow-x-auto justify-start" data-testid="tabs-content-factory">
+          <TabsTrigger value="pipeline" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-pipeline">
+            <Zap className="mr-1.5 h-4 w-4" /> Pipeline
           </TabsTrigger>
-          <TabsTrigger value="upload" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-upload">
-            <Upload className="mr-1.5 h-3 w-3" /> Upload
+          <TabsTrigger value="upload" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-upload">
+            <Upload className="mr-1.5 h-4 w-4" /> Upload
           </TabsTrigger>
-          <TabsTrigger value="clips" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-clips">
-            <Scissors className="mr-1.5 h-3 w-3" /> Clips
+          <TabsTrigger value="clips" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-clips">
+            <Scissors className="mr-1.5 h-4 w-4" /> Clips
           </TabsTrigger>
-          <TabsTrigger value="newsletter" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-newsletter">
-            <Mail className="mr-1.5 h-3 w-3" /> Newsletter
+          <TabsTrigger value="newsletter" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-newsletter">
+            <Mail className="mr-1.5 h-4 w-4" /> Newsletter
           </TabsTrigger>
-          <TabsTrigger value="shows" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-shows">
-            <Mic className="mr-1.5 h-3 w-3" /> Shows
+          <TabsTrigger value="shows" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-shows">
+            <Mic className="mr-1.5 h-4 w-4" /> Shows
           </TabsTrigger>
         </TabsList>
 

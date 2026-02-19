@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -1113,9 +1114,24 @@ export default function PageBuilder() {
     );
   }
 
+  const publishedCount = pages.filter(p => p.status === "published").length;
+  const draftCount = pages.filter(p => p.status === "draft").length;
+  const totalViews = pages.reduce((sum, p) => sum + ((p as any).views || 0), 0);
+  const avgBlocks = pages.length > 0 ? Math.round(pages.reduce((sum, p) => sum + ((p as any).layout?.length || 0), 0) / pages.length) : 0;
+  const lastPublished = pages.filter(p => p.status === "published").sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+
   return (
     <div className="p-6" data-testid="page-builder-list">
       <PageHeader pageKey="page-builder" onPrimaryAction={() => { resetCreateForm(); setShowCreateDialog(true); }} primaryActionOverride="Create New Page" />
+
+      <MetricsStrip metrics={[
+        { label: "Total Pages", value: pages.length },
+        { label: "Published", value: publishedCount },
+        { label: "Drafts", value: draftCount },
+        { label: "Total Views", value: totalViews || "N/A" },
+        { label: "Avg Blocks/Page", value: avgBlocks },
+        { label: "Last Published", value: lastPublished ? new Date(lastPublished.updatedAt).toLocaleDateString() : "N/A" },
+      ]} />
 
       <Tabs value={statusFilter} onValueChange={setStatusFilter} className="mb-4">
         <TabsList data-testid="status-filter-tabs">

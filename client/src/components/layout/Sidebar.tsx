@@ -65,14 +65,14 @@ function NavGroupSection({ label, items, location, searchString, hasPermission, 
   const groupId = `nav-group-${(label || "home").toLowerCase().replace(/\s+/g, "-")}`;
 
   return (
-    <div className={isUngrouped ? "" : "mt-2"}>
+    <div className={isUngrouped ? "" : "mt-4"}>
       {!isUngrouped && (
         <button
           onClick={onToggle}
           aria-expanded={!isCollapsed}
           aria-controls={groupId}
           className={cn(
-            "w-full flex items-center justify-between px-3 py-1.5 mb-0.5 text-[10px] font-semibold uppercase tracking-[0.15em] hover:text-muted-foreground transition-colors font-mono",
+            "w-full flex items-center justify-between px-4 py-1.5 mb-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] hover:text-muted-foreground transition-colors",
             hasActiveChild ? "text-primary/70" : "text-muted-foreground/70"
           )}
           data-testid={`button-nav-group-${label.toLowerCase()}`}
@@ -104,11 +104,10 @@ function NavGroupSection({ label, items, location, searchString, hasPermission, 
               href={item.route}
               onClick={onNavigate}
               className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-sm transition-all duration-200",
+                "group flex items-center py-2 text-[14px] font-medium rounded-sm transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-primary/10 text-primary border-l-2 border-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-                !isUngrouped && "pl-5",
+                  ? "bg-sidebar-primary/10 text-primary border-l-[3px] border-primary pl-[13px] pr-4"
+                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground pl-4 pr-4",
               )}
               data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
             >

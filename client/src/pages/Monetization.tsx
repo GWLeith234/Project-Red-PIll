@@ -752,17 +752,17 @@ export default function Monetization() {
       />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="bg-card/50 border border-border/50 p-1 w-full overflow-x-auto flex-wrap sm:flex-nowrap">
-          <TabsTrigger value="overview" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-revenue-overview">
-            <DollarSign className="mr-2 h-3.5 w-3.5" />
+        <TabsList className="bg-transparent border-b border-border rounded-none h-auto p-0 w-full overflow-x-auto justify-start">
+          <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-revenue-overview">
+            <DollarSign className="mr-2 h-4 w-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="products" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-revenue-products">
-            <Package className="mr-2 h-3.5 w-3.5" />
+          <TabsTrigger value="products" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-revenue-products">
+            <Package className="mr-2 h-4 w-4" />
             Products
           </TabsTrigger>
-          <TabsTrigger value="performance" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-revenue-performance">
-            <Target className="mr-2 h-3.5 w-3.5" />
+          <TabsTrigger value="performance" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-revenue-performance">
+            <Target className="mr-2 h-4 w-4" />
             Performance
           </TabsTrigger>
         </TabsList>

@@ -341,12 +341,12 @@ export default function Network() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <PageHeader pageKey="network" />
 
-      <div className="flex items-center gap-2 flex-wrap" data-testid="tab-toggle">
-        <button onClick={() => setTab("audience")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "audience" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`} data-testid="tab-audience">
-          <Users className="w-4 h-4 inline mr-1.5" />Audience
+      <div className="flex items-center gap-1 border-b border-border mb-6" data-testid="tab-toggle">
+        <button onClick={() => setTab("audience")} className={`flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium transition-all border-b-2 -mb-px ${tab === "audience" ? "border-primary text-primary font-semibold" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`} data-testid="tab-audience">
+          <Users className="w-4 h-4" />Audience
         </button>
-        <button onClick={() => setTab("commercial")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "commercial" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`} data-testid="tab-commercial">
-          <DollarSign className="w-4 h-4 inline mr-1.5" />Commercial
+        <button onClick={() => setTab("commercial")} className={`flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium transition-all border-b-2 -mb-px ${tab === "commercial" ? "border-primary text-primary font-semibold" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`} data-testid="tab-commercial">
+          <DollarSign className="w-4 h-4" />Commercial
         </button>
         <div className="ml-auto flex items-center gap-2">
           {tab === "commercial" && (

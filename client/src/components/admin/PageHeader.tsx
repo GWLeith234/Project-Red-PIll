@@ -61,7 +61,7 @@ export default function PageHeader({
             </div>
           )}
         </div>
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight" data-testid="text-page-title">
+        <h1 className="text-[24px] font-bold text-foreground tracking-tight leading-tight" data-testid="text-page-title">
           {config.title}
         </h1>
       </div>
@@ -72,7 +72,7 @@ export default function PageHeader({
         {primaryLabel && onPrimaryAction && (
           <button
             onClick={onPrimaryAction}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-[14px] font-medium text-white transition-all hover:opacity-90 h-9"
             style={{ backgroundColor: primaryColor }}
             data-testid="button-primary-action"
           >

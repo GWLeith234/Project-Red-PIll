@@ -1153,21 +1153,21 @@ export default function Advertising() {
       <MetricsStrip metrics={metrics} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="advertising-tabs">
-        <TabsList className="grid w-full grid-cols-4 max-w-lg" data-testid="advertising-tabs-list">
-          <TabsTrigger value="sponsorships" data-testid="tab-sponsorships">
-            <Megaphone className="h-4 w-4 mr-1.5 hidden sm:inline" />
+        <TabsList className="bg-transparent border-b border-border rounded-none h-auto p-0 w-full overflow-x-auto justify-start" data-testid="advertising-tabs-list">
+          <TabsTrigger value="sponsorships" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-sponsorships">
+            <Megaphone className="h-4 w-4 mr-1.5" />
             Sponsorships
           </TabsTrigger>
-          <TabsTrigger value="adunits" data-testid="tab-adunits">
-            <Image className="h-4 w-4 mr-1.5 hidden sm:inline" />
+          <TabsTrigger value="adunits" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-adunits">
+            <Image className="h-4 w-4 mr-1.5" />
             Ad Units
           </TabsTrigger>
-          <TabsTrigger value="packages" data-testid="tab-packages">
-            <Package className="h-4 w-4 mr-1.5 hidden sm:inline" />
+          <TabsTrigger value="packages" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-packages">
+            <Package className="h-4 w-4 mr-1.5" />
             Packages
           </TabsTrigger>
-          <TabsTrigger value="analytics" data-testid="tab-analytics">
-            <BarChart3 className="h-4 w-4 mr-1.5 hidden sm:inline" />
+          <TabsTrigger value="analytics" className="rounded-none border-b-2 border-transparent text-[14px] font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:font-semibold data-[state=active]:shadow-none data-[state=active]:bg-transparent px-4 py-2.5" data-testid="tab-analytics">
+            <BarChart3 className="h-4 w-4 mr-1.5" />
             Analytics
           </TabsTrigger>
         </TabsList>

@@ -64,9 +64,9 @@ export default function CommunityAdmin() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium transition-all border-b-2 -mb-px ${
               activeTab === tab.key
-                ? "border-primary text-primary"
+                ? "border-primary text-primary font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
             }`}
             data-testid={`tab-${tab.key}`}
