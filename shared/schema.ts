@@ -2173,4 +2173,58 @@ export const insertAiAgentSchema = createInsertSchema(aiAgents).omit({
 export type InsertAiAgent = z.infer<typeof insertAiAgentSchema>;
 export type AiAgent = typeof aiAgents.$inferSelect;
 
+export const PUSH_CAMPAIGN_STATUSES = ["draft", "scheduled", "sending", "sent", "failed", "cancelled"] as const;
+export type PushCampaignStatus = (typeof PUSH_CAMPAIGN_STATUSES)[number];
+export const PUSH_SEGMENTS = ["all", "new", "engaged", "at_risk"] as const;
+export type PushSegment = (typeof PUSH_SEGMENTS)[number];
+
+export const pushCampaigns = pgTable("push_campaigns", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  iconUrl: text("icon_url"),
+  clickUrl: text("click_url"),
+  imageUrl: text("image_url"),
+  targetSegment: text("target_segment").notNull().default("all"),
+  status: text("status").notNull().default("draft"),
+  scheduledAt: timestamp("scheduled_at"),
+  sentAt: timestamp("sent_at"),
+  recipientCount: integer("recipient_count").default(0),
+  deliveredCount: integer("delivered_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  clickedCount: integer("clicked_count").default(0),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPushCampaignSchema = createInsertSchema(pushCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  recipientCount: true,
+  deliveredCount: true,
+  failedCount: true,
+  clickedCount: true,
+  sentAt: true,
+});
+export type InsertPushCampaign = z.infer<typeof insertPushCampaignSchema>;
+export type PushCampaign = typeof pushCampaigns.$inferSelect;
+
+export const pushCampaignLogs = pgTable("push_campaign_logs", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  campaignId: text("campaign_id").notNull(),
+  subscriptionId: text("subscription_id").notNull(),
+  status: text("status").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PushCampaignLog = typeof pushCampaignLogs.$inferSelect;
+
 export * from "./models/chat";
