@@ -1,0 +1,255 @@
+# Sprint: AI Page Builder
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Sprint: Build the AI Page Builder — a drag-and-drop page builder that lets admins create custom landing pages, show pages, and content hubs with AI-assisted layout generation and enforced ad placement zones.
+
+CONTEXT:
+- The platform has an existing content system, podcast/show pages, and advertising system
+- This builder creates CUSTOM pages beyond the standard templates
+- Ad enforcement means certain ad zones cannot be removed or moved by the user
+- The AI component suggests layouts and generates copy based on a brief
+- Built pages are served at /page/:slug on the audience site
+
+---
+
+PART A — DATABASE:
+
+(1) Add a built_pages table to the Drizzle schema:
+- id: uuid, primary key, default gen_random_uuid()
+- title: text, not null
+- slug: text, not null, unique (URL-friendly, e.g. "scott-jennings-show")
+- status: text, default 'draft' (draft, published, archived)
+- page_type: text, default 'custom' (custom, show_page, landing_page, hub_page)
+- layout: jsonb, not null, default '[]' (array of block objects — see block schema below)
+- meta_title: text, nullable
+- meta_description: text, nullable
+- cover_image: text, nullable
+- published_at: timestamp, nullable
+- created_by: text, nullable
+- created_at: timestamp, default now()
+- updated_at: timestamp, default now()
+
+Block schema (stored in layout jsonb array):
+{
+  id: string (uuid),
+  type: string (see block types below),
+  order: number,
+  settings: object (type-specific settings),
+  ad_enforced: boolean (if true, block cannot be deleted or moved)
+}
+
+Block types:
+- "hero" — large hero banner with title, subtitle, background image, CTA button
+- "text" — rich text block (markdown rendered)
+- "podcast_feed" — shows latest episodes from a selected podcast
+- "article_feed" — shows latest articles, filterable by tag/category
+- "poll_widget" — embeds a poll by ID or zone
+- "events_widget" — shows upcoming events
+- "ad_unit" — advertisement placement (leaderboard, rectangle, sidebar)
+- "image" — single image with optional caption
+- "video" — embedded video (YouTube/Vimeo URL)
+- "cta_banner" — call to action banner with headline, body, button
+- "divider" — horizontal divider/spacer
+- "subscribe_widget" — email/push subscription form
+- "html" — raw HTML embed (admin only, sanitized)
+
+(2) Add a page_templates table for saving reusable templates:
+- id: uuid, primary key
+- name: text
+- description: text
+- thumbnail_url: text, nullable
+- layout: jsonb (same block array format as built_pages)
+- is_system: boolean, default false (system templates can't be deleted)
+- created_at: timestamp, default now()
+
+Seed 3 system templates:
+- "Show Page" — hero block + podcast_feed + subscribe_widget + ad_unit (enforced)
+- "Landing Page" — hero + text + cta_banner + subscribe_widget + ad_unit (enforced)  
+- "Content Hub" — hero + article_feed + poll_widget + events_widget + ad_unit (enforced)
+
+---
+
+PART B — API ENDPOINTS:
+
+(3) CRUD for built_pages (all require auth except public GET):
+- GET /api/pages — list all pages (admin)
+- GET /api/pages/:id — get single page with layout (admin)
+- GET /api/public/page/:slug — get published page by slug (public, no auth)
+- POST /api/pages — create new page
+- PATCH /api/pages/:id — update page (title, slug, layout, status, meta)
+- DELETE /api/pages/:id — delete draft page only
+- POST /api/pages/:id/publish — set status to published, set published_at
+- POST /api/pages/:id/unpublish — set status back to draft
+
+(4) CRUD for page_templates (all require auth):
+- GET /api/page-templates — list all templates
+- POST /api/page-templates — save current layout as template
+- DELETE /api/page-templates/:id — delete non-system templates only
+
+(5) AI page builder endpoints:
+- POST /api/pages/ai/generate-layout — accepts { brief, pageType } and returns a suggested layout array
+- POST /api/pages/ai/generate-copy — accepts { blockType, context } and returns suggested copy for a block
+- POST /api/pages/ai/suggest-slug — accepts { title } and returns a URL-friendly slug suggestion
+
+---
+
+PART C — PAGE BUILDER UI:
+
+(6) Build the AI Page Builder admin page at /admin/page-builder.
+
+PageHeader:
+- Icon: Layout (Lucide)
+- Title: "Page Builder"
+- Primary Action: "+ New Page"
+- AI Action: "AI Generate" (purple)
+
+Pages List view (default):
+- Table showing all built pages: Title, Slug, Type, Status badge, Last Updated, Actions
+- Status badges: Draft (gray), Published (green), Archived (muted)
+- Actions: Edit (opens builder), Preview, Publish/Unpublish, Delete
+- Empty state: layout icon + "No pages yet" + "Create your first page" button
+
+(7) Build the Page Editor — opens when creating or editing a page. Full-screen editor layout:
+
+LEFT PANEL (280px) — Block Library:
+- Search input to filter blocks
+- Block categories with draggable block items:
+  - Content: Hero, Text, Image, Video, Divider
+  - Media: Podcast Feed, Article Feed
+  - Engagement: Poll Widget, Events Widget, Subscribe Widget, CTA Banner
+  - Monetization: Ad Unit (leaderboard, rectangle)
+  - Advanced: HTML Embed
+- Each block shown as a small card with icon and label
+- Drag from here onto the canvas
+
+CENTER — Canvas:
+- Visual representation of the page layout
+- Blocks rendered as visual previews (not full render, but representative)
+- Each block has: drag handle (left), block type label (top), Edit button, Delete button (hidden for ad_enforced blocks), Move up/down arrows
+- Drop zones appear between blocks when dragging
+- "Drop a block here" placeholder when canvas is empty
+- Canvas width constrained to ~800px centered to simulate page width
+
+RIGHT PANEL (320px) — Block Settings:
+- Shows settings for the currently selected block
+- Each block type has its own settings form:
+  - Hero: title text, subtitle text, background image URL, CTA label, CTA URL, overlay opacity
+  - Text: markdown textarea with preview toggle
+  - Podcast Feed: podcast selector dropdown, number of episodes to show (3/5/10)
+  - Article Feed: category filter, tag filter, number of articles (3/6/9), layout (grid/list)
+  - Poll Widget: poll selector dropdown (shows published polls), or zone selector
+  - Events Widget: number of events to show (3/5)
+  - Ad Unit: size selector (leaderboard 728x90, rectangle 300x250, sidebar 300x600), ad zone name
+  - Image: image URL input, alt text, caption, link URL
+  - Video: embed URL (YouTube/Vimeo), autoplay toggle, caption
+  - CTA Banner: headline, body text, button label, button URL, background color picker
+  - Subscribe Widget: headline, subtext, button label, show email/push toggles
+  - HTML: textarea for raw HTML (sanitized on save)
+
+TOP BAR of editor:
+- Back button (← Pages)
+- Page title input (editable inline)
+- Slug input (editable, auto-generated from title, shows full URL preview: yoursite.com/page/slug)
+- Status badge
+- Preview button (opens /page/:slug in new tab)
+- Save Draft button
+- Publish button (primary color)
+
+(8) Implement drag and drop for the canvas using HTML5 drag and drop API (no external DnD library):
+- Blocks in the library are draggable (draggable attribute)
+- Canvas has drop zones between each block
+- On drop, insert the new block at that position with default settings
+- Existing blocks can be reordered by dragging their drag handle
+- ad_enforced blocks show a lock icon and cannot be dragged or deleted
+
+(9) Page Settings panel — accessible via a Settings tab in the right panel when no block is selected:
+- Page Title
+- Slug (with validation — only lowercase letters, numbers, hyphens)
+- Page Type selector
+- Meta Title (SEO)
+- Meta Description (SEO, character counter max 160)
+- Cover Image URL
+- Save Settings button
+
+---
+
+PART D — AI FEATURES:
+
+(10) Wire the "AI Generate" button in the PageHeader:
+- Opens a modal with:
+  - Page Brief textarea: "Describe what this page is for..." (e.g. "A show page for Scott Jennings covering conservative politics and commentary")
+  - Page Type selector (Show Page, Landing Page, Content Hub, Custom)
+  - Tone selector (Professional, Conversational, News-style)
+  - Generate button
+- On submit, call POST /api/pages/ai/generate-layout
+- The AI prompt: "You are a media website designer for a conservative news and podcast platform. Based on this brief: '[brief]', generate a page layout as a JSON array of blocks. Available block types: hero, text, podcast_feed, article_feed, poll_widget, events_widget, ad_unit, cta_banner, subscribe_widget, divider. Each block needs: type, order (starting 1), and settings object with reasonable defaults. Always include at least one ad_unit block marked as ad_enforced: true. Return ONLY the JSON array, no other text."
+- Parse the returned JSON and load it into the canvas
+- Show loading state "AI is designing your page..." with a spinner
+
+(11) Add "AI Write" button to text-based block settings (Hero, Text, CTA Banner):
+- Small purple "AI Write" button next to text fields
+- Clicking it calls POST /api/pages/ai/generate-copy with the block type and page context
+- Fills in the field with AI-generated copy
+- User can edit after generation
+
+(12) Auto-generate slug from title:
+- As user types the page title, auto-populate the slug field
+- Convert to lowercase, replace spaces with hyphens, remove special characters
+- If slug already exists, append -2, -3, etc.
+- Call POST /api/pages/ai/suggest-slug for AI-enhanced slug suggestions
+
+---
+
+PART E — AUDIENCE-FACING PAGE RENDERING:
+
+(13) Build the page renderer component: client/src/pages/audience/BuiltPage.tsx
+- Fetches page data from GET /api/public/page/:slug
+- Renders each block in the layout array in order
+- Block renderers:
+  - hero: full-width banner with background image overlay, title, subtitle, CTA button
+  - text: rendered markdown (use existing markdown renderer or marked library)
+  - podcast_feed: fetches and displays episodes from the specified podcast
+  - article_feed: fetches and displays articles with specified filters
+  - poll_widget: renders PollWidget component with specified pollId or zone
+  - events_widget: renders EventsWidget component
+  - ad_unit: renders an ad placeholder div with the correct dimensions and zone name
+  - image: responsive image with optional caption
+  - video: embedded iframe for YouTube/Vimeo with responsive wrapper
+  - cta_banner: styled banner with headline, body, button
+  - subscribe_widget: renders the existing subscribe form component
+  - html: renders sanitized HTML (use DOMPurify to sanitize)
+  - divider: horizontal rule with spacing
+- 404 handling: if page not found or not published, show a clean "Page not found" message
+
+(14) Add the route to App.tsx:
+- <Route path="/page/:slug">{() => <AudienceLayout><BuiltPage /></AudienceLayout>}</Route>
+- Place it before the catch-all route
+
+(15) Add Page Builder to the admin sidebar navigation between "Content Factory" and "Monetization". Use Layout icon.
+
+---
+
+PART F — TEMPLATES:
+
+(16) Add a Templates tab to the Page Builder list view:
+- Shows system templates (Show Page, Landing Page, Content Hub) and any saved user templates
+- Each template shows: name, description, thumbnail (or block type list if no thumbnail), "Use Template" button
+- "Use Template" creates a new page pre-loaded with that template's layout, opens the editor
+- "Save as Template" button in the page editor top bar — saves current layout as a new template with a name prompt
+
+---
+
+VERIFICATION CHECKLIST:
+1. /admin/page-builder loads with pages list
+2. "+ New Page" opens the full-screen editor with empty canvas
+3. Drag a Hero block from the library onto the canvas — it appears with edit controls
+4. Click the Hero block — right panel shows Hero settings form
+5. Fill in title and click "AI Write" — AI generates hero copy
+6. Click "AI Generate" in the header — enter a brief, AI returns a full layout on the canvas
+7. Add an Ad Unit block — it shows as locked (cannot delete or drag)
+8. Click Publish — page status changes to Published
+9. Visit /page/[slug] on the audience site — page renders correctly with all blocks
+10. Use a system template — editor opens pre-populated with template blocks
+```

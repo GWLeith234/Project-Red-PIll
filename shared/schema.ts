@@ -1045,13 +1045,35 @@ export const pageTemplates = pgTable("page_templates", {
   templateType: text("template_type").default("custom"),
   thumbnailUrl: text("thumbnail_url"),
   rowsConfig: jsonb("rows_config").default([]),
+  layout: jsonb("layout").default([]),
   isDefault: boolean("is_default").default(false),
+  isSystem: boolean("is_system").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertPageTemplateSchema = createInsertSchema(pageTemplates).omit({ id: true, createdAt: true });
 export type InsertPageTemplate = z.infer<typeof insertPageTemplateSchema>;
 export type PageTemplate = typeof pageTemplates.$inferSelect;
+
+export const builtPages = pgTable("built_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  status: text("status").default("draft"),
+  pageType: text("page_type").default("custom"),
+  layout: jsonb("layout").notNull().default([]),
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  coverImage: text("cover_image"),
+  publishedAt: timestamp("published_at"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBuiltPageSchema = createInsertSchema(builtPages).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBuiltPage = z.infer<typeof insertBuiltPageSchema>;
+export type BuiltPage = typeof builtPages.$inferSelect;
 
 // ── Community Content ──
 export const communityEvents = pgTable("community_events", {
