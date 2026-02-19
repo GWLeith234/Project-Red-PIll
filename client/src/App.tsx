@@ -39,6 +39,7 @@ import NewsletterManager from "@/pages/NewsletterManager";
 import LegalAdmin from "@/pages/LegalAdmin";
 import SiteBuilder from "@/pages/SiteBuilder";
 import CommunityAdmin from "@/pages/CommunityAdmin";
+import PushCampaigns from "@/pages/PushCampaigns";
 import EventsPage from "@/pages/EventsPage";
 import CommunityPage from "@/pages/CommunityPage";
 import LiveMapBroadcast from "@/pages/LiveMapBroadcast";
@@ -235,6 +236,7 @@ function ProtectedRoutes() {
           <Route path="/newsletters">{() => <PermissionGate permission="content.view"><NewsletterManager /></PermissionGate>}</Route>
           <Route path="/legal-admin">{() => <PermissionGate permission="settings.view"><LegalAdmin /></PermissionGate>}</Route>
           <Route path="/community">{() => <PermissionGate permission="content.view"><CommunityAdmin /></PermissionGate>}</Route>
+          <Route path="/push-campaigns">{() => <PermissionGate permission="content.edit"><PushCampaigns /></PermissionGate>}</Route>
           <Route path="/site-builder">{() => <PermissionGate permission="customize.edit"><SiteBuilder /></PermissionGate>}</Route>
           <Route component={NotFound} />
         </Switch>

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions } from "@shared/schema";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions } from "@shared/schema";
 import { lookupIP, getRandomDevCity } from "./geo-lookup";
 import { addFeedClient, getRecentActivities, trackSubscriber, trackArticlePublished, trackCommunityPost, trackPollVote, trackNpsSubmission, trackEventCreated, addActivity } from "./activity-feed";
 import type { Response as ExpressResponse } from "express";
@@ -41,7 +41,7 @@ import {
   generateAIPageLayout, refineAIPageLayout, suggestWidgets, getContentInventory,
   type AdPlacementRules,
 } from "./ai-page-builder";
-import { insertAiLayoutExampleSchema, insertAdInjectionLogSchema } from "@shared/schema";
+import { insertAiLayoutExampleSchema, insertAdInjectionLogSchema, insertPushCampaignSchema } from "@shared/schema";
 
 const DATE_FIELDS = [
   "startDate", "endDate", "expiresAt", "closesAt", "publishedAt", "scheduledAt",
@@ -5154,6 +5154,161 @@ Provide comprehensive social listening intelligence including trending topics, k
     } catch (err: any) {
       console.error("PUSH TEST ERROR:", err);
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Push Campaigns ──
+  app.get("/api/push-campaigns", requireAuth, async (req, res) => {
+    try {
+      const campaigns = await storage.getPushCampaigns();
+      res.json(campaigns);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/push-campaigns/:id", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getPushCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Not found" });
+      res.json(campaign);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/push-campaigns", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const parsed = insertPushCampaignSchema.parse(req.body);
+      const campaign = await storage.createPushCampaign(parsed);
+      res.json(campaign);
+    } catch (e: any) {
+      if (e.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: e.errors });
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/push-campaigns/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const parsed = insertPushCampaignSchema.partial().parse(req.body);
+      const campaign = await storage.updatePushCampaign(req.params.id, parsed);
+      if (!campaign) return res.status(404).json({ error: "Not found" });
+      res.json(campaign);
+    } catch (e: any) {
+      if (e.name === "ZodError") return res.status(400).json({ error: "Validation failed", details: e.errors });
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/push-campaigns/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      await storage.deletePushCampaign(req.params.id);
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/push-campaigns/:id/send", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const campaign = await storage.getPushCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Not found" });
+      if (campaign.status === "sent") return res.status(400).json({ error: "Already sent" });
+
+      let subs = await db.select().from(devicePushSubscriptions);
+
+      if (campaign.targetSegment && campaign.targetSegment !== "all") {
+        subs = subs.filter((s: any) => {
+          const prefs = s.preferences;
+          if (!prefs) return true;
+          if (campaign.targetSegment === "articles" && prefs.articles === true) return true;
+          if (campaign.targetSegment === "episodes" && prefs.episodes === true) return true;
+          if (campaign.targetSegment === "breaking" && prefs.breaking === true) return true;
+          return false;
+        });
+      }
+
+      let delivered = 0;
+      let failed = 0;
+
+      for (const sub of subs) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify({
+              title: campaign.title,
+              body: campaign.body,
+              url: campaign.clickUrl || "/home",
+              tag: `campaign-${campaign.id}`,
+              campaignId: campaign.id,
+              icon: campaign.iconUrl,
+              image: campaign.imageUrl,
+            })
+          );
+          delivered++;
+          await storage.createPushCampaignLog({ campaignId: campaign.id, subscriptionId: sub.id, status: "delivered" });
+        } catch (err: any) {
+          failed++;
+          await storage.createPushCampaignLog({ campaignId: campaign.id, subscriptionId: sub.id, status: "failed", errorMessage: err.message });
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await db.delete(devicePushSubscriptions).where(eq(devicePushSubscriptions.id, sub.id));
+          }
+        }
+      }
+
+      const updated = await storage.updatePushCampaign(campaign.id, {
+        status: "sent",
+        sentAt: new Date(),
+        recipientCount: subs.length,
+        deliveredCount: delivered,
+        failedCount: failed,
+      } as any);
+
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/push-campaigns/:id/cancel", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const campaign = await storage.getPushCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Not found" });
+      if (campaign.status === "sent") return res.status(400).json({ error: "Already sent" });
+      const updated = await storage.updatePushCampaign(req.params.id, { status: "cancelled" } as any);
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/push-campaigns/:id/stats", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getPushCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Not found" });
+      const logs = await storage.getPushCampaignLogs(req.params.id);
+      const deliveredLogs = logs.filter(l => l.status === "delivered").length;
+      const failedLogs = logs.filter(l => l.status === "failed").length;
+      const clickedLogs = logs.filter(l => l.status === "clicked").length;
+      res.json({
+        campaign,
+        stats: { total: logs.length, delivered: deliveredLogs, failed: failedLogs, clicked: clickedLogs },
+        logs,
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/public/push-campaigns/:id/click", async (req, res) => {
+    try {
+      const campaign = await storage.getPushCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Not found" });
+      await storage.updatePushCampaign(req.params.id, { clickedCount: (campaign.clickedCount || 0) + 1 } as any);
+      await storage.createPushCampaignLog({ campaignId: req.params.id, subscriptionId: "click", status: "clicked" });
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 

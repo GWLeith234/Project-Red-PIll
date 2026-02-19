@@ -75,6 +75,8 @@ import {
   aiContentLog, type AiContentLog, type InsertAiContentLog,
   notifications, type Notification, type InsertNotification,
   aiAgents, type AiAgent, type InsertAiAgent,
+  pushCampaigns, type PushCampaign, type InsertPushCampaign,
+  pushCampaignLogs, type PushCampaignLog, type InsertPushCampaignLog,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -464,6 +466,15 @@ export interface IStorage {
   createAiAgent(data: InsertAiAgent): Promise<AiAgent>;
   updateAiAgent(id: string, data: Partial<InsertAiAgent>): Promise<AiAgent | undefined>;
   deleteAiAgent(id: string): Promise<void>;
+
+  // Push Campaigns
+  getPushCampaigns(): Promise<PushCampaign[]>;
+  getPushCampaign(id: string): Promise<PushCampaign | undefined>;
+  createPushCampaign(data: InsertPushCampaign): Promise<PushCampaign>;
+  updatePushCampaign(id: string, data: Partial<InsertPushCampaign>): Promise<PushCampaign | undefined>;
+  deletePushCampaign(id: string): Promise<void>;
+  getPushCampaignLogs(campaignId: string): Promise<PushCampaignLog[]>;
+  createPushCampaignLog(data: InsertPushCampaignLog): Promise<PushCampaignLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1965,6 +1976,34 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteAiAgent(id: string) {
     await db.delete(aiAgents).where(eq(aiAgents.id, id));
+  }
+
+  // Push Campaigns
+  async getPushCampaigns() {
+    return db.select().from(pushCampaigns).orderBy(desc(pushCampaigns.createdAt));
+  }
+  async getPushCampaign(id: string) {
+    const [campaign] = await db.select().from(pushCampaigns).where(eq(pushCampaigns.id, id));
+    return campaign;
+  }
+  async createPushCampaign(data: InsertPushCampaign) {
+    const [created] = await db.insert(pushCampaigns).values(data).returning();
+    return created;
+  }
+  async updatePushCampaign(id: string, data: Partial<InsertPushCampaign>) {
+    const [updated] = await db.update(pushCampaigns).set({ ...data, updatedAt: new Date() }).where(eq(pushCampaigns.id, id)).returning();
+    return updated;
+  }
+  async deletePushCampaign(id: string) {
+    await db.delete(pushCampaignLogs).where(eq(pushCampaignLogs.campaignId, id));
+    await db.delete(pushCampaigns).where(eq(pushCampaigns.id, id));
+  }
+  async getPushCampaignLogs(campaignId: string) {
+    return db.select().from(pushCampaignLogs).where(eq(pushCampaignLogs.campaignId, campaignId)).orderBy(desc(pushCampaignLogs.createdAt));
+  }
+  async createPushCampaignLog(data: InsertPushCampaignLog) {
+    const [created] = await db.insert(pushCampaignLogs).values(data).returning();
+    return created;
   }
 }
 

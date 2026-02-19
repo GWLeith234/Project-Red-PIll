@@ -60,9 +60,10 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'New Content', {
       body: data.body,
-      icon: '/icon-192.png',
+      icon: data.icon || '/icon-192.png',
       badge: '/icon-192.png',
-      data: { url: data.url || '/home' },
+      image: data.image || undefined,
+      data: { url: data.url || '/home', campaignId: data.campaignId || null },
       tag: data.tag || 'default',
     })
   );
@@ -71,8 +72,15 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/home';
+  const campaignId = event.notification.data?.campaignId;
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    Promise.resolve().then(async () => {
+      if (campaignId) {
+        try {
+          await fetch(`/api/public/push-campaigns/${campaignId}/click`, { method: 'POST' });
+        } catch (e) {}
+      }
+      const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clientList) {
         if (client.url.includes(url) && 'focus' in client) {
           return client.focus();
