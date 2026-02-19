@@ -6,7 +6,7 @@ const iconCache = new Map<string, LucideIcon>();
 export function getIcon(iconName: string): LucideIcon {
   if (iconCache.has(iconName)) return iconCache.get(iconName)!;
   const icon = (LucideIcons as Record<string, any>)[iconName];
-  if (icon && typeof icon === "function") {
+  if (icon && (typeof icon === "function" || (typeof icon === "object" && icon.render))) {
     iconCache.set(iconName, icon as LucideIcon);
     return icon as LucideIcon;
   }
@@ -15,13 +15,12 @@ export function getIcon(iconName: string): LucideIcon {
 
 export function getAllIconNames(): string[] {
   return Object.keys(LucideIcons).filter(
-    (key) =>
-      key !== "default" &&
-      key !== "createLucideIcon" &&
-      key !== "icons" &&
-      typeof (LucideIcons as Record<string, any>)[key] === "function" &&
-      key[0] === key[0].toUpperCase() &&
-      !key.startsWith("Lucide")
+    (key) => {
+      if (key === "default" || key === "createLucideIcon" || key === "icons" || key.startsWith("Lucide")) return false;
+      if (key[0] !== key[0].toUpperCase()) return false;
+      const val = (LucideIcons as Record<string, any>)[key];
+      return typeof val === "function" || (typeof val === "object" && val !== null && val.render);
+    }
   );
 }
 
