@@ -11,6 +11,7 @@ import MiniPlayer from "@/components/MiniPlayer";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
 import NpsWidget from "@/components/NpsWidget";
+import { NetworkSponsorBanner } from "@/components/SponsorStrip";
 
 function usePublicPodcasts() {
   return useQuery({
@@ -487,6 +488,8 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </header>
+
+      <NetworkSponsorBanner />
 
       <main className={`flex-1 ${hasActivePlayer ? "pb-28 lg:pb-16" : "pb-16 lg:pb-0"}`}>
         {children}

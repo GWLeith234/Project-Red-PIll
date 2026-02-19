@@ -6,6 +6,7 @@ import { ArticlePreviewPopup } from "@/components/ArticlePreviewPopup";
 import { useState } from "react";
 import { SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
+import { ShowHeroSponsorStrip, EpisodeSponsorBadge } from "@/components/SponsorStrip";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -219,6 +220,8 @@ export default function ShowDetail() {
         </div>
       </div>
 
+      <ShowHeroSponsorStrip showId={params.podcastId!} />
+
       <div className="bg-card border-b border-border sticky top-16 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <nav className="flex gap-2 py-3" data-testid="show-tabs">
@@ -356,6 +359,7 @@ function EpisodesTab({ episodes, podcastId, podcastTitle, accent, limit, onLoadM
                     {ep.title}
                   </h3>
                   <EpisodeTypeBadge type={ep.episodeType || "audio"} />
+                  <EpisodeSponsorBadge showId={podcastId} />
                 </div>
                 {ep.description && (
                   <p className="text-muted-foreground text-xs line-clamp-2 leading-relaxed">{ep.description}</p>

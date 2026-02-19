@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { InlineSubscribeWidget, SidebarSubscribeWidget, StickyBottomSubscribeBar } from "@/components/SubscriberWidgets";
 import { useSubscription } from "@/hooks/use-subscription";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
+import { ArticleSponsorBanner } from "@/components/SponsorStrip";
 import { useReadLater } from "@/hooks/use-read-later";
 import { useReadingProgress } from "@/hooks/use-reading-progress";
 import { useReadingHistory } from "@/hooks/use-reading-history";
@@ -770,6 +771,12 @@ export default function ArticlePage() {
         <AdPlaceholder width={728} height={90} label="Leaderboard" className="hidden md:flex" />
         <AdPlaceholder width={320} height={50} label="Mobile Banner" className="md:hidden" />
       </div>
+
+      {params.podcastId && (
+        <div className="max-w-5xl mx-auto px-4 print:hidden">
+          <ArticleSponsorBanner showId={params.podcastId} />
+        </div>
+      )}
 
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex gap-8">
