@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Heart, MessageCircle, Send, Star, Pin, Loader2, Users, BarChart3 } from "lucide-react";
+import { Heart, MessageCircle, Send, Star, Pin, Loader2, Users, BarChart3, CalendarDays, AlertCircle } from "lucide-react";
+import PollWidget from "@/components/widgets/PollWidget";
+import EventsWidget from "@/components/widgets/EventsWidget";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -370,11 +372,15 @@ function PollsTab() {
   );
 }
 
+const MAX_POST_LENGTH = 2000;
+
 function DiscussionTab() {
   const queryClient = useQueryClient();
   const [authorName, setAuthorName] = useState("");
+  const [authorEmail, setAuthorEmail] = useState("");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
 
   const { data: posts = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/public/community-posts"],
@@ -386,17 +392,22 @@ function DiscussionTab() {
   });
 
   const handleSubmit = async () => {
-    if (!authorName.trim() || !content.trim() || submitting) return;
+    if (!authorName.trim() || !content.trim() || submitting || content.length > MAX_POST_LENGTH) return;
     setSubmitting(true);
+    setRateLimited(false);
     try {
+      const body: any = { authorName: authorName.trim(), content: content.trim() };
+      if (authorEmail.trim()) body.authorEmail = authorEmail.trim();
       const res = await fetch("/api/public/community-posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ authorName: authorName.trim(), content: content.trim() }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         setContent("");
         queryClient.invalidateQueries({ queryKey: ["/api/public/community-posts"] });
+      } else if (res.status === 429) {
+        setRateLimited(true);
       }
     } catch (err) {
       console.error("Post error:", err);
@@ -442,18 +453,39 @@ function DiscussionTab() {
           className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 mb-3"
           data-testid="input-post-name"
         />
+        <input
+          type="email"
+          placeholder="Email (optional)"
+          value={authorEmail}
+          onChange={(e) => setAuthorEmail(e.target.value)}
+          className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 mb-3"
+          data-testid="input-post-email"
+        />
         <textarea
           placeholder="What's on your mind?"
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            if (e.target.value.length <= MAX_POST_LENGTH) setContent(e.target.value);
+          }}
           rows={3}
-          className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 resize-none mb-3"
+          className="w-full px-4 py-2.5 bg-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50 resize-none mb-1"
           data-testid="input-post-content"
         />
+        <div className="flex items-center justify-between mb-3">
+          <span className={`text-xs ${content.length >= MAX_POST_LENGTH ? "text-red-400" : "text-muted-foreground"}`} data-testid="text-char-count">
+            {content.length}/{MAX_POST_LENGTH}
+          </span>
+          {rateLimited && (
+            <span className="flex items-center gap-1 text-xs text-red-400" data-testid="text-rate-limit">
+              <AlertCircle className="h-3 w-3" />
+              Please wait before posting again
+            </span>
+          )}
+        </div>
         <div className="flex justify-end">
           <button
             onClick={handleSubmit}
-            disabled={submitting || !authorName.trim() || !content.trim()}
+            disabled={submitting || !authorName.trim() || !content.trim() || content.length > MAX_POST_LENGTH}
             className="inline-flex items-center gap-2 px-5 py-2 bg-amber-500 text-gray-950 rounded-full text-sm font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50"
             data-testid="button-submit-post"
           >
@@ -502,6 +534,14 @@ export default function CommunityPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 pb-16">
+        <div className="bg-background border border-border rounded-xl p-5 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarDays className="h-4 w-4 text-amber-400" />
+            <h3 className="text-sm font-semibold text-foreground">Upcoming Events</h3>
+          </div>
+          <EventsWidget limit={2} />
+        </div>
+
         <div className="flex border-b border-border mb-8" data-testid="tab-switcher">
           <button
             onClick={() => setActiveTab("polls")}
@@ -529,7 +569,11 @@ export default function CommunityPage() {
           </button>
         </div>
 
-        {activeTab === "polls" ? <PollsTab /> : <DiscussionTab />}
+        <PollWidget zone="community_page" />
+
+        <div className="mt-6">
+          {activeTab === "polls" ? <PollsTab /> : <DiscussionTab />}
+        </div>
       </div>
     </div>
   );

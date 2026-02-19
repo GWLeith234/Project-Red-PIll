@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces, adminNavSections } from "@shared/schema";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces, adminNavSections, communityEvents, communityPolls } from "@shared/schema";
 import { lookupIP, getRandomDevCity } from "./geo-lookup";
 import { addFeedClient, getRecentActivities, trackSubscriber, trackArticlePublished, trackCommunityPost, trackPollVote, trackNpsSubmission, trackEventCreated, addActivity } from "./activity-feed";
 import type { Response as ExpressResponse } from "express";
@@ -5917,7 +5917,7 @@ Return ONLY the JSON array, no markdown formatting.`;
   app.post("/api/public/polls/:id/vote", publicCommentLimit, async (req, res) => {
     try {
       const poll = await storage.getCommunityPollById(req.params.id);
-      if (!poll || !poll.isActive) return res.status(404).json({ message: "Poll not found or closed" });
+      if (!poll || (!poll.isActive && !poll.isPublished)) return res.status(404).json({ message: "Poll not found or closed" });
       const { optionId, voterIdentifier } = req.body;
       const optionIndex = parseInt(optionId);
       const options = poll.options as any[];
@@ -6021,6 +6021,83 @@ Return ONLY the JSON array, no markdown formatting.`;
 
   app.get("/api/public/community-announcements", async (_req, res) => {
     try { res.json(await storage.getCommunityAnnouncements("approved")); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Public Events (direct DB) ──
+  app.get("/api/public/events", async (_req, res) => {
+    try {
+      const events = await db.select().from(communityEvents)
+        .where(gte(communityEvents.startDate, new Date()))
+        .orderBy(communityEvents.startDate);
+      res.json(events);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/events/all", async (_req, res) => {
+    try {
+      const events = await db.select().from(communityEvents)
+        .orderBy(desc(communityEvents.startDate));
+      res.json(events);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Public Polls (zone-based + single) ──
+  app.get("/api/public/polls/zone/:zone", async (req, res) => {
+    try {
+      const now = new Date();
+      const polls = await db.select().from(communityPolls)
+        .where(eq(communityPolls.isPublished, true));
+
+      const activePoll = polls.find((p: any) => {
+        const zones = Array.isArray(p.placementZones) ? p.placementZones : [];
+        if (!zones.includes(req.params.zone)) return false;
+        if (p.startDate && new Date(p.startDate) > now) return false;
+        if (p.endDate && new Date(p.endDate) < now) return false;
+        return true;
+      });
+
+      res.json(activePoll || null);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/polls/:id", async (req, res) => {
+    try {
+      const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.id, req.params.id));
+      if (!poll) return res.status(404).json({ message: "Poll not found" });
+      res.json(poll);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Admin Events CRUD ──
+  app.get("/api/admin/events", requireAuth, async (_req, res) => {
+    try {
+      const events = await db.select().from(communityEvents).orderBy(desc(communityEvents.createdAt));
+      res.json(events);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/admin/events", requireAuth, async (req, res) => {
+    try {
+      coerceDateFields(req.body);
+      const [event] = await db.insert(communityEvents).values(req.body).returning();
+      res.json(event);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/events/:id", requireAuth, async (req, res) => {
+    try {
+      coerceDateFields(req.body);
+      const [updated] = await db.update(communityEvents).set(req.body).where(eq(communityEvents.id, req.params.id)).returning();
+      if (!updated) return res.status(404).json({ message: "Event not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.delete("/api/admin/events/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(communityEvents).where(eq(communityEvents.id, req.params.id));
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   // ── Public Community Posts / Discussion ──
@@ -6580,19 +6657,20 @@ Return ONLY the JSON array, no markdown formatting.`;
   });
 
   // --- Analytics Dashboard (auth required) ---
-  app.get("/api/analytics/overview", requireAuth, async (_req, res) => {
+  app.get("/api/analytics/overview", requireAuth, async (req, res) => {
     try {
       const now = new Date();
       const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const days = parseInt(req.query.period as string) || 30;
+      const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
       
       const liveResult = await db.execute(sql`SELECT COUNT(DISTINCT session_id) as count FROM page_analytics WHERE created_at >= ${fiveMinAgo}`);
-      const totalResult = await db.execute(sql`SELECT COUNT(*) as count FROM page_analytics WHERE created_at >= ${thirtyDaysAgo}`);
-      const uniqueResult = await db.execute(sql`SELECT COUNT(DISTINCT visitor_id) as count FROM page_analytics WHERE created_at >= ${thirtyDaysAgo} AND visitor_id IS NOT NULL`);
-      const avgDurationResult = await db.execute(sql`SELECT COALESCE(AVG(time_on_page), 0) as avg FROM page_analytics WHERE created_at >= ${thirtyDaysAgo} AND time_on_page IS NOT NULL`);
+      const totalResult = await db.execute(sql`SELECT COUNT(*) as count FROM page_analytics WHERE created_at >= ${startDate}`);
+      const uniqueResult = await db.execute(sql`SELECT COUNT(DISTINCT visitor_id) as count FROM page_analytics WHERE created_at >= ${startDate} AND visitor_id IS NOT NULL`);
+      const avgDurationResult = await db.execute(sql`SELECT COALESCE(AVG(time_on_page), 0) as avg FROM page_analytics WHERE created_at >= ${startDate} AND time_on_page IS NOT NULL`);
       
-      const totalSessions = await db.execute(sql`SELECT COUNT(DISTINCT session_id) as total FROM page_analytics WHERE created_at >= ${thirtyDaysAgo}`);
-      const bounceSessions = await db.execute(sql`SELECT COUNT(*) as bounced FROM (SELECT session_id FROM page_analytics WHERE created_at >= ${thirtyDaysAgo} GROUP BY session_id HAVING COUNT(*) = 1) sub`);
+      const totalSessions = await db.execute(sql`SELECT COUNT(DISTINCT session_id) as total FROM page_analytics WHERE created_at >= ${startDate}`);
+      const bounceSessions = await db.execute(sql`SELECT COUNT(*) as bounced FROM (SELECT session_id FROM page_analytics WHERE created_at >= ${startDate} GROUP BY session_id HAVING COUNT(*) = 1) sub`);
       
       const totalS = Number(totalSessions.rows[0]?.total || 1);
       const bouncedS = Number(bounceSessions.rows[0]?.bounced || 0);

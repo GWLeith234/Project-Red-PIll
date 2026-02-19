@@ -42,6 +42,7 @@ const DEVICE_COLORS: Record<string, string> = {
 };
 
 export default function Analytics() {
+  const [period, setPeriod] = useState("30");
   const [showComparison, setShowComparison] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const queryClient = useQueryClient();
@@ -55,7 +56,7 @@ export default function Analytics() {
     mutationFn: () => fetch("/api/analytics/ai/insights", {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ period: "30d" }),
+      body: JSON.stringify({ period: `${period}d` }),
     }).then(r => { if (!r.ok) throw new Error("Failed"); return r.json(); }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/ai/cached"] });
@@ -70,44 +71,44 @@ export default function Analytics() {
   });
 
   const { data: overview } = useQuery({
-    queryKey: ["/api/analytics/overview"],
-    queryFn: () => authFetch("/api/analytics/overview"),
+    queryKey: ["/api/analytics/overview", period],
+    queryFn: () => authFetch(`/api/analytics/overview?period=${period}`),
     refetchInterval: 10000,
   });
 
   const { data: pageviews } = useQuery({
-    queryKey: ["/api/analytics/pageviews"],
-    queryFn: () => authFetch("/api/analytics/pageviews?period=30"),
+    queryKey: ["/api/analytics/pageviews", period],
+    queryFn: () => authFetch(`/api/analytics/pageviews?period=${period}`),
   });
 
   const { data: topPages } = useQuery({
-    queryKey: ["/api/analytics/top-pages"],
-    queryFn: () => authFetch("/api/analytics/top-pages?period=30&limit=20"),
+    queryKey: ["/api/analytics/top-pages", period],
+    queryFn: () => authFetch(`/api/analytics/top-pages?period=${period}&limit=20`),
   });
 
   const { data: devices } = useQuery({
-    queryKey: ["/api/analytics/devices"],
-    queryFn: () => authFetch("/api/analytics/devices"),
+    queryKey: ["/api/analytics/devices", period],
+    queryFn: () => authFetch(`/api/analytics/devices?period=${period}`),
   });
 
   const { data: referrers } = useQuery({
-    queryKey: ["/api/analytics/referrers"],
-    queryFn: () => authFetch("/api/analytics/referrers"),
+    queryKey: ["/api/analytics/referrers", period],
+    queryFn: () => authFetch(`/api/analytics/referrers?period=${period}`),
   });
 
   const { data: geo } = useQuery({
-    queryKey: ["/api/analytics/geo"],
-    queryFn: () => authFetch("/api/analytics/geo"),
+    queryKey: ["/api/analytics/geo", period],
+    queryFn: () => authFetch(`/api/analytics/geo?period=${period}`),
   });
 
   const { data: sessions } = useQuery({
-    queryKey: ["/api/analytics/sessions"],
-    queryFn: () => authFetch("/api/analytics/sessions"),
+    queryKey: ["/api/analytics/sessions", period],
+    queryFn: () => authFetch(`/api/analytics/sessions?period=${period}`),
   });
 
   const { data: bounceRate } = useQuery({
-    queryKey: ["/api/analytics/bounce-rate"],
-    queryFn: () => authFetch("/api/analytics/bounce-rate?period=30"),
+    queryKey: ["/api/analytics/bounce-rate", period],
+    queryFn: () => authFetch(`/api/analytics/bounce-rate?period=${period}`),
   });
 
   const { data: nps } = useQuery({
@@ -116,8 +117,8 @@ export default function Analytics() {
   });
 
   const { data: contentPerf } = useQuery({
-    queryKey: ["/api/analytics/content-performance"],
-    queryFn: () => authFetch("/api/analytics/content-performance"),
+    queryKey: ["/api/analytics/content-performance", period],
+    queryFn: () => authFetch(`/api/analytics/content-performance?period=${period}`),
   });
 
   const metrics = [
@@ -152,6 +153,28 @@ export default function Analytics() {
           insightsMutation.mutate();
         }
       }} />
+
+      <div className="flex items-center gap-2" data-testid="period-selector">
+        <span className="text-xs text-muted-foreground font-mono uppercase">Period:</span>
+        {[
+          { label: "7 Days", value: "7" },
+          { label: "30 Days", value: "30" },
+          { label: "90 Days", value: "90" },
+        ].map((p) => (
+          <button
+            key={p.value}
+            onClick={() => setPeriod(p.value)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              period === p.value
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+            data-testid={`button-period-${p.value}`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
 
       {showAiPanel && (
         <div className="fixed inset-0 z-50 flex justify-end" data-testid="ai-panel-overlay">
@@ -298,7 +321,7 @@ export default function Analytics() {
               </div>
             </DataCard>
 
-            <DataCard title="Pageviews (30 Days)" className="md:col-span-2">
+            <DataCard title={`Pageviews (${period} Days)`} className="md:col-span-2">
               <div className="flex items-center gap-2 mb-2">
                 <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer" data-testid="label-comparison-toggle">
                   <input

@@ -486,16 +486,19 @@ function PollsTab() {
 
       {isLoading ? <LoadingSkeleton /> : items.length === 0 ? <EmptyState text="No polls found" /> : (
         <div className="border border-border rounded-xl bg-card/30 overflow-hidden">
-          <div className="hidden sm:grid grid-cols-[1fr_80px_80px_70px_100px_100px] gap-3 px-5 py-2.5 border-b border-border bg-muted/20 text-[11px] font-mono uppercase tracking-widest text-muted-foreground/70">
-            <span>Question</span><span>Options</span><span>Votes</span><span>Active</span><span>Expires</span><span className="text-right">Actions</span>
+          <div className="hidden sm:grid grid-cols-[1fr_80px_80px_70px_100px_80px_100px] gap-3 px-5 py-2.5 border-b border-border bg-muted/20 text-[11px] font-mono uppercase tracking-widest text-muted-foreground/70">
+            <span>Question</span><span>Options</span><span>Votes</span><span>Status</span><span>Zones</span><span>Expires</span><span className="text-right">Actions</span>
           </div>
-          {items.map((p: any) => (
-            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_80px_80px_70px_100px_100px] gap-3 px-5 py-3 border-b border-border/60 last:border-b-0 hover:bg-muted/5 items-start sm:items-center" data-testid={`row-poll-${p.id}`}>
+          {items.map((p: any) => {
+            const zones: string[] = Array.isArray(p.placementZones) ? p.placementZones : [];
+            return (
+            <div key={p.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_80px_80px_70px_100px_80px_100px] gap-3 px-5 py-3 border-b border-border/60 last:border-b-0 hover:bg-muted/5 items-start sm:items-center" data-testid={`row-poll-${p.id}`}>
               <span className="text-sm font-medium text-foreground truncate cursor-pointer hover:text-primary" onClick={() => setViewingPoll(p)} data-testid={`text-poll-question-${p.id}`}>{p.question}</span>
               <span className="text-xs text-muted-foreground">{getOptionsCount(p.options)}</span>
               <span className="text-xs text-foreground font-medium">{p.totalVotes || 0}</span>
-              <span>{p.isActive ? <span className="inline-flex items-center gap-1 text-xs text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />Yes</span> : <span className="text-xs text-muted-foreground/50">No</span>}</span>
-              <span className="text-xs text-muted-foreground">{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : "—"}</span>
+              <span>{p.isPublished ? <span className="inline-flex items-center gap-1 text-xs text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />Live</span> : p.isActive ? <span className="inline-flex items-center gap-1 text-xs text-amber-400">Draft</span> : <span className="text-xs text-muted-foreground/50">Off</span>}</span>
+              <span className="text-xs text-muted-foreground">{zones.length > 0 ? zones.length + " zones" : "—"}</span>
+              <span className="text-xs text-muted-foreground">{p.endDate ? new Date(p.endDate).toLocaleDateString() : p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : "—"}</span>
               <div className="flex items-center justify-end gap-1">
                 <button onClick={() => setViewingPoll(p)} className="p-1.5 hover:bg-muted/80 rounded-md text-muted-foreground hover:text-foreground" title="View Results" data-testid={`button-view-poll-${p.id}`}><BarChart3 className="h-3.5 w-3.5" /></button>
                 <button onClick={() => updateMut.mutate({ id: p.id, data: { isActive: !p.isActive } })} className="p-1.5 hover:bg-muted/80 rounded-md text-muted-foreground hover:text-foreground" title={p.isActive ? "Deactivate" : "Activate"} data-testid={`button-toggle-poll-${p.id}`}>
@@ -505,7 +508,8 @@ function PollsTab() {
                 <button onClick={() => setDeleting(p)} className="p-1.5 hover:bg-red-500/10 rounded-md text-muted-foreground hover:text-red-400" title="Delete" data-testid={`button-delete-poll-${p.id}`}><Trash2 className="h-3.5 w-3.5" /></button>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>
@@ -534,18 +538,51 @@ function PollResults({ poll }: { poll: any }) {
   );
 }
 
+const PLACEMENT_ZONES = [
+  { value: "homepage", label: "Homepage" },
+  { value: "community_page", label: "Community Page" },
+  { value: "sidebar", label: "Sidebar" },
+  { value: "podcast_page", label: "Podcast Pages" },
+  { value: "article_page", label: "Article Pages" },
+];
+
 function PollForm({ initial, onSubmit, isPending, error }: { initial?: any; onSubmit: (d: any) => void; isPending: boolean; error?: string }) {
   const existingOptions = initial?.options && Array.isArray(initial.options) ? initial.options.map((o: any) => o.text || o.label || "") : ["", ""];
   const [question, setQuestion] = useState(initial?.question || "");
   const [options, setOptions] = useState<string[]>(existingOptions.length >= 2 ? existingOptions : ["", ""]);
   const [expiresAt, setExpiresAt] = useState(initial?.expiresAt ? new Date(initial.expiresAt).toISOString().split("T")[0] : "");
+  const [isPublished, setIsPublished] = useState(initial?.isPublished ?? false);
+  const [showResultsBeforeVote, setShowResultsBeforeVote] = useState(initial?.showResultsBeforeVote ?? false);
+  const [selectedZones, setSelectedZones] = useState<string[]>(
+    Array.isArray(initial?.placementZones) ? initial.placementZones : []
+  );
+  const [startDate, setStartDate] = useState(initial?.startDate ? new Date(initial.startDate).toISOString().split("T")[0] : "");
 
   const addOption = () => setOptions([...options, ""]);
   const removeOption = (i: number) => { if (options.length > 2) setOptions(options.filter((_, idx) => idx !== i)); };
   const updateOption = (i: number, v: string) => { const n = [...options]; n[i] = v; setOptions(n); };
 
+  const toggleZone = (zone: string) => {
+    setSelectedZones(prev => prev.includes(zone) ? prev.filter(z => z !== zone) : [...prev, zone]);
+  };
+
   return (
-    <form onSubmit={e => { e.preventDefault(); onSubmit({ question, options: options.filter(o => o.trim()).map(text => ({ text, votes: 0 })), expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null }); }} className="space-y-4" data-testid="poll-form">
+    <form onSubmit={e => {
+      e.preventDefault();
+      onSubmit({
+        question,
+        options: options.filter(o => o.trim()).map((text, i) => {
+          const existing = initial?.options?.[i];
+          return { text, votes: existing?.votes || 0 };
+        }),
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        isPublished,
+        showResultsBeforeVote,
+        placementZones: selectedZones,
+        startDate: startDate ? new Date(startDate).toISOString() : null,
+        endDate: expiresAt ? new Date(expiresAt).toISOString() : null,
+      });
+    }} className="space-y-4" data-testid="poll-form">
       <FormField label="Question" testId="field-poll-question"><input value={question} onChange={e => setQuestion(e.target.value)} className={inputClass} required data-testid="input-poll-question" /></FormField>
       <div>
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-2">Options</label>
@@ -557,7 +594,40 @@ function PollForm({ initial, onSubmit, isPending, error }: { initial?: any; onSu
         ))}
         <button type="button" onClick={addOption} className="text-xs text-primary hover:underline" data-testid="button-add-option">+ Add Option</button>
       </div>
-      <FormField label="Expires At" testId="field-poll-expires"><DatePicker value={expiresAt} onChange={v => setExpiresAt(v)} placeholder="Pick expiry date" data-testid="input-poll-expires" /></FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Start Date" testId="field-poll-start"><DatePicker value={startDate} onChange={v => setStartDate(v)} placeholder="Poll start date" data-testid="input-poll-start" /></FormField>
+        <FormField label="End Date" testId="field-poll-expires"><DatePicker value={expiresAt} onChange={v => setExpiresAt(v)} placeholder="Poll end date" data-testid="input-poll-expires" /></FormField>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-2">Placement Zones</label>
+        <div className="flex flex-wrap gap-2" data-testid="placement-zones">
+          {PLACEMENT_ZONES.map(zone => (
+            <button
+              key={zone.value}
+              type="button"
+              onClick={() => toggleZone(zone.value)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                selectedZones.includes(zone.value)
+                  ? "bg-primary/20 border-primary/50 text-primary"
+                  : "bg-muted/30 border-border text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid={`zone-${zone.value}`}
+            >
+              {zone.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-6">
+        <label className="flex items-center gap-2 text-sm cursor-pointer" data-testid="label-is-published">
+          <input type="checkbox" checked={isPublished} onChange={e => setIsPublished(e.target.checked)} className="rounded border-border" data-testid="checkbox-is-published" />
+          <span className="text-foreground">Published</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer" data-testid="label-show-results">
+          <input type="checkbox" checked={showResultsBeforeVote} onChange={e => setShowResultsBeforeVote(e.target.checked)} className="rounded border-border" data-testid="checkbox-show-results" />
+          <span className="text-foreground">Show results before voting</span>
+        </label>
+      </div>
       {error && <p className="text-sm text-red-400" data-testid="text-form-error">{error}</p>}
       <div className="flex justify-end"><button type="submit" disabled={isPending} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50" data-testid="button-submit-poll">{isPending && <Loader2 className="h-4 w-4 animate-spin" />} {initial ? "Update" : "Create"}</button></div>
     </form>

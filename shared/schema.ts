@@ -1137,6 +1137,11 @@ export const communityPolls = pgTable("community_polls", {
   createdBy: varchar("created_by"),
   isActive: boolean("is_active").default(true),
   expiresAt: timestamp("expires_at"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  isPublished: boolean("is_published").default(false),
+  showResultsBeforeVote: boolean("show_results_before_vote").default(false),
+  placementZones: jsonb("placement_zones").default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, MapPin, ExternalLink, Globe, Loader2, Star } from "lucide-react";
+import { CalendarDays, MapPin, ExternalLink, Globe, Loader2, Star, Download, History } from "lucide-react";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -38,6 +38,38 @@ function formatEventTime(dateStr: string) {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+function generateICS(event: any): string {
+  const formatICSDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const start = formatICSDate(new Date(event.startDate || event.date || event.eventDate));
+  const end = event.endDate ? formatICSDate(new Date(event.endDate)) : formatICSDate(new Date(new Date(event.startDate || event.date || event.eventDate).getTime() + 3600000));
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//MediaTech Empire//EN",
+    "BEGIN:VEVENT",
+    `DTSTART:${start}`,
+    `DTEND:${end}`,
+    `SUMMARY:${(event.title || "").replace(/[,;\\]/g, " ")}`,
+    `DESCRIPTION:${(event.description || "").replace(/[,;\\]/g, " ").replace(/\n/g, "\\n")}`,
+    `LOCATION:${(event.location || "").replace(/[,;\\]/g, " ")}`,
+    event.ticketUrl ? `URL:${event.ticketUrl}` : "",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean);
+  return lines.join("\r\n");
+}
+
+function downloadICS(event: any) {
+  const ics = generateICS(event);
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(event.title || "event").replace(/\s+/g, "-").toLowerCase()}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 const CATEGORIES = ["All", "General", "Sports", "Music", "Business", "Community", "Education"];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -51,13 +83,18 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function EventsPage() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const [showPast, setShowPast] = useState(false);
+
+  const fetchUrl = showPast ? "/api/public/events/all" : "/api/public/events";
 
   const { data: events = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/public/community-events"],
+    queryKey: ["/api/public/events", showPast ? "all" : "upcoming"],
     queryFn: async () => {
-      const res = await fetch("/api/public/community-events");
-      if (!res.ok) return [];
-      return res.json();
+      const res = await fetch(fetchUrl);
+      if (res.ok) return res.json();
+      const fallback = await fetch("/api/public/community-events");
+      if (!fallback.ok) return [];
+      return fallback.json();
     },
   });
 
@@ -132,13 +169,15 @@ export default function EventsPage() {
               const location = event.location || event.venueName;
               const isFeatured = event.featured || event.isFeatured;
               const isVirtual = event.isVirtual || event.virtual;
+              const eventDate = event.startDate || event.date || event.eventDate;
+              const isPast = eventDate && new Date(eventDate) < new Date();
 
               return (
                 <div
                   key={event.id}
                   className={`bg-background border rounded-xl overflow-hidden group transition-all hover:border-border ${
                     isFeatured ? "border-amber-500/50 ring-1 ring-amber-500/20" : "border-border"
-                  }`}
+                  } ${isPast ? "opacity-60" : ""}`}
                   data-testid={`card-event-${event.id}`}
                 >
                   <div className="relative h-48 overflow-hidden bg-muted">
@@ -167,6 +206,11 @@ export default function EventsPage() {
                           Virtual
                         </span>
                       )}
+                      {isPast && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-500/20 text-gray-400">
+                          Past
+                        </span>
+                      )}
                     </div>
 
                     {isFeatured && (
@@ -184,13 +228,13 @@ export default function EventsPage() {
                       {event.title}
                     </h3>
 
-                    {(event.startDate || event.date || event.eventDate) && (
+                    {eventDate && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2" data-testid={`text-event-date-${event.id}`}>
                         <CalendarDays className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span>
-                          {formatEventDate(event.startDate || event.date || event.eventDate)}
+                          {formatEventDate(eventDate)}
                           {" · "}
-                          {formatEventTime(event.startDate || event.date || event.eventDate)}
+                          {formatEventTime(eventDate)}
                         </span>
                       </div>
                     )}
@@ -206,24 +250,51 @@ export default function EventsPage() {
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{event.description}</p>
                     )}
 
-                    {link && (
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-amber-500 text-gray-950 hover:bg-amber-400 transition-colors"
-                        data-testid={`link-event-${event.id}`}
-                      >
-                        {event.ticketUrl ? "Get Tickets" : "Learn More"}
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {link && (
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-amber-500 text-gray-950 hover:bg-amber-400 transition-colors"
+                          data-testid={`link-event-${event.id}`}
+                        >
+                          {event.ticketUrl ? "Get Tickets" : "Learn More"}
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {eventDate && (
+                        <button
+                          onClick={() => downloadICS(event)}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium border border-border text-foreground/80 hover:border-amber-500/50 hover:text-amber-400 transition-colors"
+                          data-testid={`button-calendar-${event.id}`}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Add to Calendar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
         )}
+
+        <div className="flex justify-center mt-10">
+          <button
+            onClick={() => setShowPast(!showPast)}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
+              showPast
+                ? "bg-amber-500 text-gray-950 hover:bg-amber-400"
+                : "border border-border text-foreground/80 hover:border-amber-500/50 hover:text-amber-400"
+            }`}
+            data-testid="button-toggle-past-events"
+          >
+            <History className="h-4 w-4" />
+            {showPast ? "Hide Past Events" : "Show Past Events"}
+          </button>
+        </div>
       </div>
     </div>
   );

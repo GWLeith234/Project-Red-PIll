@@ -7,6 +7,8 @@ import { ArticlePreviewPopup } from "@/components/ArticlePreviewPopup";
 import { useReadLater } from "@/hooks/use-read-later";
 import type { HeroSlide } from "@shared/schema";
 import { AdPlaceholder } from "@/components/AdPlaceholder";
+import PollWidget from "@/components/widgets/PollWidget";
+import EventsWidget from "@/components/widgets/EventsWidget";
 
 function formatSubscribers(count: number | null) {
   if (!count) return null;
@@ -423,6 +425,18 @@ export default function AudienceHome() {
         <div className="flex justify-center mb-6">
           <AdPlaceholder width={728} height={90} label="Mid-Content" className="hidden md:flex" />
           <AdPlaceholder width={320} height={100} label="Mid-Content Mobile" className="md:hidden" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          <div className="lg:col-span-2">
+            <PollWidget zone="homepage" />
+          </div>
+          <div className="rounded-xl border border-border bg-card/50 p-4">
+            <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-400" /> Upcoming Events
+            </h3>
+            <EventsWidget limit={3} />
+          </div>
         </div>
 
         {latestArticles.length > 0 && (
