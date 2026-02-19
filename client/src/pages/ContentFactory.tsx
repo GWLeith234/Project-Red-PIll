@@ -226,6 +226,9 @@ export default function ContentFactory() {
           <TabsTrigger value="newsletter" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-newsletter">
             <Mail className="mr-1.5 h-3 w-3" /> Newsletter
           </TabsTrigger>
+          <TabsTrigger value="shows" className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary/20 data-[state=active]:text-primary" data-testid="tab-shows">
+            <Mic className="mr-1.5 h-3 w-3" /> Shows
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pipeline" className="mt-4">
@@ -239,6 +242,9 @@ export default function ContentFactory() {
         </TabsContent>
         <TabsContent value="newsletter" className="mt-4">
           <NewsletterTab />
+        </TabsContent>
+        <TabsContent value="shows" className="mt-4">
+          <ShowBrandingTab />
         </TabsContent>
       </Tabs>
 
@@ -2236,6 +2242,276 @@ function NewsletterTab() {
             >
               {deleteRun.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Trash2 className="mr-2 h-3 w-3" />}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const HERO_IMAGES: Record<string, string> = {
+  "News": "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=1600",
+  "Talk": "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1600",
+  "Business": "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=1600",
+  "Comedy": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1600",
+  "Tech": "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=1600",
+  "Sports": "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1600",
+  "Culture": "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1600",
+  "default": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1600",
+};
+
+const ACCENT_PALETTE = ["#C0392B", "#2980B9", "#8E44AD", "#E67E22", "#27AE60", "#2C3E50"];
+
+function ShowBrandingTab() {
+  const { data: podcasts, isLoading } = usePodcasts();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ heroImageUrl: "", accentColor: "", hostImageUrl: "", coverImage: "", description: "", host: "", title: "" });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
+      const res = await fetch(`/api/podcasts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/podcasts"] });
+      toast({ title: "Saved", description: "Show branding updated." });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const startEditing = (p: any) => {
+    setEditingId(p.id);
+    setForm({
+      heroImageUrl: p.heroImageUrl || "",
+      accentColor: p.accentColor || "#C0392B",
+      hostImageUrl: p.hostImageUrl || "",
+      coverImage: p.coverImage || "",
+      description: p.description || "",
+      host: p.host || "",
+      title: p.title || "",
+    });
+  };
+
+  const handleSave = () => {
+    if (!editingId) return;
+    updateMutation.mutate({
+      id: editingId,
+      data: {
+        heroImageUrl: form.heroImageUrl || null,
+        accentColor: form.accentColor || null,
+        hostImageUrl: form.hostImageUrl || null,
+        coverImage: form.coverImage || null,
+        description: form.description || null,
+        host: form.host,
+        title: form.title,
+      },
+    }, { onSuccess: () => setEditingId(null) });
+  };
+
+  const regenerateHero = (category: string) => {
+    const url = HERO_IMAGES[category] || HERO_IMAGES.default;
+    setForm(f => ({ ...f, heroImageUrl: url }));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const editingPodcast = podcasts?.find((p: any) => p.id === editingId);
+
+  return (
+    <div className="space-y-4" data-testid="show-branding-tab">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">Show Branding</h3>
+          <p className="text-xs text-muted-foreground">Manage hero images, accent colors, and branding for each show</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {(podcasts || []).map((p: any) => {
+          const accent = p.accentColor || "#C0392B";
+          return (
+            <div
+              key={p.id}
+              className="rounded-xl overflow-hidden border border-border bg-card shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              onClick={() => startEditing(p)}
+              data-testid={`card-show-branding-${p.id}`}
+            >
+              <div className="relative h-32">
+                {p.heroImageUrl ? (
+                  <img src={p.heroImageUrl} alt="" className="w-full h-full object-cover" />
+                ) : p.coverImage ? (
+                  <img src={p.coverImage} alt="" className="w-full h-full object-cover opacity-50" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                    <Mic className="h-8 w-8 text-muted-foreground/30" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: accent }} />
+                    <h4 className="text-white font-bold text-sm truncate">{p.title}</h4>
+                  </div>
+                  <p className="text-white/60 text-xs truncate">{p.host}</p>
+                </div>
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="bg-white/90 text-gray-900 text-[10px] font-bold px-2 py-1 rounded-full">
+                    Edit Branding
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 flex items-center gap-2">
+                <div className="h-4 w-4 rounded border" style={{ backgroundColor: accent }} />
+                <span className="text-[10px] font-mono text-muted-foreground">{accent}</span>
+                <div className="flex-1" />
+                <span className={cn("text-[10px] font-mono", p.heroImageUrl ? "text-emerald-500" : "text-muted-foreground/50")}>
+                  {p.heroImageUrl ? "Hero set" : "No hero"}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <Dialog open={!!editingId} onOpenChange={(open) => { if (!open) setEditingId(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Show Branding</DialogTitle>
+            <DialogDescription>{editingPodcast?.title} — {editingPodcast?.host}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-mono uppercase text-muted-foreground">Show Title</Label>
+                <Input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} className="mt-1" data-testid="input-branding-title" />
+              </div>
+              <div>
+                <Label className="text-xs font-mono uppercase text-muted-foreground">Host Name</Label>
+                <Input value={form.host} onChange={(e) => setForm(f => ({ ...f, host: e.target.value }))} className="mt-1" data-testid="input-branding-host" />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-mono uppercase text-muted-foreground">Description</Label>
+              <Textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} className="mt-1" rows={3} data-testid="input-branding-description" />
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                <ImagePlus className="h-4 w-4" />
+                Branding
+              </h4>
+
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs font-mono uppercase text-muted-foreground">Hero Image URL</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input value={form.heroImageUrl} onChange={(e) => setForm(f => ({ ...f, heroImageUrl: e.target.value }))} placeholder="https://..." className="flex-1" data-testid="input-branding-hero" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => regenerateHero(editingPodcast?.category || "Talk")}
+                      className="shrink-0 text-xs"
+                      data-testid="button-regenerate-hero"
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Regenerate
+                    </Button>
+                  </div>
+                  {form.heroImageUrl && (
+                    <div className="mt-2 rounded-lg overflow-hidden h-32 bg-muted">
+                      <img src={form.heroImageUrl} alt="Hero preview" className="w-full h-full object-cover" data-testid="img-hero-preview" />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-xs font-mono uppercase text-muted-foreground">Host Image URL</Label>
+                  <Input value={form.hostImageUrl} onChange={(e) => setForm(f => ({ ...f, hostImageUrl: e.target.value }))} placeholder="https://..." className="mt-1" data-testid="input-branding-host-image" />
+                  {form.hostImageUrl && (
+                    <div className="mt-2">
+                      <img src={form.hostImageUrl} alt="Host preview" className="h-16 w-16 rounded-full object-cover ring-2 ring-border" data-testid="img-host-preview" />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-xs font-mono uppercase text-muted-foreground">Cover Image URL</Label>
+                  <Input value={form.coverImage} onChange={(e) => setForm(f => ({ ...f, coverImage: e.target.value }))} placeholder="https://..." className="mt-1" data-testid="input-branding-cover" />
+                  {form.coverImage && (
+                    <div className="mt-2">
+                      <img src={form.coverImage} alt="Cover preview" className="h-20 w-20 rounded-lg object-cover ring-1 ring-border" data-testid="img-cover-preview" />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-xs font-mono uppercase text-muted-foreground">Accent Color</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <input
+                      type="color"
+                      value={form.accentColor || "#C0392B"}
+                      onChange={(e) => setForm(f => ({ ...f, accentColor: e.target.value }))}
+                      className="h-9 w-12 rounded border border-border cursor-pointer"
+                      data-testid="input-branding-accent-color"
+                    />
+                    <Input
+                      value={form.accentColor}
+                      onChange={(e) => setForm(f => ({ ...f, accentColor: e.target.value }))}
+                      placeholder="#C0392B"
+                      className="w-28 font-mono text-xs"
+                      data-testid="input-branding-accent-hex"
+                    />
+                    <div className="flex gap-1">
+                      {ACCENT_PALETTE.map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setForm(f => ({ ...f, accentColor: c }))}
+                          className="h-6 w-6 rounded-full border-2 transition-all hover:scale-110"
+                          style={{ backgroundColor: c, borderColor: form.accentColor === c ? "white" : "transparent" }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setEditingId(null)} data-testid="button-cancel-branding">
+              Cancel
+            </Button>
+            <a
+              href={`/show/${editingId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md border border-border text-sm font-medium hover:bg-muted transition-colors"
+              data-testid="button-preview-show"
+            >
+              <Eye className="h-4 w-4" />
+              Preview
+            </a>
+            <Button onClick={handleSave} disabled={updateMutation.isPending} data-testid="button-save-branding">
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Branding
             </Button>
           </DialogFooter>
         </DialogContent>
