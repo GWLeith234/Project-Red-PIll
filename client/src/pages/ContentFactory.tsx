@@ -2486,6 +2486,7 @@ function ShowBrandingTab() {
                           className="h-6 w-6 rounded-full border-2 transition-all hover:scale-110"
                           style={{ backgroundColor: c, borderColor: form.accentColor === c ? "white" : "transparent" }}
                           title={c}
+                          data-testid={`button-accent-${c.replace('#', '')}`}
                         />
                       ))}
                     </div>
