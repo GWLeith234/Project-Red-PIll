@@ -11,6 +11,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import ContentFactory from "@/pages/ContentFactory";
 import Monetization from "@/pages/Monetization";
+import Advertising from "@/pages/Advertising";
 import Network from "@/pages/Network";
 import ArticlePage from "@/pages/ArticlePage";
 import EpisodePage from "@/pages/EpisodePage";
@@ -225,6 +226,7 @@ function ProtectedRoutes() {
           <Route path="/moderation">{() => <PermissionGate permission="content.edit"><ModerationQueue /></PermissionGate>}</Route>
           <Route path="/campaigns">{() => <PermissionGate permission="content.view"><CampaignBuilderPage /></PermissionGate>}</Route>
           <Route path="/monetization">{() => <PermissionGate permission="monetization.view"><Monetization /></PermissionGate>}</Route>
+          <Route path="/advertising">{() => <PermissionGate permission="monetization.view"><Advertising /></PermissionGate>}</Route>
           <Route path="/ad-resizer">{() => <PermissionGate permission="monetization.view"><AdResizer /></PermissionGate>}</Route>
           <Route path="/network">{() => <PermissionGate permission="network.view"><Network /></PermissionGate>}</Route>
           <Route path="/sales">{() => <PermissionGate permission="sales.view"><CommercialCRM /></PermissionGate>}</Route>
