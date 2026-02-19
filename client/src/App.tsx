@@ -43,6 +43,8 @@ import EventsPage from "@/pages/EventsPage";
 import CommunityPage from "@/pages/CommunityPage";
 import LiveMapBroadcast from "@/pages/LiveMapBroadcast";
 import NotFound from "@/pages/not-found";
+import PrivacyPolicy from "@/pages/audience/PrivacyPolicy";
+import TermsOfService from "@/pages/audience/TermsOfService";
 
 function PageLoader() {
   return (
@@ -263,6 +265,8 @@ function App() {
             <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
             <Route path="/events">{() => <AudienceLayout><EventsPage /></AudienceLayout>}</Route>
             <Route path="/community-hub">{() => <AudienceLayout><CommunityPage /></AudienceLayout>}</Route>
+            <Route path="/privacy">{() => <AudienceLayout><PrivacyPolicy /></AudienceLayout>}</Route>
+            <Route path="/terms">{() => <AudienceLayout><TermsOfService /></AudienceLayout>}</Route>
             <Route path="/analytics/live-map">{() => <LiveMapBroadcast />}</Route>
             <Route>
               <ProtectedRoutes />
