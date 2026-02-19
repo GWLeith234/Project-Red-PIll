@@ -1775,28 +1775,47 @@ function PageConfigurationTab() {
 
   const deletePageMutation = useMutation({
     mutationFn: async (pageKey: string) => {
+      console.log("[PageConfig] Deleting page:", pageKey);
       const res = await fetch(`/api/admin/page-config/${pageKey}`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Failed to delete");
+      if (!res.ok) {
+        const errorBody = await res.text();
+        console.error("[PageConfig] Delete page failed:", res.status, errorBody);
+        throw new Error(`Failed to delete page: ${res.status}`);
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
       setDeletePageConfirm(null);
       toast({ title: "Deleted", description: "Page removed from navigation." });
+    },
+    onError: (err: any) => {
+      console.error("[PageConfig] Delete page mutation error:", err);
+      toast({ title: "Delete Failed", description: err.message || "Could not delete page.", variant: "destructive" });
     },
   });
 
   const deleteSectionMutation = useMutation({
     mutationFn: async (sectionKey: string) => {
+      console.log("[PageConfig] Deleting section:", sectionKey);
       const res = await fetch(`/api/admin/nav-sections/${sectionKey}?cascade=true`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Failed to delete section");
+      if (!res.ok) {
+        const errorBody = await res.text();
+        console.error("[PageConfig] Delete section failed:", res.status, errorBody);
+        throw new Error(`Failed to delete section: ${res.status}`);
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
       setDeleteSectionConfirm(null);
-      toast({ title: "Section Deleted" });
+      toast({ title: "Section Deleted", description: "Section and its pages have been removed." });
+    },
+    onError: (err: any) => {
+      console.error("[PageConfig] Delete section mutation error:", err);
+      toast({ title: "Delete Failed", description: err.message || "Could not delete section.", variant: "destructive" });
     },
   });
 
@@ -2340,7 +2359,12 @@ function PageConfigurationTab() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeletePageConfirm(null)} data-testid="button-cancel-delete-page">Cancel</Button>
-            <Button variant="destructive" onClick={() => { if (deletePageConfirm) deletePageMutation.mutate(deletePageConfirm.pageKey); }} disabled={deletePageMutation.isPending} data-testid="button-confirm-delete-page">
+            <Button variant="destructive" onClick={() => {
+              const key = deletePageConfirm?.pageKey;
+              if (!key) { console.error("[PageConfig] No pageKey in deletePageConfirm"); return; }
+              console.log("[PageConfig] Confirm delete page clicked:", key);
+              deletePageMutation.mutate(key);
+            }} disabled={deletePageMutation.isPending} data-testid="button-confirm-delete-page">
               {deletePageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Delete
             </Button>
@@ -2356,7 +2380,12 @@ function PageConfigurationTab() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteSectionConfirm(null)} data-testid="button-cancel-delete-section-cascade">Cancel</Button>
-            <Button variant="destructive" onClick={() => { if (deleteSectionConfirm) deleteSectionMutation.mutate(deleteSectionConfirm.sectionKey); }} disabled={deleteSectionMutation.isPending} data-testid="button-confirm-delete-section-cascade">
+            <Button variant="destructive" onClick={() => {
+              const key = deleteSectionConfirm?.sectionKey;
+              if (!key) { console.error("[PageConfig] No sectionKey in deleteSectionConfirm"); return; }
+              console.log("[PageConfig] Confirm delete section clicked:", key);
+              deleteSectionMutation.mutate(key);
+            }} disabled={deleteSectionMutation.isPending} data-testid="button-confirm-delete-section-cascade">
               {deleteSectionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Delete Section
             </Button>
