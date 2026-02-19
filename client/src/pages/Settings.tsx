@@ -578,7 +578,7 @@ export default function Settings() {
 
       {activeTab === "live-site" && <LiveSiteAppPlaceholderTab />}
 
-      {activeTab === "platform" && <>
+      {activeTab === "_legacy_platform_hidden" && <>
       <div className="flex items-center gap-3 flex-shrink-0 justify-end -mt-4 mb-4">
         {canEdit && (
           <button
