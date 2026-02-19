@@ -698,11 +698,16 @@ export default function PageBuilder() {
       const res = await apiRequest("POST", "/api/pages", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
       setShowCreateDialog(false);
       resetCreateForm();
       toast({ title: "Page Created" });
+      if (data?.id) {
+        setEditingPageId(data.id);
+        setMode("editor");
+        setSelectedBlockId(null);
+      }
     },
     onError: (err: any) => toast({ title: "Error creating page", description: err.message, variant: "destructive" }),
   });
@@ -734,28 +739,47 @@ export default function PageBuilder() {
 
   const publishPageMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log("[PageBuilder] Publishing page:", id);
       const res = await apiRequest("POST", `/api/pages/${id}/publish`);
-      return res.json();
+      const data = await res.json();
+      console.log("[PageBuilder] Publish response:", JSON.stringify(data));
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any, id: string) => {
+      console.log("[PageBuilder] Publish success, invalidating queries for id:", id, "editingPageId:", editingPageId);
       queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pages", editingPageId] });
-      toast({ title: "Page Published" });
+      queryClient.invalidateQueries({ queryKey: ["/api/pages", id] });
+      if (editingPageId && editingPageId !== id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/pages", editingPageId] });
+      }
+      toast({ title: "Page Published", description: `Your page is now live at /page/${data?.slug || ""}` });
     },
-    onError: (err: any) => toast({ title: "Error publishing page", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      console.error("[PageBuilder] Publish error:", err);
+      toast({ title: "Error publishing page", description: err.message, variant: "destructive" });
+    },
   });
 
   const unpublishPageMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log("[PageBuilder] Unpublishing page:", id);
       const res = await apiRequest("POST", `/api/pages/${id}/unpublish`);
-      return res.json();
+      const data = await res.json();
+      console.log("[PageBuilder] Unpublish response:", JSON.stringify(data));
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data: any, id: string) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/pages", editingPageId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pages", id] });
+      if (editingPageId && editingPageId !== id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/pages", editingPageId] });
+      }
       toast({ title: "Page Unpublished" });
     },
-    onError: (err: any) => toast({ title: "Error unpublishing page", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      console.error("[PageBuilder] Unpublish error:", err);
+      toast({ title: "Error unpublishing page", description: err.message, variant: "destructive" });
+    },
   });
 
   const duplicatePageMutation = useMutation({
@@ -944,11 +968,20 @@ export default function PageBuilder() {
               Save
             </Button>
             {currentPage?.status === "published" ? (
-              <Button variant="outline" size="sm" onClick={() => editingPageId && unpublishPageMutation.mutate(editingPageId)} disabled={unpublishPageMutation.isPending} data-testid="button-unpublish-page">
+              <Button variant="outline" size="sm" onClick={() => {
+                const pageId = editingPageId || currentPage?.id;
+                console.log("[PageBuilder] Unpublish clicked, pageId:", pageId);
+                if (pageId) unpublishPageMutation.mutate(pageId);
+              }} disabled={unpublishPageMutation.isPending} data-testid="button-unpublish-page">
                 <EyeOff className="h-4 w-4 mr-1" /> Unpublish
               </Button>
             ) : (
-              <Button size="sm" onClick={() => editingPageId && publishPageMutation.mutate(editingPageId)} disabled={publishPageMutation.isPending} data-testid="button-publish-page">
+              <Button size="sm" onClick={() => {
+                const pageId = editingPageId || currentPage?.id;
+                console.log("[PageBuilder] Publish clicked, pageId:", pageId, "currentPage status:", currentPage?.status);
+                if (pageId) publishPageMutation.mutate(pageId);
+                else console.warn("[PageBuilder] Cannot publish: no page ID available");
+              }} disabled={publishPageMutation.isPending || (!editingPageId && !currentPage?.id)} data-testid="button-publish-page">
                 <Globe className="h-4 w-4 mr-1" /> Publish
               </Button>
             )}

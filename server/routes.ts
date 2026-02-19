@@ -7686,18 +7686,31 @@ Return ONLY valid JSON, no markdown.`
 
   app.post("/api/pages/:id/publish", requireAuth, requirePermission("customize.edit"), async (req, res) => {
     try {
+      console.log(`[Pages] Publishing page ${req.params.id}`);
       const page = await storage.publishBuiltPage(req.params.id);
-      if (!page) return res.status(404).json({ message: "Page not found" });
+      if (!page) {
+        console.log(`[Pages] Page ${req.params.id} not found for publish`);
+        return res.status(404).json({ message: "Page not found" });
+      }
+      console.log(`[Pages] Page published: ${page.id} status=${page.status} slug=${page.slug}`);
       res.json(page);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
+    } catch (e: any) {
+      console.error(`[Pages] Publish error for ${req.params.id}:`, e.message);
+      res.status(500).json({ message: e.message });
+    }
   });
 
   app.post("/api/pages/:id/unpublish", requireAuth, requirePermission("customize.edit"), async (req, res) => {
     try {
+      console.log(`[Pages] Unpublishing page ${req.params.id}`);
       const page = await storage.unpublishBuiltPage(req.params.id);
       if (!page) return res.status(404).json({ message: "Page not found" });
+      console.log(`[Pages] Page unpublished: ${page.id} status=${page.status}`);
       res.json(page);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
+    } catch (e: any) {
+      console.error(`[Pages] Unpublish error for ${req.params.id}:`, e.message);
+      res.status(500).json({ message: e.message });
+    }
   });
 
   app.post("/api/pages/:id/duplicate", requireAuth, requirePermission("customize.edit"), async (req, res) => {
