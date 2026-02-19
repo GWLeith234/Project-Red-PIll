@@ -38,6 +38,8 @@ import MyTasks from "@/pages/MyTasks";
 import NewsletterManager from "@/pages/NewsletterManager";
 import LegalAdmin from "@/pages/LegalAdmin";
 import SiteBuilder from "@/pages/SiteBuilder";
+import PageBuilder from "@/pages/PageBuilder";
+import BuiltPage from "@/pages/BuiltPage";
 import CommunityAdmin from "@/pages/CommunityAdmin";
 import PushCampaigns from "@/pages/PushCampaigns";
 import EventsPage from "@/pages/EventsPage";
@@ -238,6 +240,7 @@ function ProtectedRoutes() {
           <Route path="/community">{() => <PermissionGate permission="content.view"><CommunityAdmin /></PermissionGate>}</Route>
           <Route path="/push-campaigns">{() => <PermissionGate permission="content.edit"><PushCampaigns /></PermissionGate>}</Route>
           <Route path="/site-builder">{() => <PermissionGate permission="customize.edit"><SiteBuilder /></PermissionGate>}</Route>
+          <Route path="/page-builder">{() => <PermissionGate permission="customize.edit"><PageBuilder /></PermissionGate>}</Route>
           <Route component={NotFound} />
         </Switch>
       </Suspense>
@@ -265,6 +268,7 @@ function App() {
             <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
             <Route path="/events">{() => <AudienceLayout><EventsPage /></AudienceLayout>}</Route>
             <Route path="/community-hub">{() => <AudienceLayout><CommunityPage /></AudienceLayout>}</Route>
+            <Route path="/page/:slug">{() => <AudienceLayout><BuiltPage /></AudienceLayout>}</Route>
             <Route path="/analytics/live-map">{() => <LiveMapBroadcast />}</Route>
             <Route>
               <ProtectedRoutes />

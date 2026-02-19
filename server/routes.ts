@@ -7617,5 +7617,106 @@ Return ONLY valid JSON, no markdown.`
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // ── Built Pages CRUD ──
+  app.get("/api/pages", requireAuth, async (req, res) => {
+    try {
+      const pages = await storage.getBuiltPages();
+      res.json(pages);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/pages/:id", requireAuth, async (req, res) => {
+    try {
+      const page = await storage.getBuiltPage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/pages", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      if (req.body.slug) {
+        const existing = await storage.getBuiltPageBySlug(req.body.slug);
+        if (existing) return res.status(409).json({ message: "A page with this slug already exists" });
+      }
+      const page = await storage.createBuiltPage(req.body);
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/pages/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      if (req.body.slug) {
+        const existing = await storage.getBuiltPageBySlug(req.body.slug);
+        if (existing && existing.id !== req.params.id) return res.status(409).json({ message: "A page with this slug already exists" });
+      }
+      const page = await storage.updateBuiltPage(req.params.id, req.body);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/pages/:id", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      await storage.deleteBuiltPage(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/pages/:id/publish", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const page = await storage.publishBuiltPage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/pages/:id/unpublish", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const page = await storage.unpublishBuiltPage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/pages/:id/duplicate", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const page = await storage.duplicateBuiltPage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/public/page/:slug", async (req, res) => {
+    try {
+      const page = await storage.getBuiltPageBySlug(req.params.slug);
+      if (!page || page.status !== "published") return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // ── Page Builder AI Endpoints ──
+  app.post("/api/pages/ai/suggest-slug", requireAuth, async (req, res) => {
+    try {
+      const { title } = req.body;
+      const slug = (title || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .slice(0, 60);
+      res.json({ slug });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/pages/ai/generate-layout", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { pageType, prompt, title } = req.body;
+      const { generateBlockLayout } = await import("./ai-page-builder");
+      const layout = await generateBlockLayout(pageType || "custom", prompt || "", title || "New Page");
+      res.json({ layout });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }

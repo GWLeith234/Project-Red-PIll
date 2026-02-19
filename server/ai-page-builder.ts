@@ -934,6 +934,155 @@ export async function suggestWidgets(
   return result;
 }
 
+export const BLOCK_TYPES = [
+  "hero", "text", "podcast_feed", "article_feed", "poll_widget",
+  "events_widget", "ad_unit", "image", "video", "cta_banner",
+  "divider", "subscribe_widget", "html"
+] as const;
+
+export type BlockType = typeof BLOCK_TYPES[number];
+
+export interface PageBlock {
+  id: string;
+  type: BlockType;
+  settings: Record<string, any>;
+  order: number;
+}
+
+const BLOCK_PRESETS: Record<string, BlockType[]> = {
+  landing: ["hero", "text", "podcast_feed", "cta_banner", "subscribe_widget"],
+  show_page: ["hero", "podcast_feed", "text", "events_widget", "subscribe_widget"],
+  content_hub: ["hero", "article_feed", "podcast_feed", "poll_widget", "events_widget", "ad_unit"],
+  custom: ["hero", "text"],
+};
+
+const BLOCK_DEFAULT_SETTINGS: Record<BlockType, Record<string, any>> = {
+  hero: { heading: "Welcome", subheading: "Your content starts here", backgroundImage: "", buttonText: "Learn More", buttonUrl: "#", overlay: true, height: "400px" },
+  text: { content: "<p>Enter your content here...</p>", alignment: "left", maxWidth: "800px" },
+  podcast_feed: { limit: 6, columns: 3, showDescription: true, podcastId: "" },
+  article_feed: { limit: 6, columns: 3, showImage: true, showExcerpt: true, category: "" },
+  poll_widget: { zone: "community_page", limit: 1 },
+  events_widget: { limit: 4, showPastEvents: false },
+  ad_unit: { size: "banner", position: "inline", adSlot: "" },
+  image: { src: "", alt: "", caption: "", width: "100%", alignment: "center" },
+  video: { src: "", title: "", autoplay: false, controls: true },
+  cta_banner: { heading: "Ready to get started?", description: "Join us today", buttonText: "Get Started", buttonUrl: "#", backgroundColor: "#1e40af" },
+  divider: { style: "line", spacing: "md" },
+  subscribe_widget: { heading: "Stay Updated", description: "Subscribe to our newsletter", buttonText: "Subscribe" },
+  html: { code: "" },
+};
+
+function generateId() {
+  return Math.random().toString(36).substring(2, 10);
+}
+
+export async function generateBlockLayout(
+  pageType: string,
+  prompt: string,
+  title: string
+): Promise<PageBlock[]> {
+  const presetBlocks = BLOCK_PRESETS[pageType] || BLOCK_PRESETS.custom;
+
+  try {
+    if (claude) {
+      const response = await claude.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 2000,
+        messages: [{
+          role: "user",
+          content: `Generate a page layout for a "${pageType}" page titled "${title}". ${prompt ? `User wants: ${prompt}` : ""}
+
+Available block types: ${BLOCK_TYPES.join(", ")}
+
+Return a JSON array of blocks. Each block has: type, settings (object), order (number starting at 0).
+Block settings options:
+- hero: heading, subheading, backgroundImage, buttonText, buttonUrl, overlay, height
+- text: content (HTML), alignment, maxWidth
+- podcast_feed: limit, columns, showDescription, podcastId
+- article_feed: limit, columns, showImage, showExcerpt, category
+- poll_widget: zone, limit
+- events_widget: limit, showPastEvents
+- ad_unit: size (banner/sidebar/leaderboard), position
+- image: src, alt, caption, width, alignment
+- video: src, title, autoplay, controls
+- cta_banner: heading, description, buttonText, buttonUrl, backgroundColor
+- divider: style (line/dots/space), spacing (sm/md/lg)
+- subscribe_widget: heading, description, buttonText
+- html: code
+
+Return ONLY valid JSON array, no markdown.`
+        }],
+      });
+
+      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const blocks = JSON.parse(jsonMatch[0]);
+        return blocks.map((b: any, i: number) => ({
+          id: generateId(),
+          type: b.type,
+          settings: { ...BLOCK_DEFAULT_SETTINGS[b.type as BlockType], ...b.settings },
+          order: i,
+        }));
+      }
+    }
+  } catch (e) {
+    console.log("AI layout generation failed, using preset:", e);
+  }
+
+  return presetBlocks.map((type, i) => ({
+    id: generateId(),
+    type,
+    settings: { ...BLOCK_DEFAULT_SETTINGS[type], heading: i === 0 ? title : BLOCK_DEFAULT_SETTINGS[type].heading },
+    order: i,
+  }));
+}
+
+export function getBlockDefaults(type: BlockType): Record<string, any> {
+  return { ...BLOCK_DEFAULT_SETTINGS[type] };
+}
+
+export function getSystemTemplates() {
+  return [
+    {
+      id: "tpl-landing",
+      name: "Landing Page",
+      description: "A welcoming page with hero, content sections, and call to action",
+      pageType: "landing",
+      layout: BLOCK_PRESETS.landing.map((type, i) => ({
+        id: generateId(),
+        type,
+        settings: BLOCK_DEFAULT_SETTINGS[type],
+        order: i,
+      })),
+    },
+    {
+      id: "tpl-show",
+      name: "Show Page",
+      description: "A podcast show page with episodes, events, and subscription",
+      pageType: "show_page",
+      layout: BLOCK_PRESETS.show_page.map((type, i) => ({
+        id: generateId(),
+        type,
+        settings: BLOCK_DEFAULT_SETTINGS[type],
+        order: i,
+      })),
+    },
+    {
+      id: "tpl-hub",
+      name: "Content Hub",
+      description: "A content-rich page with articles, podcasts, polls, and events",
+      pageType: "content_hub",
+      layout: BLOCK_PRESETS.content_hub.map((type, i) => ({
+        id: generateId(),
+        type,
+        settings: BLOCK_DEFAULT_SETTINGS[type],
+        order: i,
+      })),
+    },
+  ];
+}
+
 export function getContentInventory(): {
   widgetCount: number;
   categories: { name: string; count: number }[];

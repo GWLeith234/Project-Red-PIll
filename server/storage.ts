@@ -77,6 +77,7 @@ import {
   aiAgents, type AiAgent, type InsertAiAgent,
   pushCampaigns, type PushCampaign, type InsertPushCampaign,
   pushCampaignLogs, type PushCampaignLog, type InsertPushCampaignLog,
+  builtPages, type BuiltPage, type InsertBuiltPage,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -475,6 +476,17 @@ export interface IStorage {
   deletePushCampaign(id: string): Promise<void>;
   getPushCampaignLogs(campaignId: string): Promise<PushCampaignLog[]>;
   createPushCampaignLog(data: InsertPushCampaignLog): Promise<PushCampaignLog>;
+
+  // Built Pages
+  getBuiltPages(): Promise<BuiltPage[]>;
+  getBuiltPage(id: string): Promise<BuiltPage | undefined>;
+  getBuiltPageBySlug(slug: string): Promise<BuiltPage | undefined>;
+  createBuiltPage(data: InsertBuiltPage): Promise<BuiltPage>;
+  updateBuiltPage(id: string, data: Partial<InsertBuiltPage>): Promise<BuiltPage | undefined>;
+  deleteBuiltPage(id: string): Promise<void>;
+  publishBuiltPage(id: string): Promise<BuiltPage | undefined>;
+  unpublishBuiltPage(id: string): Promise<BuiltPage | undefined>;
+  duplicateBuiltPage(id: string): Promise<BuiltPage | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2003,6 +2015,53 @@ export class DatabaseStorage implements IStorage {
   }
   async createPushCampaignLog(data: InsertPushCampaignLog) {
     const [created] = await db.insert(pushCampaignLogs).values(data).returning();
+    return created;
+  }
+
+  async getBuiltPages() {
+    return db.select().from(builtPages).orderBy(desc(builtPages.updatedAt));
+  }
+  async getBuiltPage(id: string) {
+    const [p] = await db.select().from(builtPages).where(eq(builtPages.id, id));
+    return p;
+  }
+  async getBuiltPageBySlug(slug: string) {
+    const [p] = await db.select().from(builtPages).where(eq(builtPages.slug, slug));
+    return p;
+  }
+  async createBuiltPage(data: InsertBuiltPage) {
+    const [created] = await db.insert(builtPages).values(data).returning();
+    return created;
+  }
+  async updateBuiltPage(id: string, data: Partial<InsertBuiltPage>) {
+    const [updated] = await db.update(builtPages).set({ ...data, updatedAt: new Date() }).where(eq(builtPages.id, id)).returning();
+    return updated;
+  }
+  async deleteBuiltPage(id: string) {
+    await db.delete(builtPages).where(eq(builtPages.id, id));
+  }
+  async publishBuiltPage(id: string) {
+    const [updated] = await db.update(builtPages).set({ status: "published", publishedAt: new Date(), updatedAt: new Date() }).where(eq(builtPages.id, id)).returning();
+    return updated;
+  }
+  async unpublishBuiltPage(id: string) {
+    const [updated] = await db.update(builtPages).set({ status: "draft", publishedAt: null, updatedAt: new Date() }).where(eq(builtPages.id, id)).returning();
+    return updated;
+  }
+  async duplicateBuiltPage(id: string) {
+    const original = await this.getBuiltPage(id);
+    if (!original) return undefined;
+    const [created] = await db.insert(builtPages).values({
+      title: `${original.title} (Copy)`,
+      slug: `${original.slug}-copy-${Date.now()}`,
+      status: "draft",
+      pageType: original.pageType,
+      layout: original.layout,
+      metaTitle: original.metaTitle,
+      metaDescription: original.metaDescription,
+      coverImage: original.coverImage,
+      createdBy: original.createdBy,
+    }).returning();
     return created;
   }
 }
