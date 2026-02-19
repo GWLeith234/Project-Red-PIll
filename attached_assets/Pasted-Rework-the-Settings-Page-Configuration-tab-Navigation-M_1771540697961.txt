@@ -1,0 +1,54 @@
+Rework the Settings > Page Configuration tab (Navigation Manager) with full rename, reorganize, and drag-and-drop capabilities.
+
+CURRENT STATE:
+- Sections list shows section names with an edit (pencil) icon and page count badge
+- Sections are draggable but rename may not be working correctly
+- Sub-pages are shown below in a separate collapsed panel
+
+TARGET STATE:
+
+1. INLINE RENAME — SECTIONS:
+- Clicking the pencil icon on any section row puts the section name into an inline text input directly in the row
+- User types the new name and presses Enter or clicks a checkmark to save
+- Pressing Escape cancels and restores the original name
+- Saving calls PATCH /api/page-config/sections/:id with { name: newName }
+- The sidebar navigation updates immediately to reflect the new name
+
+2. INLINE RENAME — PAGES:
+- Each page row within a section also has a pencil icon
+- Same inline edit behavior: click pencil → input appears → Enter to save → Escape to cancel
+- Saving calls PATCH /api/page-config/pages/:id with { title: newTitle }
+- The sidebar navigation updates immediately to reflect the new page title
+
+3. DRAG AND DROP — SECTIONS:
+- Sections can be reordered by dragging the grip handle (⠿ icon, leftmost)
+- Use HTML5 drag and drop, no external library
+- On drop, update sort_order for all affected sections via PATCH /api/page-config/sections/reorder with { orderedIds: string[] }
+- Visual feedback: dragged item shows reduced opacity, drop target shows a blue insertion line
+
+4. DRAG AND DROP — PAGES WITHIN A SECTION:
+- Pages within each section can be reordered by dragging their grip handle
+- Pages can also be dragged FROM one section TO another section
+- On drop within same section: update sort_order via PATCH /api/page-config/pages/reorder with { sectionId, orderedIds }
+- On drop to different section: update parent section and sort_order via PATCH /api/page-config/pages/:id with { sectionId: newSectionId, sort_order: newOrder }
+- Visual feedback: destination section highlights with a subtle border when a page is dragged over it
+
+5. LAYOUT CHANGE:
+- Show sections and their pages together in one unified list, not split into two separate panels
+- Each section row is expandable/collapsible (chevron toggle)
+- All sections start expanded by default
+- Pages are indented under their section with a left border line connecting them visually
+- Page rows show: grip handle, page icon, page title (editable), visibility toggle (eye icon), pencil icon
+- Section rows show: grip handle, section icon, section name (editable), page count badge, pencil icon, delete icon
+
+6. DELETE (already requested previously — ensure it works):
+- Trash icon on section rows (appears on hover)
+- Trash icon on page rows (appears on hover)  
+- Confirmation dialog before deleting
+- Cannot delete if section/page is_visible = true — show warning instead
+
+7. SIDEBAR SYNC:
+- Any rename or reorder change must immediately update the admin sidebar navigation without requiring a page refresh
+- Use the existing sidebar data fetching mechanism — trigger a refetch after any successful save
+
+Do not change Platform Settings or Theme tabs. Only modify the Page Configuration tab.

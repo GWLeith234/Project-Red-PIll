@@ -32,7 +32,7 @@ import {
   LayoutDashboard, DollarSign, BarChart3, Settings as SettingsIcon,
   Briefcase, ContactRound, Network, Send, CalendarClock, Scaling,
   Kanban, ListTodo, PanelLeft, Heart, Blocks, Factory, Paintbrush,
-  Moon, Sun, Monitor,
+  Moon, Sun, Monitor, Check, FileIcon,
   type LucideIcon,
 } from "lucide-react";
 
