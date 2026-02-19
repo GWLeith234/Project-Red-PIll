@@ -1,0 +1,168 @@
+Sprint: Build the Push Campaign UI — an admin interface for creating, scheduling, and sending push notification campaigns to subscribers. The web-push infrastructure (VAPID keys, service worker, subscriptions table) is already in place. This sprint adds the campaign management layer on top.
+
+CONTEXT:
+- Push subscriptions are stored in a `push_subscriptions` table with columns: id, endpoint, p256dh, auth, user_agent, created_at
+- The server already has web-push configured with VAPID keys in environment variables
+- There is already a working send function — we are adding the UI and campaign scheduling layer on top of it
+
+---
+
+PART A — DATABASE:
+
+(1) Add a push_campaigns table to the Drizzle schema:
+- id: uuid, primary key, default gen_random_uuid()
+- name: text, not null (internal campaign name e.g. "Scott Morning Brief - Feb 19")
+- title: text, not null (notification title shown to user, max 65 chars)
+- body: text, not null (notification body text, max 120 chars)
+- icon_url: text, nullable (URL to notification icon image)
+- click_url: text, nullable (URL to open when notification is clicked — defaults to homepage)
+- image_url: text, nullable (large image in notification, optional)
+- target_segment: text, not null, default 'all' (all, engaged, new, at_risk)
+- status: text, not null, default 'draft' (draft, scheduled, sending, sent, failed, cancelled)
+- scheduled_at: timestamp, nullable (if null and status is sent, it was sent immediately)
+- sent_at: timestamp, nullable
+- recipient_count: integer, default 0 (populated when sending starts)
+- delivered_count: integer, default 0 (incremented as deliveries succeed)
+- failed_count: integer, default 0 (incremented on delivery failure)
+- clicked_count: integer, default 0 (tracked via click tracking endpoint)
+- created_by: text, nullable
+- created_at: timestamp, default now()
+- updated_at: timestamp, default now()
+
+(2) Add a push_campaign_logs table for per-subscriber delivery tracking:
+- id: uuid, primary key
+- campaign_id: text, references push_campaigns
+- subscription_id: text, references push_subscriptions
+- status: text (delivered, failed, clicked)
+- error_message: text, nullable
+- created_at: timestamp, default now()
+
+---
+
+PART B — API ENDPOINTS:
+
+(3) GET /api/push/campaigns — list all campaigns, sorted by created_at desc. Returns all columns. Auth required.
+
+(4) GET /api/push/campaigns/:id — get single campaign with full stats. Auth required.
+
+(5) POST /api/push/campaigns — create a new campaign in draft status. Body: { name, title, body, iconUrl, clickUrl, imageUrl, targetSegment, scheduledAt }. Validate title ≤ 65 chars, body ≤ 120 chars. Auth required.
+
+(6) PATCH /api/push/campaigns/:id — update a draft campaign. Only allowed if status is 'draft' or 'scheduled'. Auth required.
+
+(7) DELETE /api/push/campaigns/:id — delete a draft campaign. Only allowed if status is 'draft'. Auth required.
+
+(8) POST /api/push/campaigns/:id/send — immediately send the campaign. Logic:
+  a. Fetch all push_subscriptions matching the target_segment filter:
+     - 'all': all subscriptions
+     - 'new': subscriptions created in the last 7 days
+     - 'engaged': subscriptions where a related subscriber has engagement_stage = 'engaged' or 'active' (join on email if available, otherwise include all)
+     - 'at_risk': subscriptions with no associated click in last 30 days
+  b. Update campaign status to 'sending', set recipient_count to subscription count
+  c. For each subscription, send via web-push using the existing VAPID setup. Payload: { title, body, icon: iconUrl, data: { url: clickUrl } }
+  d. On success: increment delivered_count, insert push_campaign_logs row with status 'delivered'
+  e. On failure: increment failed_count, insert push_campaign_logs row with status 'failed' and error_message
+  f. After all sends complete, update status to 'sent', set sent_at to now()
+  g. Process sends in batches of 50 with a 100ms delay between batches to avoid memory spikes
+  Auth required.
+
+(9) POST /api/push/campaigns/:id/cancel — cancel a scheduled campaign. Only if status is 'scheduled'. Sets status to 'cancelled'. Auth required.
+
+(10) GET /api/push/stats — return aggregate stats: total subscribers, subscribers by segment (all, new, engaged, at_risk), campaigns sent this month, avg delivery rate. Auth required.
+
+(11) GET /api/push/click/:campaignId/:subscriptionId — click tracking endpoint (public). When a notification is clicked and the user navigates to the click_url, this endpoint is called first (the service worker appends tracking params). Increments clicked_count on the campaign, inserts a log entry with status 'clicked', then redirects to the campaign's click_url.
+
+---
+
+PART C — ADMIN UI:
+
+(12) Build the Push Notifications admin page at /admin/push. Follow the existing PageHeader + MetricsStrip + standard layout pattern used by all other admin pages.
+
+PageHeader:
+- Icon: Bell (Lucide)
+- Title: "Push Campaigns"
+- Primary Action button: "+ New Campaign" (opens campaign composer modal)
+- AI Action button: "AI Suggest" (purple, generates AI campaign suggestions — see Part D)
+
+MetricsStrip (5 cards):
+- Total Subscribers (from push_subscriptions count)
+- Sent This Month (campaigns with sent_at in current month)
+- Avg Delivery Rate (avg of delivered_count/recipient_count across sent campaigns, formatted as %)
+- Total Delivered (sum of delivered_count across all campaigns)
+- Clicks This Month (sum of clicked_count for campaigns sent this month)
+
+Main Table — Campaign List:
+- Sortable table with columns: Name, Title (truncated to 40 chars), Segment, Status (colored badge), Scheduled/Sent date, Recipients, Delivered %, Clicks, Actions
+- Status badges: draft (gray), scheduled (blue), sending (yellow/pulsing), sent (green), failed (red), cancelled (muted)
+- Actions per row: Edit (pencil icon, only for draft/scheduled), Send Now (play icon, only for draft), Cancel (X icon, only for scheduled), View Stats (chart icon, for sent campaigns)
+- Empty state: Bell icon + "No campaigns yet" + "+ Create your first campaign" button
+
+Campaign Composer Modal (for create + edit):
+- Full-screen modal or large slide-over panel
+- Left side — Form fields:
+  - Campaign Name (internal, text input)
+  - Notification Title (text input, live character counter, max 65, red when over)
+  - Notification Body (textarea, live character counter, max 120, red when over)
+  - Icon URL (text input, optional, with small preview thumbnail if URL is valid)
+  - Click URL (text input, optional, placeholder: "https://yoursite.com/article/slug")
+  - Target Segment (select dropdown: All Subscribers, New Subscribers (last 7 days), Engaged, At Risk)
+  - Schedule (radio: "Send Now" / "Schedule for Later"). If "Schedule for Later": show datetime picker
+- Right side — Live Preview Panel:
+  - Mock notification preview showing how the push notification will look on mobile (dark phone frame with the notification rendered inside). Updates in real time as the user types title, body, and icon.
+  - Below preview: "Estimated Recipients: X subscribers" — fetches count from /api/push/stats based on selected segment, updates when segment changes
+- Footer buttons: "Save Draft" (left), "Send Now" / "Schedule" (right, primary color)
+
+Campaign Stats Modal (for sent campaigns, triggered by "View Stats" action):
+- Shows: campaign name, sent date, target segment
+- Metrics grid: Recipients, Delivered, Failed, Clicked, Delivery Rate %, Click Rate %
+- Delivery rate progress bar (delivered/recipients)
+- Click rate progress bar (clicked/recipients)
+- Simple bar chart (Recharts) showing delivered vs failed
+
+(13) Add the Push Campaigns page to the admin sidebar navigation. Place it between "Monetization" and "Network/CRM". Use Bell icon.
+
+(14) Wire up the Send Now flow:
+- When user clicks "Send Now" in the composer or the table action, show a confirmation dialog: "Send '[Campaign Title]' to [X] subscribers now? This cannot be undone."
+- On confirm, call POST /api/push/campaigns/:id/send
+- Show a loading state on the button with "Sending..." text and a spinner
+- On success, close modal, show toast: "Campaign sent to X subscribers"
+- On failure, show error toast with the error message
+
+---
+
+PART D — AI CAMPAIGN SUGGESTIONS:
+
+(15) Add a function generatePushSuggestions() to server/ai-providers.ts (or a new server/ai-push.ts file). This function:
+- Queries the last 10 sent campaigns (name, title, body, delivered_count, clicked_count) for context
+- Queries the top 5 most-viewed articles from the last 7 days (if page_analytics table exists, otherwise skip)
+- Sends this prompt to Claude: "You are a push notification copywriter for a conservative news and podcast platform. Based on the campaign history and recent top content, suggest 3 push notification campaigns. For each, provide: name (internal), title (max 65 chars, attention-grabbing), body (max 120 chars, creates urgency or curiosity), suggested segment (all/new/engaged/at_risk), and reasoning for the suggestion. Return as JSON array."
+- Returns parsed JSON array of suggestions
+
+(16) Wire the "AI Suggest" button:
+- When clicked, call a new endpoint POST /api/push/ai/suggest
+- Show a loading state ("Generating suggestions...")
+- Display results as 3 suggestion cards, each showing: title, body preview, segment badge, reasoning (collapsed, expandable)
+- Each card has a "Use This" button that pre-fills the campaign composer with that suggestion's values
+- Cache results for 1 hour (store in memory or a simple cache, not database)
+
+---
+
+PART E — SERVICE WORKER CLICK TRACKING:
+
+(17) Update the existing public/sw.js (or service worker file) to handle notification clicks:
+- In the notificationclick event handler, check if the notification data has a campaignId and subscriptionId
+- If yes, construct the tracking URL: /api/push/click/{campaignId}/{subscriptionId}
+- Navigate to the tracking URL (which will redirect to the actual click_url)
+- If no tracking data, navigate directly to the notification's url
+
+---
+
+VERIFICATION CHECKLIST:
+1. /admin/push loads with MetricsStrip showing real subscriber count
+2. "+ New Campaign" opens composer modal with live preview
+3. Character counters work and turn red when over limit
+4. "Estimated Recipients" updates when segment changes
+5. Save Draft creates campaign in draft status in the table
+6. Send Now confirmation dialog appears, campaign sends, status updates to 'sent'
+7. View Stats modal shows delivery metrics for a sent campaign
+8. "AI Suggest" button returns 3 suggestions, "Use This" pre-fills the form
+9. Push Campaigns appears in admin sidebar navigation
