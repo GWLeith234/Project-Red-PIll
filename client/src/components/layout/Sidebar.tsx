@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { getIcon } from "@/lib/icon-resolver";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
-import { LogOut, ChevronDown, Menu, X, Image as ImageIcon } from "lucide-react";
+import { LogOut, ChevronDown, Menu, X, Image as ImageIcon, ExternalLink } from "lucide-react";
 
 type PageConfig = {
   pageKey: string;
@@ -292,6 +292,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               {user?.role || "user"}
             </p>
           </div>
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 hover:bg-muted rounded-sm transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
+            title="Live Site"
+            data-testid="link-live-site"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
           <NotificationBell />
           <ThemeToggle compact />
           <button
