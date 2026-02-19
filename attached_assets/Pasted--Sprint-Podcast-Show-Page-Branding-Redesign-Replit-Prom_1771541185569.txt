@@ -1,0 +1,139 @@
+# Sprint: Podcast & Show Page Branding Redesign
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Redesign the podcast show pages and browse/listen grid to give each show a premium, Spotify-style branded experience with bold full-bleed hero images and strong personal brand identity.
+
+---
+
+PART A — AI-GENERATED HERO IMAGES PER SHOW:
+
+(1) Add two new columns to the podcasts table (or shows table — check the schema):
+- hero_image_url: text, nullable — full-bleed hero background image URL
+- accent_color: text, nullable — hex color extracted or assigned per show (e.g. "#1DB954")
+- host_image_url: text, nullable — host/talent photo URL
+
+(2) For each existing podcast in the database, generate a hero image using the existing AI image generation system (check ai-providers.ts for image generation capability). If image generation is not available, use a curated set of high-quality royalty-free placeholder images from Unsplash with relevant themes:
+
+Use these Unsplash source URLs as hero images (assign one per show based on the show's topic):
+- Political/News show: https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=1600 (microphone, dark studio)
+- Conservative commentary: https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1600 (American flag, dramatic)
+- Talk/Interview: https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1600 (podcast studio)
+- Business/Finance: https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=1600 (dark modern studio)
+- General fallback: https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1600 (dramatic microphone)
+
+Assign accent colors per show — cycle through this palette:
+#C0392B (bold red), #2980B9 (strong blue), #8E44AD (deep purple), #E67E22 (burnt orange), #27AE60 (forest green), #2C3E50 (dark navy)
+
+Store these values in the database for each podcast.
+
+---
+
+PART B — INDIVIDUAL SHOW PAGE REDESIGN:
+
+(3) Redesign the individual podcast/show page (the page at /listen/:slug or /shows/:slug — check the routing):
+
+HERO SECTION (full viewport width, ~70vh tall):
+- Full-bleed background: the show's hero_image_url as a background-image with background-size: cover, background-position: center
+- Dark gradient overlay: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%) so text is always readable
+- Content positioned at bottom-left of hero (like Spotify album pages):
+  - "PODCAST" label in small caps, muted white, letter-spaced
+  - Show title in massive bold white text (4xl-6xl depending on title length)
+  - Host name with a small avatar/icon if host_image_url exists
+  - Short show description (2 lines max, white, 80% opacity)
+  - Two buttons side by side: 
+    - Primary "Subscribe" button (filled, accent_color background)
+    - Secondary "Latest Episode ▶" button (outlined, white border)
+  - Episode count and frequency badge (e.g. "Weekly • 247 episodes")
+- Show artwork (the square podcast cover art) positioned bottom-right of hero, ~180px, with subtle drop shadow, slightly overlapping the hero bottom edge
+
+STATS BAR (just below hero, dark background):
+- Horizontal row of 3-4 stats: Total Episodes, Subscribers, Avg Duration, Latest Episode date
+- Clean numbers with muted labels, separated by vertical dividers
+
+EPISODES SECTION:
+- Section header: "Latest Episodes" with "View All" link
+- Episode list: each episode as a horizontal row card containing:
+  - Episode number (small, muted)
+  - Thumbnail (square, 60px, rounded)
+  - Episode title (bold, 1 line truncated)
+  - Description (2 lines, muted, smaller)
+  - Duration badge
+  - Publish date (relative: "3 days ago")
+  - Play button (circular, accent_color, right side)
+- Show 10 episodes by default with a "Load More" button
+- Alternate row backgrounds slightly for readability
+
+ABOUT SECTION:
+- Full show description
+- Host bio if available
+- Category tags
+- Subscribe/follow links (Apple Podcasts, Spotify, RSS placeholders)
+
+(4) Make the hero fully responsive:
+- Mobile: hero height 50vh, title font size scales down, buttons stack vertically, artwork hidden on very small screens
+- Tablet: hero height 60vh
+- Desktop: hero height 70vh, full layout as described
+
+---
+
+PART C — BROWSE/LISTEN GRID REDESIGN:
+
+(5) Redesign the podcast browse/listen grid page (/listen or /shows):
+
+PAGE HERO:
+- Simple dark header with "Shows & Podcasts" title and a search input
+- Subtitle: "Subscribe to your favorite conservative voices"
+
+SHOW CARDS (replace current card design):
+Each card should feel like a premium streaming platform card:
+- Card dimensions: ~280px wide, ~360px tall (portrait aspect ratio)
+- Top 60% of card: hero_image_url as full-bleed background with dark gradient from bottom
+- Bottom 40%: dark card background containing:
+  - Show title (bold, white, 2 lines max)
+  - Host name (smaller, muted)
+  - Episode count badge + frequency (e.g. "Weekly")
+  - Short description (2 lines, muted, very small)
+  - Accent color left border strip (4px, the show's accent_color)
+- On hover: 
+  - Card scales up slightly (transform: scale(1.03))
+  - A "▶ Latest Episode" button fades in over the hero image area
+  - Subtle glow effect using the show's accent_color
+- Card links to the individual show page
+
+GRID LAYOUT:
+- Desktop: 4 columns
+- Tablet: 2-3 columns  
+- Mobile: 2 columns (compact cards) or 1 column (full width)
+- Gap between cards: 20px
+- Cards sorted by: subscriber count desc by default
+
+FEATURED SHOW (optional — if a show is marked as featured):
+- First slot is a wide "featured" card spanning 2 columns
+- Same design but landscape orientation with larger text
+
+---
+
+PART D — ADMIN: SHOW BRANDING PANEL:
+
+(6) In the admin area where podcasts are managed (check existing podcast admin page), add a "Branding" section to each podcast's edit form:
+- Hero Image URL input (with preview thumbnail)
+- Host Image URL input (with preview)
+- Accent Color picker (color input type="color" + hex text input)
+- "Regenerate Hero" button that re-assigns an Unsplash hero based on show category
+- Preview button that opens the show page in a new tab
+
+(7) Add these fields to the podcast PATCH endpoint so they can be saved.
+
+---
+
+VERIFICATION CHECKLIST:
+1. Visit /listen or /shows — cards show bold hero images, not plain artwork thumbnails
+2. Hover over a card — scale animation and "Latest Episode" button appear
+3. Click a show card — individual show page opens with full-bleed hero, gradient overlay, title at bottom-left
+4. Show page displays episode list with play buttons and show stats
+5. Mobile: show page hero scales down correctly, layout remains clean
+6. Admin podcast edit page has Branding section with hero image, host image, accent color fields
+7. Change accent color in admin — save — show page border and button color updates
+```
