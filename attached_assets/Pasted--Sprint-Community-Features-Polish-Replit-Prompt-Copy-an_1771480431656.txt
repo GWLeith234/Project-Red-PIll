@@ -1,0 +1,147 @@
+# Sprint: Community Features Polish
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Sprint: Polish and complete the Community Features — Events, Polls, and Discussion. This sprint focuses on audience-facing display, auto-population, embeddable poll widgets, countdown timers, and scheduled poll publishing.
+
+CONTEXT:
+- Events, Polls, and Discussion modules exist in the admin but need audience-facing polish
+- The platform follows a SooToday-style local media model scaled nationally
+- Polls should be embeddable as widgets anywhere on the site (like ad units)
+- Events should auto-populate on the audience site as admins create them
+
+---
+
+PART A — EVENTS (Audience-Facing):
+
+(1) Build a dedicated /events page for the audience site. This page already has a route. Make sure it:
+- Displays upcoming events in a card grid (3 columns desktop, 2 tablet, 1 mobile)
+- Each event card shows: cover image (or placeholder graphic), event title, date badge (prominent, top-left of card), location, category tag, and a "Add to Calendar" button (.ics download)
+- Events are sorted by date ascending (soonest first)
+- Past events are hidden by default, with a "Show Past Events" toggle at the bottom
+- Empty state: calendar icon + "No upcoming events" message
+
+(2) Build an Events widget for the home page and other audience pages. Create a reusable component client/src/components/widgets/EventsWidget.tsx:
+- Shows the next 3 upcoming events in a compact list format
+- Each item: date badge (day + month), event title, location
+- "View All Events" link at the bottom pointing to /events
+- Auto-populates as new events are added in admin — fetches from /api/public/events
+
+(3) Add the EventsWidget to the audience home page in a dedicated section below the main content feed. Section header: "Upcoming Events" with a calendar icon.
+
+(4) Ensure the public events endpoint GET /api/public/events exists and returns:
+- Only future events (start_date >= now)
+- Sorted by start_date ascending
+- Fields: id, title, start_date, end_date, location, category, cover_image, description, ticket_url
+- Add this endpoint if it doesn't exist
+
+(5) Build the .ics calendar download. When "Add to Calendar" is clicked:
+- Generate an .ics file on the client side with the event details
+- Trigger a browser download
+- Compatible with Google Calendar, Apple Calendar, Outlook
+
+---
+
+PART B — POLLS (Embeddable Widget System):
+
+(6) Update the polls database schema. Add these columns to the polls table if they don't exist:
+- start_date: timestamp, nullable (poll becomes active at this time)
+- end_date: timestamp, nullable (poll closes at this time)
+- is_published: boolean, default false (admin must explicitly publish)
+- show_results_before_vote: boolean, default false
+- placement_zones: jsonb, default '[]' (array of zone keys where this poll is embedded)
+
+(7) Update the admin Poll creation/edit form to include:
+- Start Date picker (datetime)
+- End Date picker (datetime)
+- Published toggle (on/off)
+- Placement Zones multi-select: checkboxes for available zones:
+  - "home_sidebar" — appears in home page sidebar
+  - "home_feed" — appears inline in home page content feed
+  - "article_sidebar" — appears in article page sidebar
+  - "article_inline" — appears inline within articles
+  - "events_page" — appears on the events page
+  - "community_page" — appears on the community hub page
+- Preview of how the poll will look
+
+(8) Build a reusable PollWidget component: client/src/components/widgets/PollWidget.tsx
+Props: { pollId?: string, zone?: string }
+
+The widget:
+- If pollId is provided, loads that specific poll
+- If zone is provided, fetches the active published poll assigned to that zone
+- Shows: poll question, answer options as clickable buttons
+- Before voting: shows options with vote counts hidden (unless show_results_before_vote is true)
+- After voting: shows animated result bars with percentage and vote count for each option. Uses localStorage to remember if user already voted (key: voted_poll_{pollId})
+- Countdown timer: if end_date is set, shows a live countdown "Closes in X days X hours X mins" that ticks down in real time. When expired, shows "Poll Closed" and results only.
+- If start_date is in the future, shows "Poll opens [date]" instead of the voting interface
+- Compact design that fits in sidebar ad unit sizes (300px wide)
+- Loading skeleton while fetching
+
+(9) Add public poll endpoints:
+- GET /api/public/polls/zone/:zone — returns the active, published poll for a given placement zone (start_date <= now <= end_date, is_published = true). Returns null if none.
+- GET /api/public/polls/:id — returns a single poll with its options and current vote counts
+- POST /api/public/polls/:id/vote — accepts { optionId }. Rate limit by IP (one vote per IP per poll). Returns updated vote counts.
+
+(10) Place PollWidgets throughout the audience site:
+- Home page sidebar: <PollWidget zone="home_sidebar" />
+- Home page feed (after every 5th article): <PollWidget zone="home_feed" />
+- Article sidebar: <PollWidget zone="article_sidebar" />
+- Events page: <PollWidget zone="events_page" />
+- Community hub page: <PollWidget zone="community_page" />
+
+(11) Build the dedicated /polls page for the audience site (route already exists):
+- Shows ALL currently active published polls (start_date <= now <= end_date, is_published = true)
+- Each poll displayed as a full PollWidget
+- Section header: "Community Polls" with a vote icon
+- Countdown timer visible on each poll
+- Empty state: "No active polls right now. Check back soon."
+
+(12) Update the admin Polls list to show:
+- Poll status badge: Draft (gray), Scheduled (blue), Active (green), Closed (red)
+- Start and end dates in the table
+- A "Publish" toggle button per poll
+- Vote count total per poll
+
+---
+
+PART C — DISCUSSION (Community Hub Polish):
+
+(13) Polish the /community-hub audience page:
+- Section header with community icon and "Join the Conversation" tagline
+- Display discussion posts in a feed format, newest first
+- Each post shows: author name, timestamp (relative: "2 hours ago"), message, like count, reply count
+- Like button with animation (heart fill on click, stores in localStorage)
+- Reply thread: clicking "Reply" expands an inline reply composer and shows existing replies
+- New post composer at the top: textarea (placeholder: "Share your thoughts..."), name field, optional email field, Submit button
+- Character counter on the textarea (2000 max)
+- Rate limiting feedback: if rate limited, show "Please wait before posting again"
+- Admin-pinned posts appear at the top with a "📌 Pinned" badge
+
+(14) Add the PollWidget (zone="community_page") to the community hub page above the discussion feed.
+
+(15) Add the EventsWidget to the community hub page showing next 2 upcoming events.
+
+---
+
+PART D — NAVIGATION & HOME PAGE INTEGRATION:
+
+(16) Ensure Events and Community Hub are in the audience mobile hamburger menu and the presets bar. They should already be there from previous sprints — verify and add if missing.
+
+(17) On the audience home page, add a "Community" section below the Events widget:
+- Shows the 3 most recent discussion posts (author, truncated message, timestamp)
+- "Join the Discussion" button linking to /community-hub
+
+---
+
+VERIFICATION CHECKLIST:
+1. Create an event in admin — it appears immediately on /events and in the EventsWidget on home page
+2. Create a poll with start/end dates and publish it — countdown timer ticks down on /polls and in sidebar widgets
+3. Vote on a poll — results animate in, vote is remembered on refresh
+4. Assign a poll to "home_sidebar" zone — it appears in the home page sidebar
+5. Post a discussion message on /community-hub — it appears in the feed immediately
+6. Like a post — heart fills, count increments, persists on refresh
+7. Past events are hidden on /events by default
+8. Poll shows "Poll Closed" after end_date passes
+```

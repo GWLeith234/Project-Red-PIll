@@ -1,11 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions } from "@shared/schema";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces } from "@shared/schema";
 import { lookupIP, getRandomDevCity } from "./geo-lookup";
 import { addFeedClient, getRecentActivities, trackSubscriber, trackArticlePublished, trackCommunityPost, trackPollVote, trackNpsSubmission, trackEventCreated, addActivity } from "./activity-feed";
 import type { Response as ExpressResponse } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, or, gte, count, sum, inArray } from "drizzle-orm";
 import {
   insertPodcastSchema, insertEpisodeSchema, insertContentPieceSchema,
   insertAdvertiserSchema, insertCampaignSchema, insertMetricsSchema, insertAlertSchema,
@@ -5157,6 +5157,61 @@ Provide comprehensive social listening intelligence including trending topics, k
     }
   });
 
+  // ── Push Stats (aggregate) ──
+  app.get("/api/push/stats", requireAuth, async (_req, res) => {
+    try {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const allSubs = await db.select().from(devicePushSubscriptions);
+      const totalSubscribers = allSubs.length;
+
+      const sentThisMonthResult = await db.select({ cnt: count() }).from(pushCampaigns).where(and(gte(pushCampaigns.sentAt, monthStart)));
+      const sentThisMonth = sentThisMonthResult[0]?.cnt || 0;
+
+      const sentCampaigns = await db.select().from(pushCampaigns).where(eq(pushCampaigns.status, "sent"));
+      let avgDeliveryRate = 0;
+      if (sentCampaigns.length > 0) {
+        const rates = sentCampaigns.map(c => (c.recipientCount && c.recipientCount > 0) ? ((c.deliveredCount || 0) / c.recipientCount) * 100 : 0);
+        avgDeliveryRate = Math.round(rates.reduce((a, b) => a + b, 0) / rates.length);
+      }
+
+      const totalDeliveredResult = await db.select({ total: sum(pushCampaigns.deliveredCount) }).from(pushCampaigns);
+      const totalDelivered = Number(totalDeliveredResult[0]?.total || 0);
+
+      const clicksThisMonthResult = await db.select({ total: sum(pushCampaigns.clickedCount) }).from(pushCampaigns).where(gte(pushCampaigns.sentAt, monthStart));
+      const clicksThisMonth = Number(clicksThisMonthResult[0]?.total || 0);
+
+      const newSubs = allSubs.filter(s => s.createdAt && new Date(s.createdAt) >= sevenDaysAgo).length;
+
+      const engagedEmails = await db.select({ email: subscribers.email }).from(subscribers).where(or(eq(subscribers.engagementStage, "engaged"), eq(subscribers.engagementStage, "active")));
+      const engagedEmailSet = new Set(engagedEmails.map(e => e.email));
+      const engagedSubs = allSubs.filter(s => s.subscriberEmail && engagedEmailSet.has(s.subscriberEmail)).length;
+
+      const recentClicks = await db.select({ subscriptionId: pushCampaignLogs.subscriptionId }).from(pushCampaignLogs).where(and(eq(pushCampaignLogs.status, "clicked"), gte(pushCampaignLogs.createdAt, thirtyDaysAgo)));
+      const clickedSubIds = new Set(recentClicks.map(c => c.subscriptionId));
+      const atRiskSubs = allSubs.filter(s => !clickedSubIds.has(s.id)).length;
+
+      res.json({
+        totalSubscribers,
+        sentThisMonth,
+        avgDeliveryRate,
+        totalDelivered,
+        clicksThisMonth,
+        segmentCounts: {
+          all: totalSubscribers,
+          new: newSubs,
+          engaged: engagedSubs,
+          at_risk: atRiskSubs,
+        },
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ── Push Campaigns ──
   app.get("/api/push-campaigns", requireAuth, async (req, res) => {
     try {
@@ -5179,6 +5234,12 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.post("/api/push-campaigns", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      if (req.body.title && req.body.title.length > 65) {
+        return res.status(400).json({ error: "Title must be 65 characters or less" });
+      }
+      if (req.body.body && req.body.body.length > 120) {
+        return res.status(400).json({ error: "Body must be 120 characters or less" });
+      }
       const parsed = insertPushCampaignSchema.parse(req.body);
       const campaign = await storage.createPushCampaign(parsed);
       res.json(campaign);
@@ -5188,8 +5249,13 @@ Provide comprehensive social listening intelligence including trending topics, k
     }
   });
 
-  app.put("/api/push-campaigns/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+  app.patch("/api/push-campaigns/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      const existing = await storage.getPushCampaign(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      if (existing.status !== "draft" && existing.status !== "scheduled") {
+        return res.status(400).json({ error: "Can only edit campaigns in draft or scheduled status" });
+      }
       const parsed = insertPushCampaignSchema.partial().parse(req.body);
       const campaign = await storage.updatePushCampaign(req.params.id, parsed);
       if (!campaign) return res.status(404).json({ error: "Not found" });
@@ -5202,6 +5268,11 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.delete("/api/push-campaigns/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
     try {
+      const existing = await storage.getPushCampaign(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Not found" });
+      if (existing.status !== "draft") {
+        return res.status(400).json({ error: "Can only delete campaigns in draft status" });
+      }
       await storage.deletePushCampaign(req.params.id);
       res.json({ ok: true });
     } catch (e: any) {
@@ -5215,44 +5286,59 @@ Provide comprehensive social listening intelligence including trending topics, k
       if (!campaign) return res.status(404).json({ error: "Not found" });
       if (campaign.status === "sent") return res.status(400).json({ error: "Already sent" });
 
+      await storage.updatePushCampaign(campaign.id, { status: "sending" } as any);
+
       let subs = await db.select().from(devicePushSubscriptions);
 
       if (campaign.targetSegment && campaign.targetSegment !== "all") {
-        subs = subs.filter((s: any) => {
-          const prefs = s.preferences;
-          if (!prefs) return true;
-          if (campaign.targetSegment === "articles" && prefs.articles === true) return true;
-          if (campaign.targetSegment === "episodes" && prefs.episodes === true) return true;
-          if (campaign.targetSegment === "breaking" && prefs.breaking === true) return true;
-          return false;
-        });
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+        if (campaign.targetSegment === "new") {
+          subs = subs.filter((s: any) => s.createdAt && new Date(s.createdAt) >= sevenDaysAgo);
+        } else if (campaign.targetSegment === "engaged") {
+          const engagedEmails = await db.select({ email: subscribers.email }).from(subscribers).where(or(eq(subscribers.engagementStage, "engaged"), eq(subscribers.engagementStage, "active")));
+          const engagedEmailSet = new Set(engagedEmails.map(e => e.email));
+          if (engagedEmailSet.size > 0) {
+            subs = subs.filter((s: any) => s.subscriberEmail && engagedEmailSet.has(s.subscriberEmail));
+          }
+        } else if (campaign.targetSegment === "at_risk") {
+          const recentClicks = await db.select({ subscriptionId: pushCampaignLogs.subscriptionId }).from(pushCampaignLogs).where(and(eq(pushCampaignLogs.status, "clicked"), gte(pushCampaignLogs.createdAt, thirtyDaysAgo)));
+          const clickedSubIds = new Set(recentClicks.map(c => c.subscriptionId));
+          subs = subs.filter((s: any) => !clickedSubIds.has(s.id));
+        }
       }
 
       let delivered = 0;
       let failed = 0;
+      const BATCH_SIZE = 50;
 
-      for (const sub of subs) {
-        try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-            JSON.stringify({
-              title: campaign.title,
-              body: campaign.body,
-              url: campaign.clickUrl || "/home",
-              tag: `campaign-${campaign.id}`,
-              campaignId: campaign.id,
-              icon: campaign.iconUrl,
-              image: campaign.imageUrl,
-            })
-          );
-          delivered++;
-          await storage.createPushCampaignLog({ campaignId: campaign.id, subscriptionId: sub.id, status: "delivered" });
-        } catch (err: any) {
-          failed++;
-          await storage.createPushCampaignLog({ campaignId: campaign.id, subscriptionId: sub.id, status: "failed", errorMessage: err.message });
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            await db.delete(devicePushSubscriptions).where(eq(devicePushSubscriptions.id, sub.id));
+      for (let i = 0; i < subs.length; i += BATCH_SIZE) {
+        const batch = subs.slice(i, i + BATCH_SIZE);
+        for (const sub of batch) {
+          try {
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              JSON.stringify({
+                title: campaign.title,
+                body: campaign.body,
+                icon: campaign.iconUrl,
+                image: campaign.imageUrl,
+                data: { url: campaign.clickUrl || "/home", campaignId: campaign.id, subscriptionId: sub.id },
+              })
+            );
+            delivered++;
+            await storage.createPushCampaignLog({ campaignId: campaign.id, subscriptionId: sub.id, status: "delivered" });
+          } catch (err: any) {
+            failed++;
+            await storage.createPushCampaignLog({ campaignId: campaign.id, subscriptionId: sub.id, status: "failed", errorMessage: err.message });
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await db.delete(devicePushSubscriptions).where(eq(devicePushSubscriptions.id, sub.id));
+            }
           }
+        }
+        if (i + BATCH_SIZE < subs.length) {
+          await new Promise(r => setTimeout(r, 100));
         }
       }
 
@@ -5274,7 +5360,7 @@ Provide comprehensive social listening intelligence including trending topics, k
     try {
       const campaign = await storage.getPushCampaign(req.params.id);
       if (!campaign) return res.status(404).json({ error: "Not found" });
-      if (campaign.status === "sent") return res.status(400).json({ error: "Already sent" });
+      if (campaign.status !== "scheduled") return res.status(400).json({ error: "Can only cancel scheduled campaigns" });
       const updated = await storage.updatePushCampaign(req.params.id, { status: "cancelled" } as any);
       res.json(updated);
     } catch (e: any) {
@@ -5300,15 +5386,87 @@ Provide comprehensive social listening intelligence including trending topics, k
     }
   });
 
-  app.post("/api/public/push-campaigns/:id/click", async (req, res) => {
+  app.get("/api/public/push/click/:campaignId/:subscriptionId", async (req, res) => {
     try {
-      const campaign = await storage.getPushCampaign(req.params.id);
-      if (!campaign) return res.status(404).json({ error: "Not found" });
-      await storage.updatePushCampaign(req.params.id, { clickedCount: (campaign.clickedCount || 0) + 1 } as any);
-      await storage.createPushCampaignLog({ campaignId: req.params.id, subscriptionId: "click", status: "clicked" });
-      res.json({ ok: true });
+      const campaign = await storage.getPushCampaign(req.params.campaignId);
+      if (!campaign) return res.redirect("/");
+      await storage.updatePushCampaign(req.params.campaignId, { clickedCount: (campaign.clickedCount || 0) + 1 } as any);
+      await storage.createPushCampaignLog({ campaignId: req.params.campaignId, subscriptionId: req.params.subscriptionId, status: "clicked" });
+      res.redirect(302, campaign.clickUrl || "/");
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      res.redirect("/");
+    }
+  });
+
+  // ── Push AI Suggestions ──
+  let aiSuggestCache: { data: any; timestamp: number } | null = null;
+  const AI_SUGGEST_CACHE_TTL = 60 * 60 * 1000;
+
+  app.post("/api/push/ai-suggest", requireAuth, async (_req, res) => {
+    try {
+      if (aiSuggestCache && Date.now() - aiSuggestCache.timestamp < AI_SUGGEST_CACHE_TTL) {
+        return res.json(aiSuggestCache.data);
+      }
+
+      const recentCampaigns = await db.select({
+        name: pushCampaigns.name,
+        title: pushCampaigns.title,
+        body: pushCampaigns.body,
+        deliveredCount: pushCampaigns.deliveredCount,
+        clickedCount: pushCampaigns.clickedCount,
+      }).from(pushCampaigns).where(eq(pushCampaigns.status, "sent")).orderBy(desc(pushCampaigns.sentAt)).limit(10);
+
+      const topContent = await db.select({
+        title: contentPieces.title,
+        type: contentPieces.type,
+      }).from(contentPieces).where(eq(contentPieces.status, "published")).orderBy(desc(contentPieces.publishedAt)).limit(5);
+
+      const { claude } = await import("./ai-providers");
+      const prompt = `You are a push notification copywriter for a conservative news and podcast platform. Based on the campaign history and recent top content, suggest 3 push notification campaigns.
+
+Recent sent campaigns:
+${recentCampaigns.map(c => `- "${c.title}" (delivered: ${c.deliveredCount}, clicked: ${c.clickedCount})`).join("\n") || "No campaigns sent yet."}
+
+Recent published content:
+${topContent.map(c => `- [${c.type}] ${c.title}`).join("\n") || "No recent content."}
+
+For each suggestion, provide:
+- name: internal campaign name
+- title: max 65 characters, attention-grabbing
+- body: max 120 characters, creates urgency or curiosity
+- segment: one of "all", "new", "engaged", "at_risk"
+- reasoning: brief explanation of why this campaign would work
+
+Return as a JSON array of 3 objects with keys: name, title, body, segment, reasoning.
+Return ONLY the JSON array, no markdown formatting.`;
+
+      const response = await claude.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      let suggestions;
+      try {
+        const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        suggestions = JSON.parse(cleaned);
+      } catch {
+        suggestions = [
+          { name: "Breaking News Alert", title: "Breaking: Major Policy Update Just Announced", body: "Get the latest on today's biggest political development. Tap to read the full story now.", segment: "all", reasoning: "Breaking news drives highest engagement across all segments." },
+          { name: "New Subscriber Welcome", title: "Welcome! Here's What You Missed This Week", body: "Your weekly roundup of top stories and exclusive podcast clips is ready.", segment: "new", reasoning: "Onboarding content helps retain new subscribers." },
+          { name: "Re-engagement Push", title: "We Miss You! Top Stories You Haven't Seen", body: "3 must-read stories and a viral clip are waiting for you. Don't miss out!", segment: "at_risk", reasoning: "Re-engagement campaigns help reduce subscriber churn." },
+        ];
+      }
+
+      aiSuggestCache = { data: suggestions, timestamp: Date.now() };
+      res.json(suggestions);
+    } catch (e: any) {
+      res.json([
+        { name: "Breaking News Alert", title: "Breaking: Major Policy Update Just Announced", body: "Get the latest on today's biggest political development. Tap to read the full story now.", segment: "all", reasoning: "Breaking news drives highest engagement across all segments." },
+        { name: "New Subscriber Welcome", title: "Welcome! Here's What You Missed This Week", body: "Your weekly roundup of top stories and exclusive podcast clips is ready.", segment: "new", reasoning: "Onboarding content helps retain new subscribers." },
+        { name: "Re-engagement Push", title: "We Miss You! Top Stories You Haven't Seen", body: "3 must-read stories and a viral clip are waiting for you. Don't miss out!", segment: "at_risk", reasoning: "Re-engagement campaigns help reduce subscriber churn." },
+      ]);
     }
   });
 

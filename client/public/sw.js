@@ -57,13 +57,18 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {};
+  const notifData = data.data || {};
   event.waitUntil(
     self.registration.showNotification(data.title || 'New Content', {
       body: data.body,
       icon: data.icon || '/icon-192.png',
       badge: '/icon-192.png',
       image: data.image || undefined,
-      data: { url: data.url || '/home', campaignId: data.campaignId || null },
+      data: {
+        url: notifData.url || data.url || '/home',
+        campaignId: notifData.campaignId || data.campaignId || null,
+        subscriptionId: notifData.subscriptionId || null,
+      },
       tag: data.tag || 'default',
     })
   );
@@ -71,22 +76,36 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/home';
-  const campaignId = event.notification.data?.campaignId;
+  const notifData = event.notification.data || {};
+  const clickUrl = notifData.url || '/home';
+  const campaignId = notifData.campaignId;
+  const subscriptionId = notifData.subscriptionId;
+
   event.waitUntil(
     Promise.resolve().then(async () => {
-      if (campaignId) {
+      if (campaignId && subscriptionId) {
+        const trackingUrl = `/api/public/push/click/${campaignId}/${subscriptionId}`;
+        const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of clientList) {
+          if ('focus' in client) {
+            client.focus();
+            return client.navigate(trackingUrl);
+          }
+        }
+        return clients.openWindow(trackingUrl);
+      } else if (campaignId) {
         try {
-          await fetch(`/api/public/push-campaigns/${campaignId}/click`, { method: 'POST' });
+          await fetch(`/api/public/push/click/${campaignId}/unknown`, { method: 'GET' });
         } catch (e) {}
       }
       const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of clientList) {
-        if (client.url.includes(url) && 'focus' in client) {
-          return client.focus();
+        if ('focus' in client) {
+          client.focus();
+          return client.navigate(clickUrl);
         }
       }
-      return clients.openWindow(url);
+      return clients.openWindow(clickUrl);
     })
   );
 });
