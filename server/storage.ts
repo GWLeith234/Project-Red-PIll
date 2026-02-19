@@ -78,6 +78,13 @@ import {
   pushCampaigns, type PushCampaign, type InsertPushCampaign,
   pushCampaignLogs, type PushCampaignLog, type InsertPushCampaignLog,
   builtPages, type BuiltPage, type InsertBuiltPage,
+  sponsorshipPackages, type SponsorshipPackage, type InsertSponsorshipPackage,
+  sponsorships, type Sponsorship, type InsertSponsorship,
+  adUnits, type AdUnit, type InsertAdUnit,
+  adImpressions, type AdImpression, type InsertAdImpression,
+  adClicks, type AdClick, type InsertAdClick,
+  qrScans, type QrScan, type InsertQrScan,
+  autoUpsellDrafts, type AutoUpsellDraft, type InsertAutoUpsellDraft,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -487,6 +494,42 @@ export interface IStorage {
   publishBuiltPage(id: string): Promise<BuiltPage | undefined>;
   unpublishBuiltPage(id: string): Promise<BuiltPage | undefined>;
   duplicateBuiltPage(id: string): Promise<BuiltPage | undefined>;
+
+  // Sponsorship Packages
+  getSponsorshipPackages(): Promise<SponsorshipPackage[]>;
+  getSponsorshipPackage(id: string): Promise<SponsorshipPackage | undefined>;
+  createSponsorshipPackage(data: InsertSponsorshipPackage): Promise<SponsorshipPackage>;
+  updateSponsorshipPackage(id: string, data: Partial<InsertSponsorshipPackage>): Promise<SponsorshipPackage | undefined>;
+  deleteSponsorshipPackage(id: string): Promise<void>;
+
+  // Sponsorships
+  getSponsorships(): Promise<Sponsorship[]>;
+  getSponsorship(id: string): Promise<Sponsorship | undefined>;
+  getSponsorshipsByShow(showId: string): Promise<Sponsorship[]>;
+  getActiveNetworkSponsorship(): Promise<Sponsorship | undefined>;
+  createSponsorship(data: InsertSponsorship): Promise<Sponsorship>;
+  updateSponsorship(id: string, data: Partial<InsertSponsorship>): Promise<Sponsorship | undefined>;
+  deleteSponsorship(id: string): Promise<void>;
+
+  // Ad Units
+  getAdUnits(): Promise<AdUnit[]>;
+  getAdUnit(id: string): Promise<AdUnit | undefined>;
+  getAdUnitsByZone(zone: string): Promise<AdUnit[]>;
+  createAdUnit(data: InsertAdUnit): Promise<AdUnit>;
+  updateAdUnit(id: string, data: Partial<InsertAdUnit>): Promise<AdUnit | undefined>;
+
+  // Ad Tracking
+  createAdImpression(data: InsertAdImpression): Promise<AdImpression>;
+  createAdClick(data: InsertAdClick): Promise<AdClick>;
+  createQrScan(data: InsertQrScan): Promise<QrScan>;
+  getAdImpressions(entityId: string, entityType: string): Promise<AdImpression[]>;
+  getAdClicks(entityId: string, entityType: string): Promise<AdClick[]>;
+  getQrScans(sponsorshipId: string): Promise<QrScan[]>;
+
+  // Auto Upsell Drafts
+  getAutoUpsellDrafts(status?: string): Promise<AutoUpsellDraft[]>;
+  createAutoUpsellDraft(data: InsertAutoUpsellDraft): Promise<AutoUpsellDraft>;
+  updateAutoUpsellDraft(id: string, data: Partial<InsertAutoUpsellDraft>): Promise<AutoUpsellDraft | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2063,6 +2106,140 @@ export class DatabaseStorage implements IStorage {
       createdBy: original.createdBy,
     }).returning();
     return created;
+  }
+
+  // Sponsorship Packages
+  async getSponsorshipPackages(): Promise<SponsorshipPackage[]> {
+    return await db.select().from(sponsorshipPackages).orderBy(desc(sponsorshipPackages.createdAt));
+  }
+  async getSponsorshipPackage(id: string): Promise<SponsorshipPackage | undefined> {
+    const [pkg] = await db.select().from(sponsorshipPackages).where(eq(sponsorshipPackages.id, id));
+    return pkg;
+  }
+  async createSponsorshipPackage(data: InsertSponsorshipPackage): Promise<SponsorshipPackage> {
+    const [created] = await db.insert(sponsorshipPackages).values(data).returning();
+    return created;
+  }
+  async updateSponsorshipPackage(id: string, data: Partial<InsertSponsorshipPackage>): Promise<SponsorshipPackage | undefined> {
+    const [updated] = await db.update(sponsorshipPackages).set(data).where(eq(sponsorshipPackages.id, id)).returning();
+    return updated;
+  }
+  async deleteSponsorshipPackage(id: string): Promise<void> {
+    await db.delete(sponsorshipPackages).where(eq(sponsorshipPackages.id, id));
+  }
+
+  // Sponsorships
+  async getSponsorships(): Promise<Sponsorship[]> {
+    return await db.select().from(sponsorships).orderBy(desc(sponsorships.createdAt));
+  }
+  async getSponsorship(id: string): Promise<Sponsorship | undefined> {
+    const [s] = await db.select().from(sponsorships).where(eq(sponsorships.id, id));
+    return s;
+  }
+  async getSponsorshipsByShow(showId: string): Promise<Sponsorship[]> {
+    return await db.select().from(sponsorships).where(
+      and(
+        eq(sponsorships.status, "active"),
+        sql`${sponsorships.showIds}::jsonb @> ${JSON.stringify([showId])}::jsonb`
+      )
+    );
+  }
+  async getActiveNetworkSponsorship(): Promise<Sponsorship | undefined> {
+    const activeSponsorships = await db.select().from(sponsorships).where(eq(sponsorships.status, "active"));
+    for (const s of activeSponsorships) {
+      if (s.packageId) {
+        const pkg = await this.getSponsorshipPackage(s.packageId);
+        if (pkg && pkg.includesNetworkWide) {
+          return s;
+        }
+      }
+    }
+    return undefined;
+  }
+  async createSponsorship(data: InsertSponsorship): Promise<Sponsorship> {
+    const [created] = await db.insert(sponsorships).values(data).returning();
+    return created;
+  }
+  async updateSponsorship(id: string, data: Partial<InsertSponsorship>): Promise<Sponsorship | undefined> {
+    const [updated] = await db.update(sponsorships).set({ ...data, updatedAt: new Date() }).where(eq(sponsorships.id, id)).returning();
+    return updated;
+  }
+  async deleteSponsorship(id: string): Promise<void> {
+    await db.delete(sponsorships).where(eq(sponsorships.id, id));
+  }
+
+  // Ad Units
+  async getAdUnits(): Promise<AdUnit[]> {
+    return await db.select().from(adUnits).orderBy(desc(adUnits.createdAt));
+  }
+  async getAdUnit(id: string): Promise<AdUnit | undefined> {
+    const [unit] = await db.select().from(adUnits).where(eq(adUnits.id, id));
+    return unit;
+  }
+  async getAdUnitsByZone(zone: string): Promise<AdUnit[]> {
+    return await db.select().from(adUnits).where(
+      and(
+        eq(adUnits.zone, zone),
+        eq(adUnits.status, "active")
+      )
+    ).orderBy(desc(adUnits.priority));
+  }
+  async createAdUnit(data: InsertAdUnit): Promise<AdUnit> {
+    const [created] = await db.insert(adUnits).values(data).returning();
+    return created;
+  }
+  async updateAdUnit(id: string, data: Partial<InsertAdUnit>): Promise<AdUnit | undefined> {
+    const [updated] = await db.update(adUnits).set(data).where(eq(adUnits.id, id)).returning();
+    return updated;
+  }
+
+  // Ad Tracking
+  async createAdImpression(data: InsertAdImpression): Promise<AdImpression> {
+    const [created] = await db.insert(adImpressions).values(data).returning();
+    return created;
+  }
+  async createAdClick(data: InsertAdClick): Promise<AdClick> {
+    const [created] = await db.insert(adClicks).values(data).returning();
+    return created;
+  }
+  async createQrScan(data: InsertQrScan): Promise<QrScan> {
+    const [created] = await db.insert(qrScans).values(data).returning();
+    return created;
+  }
+  async getAdImpressions(entityId: string, entityType: string): Promise<AdImpression[]> {
+    return await db.select().from(adImpressions).where(
+      and(
+        eq(adImpressions.entityId, entityId),
+        eq(adImpressions.entityType, entityType)
+      )
+    ).orderBy(desc(adImpressions.createdAt));
+  }
+  async getAdClicks(entityId: string, entityType: string): Promise<AdClick[]> {
+    return await db.select().from(adClicks).where(
+      and(
+        eq(adClicks.entityId, entityId),
+        eq(adClicks.entityType, entityType)
+      )
+    ).orderBy(desc(adClicks.createdAt));
+  }
+  async getQrScans(sponsorshipId: string): Promise<QrScan[]> {
+    return await db.select().from(qrScans).where(eq(qrScans.sponsorshipId, sponsorshipId)).orderBy(desc(qrScans.createdAt));
+  }
+
+  // Auto Upsell Drafts
+  async getAutoUpsellDrafts(status?: string): Promise<AutoUpsellDraft[]> {
+    if (status) {
+      return await db.select().from(autoUpsellDrafts).where(eq(autoUpsellDrafts.status, status)).orderBy(desc(autoUpsellDrafts.createdAt));
+    }
+    return await db.select().from(autoUpsellDrafts).orderBy(desc(autoUpsellDrafts.createdAt));
+  }
+  async createAutoUpsellDraft(data: InsertAutoUpsellDraft): Promise<AutoUpsellDraft> {
+    const [created] = await db.insert(autoUpsellDrafts).values(data).returning();
+    return created;
+  }
+  async updateAutoUpsellDraft(id: string, data: Partial<InsertAutoUpsellDraft>): Promise<AutoUpsellDraft | undefined> {
+    const [updated] = await db.update(autoUpsellDrafts).set(data).where(eq(autoUpsellDrafts.id, id)).returning();
+    return updated;
   }
 }
 
