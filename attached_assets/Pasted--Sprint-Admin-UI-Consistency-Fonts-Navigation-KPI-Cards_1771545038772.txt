@@ -1,0 +1,194 @@
+# Sprint: Admin UI Consistency — Fonts, Navigation, KPI Cards
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Audit and enforce consistent UI standards across every admin page. This is a visual consistency pass — no new functionality, just making every page follow the same design pattern.
+
+NOTE: Kanban Board and My Tasks have been removed from the platform. If they appear anywhere in sidebar config, navigation components, or quick link cards, remove them entirely.
+
+---
+
+THE STANDARD LAYOUT (enforce on every admin page):
+
+Layer 1 — PAGE HEADER (top of content area):
+- Left side: Lucide icon (in theme primary color) + Page title (bold, large)
+- Right side: AI Action button (purple #6C3FC5, white text) immediately LEFT of Primary Action button (theme primary color, white text)
+- Gap between AI and Primary buttons: 8px
+- If no AI action: only Primary button shows on the right
+- If no primary action (overview pages): no buttons
+- Consistent height, padding, and alignment across ALL pages
+
+Layer 2 — KPI STRIP (immediately below header):
+- Horizontal row of small metric cards
+- Each card: metric label (small, muted, uppercase), large number/value, trend indicator (↑↓ with % in green/red)
+- Cards auto-size to fill full width equally
+- Maximum 6 cards per strip
+- Consistent card height (~80px), font sizes, and spacing across ALL pages
+- If real data isn't available yet show 0 or N/A — never skip the strip entirely
+
+Layer 3 — TAB STRIP (only on pages with multiple views):
+- Active tab: primary color underline, bold text
+- Inactive tabs: muted text, no underline
+- Same height, padding, and font across ALL pages
+- Sits flush below KPI strip with no extra gap
+
+Layer 4 — WORK AREA:
+- Main content below tabs (or below KPI strip if no tabs)
+- Consistent card/table padding and border radius
+
+---
+
+TYPOGRAPHY — enforce these globally in admin CSS/theme:
+
+- Page titles (h1): 24px, font-weight 700
+- Section headers (h2): 18px, font-weight 600
+- Tab labels: 14px, font-weight 500
+- KPI metric values: 28px, font-weight 700
+- KPI metric labels: 11px, font-weight 500, uppercase, letter-spacing 0.05em
+- Table headers: 12px, font-weight 600, uppercase, muted color
+- Table body: 14px, font-weight 400
+- Button text: 14px, font-weight 500
+- Body/description text: 14px, font-weight 400, line-height 1.5
+
+Use the existing font family already set in the theme — do not change the font family, only enforce consistent sizing and weights.
+
+---
+
+SIDEBAR NAVIGATION — enforce these standards:
+
+Section labels (COMMAND CENTER, CONTENT FACTORY, etc.):
+- 11px, font-weight 600, uppercase, letter-spacing 0.08em, muted color
+- 16px top margin before each new section
+
+Nav items:
+- 14px, font-weight 500
+- Active: theme primary color text + 3px left border in primary color + slightly lighter background
+- Inactive: muted text, transparent background
+- Hover: slightly lighter background, text brightens
+- Icon size: 16px, consistent vertical alignment with text
+- Padding: 8px vertical, 16px horizontal
+
+Sidebar sections and pages to include (in this order):
+
+COMMAND CENTER:
+- Dashboard
+
+CONTENT FACTORY:
+- Content Factory
+- Scheduler
+- Moderation Queue
+- AI Site Editor
+- Community
+- Page Builder
+
+REVENUE FACTORY:
+- Advertising
+- Monetization
+- Campaign Builder
+- Ad Resizer
+- Newsletters
+- Push Campaigns
+
+AUDIENCE:
+- Network
+- Audience CRM
+- Sales CRM
+
+ANALYTICS:
+- Analytics
+
+ADMIN:
+- Settings
+- Users & Permissions
+- Branding
+- Legal
+
+Do NOT include Kanban Board or My Tasks anywhere in the sidebar. If they exist in any sidebar config file or component, remove them.
+
+---
+
+BUTTONS — enforce globally:
+
+Primary Action Button:
+- Background: theme primary color
+- Text: white (#FFFFFF)
+- Border radius: 6px
+- Padding: 8px 16px
+- Font: 14px, weight 500
+- Height: 36px
+
+AI Action Button:
+- Background: #6C3FC5 (always purple, never changes with theme)
+- Text: white (#FFFFFF)
+- Same border radius, padding, font, height as primary
+- Prefix: Sparkles icon (Lucide) before label text
+- Always positioned immediately LEFT of the primary button
+- Gap between buttons: 8px
+
+---
+
+KPI CARDS — enforce these specific metrics per page:
+
+Dashboard:
+- Total Subscribers | Active Users Today | Content Published This Week | Revenue MTD | Push Delivery Rate | Avg Session Duration
+
+Content Factory:
+- Total Pieces | Published | In Moderation | Drafts | AI Generated | Avg Time to Publish
+
+Advertising:
+- Active Sponsorships | Revenue MTD | Total Impressions | Total Clicks | Avg CTR | QR Scans
+
+Network / CRM:
+- New Leads | Active Proposals | Pipeline Value | Revenue MTD | At Risk Clients | Churned (30d)
+
+Analytics:
+- Live Visitors | Pageviews (30d) | Unique Visitors | Avg Session Duration | Bounce Rate | NPS Score
+
+Community:
+- Active Events | Open Polls | Total Votes | Community Posts Today | Flagged Posts | Active Users
+
+Page Builder:
+- Total Pages | Published | Drafts | Total Views | Avg Blocks Per Page | Last Published
+
+Settings:
+- Active Integrations | AI Tokens Used Today | Pages Published | Active Sponsorships | Team Members | System Uptime
+
+Query real data where it exists. Show 0 or N/A where it doesn't. Never hide or skip the KPI strip.
+
+---
+
+PAGES TO AUDIT (fix every page that doesn't match the standard):
+
+1. /admin/dashboard
+2. /admin/content-factory
+3. /admin/advertising
+4. /admin/network
+5. /admin/analytics
+6. /admin/community
+7. /admin/page-builder
+8. /admin/settings
+
+For each page verify and fix:
+- [ ] PageHeader: icon + title left, AI button then Primary button right
+- [ ] KPI strip present with correct 6 metrics for that page
+- [ ] Tab strip consistent style if tabs exist
+- [ ] Typography matches spec above
+- [ ] Buttons correct colors, sizes, order
+- [ ] No Kanban Board or My Tasks references anywhere
+
+Use existing shared components (PageHeader, MetricsStrip, AIActionButton) throughout. Do not create new implementations of these components.
+
+---
+
+VERIFICATION CHECKLIST:
+1. Every admin page has the 3-layer layout: Header → KPI Strip → Work Area
+2. KPI strip shows on every page with correct labels (0/N/A if no data)
+3. All page titles same size and weight
+4. AI button is always purple, always left of primary button
+5. Primary button is always theme color, always rightmost
+6. Sidebar contains correct pages in correct order — no Kanban Board, no My Tasks
+7. Sidebar active state, hover state, and section labels all consistent
+8. Tab strips look identical across all pages that have tabs
+9. No page has its own custom title implementation — all use PageHeader component
+```
