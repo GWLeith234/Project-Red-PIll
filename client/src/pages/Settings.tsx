@@ -1386,8 +1386,9 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
   });
 
   const updateSectionMutation = useMutation({
-    mutationFn: async ({ sectionKey, data }: { sectionKey: string; data: Record<string, any> }) => {
-      const res = await fetch(`/api/admin/nav-sections/${sectionKey}`, {
+    mutationFn: async ({ sectionKey, sectionId, data }: { sectionKey: string; sectionId?: string; data: Record<string, any> }) => {
+      const url = sectionKey ? `/api/admin/nav-sections/${sectionKey}` : `/api/admin/nav-sections-by-id/${sectionId}`;
+      const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -1429,9 +1430,9 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
     setAddingNew(false);
   };
 
-  const handleSave = (sectionKey: string) => {
+  const handleSave = (sectionKey: string, sectionId?: string) => {
     updateSectionMutation.mutate(
-      { sectionKey, data: { displayName: editForm.displayName, iconName: editForm.iconName, sortOrder: editForm.sortOrder, isCollapsedDefault: editForm.isCollapsedDefault } },
+      { sectionKey, sectionId, data: { displayName: editForm.displayName, iconName: editForm.iconName, sortOrder: editForm.sortOrder, isCollapsedDefault: editForm.isCollapsedDefault } },
       {
         onSuccess: () => {
           setEditingKey(null);
@@ -1597,7 +1598,7 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
                     <div className="flex items-center gap-2 pt-1">
                       <Button
                         size="sm"
-                        onClick={() => handleSave(section.sectionKey)}
+                        onClick={() => handleSave(section.sectionKey, section.id)}
                         disabled={updateSectionMutation.isPending}
                         className="h-7 px-3 text-[10px] font-mono uppercase"
                         data-testid={`button-save-section-${section.sectionKey}`}

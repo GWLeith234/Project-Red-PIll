@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces } from "@shared/schema";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces, adminNavSections } from "@shared/schema";
 import { lookupIP, getRandomDevCity } from "./geo-lookup";
 import { addFeedClient, getRecentActivities, trackSubscriber, trackArticlePublished, trackCommunityPost, trackPollVote, trackNpsSubmission, trackEventCreated, addActivity } from "./activity-feed";
 import type { Response as ExpressResponse } from "express";
@@ -6442,6 +6442,14 @@ Return ONLY the JSON array, no markdown formatting.`;
   app.patch("/api/admin/nav-sections/:sectionKey", requireAuth, requirePermission("settings.edit"), async (req, res) => {
     try {
       const updated = await storage.updateAdminNavSection(req.params.sectionKey, req.body);
+      if (!updated) return res.status(404).json({ message: "Section not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ message: err.message }); }
+  });
+
+  app.patch("/api/admin/nav-sections-by-id/:id", requireAuth, requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const [updated] = await db.update(adminNavSections).set(req.body).where(eq(adminNavSections.id, req.params.id)).returning();
       if (!updated) return res.status(404).json({ message: "Section not found" });
       res.json(updated);
     } catch (err: any) { res.status(400).json({ message: err.message }); }
