@@ -1347,436 +1347,29 @@ type NavSectionData = {
   isCollapsedDefault: boolean | null;
 };
 
-function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionData[]; configs: PageCfg[] }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ displayName: string; iconName: string; sortOrder: number; isCollapsedDefault: boolean }>({ displayName: "", iconName: "Blocks", sortOrder: 0, isCollapsedDefault: false });
-  const [addingNew, setAddingNew] = useState(false);
-  const [newForm, setNewForm] = useState({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false });
-  const [dragItem, setDragItem] = useState<string | null>(null);
-  const [dragOverItem, setDragOverItem] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ sectionKey: string; displayName: string } | null>(null);
-
-  const sorted = useMemo(() => [...navSections].sort((a, b) => a.sortOrder - b.sortOrder), [navSections]);
-
-  const pageCountMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const c of configs) {
-      const s = c.navSection ?? "";
-      m[s] = (m[s] || 0) + 1;
-    }
-    return m;
-  }, [configs]);
-
-  const saveSectionMutation = useMutation({
-    mutationFn: async (section: { sectionKey: string; displayName: string; iconName: string | null; sortOrder: number; isCollapsedDefault?: boolean }) => {
-      const res = await fetch("/api/admin/nav-sections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(section),
-      });
-      if (!res.ok) throw new Error("Failed to save section");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
-    },
-  });
-
-  const updateSectionMutation = useMutation({
-    mutationFn: async ({ sectionKey, sectionId, data }: { sectionKey: string; sectionId?: string; data: Record<string, any> }) => {
-      const url = sectionKey ? `/api/admin/nav-sections/${sectionKey}` : `/api/admin/nav-sections-by-id/${sectionId}`;
-      const res = await fetch(url, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to update section");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
-    },
-  });
-
-  const deleteSectionMutation = useMutation({
-    mutationFn: async (sectionKey: string) => {
-      const res = await fetch(`/api/admin/nav-sections/${sectionKey}?cascade=true`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to delete section");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
-      setDeleteConfirm(null);
-      toast({ title: "Section Deleted", description: "Section and all its pages have been removed." });
-    },
-  });
-
-  const startEditing = (section: NavSectionData) => {
-    setEditingKey(section.sectionKey);
-    setEditForm({
-      displayName: section.displayName,
-      iconName: section.iconName || "Blocks",
-      sortOrder: section.sortOrder,
-      isCollapsedDefault: section.isCollapsedDefault ?? false,
-    });
-    setAddingNew(false);
-  };
-
-  const handleSave = (sectionKey: string, sectionId?: string) => {
-    updateSectionMutation.mutate(
-      { sectionKey, sectionId, data: { displayName: editForm.displayName, iconName: editForm.iconName, sortOrder: editForm.sortOrder, isCollapsedDefault: editForm.isCollapsedDefault } },
-      {
-        onSuccess: () => {
-          setEditingKey(null);
-          toast({ title: "Section Updated", description: "Nav section has been saved." });
-        },
-        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-      }
-    );
-  };
-
-  const handleAddSection = () => {
-    if (!newForm.sectionKey || !newForm.displayName) {
-      toast({ title: "Missing fields", description: "Section key and display name are required.", variant: "destructive" });
-      return;
-    }
-    const maxOrder = sorted.length > 0 ? Math.max(...sorted.map(s => s.sortOrder)) : 0;
-    saveSectionMutation.mutate(
-      { sectionKey: newForm.sectionKey, displayName: newForm.displayName, iconName: newForm.iconName, sortOrder: maxOrder + 1, isCollapsedDefault: newForm.isCollapsedDefault },
-      {
-        onSuccess: () => {
-          setAddingNew(false);
-          setNewForm({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false });
-          toast({ title: "Section Added" });
-        },
-        onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-      }
-    );
-  };
-
-  const handleDragStart = (e: React.DragEvent, sectionKey: string) => {
-    setDragItem(sectionKey);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", sectionKey);
-  };
-
-  const handleDragOver = (e: React.DragEvent, sectionKey: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverItem(sectionKey);
-  };
-
-  const handleDrop = (e: React.DragEvent, targetKey: string) => {
-    e.preventDefault();
-    const draggedKey = e.dataTransfer.getData("text/plain");
-    if (!draggedKey || draggedKey === targetKey) {
-      setDragItem(null);
-      setDragOverItem(null);
-      return;
-    }
-    const reordered = [...sorted];
-    const fromIdx = reordered.findIndex(s => s.sectionKey === draggedKey);
-    const toIdx = reordered.findIndex(s => s.sectionKey === targetKey);
-    if (fromIdx === -1 || toIdx === -1) return;
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
-    reordered.forEach((s, idx) => {
-      updateSectionMutation.mutate({ sectionKey: s.sectionKey, data: { sortOrder: idx } });
-    });
-    setDragItem(null);
-    setDragOverItem(null);
-  };
-
-  return (
-    <div className="border rounded-sm border-border/50 mb-4" data-testid="manage-sections-area">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-card/30 border-b border-border/30">
-        <span className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground flex-1">
-          Sections
-        </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => { setAddingNew(true); setEditingKey(null); setNewForm({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false }); }}
-          className="h-6 px-2 text-[10px] font-mono text-muted-foreground hover:text-foreground"
-          data-testid="button-add-section"
-        >
-          <Plus className="h-3 w-3 mr-1" />
-          Add Section
-        </Button>
-      </div>
-
-      <div className="divide-y divide-border/20">
-        {sorted.map((section) => {
-          const SectionIcon = getIcon(section.iconName || "Blocks");
-          const isEditing = editingKey === section.sectionKey;
-          const isDragging = dragItem === section.sectionKey;
-          const isDragOver = dragOverItem === section.sectionKey;
-          const pageCount = pageCountMap[section.sectionKey] || 0;
-          const hasPages = pageCount > 0;
-
-          return (
-            <div
-              key={section.sectionKey}
-              draggable={!isEditing}
-              onDragStart={(e) => handleDragStart(e, section.sectionKey)}
-              onDragEnd={() => { setDragItem(null); setDragOverItem(null); }}
-              onDragOver={(e) => handleDragOver(e, section.sectionKey)}
-              onDrop={(e) => handleDrop(e, section.sectionKey)}
-              className={cn(
-                "group/section flex items-start gap-3 px-4 py-2.5 transition-all",
-                isDragging && "opacity-40",
-                isDragOver && "bg-primary/5",
-                isEditing ? "bg-primary/5" : "hover:bg-card/50"
-              )}
-              data-testid={`manage-section-${section.sectionKey}`}
-            >
-              <div className="flex items-center gap-2 pt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing">
-                <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-              </div>
-
-              <div className="flex items-center justify-center h-8 w-8 rounded bg-card border border-border/50 flex-shrink-0">
-                <SectionIcon className="h-4 w-4 text-muted-foreground" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
-                        <Input
-                          value={editForm.displayName}
-                          onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
-                          className="h-7 text-xs mt-0.5"
-                          data-testid={`input-section-name-${section.sectionKey}`}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-                        <IconPickerPopover
-                          value={editForm.iconName}
-                          onChange={(v) => setEditForm(f => ({ ...f, iconName: v }))}
-                          testId={`icon-picker-section-${section.sectionKey}`}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Sort Order</Label>
-                        <Input
-                          type="number"
-                          value={editForm.sortOrder}
-                          onChange={(e) => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))}
-                          className="h-7 text-xs mt-0.5"
-                          data-testid={`input-section-order-${section.sectionKey}`}
-                        />
-                      </div>
-                      <div className="flex items-end pb-0.5">
-                        <label className="flex items-center gap-2 cursor-pointer" data-testid={`toggle-collapsed-${section.sectionKey}`}>
-                          <button
-                            type="button"
-                            onClick={() => setEditForm(f => ({ ...f, isCollapsedDefault: !f.isCollapsedDefault }))}
-                            className={cn(
-                              "relative w-9 h-5 rounded-sm transition-colors flex-shrink-0",
-                              editForm.isCollapsedDefault ? "bg-primary" : "bg-muted"
-                            )}
-                          >
-                            <span className={cn("absolute top-0.5 h-4 w-4 bg-background border border-border transition-transform", editForm.isCollapsedDefault ? "translate-x-4" : "translate-x-0.5")} />
-                          </button>
-                          <span className="text-[10px] font-mono uppercase text-muted-foreground">Collapsed by Default</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        onClick={() => handleSave(section.sectionKey, section.id)}
-                        disabled={updateSectionMutation.isPending}
-                        className="h-7 px-3 text-[10px] font-mono uppercase"
-                        data-testid={`button-save-section-${section.sectionKey}`}
-                      >
-                        {updateSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
-                        Save
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingKey(null)} className="h-7 px-2 text-[10px]" data-testid={`button-cancel-section-${section.sectionKey}`}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium block truncate">{section.displayName}</span>
-                      <span className="text-[10px] font-mono text-muted-foreground">{section.sectionKey}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {!isEditing && (
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0">
-                    {pageCount} {pageCount === 1 ? "page" : "pages"}
-                  </Badge>
-                  {section.isCollapsedDefault && (
-                    <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
-                      collapsed
-                    </Badge>
-                  )}
-                  <button
-                    onClick={() => startEditing(section)}
-                    className="p-1.5 rounded hover:bg-muted transition-colors"
-                    title="Edit section"
-                    data-testid={`button-edit-section-${section.sectionKey}`}
-                  >
-                    <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      const visiblePages = configs.filter(c => c.navSection === section.sectionKey && c.isVisible !== false);
-                      if (visiblePages.length > 0) {
-                        toast({ title: "Cannot Delete", description: "This section has active content. Unpublish it before deleting.", variant: "destructive" });
-                        return;
-                      }
-                      setDeleteConfirm({ sectionKey: section.sectionKey, displayName: section.displayName });
-                    }}
-                    className="p-1.5 rounded opacity-0 group-hover/section:opacity-100 transition-all hover:bg-destructive/10"
-                    title="Delete section"
-                    data-testid={`button-delete-section-${section.sectionKey}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {addingNew && (
-          <div className="flex items-start gap-3 px-4 py-2.5 bg-primary/5" data-testid="add-section-form">
-            <div className="flex items-center gap-2 pt-0.5 flex-shrink-0">
-              <GripVertical className="h-4 w-4 text-muted-foreground/20" />
-            </div>
-
-            <div className="flex items-center justify-center h-8 w-8 rounded bg-card border border-border/50 flex-shrink-0">
-              {(() => { const NewIcon = getIcon(newForm.iconName || "Blocks"); return <NewIcon className="h-4 w-4 text-muted-foreground" />; })()}
-            </div>
-
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Section Key</Label>
-                  <Input
-                    value={newForm.sectionKey}
-                    onChange={(e) => setNewForm(f => ({ ...f, sectionKey: e.target.value }))}
-                    placeholder="my-section"
-                    className="h-7 text-xs mt-0.5"
-                    data-testid="input-new-section-key"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
-                  <Input
-                    value={newForm.displayName}
-                    onChange={(e) => setNewForm(f => ({ ...f, displayName: e.target.value }))}
-                    placeholder="My Section"
-                    className="h-7 text-xs mt-0.5"
-                    data-testid="input-new-section-display"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-                  <IconPickerPopover value={newForm.iconName} onChange={(v) => setNewForm(f => ({ ...f, iconName: v }))} testId="icon-picker-new-section" />
-                </div>
-                <div className="flex items-end pb-0.5">
-                  <label className="flex items-center gap-2 cursor-pointer" data-testid="toggle-new-collapsed">
-                    <button
-                      type="button"
-                      onClick={() => setNewForm(f => ({ ...f, isCollapsedDefault: !f.isCollapsedDefault }))}
-                      className={cn(
-                        "relative w-9 h-5 rounded-sm transition-colors flex-shrink-0",
-                        newForm.isCollapsedDefault ? "bg-primary" : "bg-muted"
-                      )}
-                    >
-                      <span className={cn("absolute top-0.5 h-4 w-4 bg-background border border-border transition-transform", newForm.isCollapsedDefault ? "translate-x-4" : "translate-x-0.5")} />
-                    </button>
-                    <span className="text-[10px] font-mono uppercase text-muted-foreground">Collapsed by Default</span>
-                  </label>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  size="sm"
-                  onClick={handleAddSection}
-                  disabled={saveSectionMutation.isPending}
-                  className="h-7 px-3 text-[10px] font-mono uppercase"
-                  data-testid="button-confirm-add-section"
-                >
-                  {saveSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
-                  Add
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setAddingNew(false)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-section">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Section</DialogTitle>
-            <DialogDescription>
-              Delete "{deleteConfirm?.displayName}"? This will remove the section and all its subsections. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)} data-testid="button-cancel-delete-section">
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => { if (deleteConfirm) deleteSectionMutation.mutate(deleteConfirm.sectionKey); }}
-              disabled={deleteSectionMutation.isPending}
-              data-testid="button-confirm-delete-section"
-            >
-              {deleteSectionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Delete Section
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
 function PageConfigurationTab() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [renamingSectionKey, setRenamingSectionKey] = useState<string | null>(null);
+  const [sectionRenameValue, setSectionRenameValue] = useState("");
+  const [renamingPageKey, setRenamingPageKey] = useState<string | null>(null);
+  const [pageRenameValue, setPageRenameValue] = useState("");
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
-  const [dragItem, setDragItem] = useState<string | null>(null);
-  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
+  const [editNewSection, setEditNewSection] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showAddPage, setShowAddPage] = useState<string | null>(null);
   const [newPageForm, setNewPageForm] = useState({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const [editNewSection, setEditNewSection] = useState("");
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSectionForm, setNewSectionForm] = useState({ sectionKey: "", displayName: "", iconName: "Blocks" });
   const [deletePageConfirm, setDeletePageConfirm] = useState<{ pageKey: string; title: string; isVisible: boolean } | null>(null);
   const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<{ sectionKey: string; label: string } | null>(null);
+
+  const [dragSectionKey, setDragSectionKey] = useState<string | null>(null);
+  const [dragOverSectionKey, setDragOverSectionKey] = useState<string | null>(null);
+  const [dragPageKey, setDragPageKey] = useState<string | null>(null);
+  const [dragOverPageTarget, setDragOverPageTarget] = useState<{ sectionKey: string; index?: number } | null>(null);
 
   const { data: configs, isLoading } = useQuery<PageCfg[]>({
     queryKey: ["/api/admin/page-config"],
@@ -1797,19 +1390,26 @@ function PageConfigurationTab() {
     staleTime: 30000,
   });
 
-  const sectionOrderMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    const displayMap: Record<string, string> = {};
-    if (navSections) {
-      for (const ns of navSections) {
-        m[ns.sectionKey] = ns.sortOrder;
-        displayMap[ns.sectionKey] = ns.displayName;
-      }
-    }
-    return { order: m, display: displayMap };
+  const sortedSections = useMemo(() => {
+    if (!navSections) return [];
+    return [...navSections].sort((a, b) => a.sortOrder - b.sortOrder);
   }, [navSections]);
 
-  const updateMutation = useMutation({
+  const sectionPages = useMemo(() => {
+    if (!configs) return {};
+    const grouped: Record<string, PageCfg[]> = {};
+    for (const cfg of configs) {
+      const s = cfg.navSection ?? "ungrouped";
+      if (!grouped[s]) grouped[s] = [];
+      grouped[s].push(cfg);
+    }
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    return grouped;
+  }, [configs]);
+
+  const updatePageMutation = useMutation({
     mutationFn: async ({ pageKey, data }: { pageKey: string; data: Record<string, any> }) => {
       const res = await fetch(`/api/admin/page-config/${pageKey}`, {
         method: "PATCH",
@@ -1822,13 +1422,29 @@ function PageConfigurationTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
-      setEditingKey(null);
-      toast({ title: "Saved", description: "Page configuration updated." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const reorderMutation = useMutation({
+  const updateSectionMutation = useMutation({
+    mutationFn: async ({ sectionKey, data }: { sectionKey: string; data: Record<string, any> }) => {
+      const res = await fetch(`/api/admin/nav-sections/${sectionKey}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update section");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+    },
+  });
+
+  const reorderPagesMutation = useMutation({
     mutationFn: async (pages: { pageKey: string; sortOrder: number; navSection: string }[]) => {
       const res = await fetch("/api/admin/page-config/reorder", {
         method: "PATCH",
@@ -1846,21 +1462,19 @@ function PageConfigurationTab() {
 
   const resetMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/page-config/reset", {
-        method: "POST",
-        credentials: "include",
-      });
+      const res = await fetch("/api/admin/page-config/reset", { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error("Failed to reset");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
       setShowResetDialog(false);
       toast({ title: "Reset Complete", description: "Navigation restored to defaults." });
     },
   });
 
-  const createMutation = useMutation({
+  const createPageMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
       const res = await fetch("/api/admin/page-config", {
         method: "POST",
@@ -1875,17 +1489,35 @@ function PageConfigurationTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
       setShowAddPage(null);
       setNewPageForm({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
-      toast({ title: "Page Added", description: "New page added to navigation." });
+      toast({ title: "Page Added" });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (pageKey: string) => {
-      const res = await fetch(`/api/admin/page-config/${pageKey}`, {
-        method: "DELETE",
+  const createSectionMutation = useMutation({
+    mutationFn: async (section: { sectionKey: string; displayName: string; iconName: string; sortOrder: number }) => {
+      const res = await fetch("/api/admin/nav-sections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify(section),
       });
+      if (!res.ok) throw new Error("Failed to save section");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      setAddingSection(false);
+      setNewSectionForm({ sectionKey: "", displayName: "", iconName: "Blocks" });
+      toast({ title: "Section Added" });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const deletePageMutation = useMutation({
+    mutationFn: async (pageKey: string) => {
+      const res = await fetch(`/api/admin/page-config/${pageKey}`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Failed to delete");
       return res.json();
     },
@@ -1896,12 +1528,9 @@ function PageConfigurationTab() {
     },
   });
 
-  const deleteSectionCascadeMutation = useMutation({
+  const deleteSectionMutation = useMutation({
     mutationFn: async (sectionKey: string) => {
-      const res = await fetch(`/api/admin/nav-sections/${sectionKey}?cascade=true`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const res = await fetch(`/api/admin/nav-sections/${sectionKey}?cascade=true`, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error("Failed to delete section");
       return res.json();
     },
@@ -1909,87 +1538,43 @@ function PageConfigurationTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
       setDeleteSectionConfirm(null);
-      toast({ title: "Section Deleted", description: "Section and all its pages have been removed." });
+      toast({ title: "Section Deleted" });
     },
   });
 
-  const sections = useMemo(() => {
-    if (!configs) return [];
-    const grouped: Record<string, PageCfg[]> = {};
-    for (const cfg of configs) {
-      const s = cfg.navSection ?? "ungrouped";
-      if (!grouped[s]) grouped[s] = [];
-      grouped[s].push(cfg);
-    }
-    for (const key of Object.keys(grouped)) {
-      grouped[key].sort((a, b) => a.sortOrder - b.sortOrder);
-    }
-    const allKeys = Object.keys(grouped);
-    allKeys.sort((a, b) => {
-      const orderA = sectionOrderMap.order[a] ?? 999;
-      const orderB = sectionOrderMap.order[b] ?? 999;
-      return orderA - orderB;
-    });
-    return allKeys.map(s => ({
-      key: s,
-      label: sectionOrderMap.display[s] ?? s.charAt(0).toUpperCase() + s.slice(1),
-      items: grouped[s] || [],
-    }));
-  }, [configs, sectionOrderMap]);
-
-  const handleDragStart = (e: React.DragEvent, pageKey: string) => {
-    setDragItem(pageKey);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", pageKey);
+  const handleSectionRenameStart = (section: NavSectionData) => {
+    setRenamingSectionKey(section.sectionKey);
+    setSectionRenameValue(section.displayName);
+    setRenamingPageKey(null);
   };
 
-  const handleDragOver = (e: React.DragEvent, sectionKey: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverSection(sectionKey);
+  const handleSectionRenameSave = (sectionKey: string) => {
+    if (!sectionRenameValue.trim()) { setRenamingSectionKey(null); return; }
+    updateSectionMutation.mutate(
+      { sectionKey, data: { displayName: sectionRenameValue.trim() } },
+      { onSuccess: () => { setRenamingSectionKey(null); toast({ title: "Section renamed" }); } }
+    );
   };
 
-  const handleDrop = (e: React.DragEvent, targetSection: string, targetIndex?: number) => {
-    e.preventDefault();
-    const draggedKey = e.dataTransfer.getData("text/plain");
-    if (!draggedKey || !configs) return;
+  const handlePageRenameStart = (config: PageCfg) => {
+    setRenamingPageKey(config.pageKey);
+    setPageRenameValue(config.title);
+    setRenamingSectionKey(null);
+  };
 
-    const updatedConfigs = [...configs];
-    const draggedIdx = updatedConfigs.findIndex(c => c.pageKey === draggedKey);
-    if (draggedIdx === -1) return;
-
-    const dragged = { ...updatedConfigs[draggedIdx] };
-    dragged.navSection = targetSection;
-
-    const sectionItems = updatedConfigs
-      .filter(c => (c.navSection ?? "") === targetSection && c.pageKey !== draggedKey)
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-
-    const insertAt = targetIndex !== undefined ? targetIndex : sectionItems.length;
-    sectionItems.splice(insertAt, 0, dragged);
-
-    const sectionBase = sections.find(s => s.key === targetSection);
-    const baseOrder = sectionBase ? Math.min(...sectionBase.items.map(i => i.sortOrder), 999) : 0;
-
-    const reorderPages = sectionItems.map((item, idx) => ({
-      pageKey: item.pageKey,
-      sortOrder: baseOrder + idx,
-      navSection: targetSection,
-    }));
-
-    reorderMutation.mutate(reorderPages);
-    setDragItem(null);
-    setDragOverSection(null);
+  const handlePageRenameSave = (pageKey: string) => {
+    if (!pageRenameValue.trim()) { setRenamingPageKey(null); return; }
+    updatePageMutation.mutate(
+      { pageKey, data: { title: pageRenameValue.trim() } },
+      { onSuccess: () => { setRenamingPageKey(null); toast({ title: "Page renamed" }); } }
+    );
   };
 
   const toggleVisibility = (config: PageCfg) => {
-    updateMutation.mutate({
-      pageKey: config.pageKey,
-      data: { isVisible: !(config.isVisible !== false) },
-    });
+    updatePageMutation.mutate({ pageKey: config.pageKey, data: { isVisible: !(config.isVisible !== false) } });
   };
 
-  const startEditing = (config: PageCfg) => {
+  const startFullEdit = (config: PageCfg) => {
     setEditingKey(config.pageKey);
     setEditForm({
       title: config.title || "",
@@ -2000,14 +1585,91 @@ function PageConfigurationTab() {
       navSection: config.navSection || "",
     });
     setEditNewSection("");
+    setRenamingPageKey(null);
   };
 
-  const handleSave = (pageKey: string) => {
+  const handleFullSave = (pageKey: string) => {
     const data: Record<string, any> = { ...editForm };
-    if (editForm.navSection === "__new__" && editNewSection) {
-      data.navSection = editNewSection;
+    if (editForm.navSection === "__new__" && editNewSection) data.navSection = editNewSection;
+    updatePageMutation.mutate({ pageKey, data }, { onSuccess: () => { setEditingKey(null); toast({ title: "Saved" }); } });
+  };
+
+  const handleSectionDragStart = (e: React.DragEvent, sectionKey: string) => {
+    setDragSectionKey(sectionKey);
+    setDragPageKey(null);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/section-key", sectionKey);
+  };
+
+  const handleSectionDragOver = (e: React.DragEvent, sectionKey: string) => {
+    if (!dragSectionKey) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSectionKey(sectionKey);
+  };
+
+  const handleSectionDrop = (e: React.DragEvent, targetKey: string) => {
+    e.preventDefault();
+    if (!dragSectionKey || dragSectionKey === targetKey) {
+      setDragSectionKey(null);
+      setDragOverSectionKey(null);
+      return;
     }
-    updateMutation.mutate({ pageKey, data });
+    const reordered = [...sortedSections];
+    const fromIdx = reordered.findIndex(s => s.sectionKey === dragSectionKey);
+    const toIdx = reordered.findIndex(s => s.sectionKey === targetKey);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    reordered.forEach((s, idx) => {
+      updateSectionMutation.mutate({ sectionKey: s.sectionKey, data: { sortOrder: idx } });
+    });
+    setDragSectionKey(null);
+    setDragOverSectionKey(null);
+  };
+
+  const handlePageDragStart = (e: React.DragEvent, pageKey: string) => {
+    setDragPageKey(pageKey);
+    setDragSectionKey(null);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/page-key", pageKey);
+  };
+
+  const handlePageDragOver = (e: React.DragEvent, sectionKey: string, index?: number) => {
+    if (!dragPageKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverPageTarget({ sectionKey, index });
+  };
+
+  const handlePageDrop = (e: React.DragEvent, targetSection: string, targetIndex?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragPageKey || !configs) return;
+
+    const draggedIdx = configs.findIndex(c => c.pageKey === dragPageKey);
+    if (draggedIdx === -1) return;
+
+    const dragged = { ...configs[draggedIdx] };
+    dragged.navSection = targetSection;
+
+    const sectionItems = configs
+      .filter(c => (c.navSection ?? "") === targetSection && c.pageKey !== dragPageKey)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const insertAt = targetIndex !== undefined ? targetIndex : sectionItems.length;
+    sectionItems.splice(insertAt, 0, dragged);
+
+    const reorderPages = sectionItems.map((item, idx) => ({
+      pageKey: item.pageKey,
+      sortOrder: idx,
+      navSection: targetSection,
+    }));
+
+    reorderPagesMutation.mutate(reorderPages);
+    setDragPageKey(null);
+    setDragOverPageTarget(null);
   };
 
   const handleAddPage = (sectionKey: string) => {
@@ -2015,13 +1677,18 @@ function PageConfigurationTab() {
       toast({ title: "Missing fields", description: "Page key, title, and route are required.", variant: "destructive" });
       return;
     }
-    const sectionItems = configs?.filter(c => (c.navSection ?? "") === sectionKey) || [];
-    const maxOrder = sectionItems.length > 0 ? Math.max(...sectionItems.map(i => i.sortOrder)) : 0;
-    createMutation.mutate({
-      ...newPageForm,
-      navSection: sectionKey,
-      sortOrder: maxOrder + 1,
-    });
+    const items = sectionPages[sectionKey] || [];
+    const maxOrder = items.length > 0 ? Math.max(...items.map(i => i.sortOrder)) : 0;
+    createPageMutation.mutate({ ...newPageForm, navSection: sectionKey, sortOrder: maxOrder + 1 });
+  };
+
+  const handleAddSection = () => {
+    if (!newSectionForm.sectionKey || !newSectionForm.displayName) {
+      toast({ title: "Missing fields", description: "Section key and display name are required.", variant: "destructive" });
+      return;
+    }
+    const maxOrder = sortedSections.length > 0 ? Math.max(...sortedSections.map(s => s.sortOrder)) : 0;
+    createSectionMutation.mutate({ ...newSectionForm, sortOrder: maxOrder + 1 });
   };
 
   if (isLoading) {
@@ -2035,348 +1702,371 @@ function PageConfigurationTab() {
   return (
     <div className="space-y-4" data-testid="page-config-tab">
       <div className="flex items-center justify-between">
-        <SectionHeader icon={LayoutGrid} title="Navigation Manager" description="Organize sidebar pages, sections, and visibility. Drag pages between sections to reorganize." />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowResetDialog(true)}
-          className="h-8 text-xs font-mono"
-          data-testid="button-reset-nav"
-        >
-          <RefreshCw className="h-3 w-3 mr-1.5" />
-          Reset to Default
-        </Button>
+        <SectionHeader icon={LayoutGrid} title="Navigation Manager" description="Organize sidebar pages, sections, and visibility. Drag to reorder, click pencil to rename." />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setAddingSection(true); setNewSectionForm({ sectionKey: "", displayName: "", iconName: "Blocks" }); }}
+            className="h-8 text-xs font-mono"
+            data-testid="button-add-section"
+          >
+            <Plus className="h-3 w-3 mr-1.5" />
+            Add Section
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowResetDialog(true)}
+            className="h-8 text-xs font-mono"
+            data-testid="button-reset-nav"
+          >
+            <RefreshCw className="h-3 w-3 mr-1.5" />
+            Reset to Default
+          </Button>
+        </div>
       </div>
 
-      {navSections && <ManageSectionsArea navSections={navSections} configs={configs || []} />}
-
-      {sections.map((section) => {
-        const isCollapsed = collapsedSections[section.key];
-        return (
-          <div
-            key={section.key}
-            className={cn(
-              "border rounded-sm transition-colors",
-              dragOverSection === section.key ? "border-primary bg-primary/5" : "border-border/50"
-            )}
-            onDragOver={(e) => handleDragOver(e, section.key)}
-            onDragLeave={() => setDragOverSection(null)}
-            onDrop={(e) => handleDrop(e, section.key)}
-            data-testid={`section-${section.key || "dashboard"}`}
-          >
-            <div className="group/sectionhdr flex items-center gap-2 px-4 py-2.5 bg-card/30 border-b border-border/30">
-              <button
-                onClick={() => setCollapsedSections(prev => ({ ...prev, [section.key]: !prev[section.key] }))}
-                className="text-muted-foreground hover:text-foreground"
-                data-testid={`button-toggle-section-${section.key || "dashboard"}`}
-              >
-                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-              <span className="text-xs font-mono font-semibold uppercase tracking-wider text-muted-foreground">
-                {section.label || "Ungrouped"}
-              </span>
-              <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
-                ({section.items.length})
-              </span>
-              <div className="flex-1" />
-              <button
-                onClick={() => {
-                  const hasVisibleContent = section.items.some(c => c.isVisible !== false);
-                  if (hasVisibleContent) {
-                    toast({ title: "Cannot Delete", description: "This section has active content. Unpublish it before deleting.", variant: "destructive" });
-                    return;
-                  }
-                  setDeleteSectionConfirm({ sectionKey: section.key, label: section.label });
-                }}
-                className="p-1.5 rounded opacity-0 group-hover/sectionhdr:opacity-100 transition-all hover:bg-destructive/10"
-                title="Delete section and all its pages"
-                data-testid={`button-delete-section-group-${section.key || "dashboard"}`}
-              >
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-              </button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowAddPage(section.key);
-                  setNewPageForm({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
-                }}
-                className="h-6 px-2 text-[10px] font-mono text-muted-foreground hover:text-foreground"
-                data-testid={`button-add-page-${section.key || "dashboard"}`}
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Add Page
-              </Button>
+      {addingSection && (
+        <div className="border rounded-sm border-primary/30 bg-primary/5 p-4 space-y-2" data-testid="add-section-form">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Section Key</Label>
+              <Input value={newSectionForm.sectionKey} onChange={(e) => setNewSectionForm(f => ({ ...f, sectionKey: e.target.value }))} placeholder="my-section" className="h-7 text-xs mt-0.5" data-testid="input-new-section-key" />
             </div>
+            <div>
+              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Display Name</Label>
+              <Input value={newSectionForm.displayName} onChange={(e) => setNewSectionForm(f => ({ ...f, displayName: e.target.value }))} placeholder="My Section" className="h-7 text-xs mt-0.5" data-testid="input-new-section-display" />
+            </div>
+            <div>
+              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+              <IconPickerPopover value={newSectionForm.iconName} onChange={(v) => setNewSectionForm(f => ({ ...f, iconName: v }))} testId="icon-picker-new-section" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleAddSection} disabled={createSectionMutation.isPending} className="h-7 px-3 text-[10px] font-mono uppercase" data-testid="button-confirm-add-section">
+              {createSectionMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+              Add
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setAddingSection(false)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-section">Cancel</Button>
+          </div>
+        </div>
+      )}
 
-            {!isCollapsed && (
-              <div className="divide-y divide-border/20">
-                {section.items.map((config, idx) => {
-                  const Icon = getIcon(config.iconName);
-                  const isEditing = editingKey === config.pageKey;
-                  const isDragging = dragItem === config.pageKey;
-                  const isHidden = config.isVisible === false;
+      <div className="border rounded-sm border-border/50">
+        {sortedSections.map((section, sectionIdx) => {
+          const SectionIcon = getIcon(section.iconName || "Blocks");
+          const pages = sectionPages[section.sectionKey] || [];
+          const isCollapsed = collapsedSections[section.sectionKey];
+          const isSectionDragging = dragSectionKey === section.sectionKey;
+          const isSectionDragOver = dragOverSectionKey === section.sectionKey && dragSectionKey !== null;
+          const isPageDragOverSection = dragOverPageTarget?.sectionKey === section.sectionKey && dragPageKey !== null;
+          const isRenamingSection = renamingSectionKey === section.sectionKey;
 
-                  return (
-                    <div
-                      key={config.pageKey}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, config.pageKey)}
-                      onDragEnd={() => { setDragItem(null); setDragOverSection(null); }}
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                      onDrop={(e) => { e.stopPropagation(); handleDrop(e, section.key, idx); }}
-                      className={cn(
-                        "group/pagerow flex items-start gap-3 px-4 py-2.5 transition-all",
-                        isDragging && "opacity-40",
-                        isHidden && "opacity-50",
-                        isEditing ? "bg-primary/5" : "hover:bg-card/50"
-                      )}
-                      data-testid={`row-page-config-${config.pageKey}`}
+          return (
+            <div key={section.sectionKey} data-testid={`section-${section.sectionKey}`}>
+              {sectionIdx > 0 && <div className="border-t border-border/30" />}
+
+              {isSectionDragOver && <div className="h-0.5 bg-primary mx-4" />}
+
+              <div
+                draggable={!isRenamingSection}
+                onDragStart={(e) => handleSectionDragStart(e, section.sectionKey)}
+                onDragEnd={() => { setDragSectionKey(null); setDragOverSectionKey(null); }}
+                onDragOver={(e) => {
+                  handleSectionDragOver(e, section.sectionKey);
+                  if (dragPageKey) { e.preventDefault(); setDragOverPageTarget({ sectionKey: section.sectionKey }); }
+                }}
+                onDrop={(e) => {
+                  if (dragSectionKey) handleSectionDrop(e, section.sectionKey);
+                  else if (dragPageKey) handlePageDrop(e, section.sectionKey);
+                }}
+                className={cn(
+                  "group/sectionrow flex items-center gap-2 px-4 py-2 transition-all",
+                  isSectionDragging && "opacity-40",
+                  isPageDragOverSection && "bg-primary/5 border-l-2 border-l-primary",
+                  !isSectionDragging && "hover:bg-card/50"
+                )}
+                data-testid={`manage-section-${section.sectionKey}`}
+              >
+                <div className="cursor-grab active:cursor-grabbing flex-shrink-0">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+                </div>
+
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, [section.sectionKey]: !prev[section.sectionKey] }))}
+                  className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                  data-testid={`button-toggle-section-${section.sectionKey}`}
+                >
+                  {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+
+                <SectionIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+
+                <div className="flex-1 min-w-0">
+                  {isRenamingSection ? (
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        autoFocus
+                        value={sectionRenameValue}
+                        onChange={(e) => setSectionRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSectionRenameSave(section.sectionKey);
+                          if (e.key === "Escape") setRenamingSectionKey(null);
+                        }}
+                        className="h-7 text-sm font-medium max-w-[200px]"
+                        data-testid={`input-section-rename-${section.sectionKey}`}
+                      />
+                      <button onClick={() => handleSectionRenameSave(section.sectionKey)} className="p-1 rounded hover:bg-primary/10 text-primary" data-testid={`button-save-section-rename-${section.sectionKey}`}>
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setRenamingSectionKey(null)} className="p-1 rounded hover:bg-muted text-muted-foreground" data-testid={`button-cancel-section-rename-${section.sectionKey}`}>
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-semibold truncate block">{section.displayName}</span>
+                  )}
+                </div>
+
+                <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 flex-shrink-0">
+                  {pages.length}
+                </Badge>
+
+                {!isRenamingSection && (
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <button
+                      onClick={() => handleSectionRenameStart(section)}
+                      className="p-1 rounded hover:bg-muted transition-colors"
+                      title="Rename section"
+                      data-testid={`button-edit-section-${section.sectionKey}`}
                     >
-                      <div className="flex items-center gap-2 pt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing">
-                        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-                      </div>
-
-                      <div className="flex items-center justify-center h-8 w-8 rounded bg-card border border-border/50 flex-shrink-0">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Title</Label>
-                                <Input
-                                  value={editForm.title}
-                                  onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
-                                  className="h-7 text-xs mt-0.5"
-                                  data-testid={`input-title-${config.pageKey}`}
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-                                <IconPickerPopover
-                                  value={editForm.iconName}
-                                  onChange={(v) => setEditForm(f => ({ ...f, iconName: v }))}
-                                  testId={`icon-picker-${config.pageKey}`}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <Label className="text-[10px] font-mono uppercase text-muted-foreground">Description (tooltip)</Label>
-                              <Input
-                                value={editForm.description}
-                                onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
-                                className="h-7 text-xs mt-0.5"
-                                data-testid={`input-description-${config.pageKey}`}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Nav Section</Label>
-                                <Select value={editForm.navSection} onValueChange={(v) => setEditForm(f => ({ ...f, navSection: v }))}>
-                                  <SelectTrigger className="h-7 text-xs mt-0.5" data-testid={`select-navsection-${config.pageKey}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {navSections?.filter(ns => ns.sectionKey).map(ns => (
-                                      <SelectItem key={ns.sectionKey} value={ns.sectionKey}>{ns.displayName}</SelectItem>
-                                    ))}
-                                    <SelectItem value="__new__">New Section...</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                {editForm.navSection === "__new__" && (
-                                  <Input
-                                    value={editNewSection}
-                                    onChange={(e) => setEditNewSection(e.target.value)}
-                                    placeholder="new-section-key"
-                                    className="h-7 text-xs mt-1"
-                                    data-testid={`input-new-navsection-${config.pageKey}`}
-                                  />
-                                )}
-                              </div>
-                              <div>
-                                <Label className="text-[10px] font-mono uppercase text-muted-foreground">Primary Action Label</Label>
-                                <Input
-                                  value={editForm.primaryActionLabel}
-                                  onChange={(e) => setEditForm(f => ({ ...f, primaryActionLabel: e.target.value }))}
-                                  className="h-7 text-xs mt-0.5"
-                                  data-testid={`input-primary-action-${config.pageKey}`}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <Label className="text-[10px] font-mono uppercase text-muted-foreground">AI Action Label</Label>
-                              <Input
-                                value={editForm.aiActionLabel}
-                                onChange={(e) => setEditForm(f => ({ ...f, aiActionLabel: e.target.value }))}
-                                className="h-7 text-xs mt-0.5"
-                                data-testid={`input-ai-action-${config.pageKey}`}
-                              />
-                            </div>
-                            <div className="flex items-center gap-2 pt-1">
-                              <Button
-                                size="sm"
-                                onClick={() => handleSave(config.pageKey)}
-                                disabled={updateMutation.isPending}
-                                className="h-7 px-3 text-[10px] font-mono uppercase"
-                                data-testid={`button-save-config-${config.pageKey}`}
-                              >
-                                {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
-                                Save
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setEditingKey(null)} className="h-7 px-2 text-[10px]" data-testid={`button-cancel-config-${config.pageKey}`}>
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3">
-                            <div className="min-w-0">
-                              <span className="text-sm font-medium block truncate">{config.title}</span>
-                              <span className="text-[10px] font-mono text-muted-foreground">{config.route}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {!isEditing && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => toggleVisibility(config)}
-                            className="p-1.5 rounded hover:bg-muted transition-colors"
-                            title={isHidden ? "Show in navigation" : "Hide from navigation"}
-                            data-testid={`button-visibility-${config.pageKey}`}
-                          >
-                            {isHidden ? <EyeOff className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
-                          </button>
-                          <button
-                            onClick={() => startEditing(config)}
-                            className="p-1.5 rounded hover:bg-muted transition-colors"
-                            title="Edit page settings"
-                            data-testid={`button-edit-${config.pageKey}`}
-                          >
-                            <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (config.isVisible !== false) {
-                                toast({ title: "Cannot Delete", description: "This section has active content. Unpublish it before deleting.", variant: "destructive" });
-                                return;
-                              }
-                              setDeletePageConfirm({ pageKey: config.pageKey, title: config.title || config.pageKey, isVisible: config.isVisible !== false });
-                            }}
-                            className="p-1.5 rounded opacity-0 group-hover/pagerow:opacity-100 transition-all hover:bg-destructive/10"
-                            title="Remove from navigation"
-                            data-testid={`button-delete-${config.pageKey}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {showAddPage === section.key && (
-                  <div className="px-4 py-3 bg-primary/5 border-t border-border/30 space-y-2" data-testid={`add-page-form-${section.key}`}>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Page Key</Label>
-                        <Input
-                          value={newPageForm.pageKey}
-                          onChange={(e) => setNewPageForm(f => ({ ...f, pageKey: e.target.value }))}
-                          placeholder="my-page"
-                          className="h-7 text-xs mt-0.5"
-                          data-testid="input-new-page-key"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Title</Label>
-                        <Input
-                          value={newPageForm.title}
-                          onChange={(e) => setNewPageForm(f => ({ ...f, title: e.target.value }))}
-                          placeholder="My Page"
-                          className="h-7 text-xs mt-0.5"
-                          data-testid="input-new-page-title"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Route</Label>
-                        <Input
-                          value={newPageForm.route}
-                          onChange={(e) => setNewPageForm(f => ({ ...f, route: e.target.value }))}
-                          placeholder="/my-page"
-                          className="h-7 text-xs mt-0.5"
-                          data-testid="input-new-page-route"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
-                        <IconPickerPopover
-                          value={newPageForm.iconName}
-                          onChange={(v) => setNewPageForm(f => ({ ...f, iconName: v }))}
-                          testId="icon-picker-new-page"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-mono uppercase text-muted-foreground">Permission</Label>
-                        <Select value={newPageForm.permission} onValueChange={(v) => setNewPageForm(f => ({ ...f, permission: v }))}>
-                          <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-new-page-permission">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {["dashboard.view","content.view","content.edit","monetization.view","monetization.edit","network.view","audience.view","analytics.view","customize.view","customize.edit","settings.view","settings.edit","users.view","sales.view"].map(p => (
-                              <SelectItem key={p} value={p}>{p}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        onClick={() => handleAddPage(section.key)}
-                        disabled={createMutation.isPending}
-                        className="h-7 px-3 text-[10px] font-mono uppercase"
-                        data-testid="button-confirm-add-page"
-                      >
-                        {createMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
-                        Add
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setShowAddPage(null)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-page">
-                        Cancel
-                      </Button>
-                    </div>
+                      <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const visiblePages = (sectionPages[section.sectionKey] || []).filter(c => c.isVisible !== false);
+                        if (visiblePages.length > 0) {
+                          toast({ title: "Cannot Delete", description: "Hide all pages in this section first.", variant: "destructive" });
+                          return;
+                        }
+                        setDeleteSectionConfirm({ sectionKey: section.sectionKey, label: section.displayName });
+                      }}
+                      className="p-1 rounded opacity-0 group-hover/sectionrow:opacity-100 transition-all hover:bg-destructive/10"
+                      title="Delete section"
+                      data-testid={`button-delete-section-${section.sectionKey}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddPage(section.sectionKey);
+                        setNewPageForm({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
+                      }}
+                      className="p-1 rounded hover:bg-muted transition-colors"
+                      title="Add page"
+                      data-testid={`button-add-page-${section.sectionKey}`}
+                    >
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        );
-      })}
+
+              {!isCollapsed && (
+                <div>
+                  {pages.map((config, pageIdx) => {
+                    const PageIcon = getIcon(config.iconName);
+                    const isEditing = editingKey === config.pageKey;
+                    const isRenamingPage = renamingPageKey === config.pageKey;
+                    const isPageDragging = dragPageKey === config.pageKey;
+                    const isHidden = config.isVisible === false;
+                    const isDropTarget = dragOverPageTarget?.sectionKey === section.sectionKey && dragOverPageTarget?.index === pageIdx && dragPageKey !== null;
+
+                    return (
+                      <div key={config.pageKey} data-testid={`row-page-config-${config.pageKey}`}>
+                        {isDropTarget && <div className="h-0.5 bg-primary ml-10 mr-4" />}
+
+                        <div
+                          draggable={!isEditing && !isRenamingPage}
+                          onDragStart={(e) => handlePageDragStart(e, config.pageKey)}
+                          onDragEnd={() => { setDragPageKey(null); setDragOverPageTarget(null); }}
+                          onDragOver={(e) => handlePageDragOver(e, section.sectionKey, pageIdx)}
+                          onDrop={(e) => handlePageDrop(e, section.sectionKey, pageIdx)}
+                          className={cn(
+                            "group/pagerow flex items-center gap-2 pl-10 pr-4 py-1.5 transition-all border-l-2 border-l-border/20 ml-6",
+                            isPageDragging && "opacity-40",
+                            isHidden && "opacity-50",
+                            isEditing ? "bg-primary/5 border-l-primary/30" : "hover:bg-card/30"
+                          )}
+                        >
+                          <div className="cursor-grab active:cursor-grabbing flex-shrink-0">
+                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
+                          </div>
+
+                          <PageIcon className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0" />
+
+                          <div className="flex-1 min-w-0">
+                            {isEditing ? (
+                              <div className="space-y-2 py-1">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label className="text-[10px] font-mono uppercase text-muted-foreground">Title</Label>
+                                    <Input value={editForm.title} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))} className="h-7 text-xs mt-0.5" data-testid={`input-title-${config.pageKey}`} />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+                                    <IconPickerPopover value={editForm.iconName} onChange={(v) => setEditForm(f => ({ ...f, iconName: v }))} testId={`icon-picker-${config.pageKey}`} />
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] font-mono uppercase text-muted-foreground">Description</Label>
+                                  <Input value={editForm.description} onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))} className="h-7 text-xs mt-0.5" data-testid={`input-description-${config.pageKey}`} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label className="text-[10px] font-mono uppercase text-muted-foreground">Nav Section</Label>
+                                    <Select value={editForm.navSection} onValueChange={(v) => setEditForm(f => ({ ...f, navSection: v }))}>
+                                      <SelectTrigger className="h-7 text-xs mt-0.5" data-testid={`select-navsection-${config.pageKey}`}><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        {navSections?.filter(ns => ns.sectionKey).map(ns => (
+                                          <SelectItem key={ns.sectionKey} value={ns.sectionKey}>{ns.displayName}</SelectItem>
+                                        ))}
+                                        <SelectItem value="__new__">New Section...</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    {editForm.navSection === "__new__" && (
+                                      <Input value={editNewSection} onChange={(e) => setEditNewSection(e.target.value)} placeholder="new-section-key" className="h-7 text-xs mt-1" data-testid={`input-new-navsection-${config.pageKey}`} />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] font-mono uppercase text-muted-foreground">Primary Action</Label>
+                                    <Input value={editForm.primaryActionLabel} onChange={(e) => setEditForm(f => ({ ...f, primaryActionLabel: e.target.value }))} className="h-7 text-xs mt-0.5" data-testid={`input-primary-action-${config.pageKey}`} />
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Button size="sm" onClick={() => handleFullSave(config.pageKey)} disabled={updatePageMutation.isPending} className="h-7 px-3 text-[10px] font-mono uppercase" data-testid={`button-save-config-${config.pageKey}`}>
+                                    {updatePageMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                                    Save
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => setEditingKey(null)} className="h-7 px-2 text-[10px]" data-testid={`button-cancel-config-${config.pageKey}`}>Cancel</Button>
+                                </div>
+                              </div>
+                            ) : isRenamingPage ? (
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  autoFocus
+                                  value={pageRenameValue}
+                                  onChange={(e) => setPageRenameValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handlePageRenameSave(config.pageKey);
+                                    if (e.key === "Escape") setRenamingPageKey(null);
+                                  }}
+                                  className="h-6 text-xs max-w-[200px]"
+                                  data-testid={`input-page-rename-${config.pageKey}`}
+                                />
+                                <button onClick={() => handlePageRenameSave(config.pageKey)} className="p-0.5 rounded hover:bg-primary/10 text-primary" data-testid={`button-save-page-rename-${config.pageKey}`}>
+                                  <Check className="h-3 w-3" />
+                                </button>
+                                <button onClick={() => setRenamingPageKey(null)} className="p-0.5 rounded hover:bg-muted text-muted-foreground" data-testid={`button-cancel-page-rename-${config.pageKey}`}>
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs font-medium truncate block">{config.title}</span>
+                            )}
+                          </div>
+
+                          {!isEditing && !isRenamingPage && (
+                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                              <button onClick={() => toggleVisibility(config)} className="p-1 rounded hover:bg-muted transition-colors" title={isHidden ? "Show" : "Hide"} data-testid={`button-visibility-${config.pageKey}`}>
+                                {isHidden ? <EyeOff className="h-3 w-3 text-muted-foreground" /> : <Eye className="h-3 w-3 text-muted-foreground" />}
+                              </button>
+                              <button onClick={() => handlePageRenameStart(config)} className="p-1 rounded hover:bg-muted transition-colors" title="Rename" data-testid={`button-rename-${config.pageKey}`}>
+                                <Edit3 className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                              <button onClick={() => startFullEdit(config)} className="p-1 rounded hover:bg-muted transition-colors opacity-0 group-hover/pagerow:opacity-100" title="Full edit" data-testid={`button-edit-${config.pageKey}`}>
+                                <Settings2 className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (config.isVisible !== false) {
+                                    toast({ title: "Cannot Delete", description: "Hide this page first before deleting.", variant: "destructive" });
+                                    return;
+                                  }
+                                  setDeletePageConfirm({ pageKey: config.pageKey, title: config.title || config.pageKey, isVisible: config.isVisible !== false });
+                                }}
+                                className="p-1 rounded opacity-0 group-hover/pagerow:opacity-100 transition-all hover:bg-destructive/10"
+                                title="Delete"
+                                data-testid={`button-delete-${config.pageKey}`}
+                              >
+                                <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {showAddPage === section.sectionKey && (
+                    <div className="pl-10 pr-4 py-3 bg-primary/5 border-t border-border/20 ml-6 border-l-2 border-l-primary/20 space-y-2" data-testid={`add-page-form-${section.sectionKey}`}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px] font-mono uppercase text-muted-foreground">Page Key</Label>
+                          <Input value={newPageForm.pageKey} onChange={(e) => setNewPageForm(f => ({ ...f, pageKey: e.target.value }))} placeholder="my-page" className="h-7 text-xs mt-0.5" data-testid="input-new-page-key" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-mono uppercase text-muted-foreground">Title</Label>
+                          <Input value={newPageForm.title} onChange={(e) => setNewPageForm(f => ({ ...f, title: e.target.value }))} placeholder="My Page" className="h-7 text-xs mt-0.5" data-testid="input-new-page-title" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[10px] font-mono uppercase text-muted-foreground">Route</Label>
+                          <Input value={newPageForm.route} onChange={(e) => setNewPageForm(f => ({ ...f, route: e.target.value }))} placeholder="/my-page" className="h-7 text-xs mt-0.5" data-testid="input-new-page-route" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-mono uppercase text-muted-foreground">Icon</Label>
+                          <IconPickerPopover value={newPageForm.iconName} onChange={(v) => setNewPageForm(f => ({ ...f, iconName: v }))} testId="icon-picker-new-page" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-mono uppercase text-muted-foreground">Permission</Label>
+                          <Select value={newPageForm.permission} onValueChange={(v) => setNewPageForm(f => ({ ...f, permission: v }))}>
+                            <SelectTrigger className="h-7 text-xs mt-0.5" data-testid="select-new-page-permission"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {["dashboard.view","content.view","content.edit","monetization.view","monetization.edit","network.view","audience.view","analytics.view","customize.view","customize.edit","settings.view","settings.edit","users.view","sales.view"].map(p => (
+                                <SelectItem key={p} value={p}>{p}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button size="sm" onClick={() => handleAddPage(section.sectionKey)} disabled={createPageMutation.isPending} className="h-7 px-3 text-[10px] font-mono uppercase" data-testid="button-confirm-add-page">
+                          {createPageMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 mr-1" />}
+                          Add
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowAddPage(null)} className="h-7 px-2 text-[10px]" data-testid="button-cancel-add-page">Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reset Navigation to Defaults?</DialogTitle>
-            <DialogDescription>
-              This will remove all customizations and restore the original navigation structure. This action cannot be undone.
-            </DialogDescription>
+            <DialogDescription>This will remove all customizations and restore the original navigation structure. This action cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResetDialog(false)} data-testid="button-cancel-reset">
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => resetMutation.mutate()}
-              disabled={resetMutation.isPending}
-              data-testid="button-confirm-reset"
-            >
+            <Button variant="outline" onClick={() => setShowResetDialog(false)} data-testid="button-cancel-reset">Cancel</Button>
+            <Button variant="destructive" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending} data-testid="button-confirm-reset">
               {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Reset to Defaults
             </Button>
@@ -2387,22 +2077,13 @@ function PageConfigurationTab() {
       <Dialog open={!!deletePageConfirm} onOpenChange={(open) => { if (!open) setDeletePageConfirm(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Subsection</DialogTitle>
-            <DialogDescription>
-              Delete "{deletePageConfirm?.title}"? This cannot be undone.
-            </DialogDescription>
+            <DialogTitle>Delete Page</DialogTitle>
+            <DialogDescription>Delete "{deletePageConfirm?.title}"? This cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletePageConfirm(null)} data-testid="button-cancel-delete-page">
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => { if (deletePageConfirm) deleteMutation.mutate(deletePageConfirm.pageKey); }}
-              disabled={deleteMutation.isPending}
-              data-testid="button-confirm-delete-page"
-            >
-              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button variant="outline" onClick={() => setDeletePageConfirm(null)} data-testid="button-cancel-delete-page">Cancel</Button>
+            <Button variant="destructive" onClick={() => { if (deletePageConfirm) deletePageMutation.mutate(deletePageConfirm.pageKey); }} disabled={deletePageMutation.isPending} data-testid="button-confirm-delete-page">
+              {deletePageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Delete
             </Button>
           </DialogFooter>
@@ -2413,21 +2094,12 @@ function PageConfigurationTab() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Section</DialogTitle>
-            <DialogDescription>
-              Delete "{deleteSectionConfirm?.label}"? This will remove the section and all its subsections. This cannot be undone.
-            </DialogDescription>
+            <DialogDescription>Delete "{deleteSectionConfirm?.label}"? This will remove the section and all its pages. This cannot be undone.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteSectionConfirm(null)} data-testid="button-cancel-delete-section-cascade">
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => { if (deleteSectionConfirm) deleteSectionCascadeMutation.mutate(deleteSectionConfirm.sectionKey); }}
-              disabled={deleteSectionCascadeMutation.isPending}
-              data-testid="button-confirm-delete-section-cascade"
-            >
-              {deleteSectionCascadeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            <Button variant="outline" onClick={() => setDeleteSectionConfirm(null)} data-testid="button-cancel-delete-section-cascade">Cancel</Button>
+            <Button variant="destructive" onClick={() => { if (deleteSectionConfirm) deleteSectionMutation.mutate(deleteSectionConfirm.sectionKey); }} disabled={deleteSectionMutation.isPending} data-testid="button-confirm-delete-section-cascade">
+              {deleteSectionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Delete Section
             </Button>
           </DialogFooter>
