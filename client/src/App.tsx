@@ -42,6 +42,7 @@ import CommunityAdmin from "@/pages/CommunityAdmin";
 import EventsPage from "@/pages/EventsPage";
 import CommunityPage from "@/pages/CommunityPage";
 import LiveMapBroadcast from "@/pages/LiveMapBroadcast";
+import PushCampaigns from "@/pages/PushCampaigns";
 import NotFound from "@/pages/not-found";
 import PrivacyPolicy from "@/pages/audience/PrivacyPolicy";
 import TermsOfService from "@/pages/audience/TermsOfService";
@@ -238,6 +239,7 @@ function ProtectedRoutes() {
           <Route path="/legal-admin">{() => <PermissionGate permission="settings.view"><LegalAdmin /></PermissionGate>}</Route>
           <Route path="/community">{() => <PermissionGate permission="content.view"><CommunityAdmin /></PermissionGate>}</Route>
           <Route path="/site-builder">{() => <PermissionGate permission="customize.edit"><SiteBuilder /></PermissionGate>}</Route>
+          <Route path="/push">{() => <PermissionGate permission="content.view"><PushCampaigns /></PermissionGate>}</Route>
           <Route component={NotFound} />
         </Switch>
       </Suspense>
