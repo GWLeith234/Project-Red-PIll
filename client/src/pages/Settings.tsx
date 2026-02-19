@@ -1356,6 +1356,7 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
   const [newForm, setNewForm] = useState({ sectionKey: "", displayName: "", iconName: "Blocks", isCollapsedDefault: false });
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ sectionKey: string; displayName: string } | null>(null);
 
   const sorted = useMemo(() => [...navSections].sort((a, b) => a.sortOrder - b.sortOrder), [navSections]);
 
@@ -1405,7 +1406,7 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
 
   const deleteSectionMutation = useMutation({
     mutationFn: async (sectionKey: string) => {
-      const res = await fetch(`/api/admin/nav-sections/${sectionKey}`, {
+      const res = await fetch(`/api/admin/nav-sections/${sectionKey}?cascade=true`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -1415,7 +1416,8 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
-      toast({ title: "Section Deleted" });
+      setDeleteConfirm(null);
+      toast({ title: "Section Deleted", description: "Section and all its pages have been removed." });
     },
   });
 
@@ -1531,7 +1533,7 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
               onDragOver={(e) => handleDragOver(e, section.sectionKey)}
               onDrop={(e) => handleDrop(e, section.sectionKey)}
               className={cn(
-                "flex items-start gap-3 px-4 py-2.5 transition-all",
+                "group/section flex items-start gap-3 px-4 py-2.5 transition-all",
                 isDragging && "opacity-40",
                 isDragOver && "bg-primary/5",
                 isEditing ? "bg-primary/5" : "hover:bg-card/50"
@@ -1641,17 +1643,18 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
                   </button>
                   <button
                     onClick={() => {
-                      if (!hasPages) deleteSectionMutation.mutate(section.sectionKey);
+                      const visiblePages = configs.filter(c => c.navSection === section.sectionKey && c.isVisible !== false);
+                      if (visiblePages.length > 0) {
+                        toast({ title: "Cannot Delete", description: "This section has active content. Unpublish it before deleting.", variant: "destructive" });
+                        return;
+                      }
+                      setDeleteConfirm({ sectionKey: section.sectionKey, displayName: section.displayName });
                     }}
-                    disabled={hasPages}
-                    className={cn(
-                      "p-1.5 rounded transition-colors",
-                      hasPages ? "opacity-40 cursor-not-allowed" : "hover:bg-destructive/10"
-                    )}
-                    title={hasPages ? "Move all pages out first" : "Delete section"}
+                    className="p-1.5 rounded opacity-0 group-hover/section:opacity-100 transition-all hover:bg-destructive/10"
+                    title="Delete section"
                     data-testid={`button-delete-section-${section.sectionKey}`}
                   >
-                    <Trash2 className={cn("h-3.5 w-3.5", hasPages ? "text-muted-foreground/50" : "text-muted-foreground hover:text-destructive")} />
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                   </button>
                 </div>
               )}
@@ -1732,6 +1735,31 @@ function ManageSectionsArea({ navSections, configs }: { navSections: NavSectionD
           </div>
         )}
       </div>
+
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Section</DialogTitle>
+            <DialogDescription>
+              Delete "{deleteConfirm?.displayName}"? This will remove the section and all its subsections. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} data-testid="button-cancel-delete-section">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { if (deleteConfirm) deleteSectionMutation.mutate(deleteConfirm.sectionKey); }}
+              disabled={deleteSectionMutation.isPending}
+              data-testid="button-confirm-delete-section"
+            >
+              {deleteSectionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete Section
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1747,6 +1775,8 @@ function PageConfigurationTab() {
   const [newPageForm, setNewPageForm] = useState({ pageKey: "", title: "", route: "", iconName: "Blocks", permission: "dashboard.view" });
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [editNewSection, setEditNewSection] = useState("");
+  const [deletePageConfirm, setDeletePageConfirm] = useState<{ pageKey: string; title: string; isVisible: boolean } | null>(null);
+  const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<{ sectionKey: string; label: string } | null>(null);
 
   const { data: configs, isLoading } = useQuery<PageCfg[]>({
     queryKey: ["/api/admin/page-config"],
@@ -1861,7 +1891,25 @@ function PageConfigurationTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      setDeletePageConfirm(null);
       toast({ title: "Deleted", description: "Page removed from navigation." });
+    },
+  });
+
+  const deleteSectionCascadeMutation = useMutation({
+    mutationFn: async (sectionKey: string) => {
+      const res = await fetch(`/api/admin/nav-sections/${sectionKey}?cascade=true`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete section");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/nav-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/page-config"] });
+      setDeleteSectionConfirm(null);
+      toast({ title: "Section Deleted", description: "Section and all its pages have been removed." });
     },
   });
 
@@ -2016,7 +2064,7 @@ function PageConfigurationTab() {
             onDrop={(e) => handleDrop(e, section.key)}
             data-testid={`section-${section.key || "dashboard"}`}
           >
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-card/30 border-b border-border/30">
+            <div className="group/sectionhdr flex items-center gap-2 px-4 py-2.5 bg-card/30 border-b border-border/30">
               <button
                 onClick={() => setCollapsedSections(prev => ({ ...prev, [section.key]: !prev[section.key] }))}
                 className="text-muted-foreground hover:text-foreground"
@@ -2031,6 +2079,21 @@ function PageConfigurationTab() {
                 ({section.items.length})
               </span>
               <div className="flex-1" />
+              <button
+                onClick={() => {
+                  const hasVisibleContent = section.items.some(c => c.isVisible !== false);
+                  if (hasVisibleContent) {
+                    toast({ title: "Cannot Delete", description: "This section has active content. Unpublish it before deleting.", variant: "destructive" });
+                    return;
+                  }
+                  setDeleteSectionConfirm({ sectionKey: section.key, label: section.label });
+                }}
+                className="p-1.5 rounded opacity-0 group-hover/sectionhdr:opacity-100 transition-all hover:bg-destructive/10"
+                title="Delete section and all its pages"
+                data-testid={`button-delete-section-group-${section.key || "dashboard"}`}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+              </button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -2063,7 +2126,7 @@ function PageConfigurationTab() {
                       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                       onDrop={(e) => { e.stopPropagation(); handleDrop(e, section.key, idx); }}
                       className={cn(
-                        "flex items-start gap-3 px-4 py-2.5 transition-all",
+                        "group/pagerow flex items-start gap-3 px-4 py-2.5 transition-all",
                         isDragging && "opacity-40",
                         isHidden && "opacity-50",
                         isEditing ? "bg-primary/5" : "hover:bg-card/50"
@@ -2198,11 +2261,13 @@ function PageConfigurationTab() {
                           </button>
                           <button
                             onClick={() => {
-                              if (confirm(`Remove "${config.title}" from navigation?`)) {
-                                deleteMutation.mutate(config.pageKey);
+                              if (config.isVisible !== false) {
+                                toast({ title: "Cannot Delete", description: "This section has active content. Unpublish it before deleting.", variant: "destructive" });
+                                return;
                               }
+                              setDeletePageConfirm({ pageKey: config.pageKey, title: config.title || config.pageKey, isVisible: config.isVisible !== false });
                             }}
-                            className="p-1.5 rounded hover:bg-destructive/10 transition-colors"
+                            className="p-1.5 rounded opacity-0 group-hover/pagerow:opacity-100 transition-all hover:bg-destructive/10"
                             title="Remove from navigation"
                             data-testid={`button-delete-${config.pageKey}`}
                           >
@@ -2314,6 +2379,56 @@ function PageConfigurationTab() {
             >
               {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Reset to Defaults
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletePageConfirm} onOpenChange={(open) => { if (!open) setDeletePageConfirm(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Subsection</DialogTitle>
+            <DialogDescription>
+              Delete "{deletePageConfirm?.title}"? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletePageConfirm(null)} data-testid="button-cancel-delete-page">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { if (deletePageConfirm) deleteMutation.mutate(deletePageConfirm.pageKey); }}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete-page"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteSectionConfirm} onOpenChange={(open) => { if (!open) setDeleteSectionConfirm(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Section</DialogTitle>
+            <DialogDescription>
+              Delete "{deleteSectionConfirm?.label}"? This will remove the section and all its subsections. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteSectionConfirm(null)} data-testid="button-cancel-delete-section-cascade">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { if (deleteSectionConfirm) deleteSectionCascadeMutation.mutate(deleteSectionConfirm.sectionKey); }}
+              disabled={deleteSectionCascadeMutation.isPending}
+              data-testid="button-confirm-delete-section-cascade"
+            >
+              {deleteSectionCascadeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete Section
             </Button>
           </DialogFooter>
         </DialogContent>

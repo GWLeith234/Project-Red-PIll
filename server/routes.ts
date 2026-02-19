@@ -6534,6 +6534,14 @@ Return ONLY the JSON array, no markdown formatting.`;
 
   app.delete("/api/admin/nav-sections/:sectionKey", requireAuth, requirePermission("settings.edit"), async (req, res) => {
     try {
+      const cascade = req.query.cascade === "true";
+      if (cascade) {
+        const allConfigs = await storage.getAdminPageConfigs();
+        const childPages = allConfigs.filter(c => c.navSection === req.params.sectionKey);
+        for (const page of childPages) {
+          await storage.deleteAdminPageConfig(page.pageKey);
+        }
+      }
       const deleted = await storage.deleteAdminNavSection(req.params.sectionKey);
       if (!deleted) return res.status(404).json({ message: "Section not found" });
       res.json({ ok: true });
