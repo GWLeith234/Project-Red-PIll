@@ -7395,10 +7395,31 @@ Return ONLY the JSON array, no markdown formatting.`;
   // ── AI Content Generation ──
   app.post("/api/ai/generate-content", requireAuth, async (req, res) => {
     try {
-      const { contentType, params } = req.body;
+      const { contentType, params, referenceUrl } = req.body;
       if (!contentType) return res.status(400).json({ message: "contentType is required" });
-      const { generateContent } = await import("./ai-content-agent");
-      const result = await generateContent(contentType, params);
+      const { generateContent, fetchUrlContent } = await import("./ai-content-agent");
+
+      let referenceContent = "";
+      if (referenceUrl) {
+        referenceContent = await fetchUrlContent(referenceUrl);
+      }
+
+      const enrichedParams = referenceContent
+        ? { ...params, referenceContent: `[Reference from ${referenceUrl}]: ${referenceContent}` }
+        : params;
+
+      const result = await generateContent(contentType, enrichedParams);
+
+      if (contentType === "visual_suggestions") {
+        try {
+          const jsonMatch = result.content.match(/\[[\s\S]*\]/);
+          const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+          result.content = JSON.stringify(parsed);
+        } catch {
+          result.content = "[]";
+        }
+      }
+
       await storage.createAiContentLog({
         contentType,
         promptSummary: params?.topic || params?.headline || contentType,

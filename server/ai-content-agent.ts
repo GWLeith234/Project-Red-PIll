@@ -1148,6 +1148,42 @@ export async function generateStoryFromText(
   return generateStoryFromTranscript(episodeId, transcript, episode.title, podcastTitle, trendingKeywords);
 }
 
+export async function fetchUrlContent(url: string): Promise<string> {
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "";
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" ||
+        hostname.startsWith("10.") || hostname.startsWith("192.168.") || hostname.startsWith("172.") ||
+        hostname.endsWith(".local") || hostname.endsWith(".internal") || hostname === "[::1]") {
+      return "";
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; MediaTechBot/1.0)" },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return "";
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("text/html") && !contentType.includes("text/plain") && !contentType.includes("application/json")) return "";
+    const html = await res.text();
+    const truncated = html.slice(0, 50000);
+    const text = truncated
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&[a-z]+;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return text.slice(0, 2000);
+  } catch {
+    return "";
+  }
+}
+
 const CONTENT_TYPE_PROMPTS: Record<string, (params: any) => string> = {
   article: (p) => `Write a news article for a conservative media platform.
 Topic/Headline: ${p.headline || p.topic || "General news"}
@@ -1195,6 +1231,15 @@ Format: ${p.format || "banner headline"}
 Character Limit: ${p.characterLimit || "no limit"}
 
 Write compelling ad copy that drives action. Keep within character limits if specified.`,
+
+  visual_suggestions: (p) => `Based on this social media post content, suggest 3 visual/image ideas that would pair well with the post.
+
+Social post content:
+${p.socialContent}
+
+Return a JSON array of exactly 3 objects with this format:
+[{"description": "brief visual description", "keywords": ["keyword1", "keyword2", "keyword3"]}]
+Return ONLY the JSON array, no other text.`,
 };
 
 const INLINE_ASSIST_PROMPTS: Record<string, (text: string, options?: any) => string> = {
@@ -1211,11 +1256,16 @@ export async function generateContent(contentType: string, params: any = {}): Pr
   const promptFn = CONTENT_TYPE_PROMPTS[contentType];
   if (!promptFn) throw new Error(`Unknown content type: ${contentType}`);
 
+  let prompt = promptFn(params);
+  if (params.referenceContent) {
+    prompt += `\n\nAdditional reference material to incorporate:\n${params.referenceContent}`;
+  }
+
   const response = await claude.messages.create({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 4096,
     system: "You are writing for a conservative media platform targeting an engaged audience of news readers and podcast listeners. Write high-quality, professional content.",
-    messages: [{ role: "user", content: promptFn(params) }],
+    messages: [{ role: "user", content: prompt }],
   });
 
   const text = response.content[0].type === "text" ? response.content[0].text : "";

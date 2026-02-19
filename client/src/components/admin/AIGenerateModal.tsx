@@ -24,6 +24,10 @@ export default function AIGenerateModal({ onClose, onInsert }: AIGenerateModalPr
   const [contentType, setContentType] = useState<ContentType>("article");
   const [generatedContent, setGeneratedContent] = useState("");
   const [tone, setTone] = useState("professional");
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [visualSuggestions, setVisualSuggestions] = useState<{ description: string; keywords: string[] }[] | null>(null);
+  const [visualsLoading, setVisualsLoading] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const [articleParams, setArticleParams] = useState({ headline: "", keywords: "", tone: "breaking news", wordCount: "800" });
   const [socialParams, setSocialParams] = useState({ platform: "Twitter/X", topic: "", tone: "engaging", includeHashtags: true });
@@ -37,18 +41,51 @@ export default function AIGenerateModal({ onClose, onInsert }: AIGenerateModalPr
     queryFn: () => fetch("/api/ai/tokens-today", { credentials: "include" }).then(r => r.json()).catch(() => ({ count: 0 })),
   });
 
-  const generateMutation = useMutation({
-    mutationFn: async (params: any) => {
+  const fetchVisualSuggestions = async (content: string) => {
+    setVisualsLoading(true);
+    setVisualSuggestions(null);
+    try {
       const res = await fetch("/api/ai/generate-content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ contentType, params }),
+        body: JSON.stringify({
+          contentType: "visual_suggestions",
+          params: { socialContent: content },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const parsed = JSON.parse(data.content);
+      if (Array.isArray(parsed)) setVisualSuggestions(parsed.slice(0, 3));
+    } catch {
+      setVisualSuggestions(null);
+    } finally {
+      setVisualsLoading(false);
+    }
+  };
+
+  const generateMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const payload: any = { contentType, params };
+      if (referenceUrl.trim()) payload.referenceUrl = referenceUrl.trim();
+      const res = await fetch("/api/ai/generate-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Generation failed");
       return res.json();
     },
-    onSuccess: (data) => setGeneratedContent(data.content || ""),
+    onSuccess: (data) => {
+      const content = data.content || "";
+      setGeneratedContent(content);
+      setVisualSuggestions(null);
+      if (contentType === "social" && content) {
+        fetchVisualSuggestions(content);
+      }
+    },
   });
 
   const getParams = (): any => {
@@ -65,7 +102,15 @@ export default function AIGenerateModal({ onClose, onInsert }: AIGenerateModalPr
   const handleGenerate = () => generateMutation.mutate(getParams());
   const handleRegenerate = () => {
     setGeneratedContent("");
+    setVisualSuggestions(null);
     generateMutation.mutate({ ...getParams(), tone });
+  };
+
+  const handleCopyPrompt = (description: string, idx: number) => {
+    const prompt = `Photorealistic ${description}, high quality, professional photography, 16:9 aspect ratio`;
+    navigator.clipboard.writeText(prompt);
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
   };
 
   return (
@@ -233,6 +278,18 @@ export default function AIGenerateModal({ onClose, onInsert }: AIGenerateModalPr
                 </div>
               </>
             )}
+
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <label className="text-xs font-medium text-muted-foreground">Reference URL (optional)</label>
+              <input
+                type="url"
+                value={referenceUrl}
+                onChange={e => setReferenceUrl(e.target.value)}
+                className="w-full mt-1 px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground"
+                placeholder="Paste a URL for AI to reference — a news story, brand website, or product page"
+                data-testid="input-reference-url"
+              />
+            </div>
           </div>
 
           {generatedContent && (
@@ -255,6 +312,47 @@ export default function AIGenerateModal({ onClose, onInsert }: AIGenerateModalPr
               <div className="bg-background border border-border rounded-lg p-4 text-sm text-foreground whitespace-pre-wrap max-h-64 overflow-y-auto" data-testid="generated-content">
                 {generatedContent}
               </div>
+            </div>
+          )}
+
+          {contentType === "social" && generatedContent && (visualsLoading || visualSuggestions) && (
+            <div className="space-y-2" data-testid="visual-suggestions-panel">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
+                <span className="text-xs font-medium text-muted-foreground">Suggested Visuals</span>
+              </div>
+              {visualsLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+                  <div className="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  Finding visual ideas...
+                </div>
+              ) : visualSuggestions && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {visualSuggestions.map((vs, idx) => (
+                    <div key={idx} className="bg-background border border-border rounded-lg p-3 space-y-2" data-testid={`visual-card-${idx}`}>
+                      <p className="text-xs text-foreground leading-relaxed">{vs.description}</p>
+                      <div className="flex flex-col gap-1.5">
+                        <a
+                          href={`https://unsplash.com/s/photos/${encodeURIComponent(vs.keywords?.slice(0, 3).join(" ") || vs.description.split(" ").slice(0, 3).join(" "))}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                          data-testid={`search-stock-${idx}`}
+                        >
+                          Search Stock Photos
+                        </a>
+                        <button
+                          onClick={() => handleCopyPrompt(vs.description, idx)}
+                          className="flex items-center justify-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors relative"
+                          data-testid={`copy-prompt-${idx}`}
+                        >
+                          {copiedIdx === idx ? "Copied!" : "AI Image Prompt"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

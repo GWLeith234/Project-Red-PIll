@@ -82,110 +82,92 @@ function ProcessingQueue() {
   const { data: episodes } = useEpisodes();
   const { data: podcasts } = usePodcasts();
   const queryClient = useQueryClient();
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   const activeEpisodes = (episodes || []).filter((ep: any) =>
-    ep.processingStatus === "processing" || ep.transcriptStatus === "processing"
+    (ep.processingStatus === "processing" || ep.transcriptStatus === "processing" ||
+     ((ep.processingStatus === "completed" || ep.processingStatus === "error") &&
+       ep.updatedAt && (Date.now() - new Date(ep.updatedAt).getTime()) < 3600000)) &&
+    !dismissedIds.has(ep.id)
   );
 
+  const processingCount = activeEpisodes.filter((ep: any) =>
+    ep.processingStatus === "processing" || ep.transcriptStatus === "processing"
+  ).length;
+
   useEffect(() => {
-    if (activeEpisodes.length === 0) return;
+    if (processingCount === 0) return;
     const interval = setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/episodes"] });
     }, 3000);
     return () => clearInterval(interval);
-  }, [activeEpisodes.length, queryClient]);
+  }, [processingCount, queryClient]);
 
   if (activeEpisodes.length === 0) return null;
 
   const stepLabels: Record<string, string> = {
-    transcription: "Transcribing audio",
-    keywords: "Analyzing keywords",
-    article: "Writing article",
-    blog: "Writing blog post",
-    social: "Creating social posts",
-    clips: "Finding viral clips",
-    newsletter: "Drafting newsletter",
-    seo: "Building SEO assets",
+    transcription: "Transcribing audio...",
+    keywords: "Analyzing keywords...",
+    article: "Generating article...",
+    blog: "Writing blog post...",
+    social: "Creating social posts...",
+    clips: "Finding viral clips...",
+    newsletter: "Drafting newsletter...",
+    seo: "Building SEO assets...",
   };
 
-  const allSteps = ["transcription", "keywords", "article", "blog", "social", "clips", "newsletter", "seo"];
+  const canDismiss = (ep: any) =>
+    ep.processingProgress >= 100 || ep.processingStatus === "completed" || ep.processingStatus === "error";
 
   return (
     <Card className="border-blue-500/30 bg-blue-500/5 shadow-lg shadow-blue-500/5" data-testid="processing-queue">
-      <CardContent className="py-4 px-5">
-        <div className="flex items-center gap-2 mb-3">
+      <CardContent className="py-3 px-4">
+        <div className="flex items-center gap-2 mb-2">
           <div className="relative">
             <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
-            <div className="absolute inset-0 h-4 w-4 rounded-full bg-blue-400/20 animate-ping" />
           </div>
           <span className="font-mono text-xs uppercase tracking-wider text-blue-400 font-semibold">
             Processing Queue
           </span>
           <Badge variant="outline" className="ml-auto font-mono text-[10px] border-blue-500/30 text-blue-400">
-            {activeEpisodes.length} active
+            {processingCount > 0 ? `${processingCount} active` : "done"}
           </Badge>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {activeEpisodes.map((ep: any) => {
             const podcast = (podcasts || []).find((p: any) => p.id === ep.podcastId);
             const currentStep = ep.processingStep || "transcription";
-            const currentStepIdx = Math.max(0, allSteps.indexOf(currentStep));
+            const progress = ep.processingProgress || 0;
+            const isError = ep.processingStatus === "error";
             return (
-              <div key={ep.id} className="rounded-lg border border-border/40 bg-card/40 p-3 space-y-2.5" data-testid={`queue-item-${ep.id}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {ep.episodeType === "video" ? (
-                      <Film className="h-4 w-4 text-blue-400 shrink-0" />
-                    ) : (
-                      <Mic className="h-4 w-4 text-blue-400 shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{ep.title}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">{podcast?.title || "Unknown"}</p>
-                    </div>
+              <div key={ep.id} className="rounded-lg border border-border/40 bg-card/40 px-3 py-2 relative" data-testid={`queue-item-${ep.id}`}>
+                {canDismiss(ep) && (
+                  <button
+                    onClick={() => setDismissedIds(prev => new Set([...prev, ep.id]))}
+                    className="absolute top-1.5 right-1.5 text-muted-foreground/60 hover:text-foreground p-0.5 rounded"
+                    data-testid={`dismiss-queue-${ep.id}`}
+                  >
+                    <XCloseIcon className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <p className="text-sm font-bold text-primary truncate pr-5" data-testid={`queue-title-${ep.id}`}>{ep.title}</p>
+                <p className="text-[10px] text-muted-foreground mb-1.5">{podcast?.title || "Unknown"}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${progress}%`,
+                        background: isError
+                          ? "hsl(0 72% 51%)"
+                          : "linear-gradient(90deg, hsl(217 91% 60%) 0%, hsl(199 89% 48%) 100%)",
+                      }}
+                    />
                   </div>
-                  <span className="text-xs font-mono text-blue-400 tabular-nums shrink-0 ml-2">{ep.processingProgress || 0}%</span>
+                  <span className="text-[10px] font-mono text-blue-400 tabular-nums shrink-0">{progress}%</span>
                 </div>
-                <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700 ease-out"
-                    style={{
-                      width: `${ep.processingProgress || 0}%`,
-                      background: "linear-gradient(90deg, hsl(217 91% 60%) 0%, hsl(199 89% 48%) 100%)",
-                    }}
-                  />
-                </div>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {allSteps.map((step, i) => {
-                    const isDone = i < currentStepIdx;
-                    const isActive = step === currentStep;
-                    const isPending = i > currentStepIdx;
-                    return (
-                      <div key={step} className="flex items-center gap-1">
-                        {i > 0 && <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/30" />}
-                        <span className={cn(
-                          "text-[9px] font-mono px-1.5 py-0.5 rounded",
-                          isDone && "bg-emerald-500/10 text-emerald-400",
-                          isActive && "bg-blue-500/15 text-blue-400 font-semibold animate-pulse",
-                          isPending && "text-muted-foreground/40"
-                        )}>
-                          {isDone && <CheckCircle2 className="inline h-2.5 w-2.5 mr-0.5 -mt-px" />}
-                          {isActive && <Loader2 className="inline h-2.5 w-2.5 mr-0.5 -mt-px animate-spin" />}
-                          {step === "transcription" ? "Transcribe" :
-                           step === "keywords" ? "Keywords" :
-                           step === "article" ? "Article" :
-                           step === "blog" ? "Blog" :
-                           step === "social" ? "Social" :
-                           step === "clips" ? "Clips" :
-                           step === "newsletter" ? "Newsletter" :
-                           step === "seo" ? "SEO" : step}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-[10px] text-blue-400/80 font-mono">
-                  {stepLabels[currentStep] || "Processing"}...
+                <p className={cn("text-[10px] font-mono mt-1", isError ? "text-red-400" : "text-blue-400/80")}>
+                  {isError ? "Processing failed" : stepLabels[currentStep] || "Processing..."}
                 </p>
               </div>
             );

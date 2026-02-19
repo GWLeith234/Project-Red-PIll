@@ -1,0 +1,98 @@
+# Sprint: AI Content Generator UX Improvements
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Three targeted improvements to the AI Content Generator and Processing Queue. Do not change anything outside of these specific areas.
+
+---
+
+IMPROVEMENT 1 — PROCESSING QUEUE CARDS (compact redesign)
+
+The processing queue cards currently show the full pipeline step breadcrumb (Transcribe > Keywords > Article > Blog > Social > Clips > Newsletter > SEO). This is too verbose and buries the most important information.
+
+Redesign each processing queue card to be compact:
+
+Current card shows:
+- Episode title + podcast name
+- Progress percentage (top right)
+- Full pipeline breadcrumb row (Transcribe > Keywords > Article > Blog > Social > Clips > Newsletter > SEO)
+- Status text ("Transcribing audio...")
+
+New compact card should show:
+- Episode title (bold, primary color, truncated to 1 line)
+- Podcast name (small, muted, below title)
+- Progress bar (full width, with percentage shown inside or to the right)
+- ONE line of status text showing only the current active step (e.g. "Transcribing audio..." or "Generating article...")
+- Remove the full breadcrumb pipeline entirely — it is not useful to the user
+
+Card height should reduce by approximately 40%. If there are multiple cards, they should stack tightly with minimal spacing between them.
+
+Add a small "X" dismiss button (top right of each card) that removes a completed or failed card from the queue view. Only show dismiss on cards that are 100% complete or in error state.
+
+Do not change the underlying processing logic, only the visual presentation of the cards.
+
+---
+
+IMPROVEMENT 2 — REFERENCE URL FIELD (all AI generator forms)
+
+Add an optional "Reference URL" input field to every content type in the AI Content Generator modal: Article, Social Post, Email Campaign, Newsletter, Press Release, and Ad Copy.
+
+Field specification:
+- Label: "Reference URL (optional)"
+- Placeholder: "Paste a URL for AI to reference — a news story, brand website, or product page"
+- Input type: url
+- Position: place this field at the bottom of each content type's form, above the Cancel/Generate buttons
+- The field is optional — if empty, generation works exactly as it does today
+
+When a Reference URL is provided:
+- Before calling the AI generation endpoint, fetch the URL server-side using a simple fetch() call to extract the page's text content (strip HTML tags, get the first 2000 characters of body text)
+- Include the extracted content in the AI prompt as additional context: "Reference this content when generating: [extracted text]"
+- If the URL fetch fails (404, timeout, blocked), silently ignore it and generate without the reference — do not show an error to the user
+- Add the url field to the existing generation API request payload
+
+Server-side URL fetching:
+- Add a helper function fetchUrlContent(url: string): Promise<string> in the existing AI content server file
+- Use node-fetch or the built-in fetch (check Node version) to GET the URL with a 5 second timeout
+- Strip HTML: remove all tags, collapse whitespace, take first 2000 characters
+- Return empty string on any error
+
+---
+
+IMPROVEMENT 3 — AI VISUAL SUGGESTIONS (Social Post generator only)
+
+After the AI generates social post content, show a "Suggested Visuals" section below the generated text. This applies only to the Social Post content type, not Article, Email, Newsletter, Press Release, or Ad Copy.
+
+Visual suggestions panel:
+- Appears below the generated content text box after generation completes
+- Header: "Suggested Visuals" with a small image icon
+- Shows 3 visual suggestion cards in a row (or stacked on mobile)
+- Each card contains:
+  - A short image description (1 sentence) — AI generated
+  - A "Search Stock Photos" button that opens Unsplash search in a new tab: https://unsplash.com/s/photos/[search-term] where search-term is 2-3 keywords extracted from the description
+  - An "AI Image Prompt" button that copies a Midjourney/DALL-E ready prompt to clipboard (the full description formatted as an image generation prompt)
+
+How to generate the visual suggestions:
+- After the main content generation completes, make a second AI call with this prompt: "Based on this social media post: '[generated content]', suggest 3 different visual concepts that would pair well with it. For each concept provide: a one-sentence description of the image, and 3 search keywords. Return as JSON array: [{ description: string, keywords: string[] }]"
+- Parse the JSON response and render the 3 cards
+- Show a subtle loading state ("Finding visual ideas...") while the second AI call runs
+- If the second call fails, hide the Suggested Visuals section entirely — do not show an error
+
+Copy to clipboard behavior:
+- "AI Image Prompt" button copies this text to clipboard: "Photorealistic [description], high quality, professional photography, 16:9 aspect ratio"
+- Show a brief "Copied!" confirmation tooltip for 2 seconds after copy
+
+The Suggested Visuals section should feel like a natural extension of the generation result, not a separate feature. Use the same dark card style as the rest of the modal.
+
+---
+
+VERIFICATION CHECKLIST:
+1. Processing queue shows compact cards — no breadcrumb pipeline visible, just title, progress bar, and current step text
+2. Completed queue cards show an X dismiss button
+3. All AI generator forms (Article, Social Post, Email, Newsletter, Press Release, Ad Copy) show the Reference URL field at the bottom
+4. Paste a URL into Reference URL, generate content — the generated text should reflect the reference content
+5. Generate a Social Post — after generation, Suggested Visuals section appears with 3 cards
+6. Click "Search Stock Photos" on a visual card — opens Unsplash in new tab with relevant search
+7. Click "AI Image Prompt" — copies prompt text to clipboard, shows "Copied!" confirmation
+8. Generate a non-social-post content type (Article, Email, etc.) — Suggested Visuals section does NOT appear
+```
