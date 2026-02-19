@@ -33,13 +33,19 @@ import {
   Briefcase, ContactRound, Network, Send, CalendarClock, Scaling,
   Kanban, ListTodo, PanelLeft, Heart, Blocks, Factory, Paintbrush,
   Moon, Sun, Monitor, Check, FileIcon,
+  Plug, Brain, Globe2, Smartphone, Cookie, Megaphone,
+  MessageSquare, Rss, CreditCard, BarChart, HardDrive,
+  BellRing, Bot, BookOpen, Palette, Gauge, ShieldCheck,
+  Home, Navigation, Wrench, Lock,
   type LucideIcon,
 } from "lucide-react";
 
 const TABS = [
-  { id: "platform", label: "Platform Settings", icon: Settings2 },
-  { id: "theme", label: "Theme", icon: Moon },
-  { id: "page-config", label: "Page Configuration", icon: LayoutGrid },
+  { id: "branding", label: "Branding", icon: Paintbrush },
+  { id: "integrations", label: "Integrations", icon: Plug },
+  { id: "ai-config", label: "AI Configuration", icon: Brain },
+  { id: "platform-config", label: "Platform Configuration", icon: LayoutGrid },
+  { id: "live-site", label: "Live Site & App", icon: Globe2 },
 ] as const;
 
 const TIMEZONES = [
@@ -317,7 +323,7 @@ function RadioGroup({ label, options, value, onChange, testId, disabled }: {
 }
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<string>("platform");
+  const [activeTab, setActiveTab] = useState<string>("branding");
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { data: branding, isLoading: brandingLoading } = useBranding();
@@ -562,9 +568,15 @@ export default function Settings() {
         })}
       </div>
 
-      {activeTab === "theme" && <ThemeSettingsTab canEdit={canEdit} />}
+      {activeTab === "branding" && <BrandingTab canEdit={canEdit} companyName={companyName} setCompanyName={setCompanyName} logoUrl={logoUrl} setLogoUrl={setLogoUrl} branding={branding} handleSaveBranding={handleSaveBranding} handleLogoUpload={handleLogoUpload} logoUploading={logoUploading} updateBranding={updateBranding} />}
 
-      {activeTab === "page-config" && <PageConfigurationTab />}
+      {activeTab === "integrations" && <IntegrationsPlaceholderTab />}
+
+      {activeTab === "ai-config" && <AIConfigurationPlaceholderTab />}
+
+      {activeTab === "platform-config" && <PageConfigurationTab />}
+
+      {activeTab === "live-site" && <LiveSiteAppPlaceholderTab />}
 
       {activeTab === "platform" && <>
       <div className="flex items-center gap-3 flex-shrink-0 justify-end -mt-4 mb-4">
@@ -1168,6 +1180,252 @@ type PageCfg = {
   primaryActionLabel: string | null;
   aiActionLabel: string | null;
 };
+
+function BrandingTab({ canEdit, companyName, setCompanyName, logoUrl, setLogoUrl, branding, handleSaveBranding, handleLogoUpload, logoUploading, updateBranding }: {
+  canEdit: boolean;
+  companyName: string;
+  setCompanyName: (v: string) => void;
+  logoUrl: string;
+  setLogoUrl: (v: string) => void;
+  branding: any;
+  handleSaveBranding: () => void;
+  handleLogoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  logoUploading: boolean;
+  updateBranding: any;
+}) {
+  const { toast } = useToast();
+
+  return (
+    <div className="space-y-6" data-testid="branding-tab">
+      <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5">
+        <SectionHeader icon={Building2} title="Brand Identity" description="Company name, logo, and visual identity" />
+
+        <div data-testid="company-name">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+            <span className="flex items-center gap-1.5">
+              <Building2 className="h-3 w-3" />
+              Platform Name
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="e.g. MediaTech Empire"
+              disabled={!canEdit}
+              className="flex-1 bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50"
+              data-testid="input-company-name"
+            />
+            {canEdit && companyName !== (branding?.companyName || "") && (
+              <button
+                onClick={handleSaveBranding}
+                disabled={updateBranding.isPending}
+                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50"
+                data-testid="button-save-company-name"
+              >
+                {updateBranding.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                Save
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Displayed in the sidebar, emails, and public pages</p>
+        </div>
+
+        <div data-testid="company-logo">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+            <span className="flex items-center gap-1.5">
+              <ImageIcon className="h-3 w-3" />
+              Platform Logo
+            </span>
+          </label>
+          <div className="flex items-center gap-4">
+            {logoUrl ? (
+              <div className="relative group">
+                <div className="h-16 w-40 border border-border bg-background flex items-center justify-center p-2">
+                  <img src={logoUrl} alt="Company logo" className="max-h-full max-w-full object-contain" />
+                </div>
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      setLogoUrl("");
+                      updateBranding.mutate({ companyName, logoUrl: "" }, {
+                        onSuccess: () => toast({ title: "Logo Removed" }),
+                      });
+                    }}
+                    className="absolute -top-2 -right-2 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    data-testid="button-remove-logo"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="h-16 w-40 border border-dashed border-muted-foreground/30 bg-background/50 flex items-center justify-center text-muted-foreground/50">
+                <ImageIcon className="h-6 w-6" />
+              </div>
+            )}
+            {canEdit && (
+              <label className="flex items-center gap-1.5 px-3 py-2 bg-card border border-border text-muted-foreground text-xs font-mono uppercase tracking-wider hover:border-primary/30 hover:text-foreground transition-colors cursor-pointer">
+                {logoUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {logoUploading ? "Uploading..." : "Upload Logo"}
+                <input type="file" accept="image/*" onChange={handleLogoUpload} className="sr-only" data-testid="input-logo-upload" />
+              </label>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Recommended: PNG or SVG, at least 200px wide</p>
+        </div>
+      </div>
+
+      <ThemeSettingsTab canEdit={canEdit} />
+    </div>
+  );
+}
+
+function IntegrationsPlaceholderTab() {
+  const integrationCategories = [
+    { icon: MessageSquare, name: "Social Media", platforms: "Twitter/X, Facebook, LinkedIn, Instagram, YouTube", status: "Not configured" },
+    { icon: Rss, name: "Podcast Distribution", platforms: "Apple Podcasts, Spotify, RSS", status: "Not configured" },
+    { icon: Mail, name: "Email", platforms: "SMTP, SendGrid", status: "Not configured" },
+    { icon: Smartphone, name: "SMS", platforms: "Twilio", status: "Not configured" },
+    { icon: BellRing, name: "Push Notifications", platforms: "VAPID, Firebase", status: "Not configured" },
+    { icon: BarChart, name: "Analytics", platforms: "Google Analytics, Meta Pixel", status: "Not configured" },
+    { icon: HardDrive, name: "Storage", platforms: "S3, Cloudflare R2", status: "Not configured" },
+    { icon: CreditCard, name: "Payment", platforms: "Stripe", status: "Not configured" },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="integrations-tab">
+      <div className="border border-border bg-card/50 p-4 sm:p-6">
+        <SectionHeader icon={Plug} title="Integrations" description="Connect third-party services and platforms" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {integrationCategories.map((cat) => {
+            const Icon = cat.icon;
+            return (
+              <div
+                key={cat.name}
+                className="border border-border bg-card/30 p-4 space-y-3 hover:border-border/80 transition-colors"
+                data-testid={`integration-card-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="h-10 w-10 border border-muted-foreground/20 bg-muted/30 flex items-center justify-center">
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 bg-muted/50 text-muted-foreground">
+                    {cat.status}
+                  </Badge>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{cat.platforms}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AIConfigurationPlaceholderTab() {
+  const configCategories = [
+    { icon: Bot, name: "AI Provider Settings", description: "Configure AI model providers, API keys, and fallback preferences" },
+    { icon: FileText, name: "Content Generation Rules", description: "Set default parameters for AI-generated articles, social posts, and summaries" },
+    { icon: Palette, name: "Brand Voice & Tone", description: "Define your brand's writing style, tone guidelines, and vocabulary preferences" },
+    { icon: Sparkles, name: "Auto-Generation Settings", description: "Configure automatic content creation triggers and scheduling rules" },
+    { icon: ShieldCheck, name: "Moderation Settings", description: "Set content review policies, approval workflows, and safety filters" },
+    { icon: Gauge, name: "Usage & Limits", description: "Monitor AI usage quotas, rate limits, and cost controls" },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="ai-config-tab">
+      <div className="border border-border bg-card/50 p-4 sm:p-6">
+        <SectionHeader icon={Brain} title="AI Configuration" description="Manage AI behavior, content rules, and provider settings across the platform" />
+
+        <div className="space-y-1">
+          {configCategories.map((cat) => {
+            const Icon = cat.icon;
+            return (
+              <div
+                key={cat.name}
+                className="flex items-center gap-4 px-4 py-3 border border-border/50 bg-card/30 hover:bg-card/50 transition-colors"
+                data-testid={`ai-config-row-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <div className="h-9 w-9 border border-muted-foreground/20 bg-muted/30 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{cat.description}</p>
+                </div>
+                <button
+                  disabled
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/50 bg-card/20 cursor-not-allowed"
+                  title="Coming soon"
+                  data-testid={`button-configure-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  Configure
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LiveSiteAppPlaceholderTab() {
+  const configCategories = [
+    { icon: Home, name: "Homepage Content", description: "Configure hero sections, featured content, and homepage layout" },
+    { icon: Navigation, name: "Navigation & Menus", description: "Manage audience-facing navigation structure and menu items" },
+    { icon: Smartphone, name: "PWA & Mobile App", description: "Progressive web app settings, icons, splash screens, and offline behavior" },
+    { icon: Wrench, name: "Maintenance Mode", description: "Enable maintenance mode with custom messaging for scheduled downtime" },
+    { icon: Lock, name: "Cookie & Privacy", description: "Cookie consent banners, privacy policy links, and GDPR compliance settings" },
+    { icon: Megaphone, name: "Ad Zones", description: "Configure advertising placements, sponsorship zones, and ad display rules" },
+  ];
+
+  return (
+    <div className="space-y-6" data-testid="live-site-tab">
+      <div className="border border-border bg-card/50 p-4 sm:p-6">
+        <SectionHeader icon={Globe2} title="Live Site & App" description="Configure your audience-facing website and mobile app experience" />
+
+        <div className="space-y-1">
+          {configCategories.map((cat) => {
+            const Icon = cat.icon;
+            return (
+              <div
+                key={cat.name}
+                className="flex items-center gap-4 px-4 py-3 border border-border/50 bg-card/30 hover:bg-card/50 transition-colors"
+                data-testid={`live-site-row-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                <div className="h-9 w-9 border border-muted-foreground/20 bg-muted/30 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{cat.description}</p>
+                </div>
+                <button
+                  disabled
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/50 bg-card/20 cursor-not-allowed"
+                  title="Coming soon"
+                  data-testid={`button-configure-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  Configure
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ThemeSettingsTab({ canEdit }: { canEdit: boolean }) {
   const { toast } = useToast();

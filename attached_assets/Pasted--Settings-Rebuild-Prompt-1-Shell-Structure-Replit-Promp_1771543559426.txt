@@ -1,0 +1,121 @@
+# Settings Rebuild — Prompt 1: Shell Structure
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Rebuild the Settings page shell with a new 5-tab structure. This prompt ONLY creates the tab structure and moves existing content into the correct tabs. Do not add any new functionality yet.
+
+CONTEXT:
+- The current Settings page has 3 tabs: Platform Settings, Theme, Page Configuration
+- We are replacing this with 5 tabs: Branding, Integrations, AI Configuration, Platform Configuration, Live Site & App
+- Everything currently in "Theme" moves into "Branding"
+- Everything currently in "Page Configuration" (Navigation Manager) moves into "Platform Configuration"
+- Everything currently in "Platform Settings" gets sorted into the correct new tab (see mapping below)
+- The 3 new tabs (Integrations, AI Configuration, Live Site & App) get placeholder content for now
+
+---
+
+STEP 1 — UPDATE THE TAB STRUCTURE:
+
+Replace the current 3 tabs with these 5 tabs in this order:
+
+1. Branding
+2. Integrations  
+3. AI Configuration
+4. Platform Configuration
+5. Live Site & App
+
+Use the same tab component/styling that currently exists. Just change the tab labels and content.
+
+---
+
+STEP 2 — BRANDING TAB:
+
+Move ALL content from the current "Theme" tab into this tab exactly as-is. Do not change any Theme functionality — just relocate it under the Branding tab label.
+
+Also move from "Platform Settings" into Branding (if these fields exist there):
+- Platform name
+- Platform tagline/description
+- Logo URL
+- Favicon URL
+- Any other visual identity fields
+
+Everything else in Platform Settings that is NOT visual identity stays where it is for now (we'll sort it in later prompts).
+
+---
+
+STEP 3 — PLATFORM CONFIGURATION TAB:
+
+Move ALL content from the current "Page Configuration" tab (Navigation Manager — sections, subsections, drag and drop, add/delete) into this tab exactly as-is. Do not change any functionality — just relocate it.
+
+---
+
+STEP 4 — INTEGRATIONS TAB (placeholder):
+
+Show a clean placeholder with:
+- Section header: "Integrations"
+- Subtitle: "Connect third-party services and platforms"
+- A simple grid of integration category cards (no functionality yet, just visual):
+  - Social Media (Twitter/X, Facebook, LinkedIn, Instagram, YouTube)
+  - Podcast Distribution (Apple Podcasts, Spotify, RSS)
+  - Email (SMTP, SendGrid)
+  - SMS (Twilio)
+  - Push Notifications (VAPID, Firebase)
+  - Analytics (Google Analytics, Meta Pixel)
+  - Storage (S3, Cloudflare R2)
+  - Payment (Stripe)
+- Each card shows: icon, category name, "Not configured" status badge in gray
+- "Coming soon" feel — clean, professional, not broken-looking
+
+---
+
+STEP 5 — AI CONFIGURATION TAB (placeholder):
+
+Show a clean placeholder with:
+- Section header: "AI Configuration"
+- Subtitle: "Manage AI behavior, content rules, and provider settings across the platform"
+- Simple list of configuration categories with icons (no functionality yet):
+  - AI Provider Settings
+  - Content Generation Rules
+  - Brand Voice & Tone
+  - Auto-Generation Settings
+  - Moderation Settings
+  - Usage & Limits
+- Each row shows the category name, a brief description, and a "Configure →" button that does nothing yet (disabled or shows "Coming soon" tooltip)
+
+---
+
+STEP 6 — LIVE SITE & APP TAB (placeholder):
+
+Show a clean placeholder with:
+- Section header: "Live Site & App"
+- Subtitle: "Configure your audience-facing website and mobile app experience"
+- Simple list of configuration categories:
+  - Homepage Content
+  - Navigation & Menus
+  - PWA & Mobile App
+  - Maintenance Mode
+  - Cookie & Privacy
+  - Ad Zones
+- Same style as AI Configuration placeholder
+
+---
+
+STEP 7 — CLEANUP:
+
+- Remove the old "Platform Settings", "Theme", and "Page Configuration" tab labels
+- Make sure all existing functionality that was in those tabs still works — just under the new tab names
+- Default active tab on page load: Branding
+- Do not change any backend endpoints, database tables, or logic
+
+---
+
+VERIFICATION CHECKLIST:
+1. /admin/settings loads with 5 tabs: Branding, Integrations, AI Configuration, Platform Configuration, Live Site & App
+2. Branding tab shows the full Theme editor (colors, fonts, etc.) exactly as before
+3. Platform Configuration tab shows the Navigation Manager exactly as before — sections, drag and drop, add/delete all still work
+4. Integrations tab shows the category placeholder grid
+5. AI Configuration tab shows the category placeholder list
+6. Live Site & App tab shows the category placeholder list
+7. No existing Settings functionality is broken
+```
