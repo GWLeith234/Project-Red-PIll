@@ -293,7 +293,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           </div>
           <a
-            href="/"
+            href="/home"
             target="_blank"
             rel="noopener noreferrer"
             className="p-1.5 hover:bg-muted rounded-sm transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
