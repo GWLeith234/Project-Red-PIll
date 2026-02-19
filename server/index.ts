@@ -88,19 +88,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const { hashPassword } = await import("./auth");
-  const { storage } = await import("./storage");
-  try {
-    const adminUser = await storage.getUserByUsername("admin");
-    if (adminUser) {
-      const newHash = await hashPassword("admin123");
-      await storage.updateUser(adminUser.id, { password: newHash });
-      console.log("Admin password reset on startup");
-    }
-  } catch (e) {
-    console.error("Failed to reset admin password:", e);
-  }
-
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
