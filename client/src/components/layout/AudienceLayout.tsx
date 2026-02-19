@@ -610,9 +610,9 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="border-t border-border/50 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {platformName}. All rights reserved.</p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
-              <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
-              <a href="mailto:george@salemmedia.com" className="hover:text-foreground transition-colors">Contact</a>
+              <span className="hover:text-muted-foreground cursor-pointer transition-colors">Privacy</span>
+              <span className="hover:text-muted-foreground cursor-pointer transition-colors">Terms</span>
+              <span className="hover:text-muted-foreground cursor-pointer transition-colors">Contact</span>
               <CookieSettingsLink className="text-xs text-muted-foreground hover:text-muted-foreground cursor-pointer transition-colors" />
             </div>
           </div>
