@@ -106,14 +106,14 @@ function ProcessingQueue() {
   if (activeEpisodes.length === 0) return null;
 
   const stepLabels: Record<string, string> = {
-    transcription: "Transcribing audio...",
-    keywords: "Analyzing keywords...",
-    article: "Generating article...",
-    blog: "Writing blog post...",
-    social: "Creating social posts...",
-    clips: "Finding viral clips...",
-    newsletter: "Drafting newsletter...",
-    seo: "Building SEO assets...",
+    transcription: "Transcribing",
+    keywords: "Keywords",
+    article: "Article",
+    blog: "Blog",
+    social: "Social",
+    clips: "Clips",
+    newsletter: "Newsletter",
+    seo: "SEO",
   };
 
   const canDismiss = (ep: any) =>
@@ -133,42 +133,47 @@ function ProcessingQueue() {
             {processingCount > 0 ? `${processingCount} active` : "done"}
           </Badge>
         </div>
-        <div className="space-y-1.5">
+        <div className="divide-y divide-border/30">
           {activeEpisodes.map((ep: any) => {
             const podcast = (podcasts || []).find((p: any) => p.id === ep.podcastId);
             const currentStep = ep.processingStep || "transcription";
             const progress = ep.processingProgress || 0;
             const isError = ep.processingStatus === "error";
             return (
-              <div key={ep.id} className="rounded-lg border border-border/40 bg-card/40 px-3 py-2 relative" data-testid={`queue-item-${ep.id}`}>
-                {canDismiss(ep) && (
-                  <button
-                    onClick={() => setDismissedIds(prev => new Set([...prev, ep.id]))}
-                    className="absolute top-1.5 right-1.5 text-muted-foreground/60 hover:text-foreground p-0.5 rounded"
-                    data-testid={`dismiss-queue-${ep.id}`}
-                  >
-                    <XCloseIcon className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                <p className="text-sm font-bold text-primary truncate pr-5" data-testid={`queue-title-${ep.id}`}>{ep.title}</p>
-                <p className="text-[10px] text-muted-foreground mb-1.5">{podcast?.title || "Unknown"}</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700 ease-out"
-                      style={{
-                        width: `${progress}%`,
-                        background: isError
-                          ? "hsl(0 72% 51%)"
-                          : "linear-gradient(90deg, hsl(217 91% 60%) 0%, hsl(199 89% 48%) 100%)",
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-mono text-blue-400 tabular-nums shrink-0">{progress}%</span>
+              <div key={ep.id} className="flex items-center gap-3 h-12 group" data-testid={`queue-item-${ep.id}`}>
+                <Mic className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                <div className="flex items-baseline gap-1.5 min-w-0 max-w-[300px]">
+                  <span className="text-sm font-semibold truncate" data-testid={`queue-title-${ep.id}`}>{ep.title}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">· {podcast?.title || "Unknown"}</span>
                 </div>
-                <p className={cn("text-[10px] font-mono mt-1", isError ? "text-red-400" : "text-blue-400/80")}>
-                  {isError ? "Processing failed" : stepLabels[currentStep] || "Processing..."}
-                </p>
+                <div className="w-[120px] h-1.5 bg-muted/50 rounded-full overflow-hidden shrink-0 ml-auto">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${progress}%`,
+                      background: isError
+                        ? "hsl(0 72% 51%)"
+                        : "linear-gradient(90deg, hsl(217 91% 60%) 0%, hsl(199 89% 48%) 100%)",
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-mono text-blue-400 tabular-nums w-8 text-right">{progress}%</span>
+                  <span className={cn("text-[11px] w-20 truncate", isError ? "text-red-400" : "text-muted-foreground")}>
+                    {isError ? "Failed" : stepLabels[currentStep] || "Processing"}
+                  </span>
+                </div>
+                <div className="w-6 shrink-0 flex justify-center">
+                  {canDismiss(ep) && (
+                    <button
+                      onClick={() => setDismissedIds(prev => new Set([...prev, ep.id]))}
+                      className="text-muted-foreground/40 hover:text-foreground p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      data-testid={`dismiss-queue-${ep.id}`}
+                    >
+                      <XCloseIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
