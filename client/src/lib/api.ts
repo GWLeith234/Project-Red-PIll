@@ -850,6 +850,178 @@ export function useSubmitNps() {
   });
 }
 
+export function useContentGenerationJobs(episodeId?: string) {
+  const url = episodeId ? `/api/content/jobs?episodeId=${episodeId}` : "/api/content/jobs";
+  return useQuery({ queryKey: ["/api/content/jobs", episodeId], queryFn: () => apiRequest(url) });
+}
+
+export function useGenerateContentPipeline() {
+  return useMutation({
+    mutationFn: (episodeId: string) =>
+      apiRequest(`/api/content/generate/${episodeId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useContentPipelinePieces(episodeId?: string) {
+  const url = episodeId ? `/api/content/pieces?episodeId=${episodeId}` : "/api/content/pieces";
+  return useQuery({ queryKey: ["/api/content/pieces", episodeId], queryFn: () => apiRequest(url) });
+}
+
+export function useModeratePiece() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/moderation/piece/${id}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useModerateEpisode() {
+  return useMutation({
+    mutationFn: (episodeId: string) =>
+      apiRequest(`/api/moderation/episode/${episodeId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useModerateAllPending() {
+  return useMutation({
+    mutationFn: () =>
+      apiRequest("/api/moderation/moderate-all-pending", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useShipPiece() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/moderation/ship/${id}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useShipAll() {
+  return useMutation({
+    mutationFn: () =>
+      apiRequest("/api/moderation/ship-all", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useApplyRewrite() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/moderation/apply-rewrite/${id}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/content-pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/content/pieces"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/moderation/queue"] });
+    },
+  });
+}
+
+export function useSchedulerSuggest() {
+  return useMutation({
+    mutationFn: (episodeId: string) =>
+      apiRequest(`/api/scheduler/suggest/${episodeId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduler/calendar"] });
+    },
+  });
+}
+
+export function useSchedulerConfirm() {
+  return useMutation({
+    mutationFn: (episodeId: string) =>
+      apiRequest(`/api/scheduler/confirm/${episodeId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduler/calendar"] });
+    },
+  });
+}
+
+export function useSchedulerCalendar(startDate?: string, endDate?: string) {
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  const url = `/api/scheduler/calendar${params.toString() ? `?${params}` : ""}`;
+  return useQuery({ queryKey: ["/api/scheduler/calendar", startDate, endDate], queryFn: () => apiRequest(url) });
+}
+
+export function useReschedulePost() {
+  return useMutation({
+    mutationFn: ({ id, scheduledAt }: { id: string; scheduledAt: string }) =>
+      apiRequest(`/api/scheduler/reschedule/${id}`, { method: "POST", body: JSON.stringify({ scheduledAt }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduler/calendar"] });
+    },
+  });
+}
+
+export function useCancelScheduledPost() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/scheduler/cancel/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduler/calendar"] });
+    },
+  });
+}
+
+export function useContentAnalytics(episodeId?: string) {
+  return useQuery({
+    queryKey: ["/api/analytics/content", episodeId],
+    queryFn: () => apiRequest(`/api/analytics/content/${episodeId}`),
+    enabled: !!episodeId,
+  });
+}
+
+export function useContentPieceAnalytics(pieceId?: string) {
+  return useQuery({
+    queryKey: ["/api/analytics/content/piece", pieceId],
+    queryFn: () => apiRequest(`/api/analytics/content/piece/${pieceId}`),
+    enabled: !!pieceId,
+  });
+}
+
+export function useRefreshContentAnalytics() {
+  return useMutation({
+    mutationFn: () =>
+      apiRequest("/api/analytics/content/refresh", { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/content"] });
+    },
+  });
+}
+
 export function downloadCsvExport(entity: string, params: Record<string, string> = {}) {
   const query = new URLSearchParams(params).toString();
   const url = `/api/export/${entity}${query ? `?${query}` : ""}`;
