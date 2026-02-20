@@ -24,7 +24,7 @@ import { getIcon, searchIcons } from "@/lib/icon-resolver";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Globe, Zap, FileText, Bell, Shield, Wifi, WifiOff,
-  Save, Loader2, AlertTriangle, Sparkles, MapPin, Upload, X,
+  Save, Loader2, AlertTriangle, Sparkles, MapPin, X,
   CheckCircle2, ArrowRight, Lightbulb, Facebook, Linkedin,
   Building2, Eye, EyeOff, Edit3, RefreshCw, Trash2, Radio, Image as ImageIcon,
   Key, Clock, Database, ScrollText, Copy, Plus, Ban, Mic,
@@ -46,6 +46,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import UnderlineExt from '@tiptap/extension-underline';
 import LinkExt from '@tiptap/extension-link';
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 const TABS = [
   { id: "branding", label: "Branding", icon: Paintbrush },
@@ -583,7 +584,6 @@ function BrandingTab({ canEdit }: { canEdit: boolean }) {
     emailLogoUrl: "", emailFooterText: "",
   });
 
-  const [logoUploading, setLogoUploading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
 
   useEffect(() => {
@@ -645,31 +645,10 @@ function BrandingTab({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldKey: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
-      return;
-    }
-    setLogoUploading(true);
-    try {
-      const urlRes = await fetch("/api/uploads/request-url", {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
-      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      updateField(fieldKey, objectPath);
-      await updateBranding.mutateAsync({ [fieldKey]: objectPath });
-      toast({ title: "Image Uploaded", description: "Your image has been saved." });
-    } catch (err: any) {
-      toast({ title: "Upload Error", description: err.message, variant: "destructive" });
-    } finally {
-      setLogoUploading(false);
+  const handleImageFieldChange = async (fieldKey: string, url: string) => {
+    updateField(fieldKey, url);
+    if (url) {
+      await updateBranding.mutateAsync({ [fieldKey]: url });
     }
   };
 
@@ -729,50 +708,16 @@ function BrandingTab({ canEdit }: { canEdit: boolean }) {
   function ImageField({ label, description, fieldKey, recommended }: { label: string; description: string; fieldKey: string; recommended: string }) {
     const value = (form as any)[fieldKey] || "";
     return (
-      <div className="space-y-2" data-testid={`image-field-${fieldKey}`}>
-        <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block">
-          <span className="flex items-center gap-1.5"><ImageIcon className="h-3 w-3" />{label}</span>
-        </label>
-        <div className="flex items-start gap-4">
-          {value ? (
-            <div className="relative group">
-              <div className="h-16 w-40 border border-border bg-background flex items-center justify-center p-2">
-                <img src={value} alt={label} className="max-h-full max-w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              </div>
-              {canEdit && (
-                <button
-                  onClick={() => { updateField(fieldKey, ""); updateBranding.mutate({ [fieldKey]: "" }); }}
-                  className="absolute -top-2 -right-2 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  data-testid={`button-clear-${fieldKey}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="h-16 w-40 border border-dashed border-muted-foreground/30 bg-background/50 flex items-center justify-center text-muted-foreground/50">
-              <ImageIcon className="h-6 w-6" />
-            </div>
-          )}
-          <div className="flex-1 space-y-2">
-            <input
-              type="text"
-              value={value}
-              onChange={(e) => updateField(fieldKey, e.target.value)}
-              placeholder="Enter image URL..."
-              disabled={!canEdit}
-              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 placeholder:text-muted-foreground/50"
-              data-testid={`input-${fieldKey}`}
-            />
-            {canEdit && (
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border text-muted-foreground text-xs font-mono uppercase tracking-wider hover:border-primary/30 hover:text-foreground transition-colors cursor-pointer">
-                {logoUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                Upload
-                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, fieldKey)} className="sr-only" data-testid={`upload-${fieldKey}`} />
-              </label>
-            )}
-          </div>
-        </div>
+      <div className="space-y-1" data-testid={`image-field-${fieldKey}`}>
+        <ImageUploadField
+          label={label}
+          value={value}
+          onChange={(url) => handleImageFieldChange(fieldKey, url)}
+          disabled={!canEdit}
+          showPreview={true}
+          previewHeight={fieldKey === "faviconUrl" || fieldKey === "pushNotificationIconUrl" ? 64 : 120}
+          testId={fieldKey}
+        />
         <p className="text-[11px] text-muted-foreground">{description} — {recommended}</p>
       </div>
     );

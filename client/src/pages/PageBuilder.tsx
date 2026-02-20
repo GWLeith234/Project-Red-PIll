@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   Select,
   SelectContent,
@@ -343,10 +344,14 @@ function BlockSettingsPanel({
       case "image":
         return (
           <>
-            <div className="space-y-2">
-              <Label>Source URL</Label>
-              <Input data-testid="input-image-src" value={block.settings.src || ""} onChange={(e) => updateSetting("src", e.target.value)} placeholder="https://..." />
-            </div>
+            <ImageUploadField
+              label="Source URL"
+              value={block.settings.src || ""}
+              onChange={(url) => updateSetting("src", url)}
+              showPreview={true}
+              previewHeight={160}
+              testId="page-image-src"
+            />
             <div className="space-y-2">
               <Label>Alt Text</Label>
               <Input data-testid="input-image-alt" value={block.settings.alt || ""} onChange={(e) => updateSetting("alt", e.target.value)} />

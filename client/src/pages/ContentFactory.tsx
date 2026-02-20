@@ -27,6 +27,7 @@ import AIGenerateModal from "@/components/admin/AIGenerateModal";
 import MetricsStrip from "@/components/admin/MetricsStrip";
 import DataCard from "@/components/admin/DataCard";
 import EmptyState from "@/components/admin/EmptyState";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   useEpisodes, useContentPieces, usePodcasts, useCreateEpisode,
   useQueueTranscription, useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
@@ -2733,47 +2734,35 @@ function ShowBrandingTab() {
               </h4>
 
               <div className="space-y-4">
-                <div>
-                  <Label className="text-xs font-mono uppercase text-muted-foreground">Hero Image URL</Label>
-                  <div className="flex gap-2 mt-1">
-                    <Input value={form.heroImageUrl} onChange={(e) => setForm(f => ({ ...f, heroImageUrl: e.target.value }))} placeholder="https://..." className="flex-1" data-testid="input-branding-hero" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => regenerateHero(editingPodcast?.category || "Talk")}
-                      className="shrink-0 text-xs"
-                      data-testid="button-regenerate-hero"
-                    >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Regenerate
-                    </Button>
-                  </div>
-                  {form.heroImageUrl && (
-                    <div className="mt-2 rounded-lg overflow-hidden h-32 bg-muted">
-                      <img src={form.heroImageUrl} alt="Hero preview" className="w-full h-full object-cover" data-testid="img-hero-preview" />
-                    </div>
-                  )}
-                </div>
+                <ImageUploadField
+                  label="Hero Image URL"
+                  value={form.heroImageUrl}
+                  onChange={(url) => setForm(f => ({ ...f, heroImageUrl: url }))}
+                  showPreview={true}
+                  previewHeight={180}
+                  hasRegenerate={true}
+                  onRegenerate={() => regenerateHero(editingPodcast?.category || "Talk")}
+                  regenerateIcon={<RefreshCw className="h-3 w-3 mr-1" />}
+                  testId="branding-hero"
+                />
 
-                <div>
-                  <Label className="text-xs font-mono uppercase text-muted-foreground">Host Image URL</Label>
-                  <Input value={form.hostImageUrl} onChange={(e) => setForm(f => ({ ...f, hostImageUrl: e.target.value }))} placeholder="https://..." className="mt-1" data-testid="input-branding-host-image" />
-                  {form.hostImageUrl && (
-                    <div className="mt-2">
-                      <img src={form.hostImageUrl} alt="Host preview" className="h-16 w-16 rounded-full object-cover ring-2 ring-border" data-testid="img-host-preview" />
-                    </div>
-                  )}
-                </div>
+                <ImageUploadField
+                  label="Host Image URL"
+                  value={form.hostImageUrl}
+                  onChange={(url) => setForm(f => ({ ...f, hostImageUrl: url }))}
+                  showPreview={true}
+                  previewHeight={120}
+                  testId="branding-host-image"
+                />
 
-                <div>
-                  <Label className="text-xs font-mono uppercase text-muted-foreground">Cover Image URL</Label>
-                  <Input value={form.coverImage} onChange={(e) => setForm(f => ({ ...f, coverImage: e.target.value }))} placeholder="https://..." className="mt-1" data-testid="input-branding-cover" />
-                  {form.coverImage && (
-                    <div className="mt-2">
-                      <img src={form.coverImage} alt="Cover preview" className="h-20 w-20 rounded-lg object-cover ring-1 ring-border" data-testid="img-cover-preview" />
-                    </div>
-                  )}
-                </div>
+                <ImageUploadField
+                  label="Cover Image URL"
+                  value={form.coverImage}
+                  onChange={(url) => setForm(f => ({ ...f, coverImage: url }))}
+                  showPreview={true}
+                  previewHeight={120}
+                  testId="branding-cover"
+                />
 
                 <div>
                   <Label className="text-xs font-mono uppercase text-muted-foreground">Accent Color</Label>

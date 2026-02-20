@@ -1,0 +1,110 @@
+# Image Upload Sprint
+## Replace URL-only inputs with Upload + URL combo on all branding image fields
+
+---
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Add a photo uploader to every image URL input field across the admin platform. This replaces the current "paste a URL" only experience with a proper upload button that opens a file picker, uploads the image to the server, and auto-fills the URL field.
+
+Do NOT change any non-image fields. Do NOT change page layouts, routing, or database schemas beyond what is specified below.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART A — SHARED UPLOAD INFRASTRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(1) Add a file upload API endpoint: POST /api/upload/image (requireAuth)
+    - Accepts multipart/form-data with field name "file"
+    - Validate: image files only (jpg, jpeg, png, webp, gif) — reject others with 400
+    - Max file size: 5MB — reject larger with 413
+    - Save to /public/uploads/[year]/[month]/[uuid].[ext] on the server
+    - Return JSON: { url: "/uploads/2026/02/abc123.jpg", filename: "original-name.jpg", size: 12345 }
+    - Install multer if not already present (npm install multer)
+
+(2) Build a shared ImageUploadField component — client/src/components/ImageUploadField.tsx
+
+Props:
+  - label: string (e.g. "HERO IMAGE URL")
+  - value: string (current URL value)
+  - onChange: (url: string) => void
+  - placeholder?: string (default "https://...")
+  - showPreview?: boolean (default true)
+  - previewHeight?: number (default 120)
+
+Behavior:
+  - Renders the label (uppercase, muted, small — matching current field label style)
+  - Input row: [URL text input — flex grow] [Upload button] [Regenerate button if hasRegenerate prop]
+  - Upload button: secondary style, Upload icon (Lucide Upload), label "Upload"
+  - Clicking Upload button: triggers hidden <input type="file" accept="image/*"> 
+  - On file selected: 
+      1. Show loading spinner on the Upload button ("Uploading...")
+      2. POST to /api/upload/image with FormData
+      3. On success: set the URL field value to the returned url, show preview
+      4. On error: show toast "Upload failed — please try again"
+  - URL text input: user can still paste a URL manually (existing behavior preserved)
+  - Preview: if value is a non-empty string, show image preview below the input row
+      - Max height: previewHeight prop (default 120px)
+      - Full width, object-fit: cover, rounded-md
+      - Small "×" button top-right of preview to clear the URL
+  - Drag and drop: user can drag an image file directly onto the component (anywhere in the field area) to trigger upload — show a dashed border highlight on drag-over
+
+(3) The component should handle both absolute URLs (https://...) and relative URLs (/images/..., /uploads/...) for the preview — both should render correctly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART B — APPLY TO ALL IMAGE FIELDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace every image URL input across the admin with <ImageUploadField>. Find all instances by searching for fields with labels containing: "IMAGE URL", "COVER IMAGE", "HERO IMAGE", "HOST IMAGE", "THUMBNAIL", "LOGO", "FAVICON", "BANNER".
+
+Confirmed locations to update:
+
+(4) Content Factory → Shows tab → Edit Show Branding modal:
+    - HERO IMAGE URL → ImageUploadField (showPreview=true, previewHeight=180, keep Regenerate button via hasRegenerate prop)
+    - HOST IMAGE URL → ImageUploadField (showPreview=true, previewHeight=120)
+    - COVER IMAGE URL → ImageUploadField (showPreview=true, previewHeight=120)
+
+(5) Settings → Branding tab — all image fields:
+    - Platform Logo (light) → ImageUploadField
+    - Platform Logo (dark) → ImageUploadField  
+    - Favicon → ImageUploadField (previewHeight=64)
+    - App Icon → ImageUploadField (previewHeight=64)
+    - Email Header Logo → ImageUploadField
+    - Show/Podcast Hero Banner → ImageUploadField (previewHeight=180)
+
+(6) Community → Events tab → Add/Edit Event modal:
+    - Cover Image URL → ImageUploadField (previewHeight=180)
+
+(7) AI Site Editor → page editor (any hero/background image fields) → ImageUploadField
+
+(8) Article/content editor (if there is a thumbnail or hero image field) → ImageUploadField
+
+(9) Any other modal or form in the admin that has a field ending in "URL" that expects an image — apply ImageUploadField. Search the codebase for input fields with placeholder "https://..." that are adjacent to image preview elements.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART C — STATIC FILE SERVING
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(10) Ensure the Express server serves the /public/uploads directory as static files:
+    app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
+    Create the directory if it doesn't exist on server start.
+
+(11) Add .gitignore entry for /public/uploads/* (keep folder, ignore contents — uploaded files shouldn't be committed to git)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFICATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Open Content Factory → Shows tab → Edit a show → Click "Upload" next to Hero Image URL
+[ ] File picker opens, select a jpg/png — image uploads and URL auto-fills
+[ ] Preview renders below the field immediately after upload
+[ ] Drag and drop an image onto the field — same result
+[ ] Paste a URL manually → preview still renders
+[ ] Click × on preview → URL clears
+[ ] Try uploading a PDF → rejected with error toast
+[ ] Try uploading a 6MB image → rejected with error toast
+[ ] Check /public/uploads/[year]/[month]/ — uploaded file exists there
+[ ] Uploaded image is accessible at its URL in the browser
+[ ] All other image fields (Settings Branding, Events, etc.) have the same Upload button
+[ ] Regenerate button still works on Hero Image field (existing behavior unchanged)
+```

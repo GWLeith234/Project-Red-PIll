@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SortableList } from "@/components/ui/sortable-list";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   Type, Image, MousePointerClick, Minus, ArrowLeft,
   Plus, Trash2, Eye, Edit3, Save, Send, GripVertical,
@@ -139,15 +140,14 @@ function BlockPropertyEditor({ block, onChange, onInsertMergeTag }: {
             <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Header Text</label>
             <Input value={block.content} onChange={(e) => onChange({ ...block, content: e.target.value })} data-testid="input-block-header-text" />
           </div>
-          <div>
-            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Logo URL (optional)</label>
-            <Input value={block.imageUrl || ""} onChange={(e) => onChange({ ...block, imageUrl: e.target.value })} placeholder="https://..." data-testid="input-block-header-logo" />
-          </div>
-          {block.imageUrl && (
-            <div className="bg-muted/30 rounded p-2 flex justify-center">
-              <img src={block.imageUrl} alt="Logo" className="max-h-12 object-contain" />
-            </div>
-          )}
+          <ImageUploadField
+            label="Logo URL (optional)"
+            value={block.imageUrl || ""}
+            onChange={(url) => onChange({ ...block, imageUrl: url })}
+            showPreview={true}
+            previewHeight={64}
+            testId="block-header-logo"
+          />
         </>
       )}
 
@@ -188,15 +188,14 @@ function BlockPropertyEditor({ block, onChange, onInsertMergeTag }: {
 
       {block.type === "image" && (
         <>
-          <div>
-            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Image URL</label>
-            <Input value={block.imageUrl || ""} onChange={(e) => onChange({ ...block, imageUrl: e.target.value })} placeholder="https://..." data-testid="input-block-image-url" />
-          </div>
-          {block.imageUrl && (
-            <div className="bg-muted/30 rounded overflow-hidden">
-              <img src={block.imageUrl} alt="" className="w-full max-h-40 object-cover" />
-            </div>
-          )}
+          <ImageUploadField
+            label="Image URL"
+            value={block.imageUrl || ""}
+            onChange={(url) => onChange({ ...block, imageUrl: url })}
+            showPreview={true}
+            previewHeight={160}
+            testId="block-image"
+          />
           <div>
             <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">Caption</label>
             <Input value={block.caption || ""} onChange={(e) => onChange({ ...block, caption: e.target.value })} data-testid="input-block-image-caption" />

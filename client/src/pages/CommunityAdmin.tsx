@@ -9,6 +9,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import PageHeader from "@/components/admin/PageHeader";
 import MetricsStrip from "@/components/admin/MetricsStrip";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 async function api(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: "include", headers: { "Content-Type": "application/json" }, ...options });
@@ -259,7 +260,16 @@ function EventForm({ initial, onSubmit, isPending, error }: { initial?: any; onS
         <FormField label="Venue Address" testId="field-event-address"><input value={form.venueAddress} onChange={e => set("venueAddress", e.target.value)} className={inputClass} data-testid="input-event-address" /></FormField>
         <FormField label="Organizer Name" testId="field-event-organizer"><input value={form.organizerName} onChange={e => set("organizerName", e.target.value)} className={inputClass} data-testid="input-event-organizer" /></FormField>
         <FormField label="Organizer Email" testId="field-event-organizer-email"><input type="email" value={form.organizerEmail} onChange={e => set("organizerEmail", e.target.value)} className={inputClass} data-testid="input-event-organizer-email" /></FormField>
-        <FormField label="Image URL" testId="field-event-image"><input value={form.imageUrl} onChange={e => set("imageUrl", e.target.value)} className={inputClass} data-testid="input-event-image" /></FormField>
+        <FormField label="Cover Image" testId="field-event-image">
+          <ImageUploadField
+            label=""
+            value={form.imageUrl}
+            onChange={(url) => set("imageUrl", url)}
+            showPreview={true}
+            previewHeight={180}
+            testId="event-image"
+          />
+        </FormField>
         <FormField label="Ticket URL" testId="field-event-ticket"><input value={form.ticketUrl} onChange={e => set("ticketUrl", e.target.value)} className={inputClass} data-testid="input-event-ticket" /></FormField>
       </div>
       <FormField label="Description" testId="field-event-description"><textarea value={form.description} onChange={e => set("description", e.target.value)} className={textareaClass} data-testid="input-event-description" /></FormField>
@@ -726,8 +736,26 @@ function DirectoryForm({ initial, onSubmit, isPending, error }: { initial?: any;
         <FormField label="Address" testId="field-biz-address"><input value={form.address} onChange={e => set("address", e.target.value)} className={inputClass} data-testid="input-biz-address" /></FormField>
         <FormField label="City" testId="field-biz-city"><input value={form.city} onChange={e => set("city", e.target.value)} className={inputClass} data-testid="input-biz-city" /></FormField>
         <FormField label="Postal Code" testId="field-biz-postal"><input value={form.postalCode} onChange={e => set("postalCode", e.target.value)} className={inputClass} data-testid="input-biz-postal" /></FormField>
-        <FormField label="Logo URL" testId="field-biz-logo"><input value={form.logoUrl} onChange={e => set("logoUrl", e.target.value)} className={inputClass} data-testid="input-biz-logo" /></FormField>
-        <FormField label="Cover Image" testId="field-biz-cover"><input value={form.coverImage} onChange={e => set("coverImage", e.target.value)} className={inputClass} data-testid="input-biz-cover" /></FormField>
+        <FormField label="Logo" testId="field-biz-logo">
+          <ImageUploadField
+            label=""
+            value={form.logoUrl}
+            onChange={(url) => set("logoUrl", url)}
+            showPreview={true}
+            previewHeight={64}
+            testId="biz-logo"
+          />
+        </FormField>
+        <FormField label="Cover Image" testId="field-biz-cover">
+          <ImageUploadField
+            label=""
+            value={form.coverImage}
+            onChange={(url) => set("coverImage", url)}
+            showPreview={true}
+            previewHeight={120}
+            testId="biz-cover"
+          />
+        </FormField>
       </div>
       <FormField label="Description" testId="field-biz-desc"><textarea value={form.description} onChange={e => set("description", e.target.value)} className={textareaClass} data-testid="input-biz-desc" /></FormField>
       {error && <p className="text-sm text-red-400" data-testid="text-form-error">{error}</p>}

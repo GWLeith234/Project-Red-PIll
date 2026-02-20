@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ImageStudio } from "@/components/ImageStudio";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 export interface EditorBlock {
   id: string;
@@ -129,20 +130,19 @@ function BlockEditor({
           </div>
         ) : block.type === "image" ? (
           <div className="space-y-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Image URL..."
-                value={block.content}
-                onChange={(e) => onUpdate({ ...block, content: e.target.value })}
-                className="text-sm flex-1"
-                data-testid={`input-image-url-${index}`}
-              />
-              {onOpenImageStudio && (
+            <ImageUploadField
+              label=""
+              value={block.content}
+              onChange={(url) => onUpdate({ ...block, content: url })}
+              placeholder="Image URL..."
+              showPreview={false}
+              testId={`image-block-${index}`}
+              extraButton={onOpenImageStudio ? (
                 <Button type="button" variant="outline" size="sm" onClick={onOpenImageStudio} className="gap-1.5 shrink-0" data-testid={`button-image-studio-block-${index}`}>
                   <ImagePlus className="h-3.5 w-3.5" /> Studio
                 </Button>
-              )}
-            </div>
+              ) : undefined}
+            />
             {block.content && (
               <div className="relative rounded-lg overflow-hidden bg-muted/30 max-h-48">
                 <img
@@ -609,31 +609,27 @@ export default function ArticleEditor({
             </div>
             <Separator className="my-2" />
             <div>
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5 block">Cover Image</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={coverImage}
-                  onChange={(e) => onCoverImageChange(e.target.value)}
-                  placeholder="Image URL for the hero/cover image..."
-                  className="text-sm flex-1"
-                  data-testid="input-editor-cover-image"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { setImageStudioTarget("cover"); setShowImageStudio(true); }}
-                  className="gap-1.5 shrink-0"
-                  data-testid="button-open-image-studio-cover"
-                >
-                  <ImagePlus className="h-3.5 w-3.5" /> Studio
-                </Button>
-              </div>
-              {coverImage && (
-                <div className="mt-2 rounded-lg overflow-hidden max-h-40 bg-muted/30">
-                  <img src={coverImage} alt="Cover" className="w-full object-cover max-h-40" />
-                </div>
-              )}
+              <ImageUploadField
+                label="Cover Image"
+                value={coverImage}
+                onChange={onCoverImageChange}
+                placeholder="Image URL for the hero/cover image..."
+                showPreview={true}
+                previewHeight={160}
+                testId="editor-cover-image"
+                extraButton={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setImageStudioTarget("cover"); setShowImageStudio(true); }}
+                    className="gap-1.5 shrink-0"
+                    data-testid="button-open-image-studio-cover"
+                  >
+                    <ImagePlus className="h-3.5 w-3.5" /> Studio
+                  </Button>
+                }
+              />
               <Input
                 value={coverCaption}
                 onChange={(e) => onCoverCaptionChange(e.target.value)}

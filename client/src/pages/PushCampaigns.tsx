@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import MetricsStrip from "@/components/admin/MetricsStrip";
+import { ImageUploadField } from "@/components/ImageUploadField";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
@@ -534,25 +535,14 @@ export default function PushCampaigns() {
                 />
               </div>
               <div>
-                <Label htmlFor="campaign-icon-url">Icon URL</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="relative flex-1">
-                    <Globe className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="campaign-icon-url"
-                      value={form.iconUrl}
-                      onChange={(e) => setForm({ ...form, iconUrl: e.target.value })}
-                      placeholder="https://example.com/icon.png"
-                      className="pl-9"
-                      data-testid="input-icon-url"
-                    />
-                  </div>
-                  {form.iconUrl && (
-                    <div className="h-9 w-9 rounded border border-border/50 overflow-hidden flex-shrink-0">
-                      <img src={form.iconUrl} alt="icon" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} data-testid="preview-icon-thumb" />
-                    </div>
-                  )}
-                </div>
+                <ImageUploadField
+                  label="Icon URL"
+                  value={form.iconUrl}
+                  onChange={(url) => setForm({ ...form, iconUrl: url })}
+                  showPreview={true}
+                  previewHeight={64}
+                  testId="campaign-icon"
+                />
               </div>
               <div>
                 <Label htmlFor="campaign-click-url">Click URL</Label>
@@ -569,18 +559,14 @@ export default function PushCampaigns() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="campaign-image-url">Image URL (optional)</Label>
-                <div className="relative mt-1">
-                  <Image className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="campaign-image-url"
-                    value={form.imageUrl}
-                    onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    placeholder="https://example.com/banner.jpg"
-                    className="pl-9"
-                    data-testid="input-image-url"
-                  />
-                </div>
+                <ImageUploadField
+                  label="Image URL (optional)"
+                  value={form.imageUrl}
+                  onChange={(url) => setForm({ ...form, imageUrl: url })}
+                  showPreview={true}
+                  previewHeight={120}
+                  testId="campaign-image"
+                />
               </div>
               <div>
                 <Label>Target Segment</Label>
