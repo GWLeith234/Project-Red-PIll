@@ -1,0 +1,317 @@
+# Settings — Prompt 3: Integrations Tab
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build out the Integrations tab in Settings. This is the single place where all third-party service connections are configured. Replace the placeholder grid that currently exists with real, functional integration forms.
+
+CONTEXT:
+- Settings → Integrations tab currently shows a placeholder grid of integration category cards
+- This prompt replaces those placeholders with real configuration forms
+- All API keys and credentials are stored encrypted in the platform_settings table
+- No integration logic changes — this is purely where credentials and settings are entered and saved
+- Each integration shows its connection status clearly
+
+---
+
+PART A — DATABASE:
+
+(1) Use the existing platform_settings table (created in Branding sprint). Add these keys if they don't exist. All default to empty string "":
+
+Social Media:
+- twitter_api_key
+- twitter_api_secret
+- twitter_access_token
+- twitter_access_secret
+- facebook_page_id
+- facebook_access_token
+- linkedin_org_id
+- linkedin_access_token
+- instagram_account_id
+- youtube_channel_id
+- youtube_api_key
+
+Podcast Distribution:
+- apple_podcasts_feed_url
+- spotify_show_id
+- iheart_feed_url
+- rss_feed_url (auto-generated, read-only)
+
+Email:
+- email_provider: "" (sendgrid, smtp, mailgun)
+- sendgrid_api_key
+- smtp_host
+- smtp_port
+- smtp_username
+- smtp_password
+- smtp_from_name
+- smtp_from_email
+- mailgun_api_key
+- mailgun_domain
+
+SMS:
+- twilio_account_sid
+- twilio_auth_token
+- twilio_phone_number
+
+Push Notifications:
+- vapid_public_key
+- vapid_private_key
+- vapid_subject (email)
+- firebase_server_key
+
+Analytics:
+- google_analytics_id
+- meta_pixel_id
+- gtm_container_id
+
+Storage:
+- storage_provider: "" (s3, cloudflare_r2, local)
+- s3_bucket
+- s3_region
+- s3_access_key
+- s3_secret_key
+- cloudflare_r2_account_id
+- cloudflare_r2_access_key
+- cloudflare_r2_secret_key
+- cloudflare_r2_bucket
+
+Payment:
+- stripe_publishable_key
+- stripe_secret_key
+- stripe_webhook_secret
+
+(2) API endpoints:
+- GET /api/settings/integrations — returns all integration settings (mask sensitive values: show only last 4 chars of API keys, e.g. "••••••••••••abcd")
+- PATCH /api/settings/integrations — accepts { key: value } object, upserts, requireAuth
+- POST /api/settings/integrations/test/:integration — tests a specific integration connection, returns { success: boolean, message: string }
+
+---
+
+PART B — INTEGRATIONS TAB UI:
+
+Eight integration category sections. Use the same collapsible section pattern as the Branding tab (chevron toggle, all open by default). Each section has:
+- Section header with integration category icon, name, and overall status badge (All Connected / Partial / Not Configured)
+- Individual integration cards within the section
+- Save button per section
+
+Each individual integration card shows:
+- Integration name and logo/icon
+- Status indicator: green dot "Connected" / yellow dot "Partial" / gray dot "Not Configured"
+- Configuration fields (see below per integration)
+- "Test Connection" button where applicable — calls POST /api/settings/integrations/test/:integration
+- "Save" button
+
+Sensitive fields (API keys, secrets, tokens, passwords):
+- Show as password input type by default
+- Eye icon to toggle visibility
+- When a value exists in database, show masked value (••••••••abcd) as placeholder
+- User must clear and re-enter to change — never show the actual stored value
+
+---
+
+SECTION 1 — SOCIAL MEDIA:
+
+Twitter/X card:
+- API Key (password input)
+- API Secret (password input)
+- Access Token (password input)
+- Access Token Secret (password input)
+- Test Connection button: verifies credentials with Twitter API
+- Status: Connected if all 4 fields populated
+
+Facebook card:
+- Page ID (text input)
+- Page Access Token (password input)
+- Test Connection button
+- Status: Connected if both fields populated
+
+LinkedIn card:
+- Organization ID (text input)
+- Access Token (password input)
+- Status: Connected if both fields populated
+
+Instagram card:
+- Account ID (text input)
+- Note: "Instagram requires a Facebook Business account connection"
+- Status: Connected if Account ID populated
+
+YouTube card:
+- Channel ID (text input)
+- API Key (password input)
+- Status: Connected if both populated
+
+---
+
+SECTION 2 — PODCAST DISTRIBUTION:
+
+Apple Podcasts card:
+- RSS Feed URL (text input — this is your feed URL to submit to Apple)
+- Status: label "Submit your RSS feed to Apple Podcasts Connect"
+- Link: "Open Apple Podcasts Connect →" (external link)
+
+Spotify card:
+- Show ID (text input — from Spotify for Podcasters)
+- Note: "Add your RSS feed at podcasters.spotify.com to get your Show ID"
+- Link: "Open Spotify for Podcasters →"
+
+iHeart card:
+- Feed URL (text input)
+- Link: "Open iHeartRadio Podcast Portal →"
+
+RSS Feed card:
+- Feed URL: auto-generated, read-only text field showing your platform's RSS endpoint
+- Copy button copies URL to clipboard
+- "Validate Feed" button — calls external RSS validator
+- Note: "Submit this URL to any podcast directory"
+
+---
+
+SECTION 3 — EMAIL:
+
+Provider selector at top: Radio buttons — SendGrid | SMTP | Mailgun
+
+SendGrid fields (show when SendGrid selected):
+- API Key (password input)
+- From Name (text input)
+- From Email (text input)
+- Test Connection button: sends a test email to the logged-in admin's email
+- Status: Connected if API key populated
+
+SMTP fields (show when SMTP selected):
+- Host (text input)
+- Port (number input, default 587)
+- Username (text input)
+- Password (password input)
+- From Name (text input)
+- From Email (text input)
+- TLS toggle
+- Test Connection button: attempts SMTP connection
+- Status: Connected if host + username + password populated
+
+Mailgun fields (show when Mailgun selected):
+- API Key (password input)
+- Domain (text input)
+- From Name (text input)
+- From Email (text input)
+- Test Connection button
+- Status: Connected if API key + domain populated
+
+---
+
+SECTION 4 — SMS:
+
+Twilio card:
+- Account SID (password input)
+- Auth Token (password input)
+- Phone Number (text input, format: +1XXXXXXXXXX)
+- Test Connection button: sends a test SMS to a number the admin enters
+- Status: Connected if all 3 fields populated
+
+---
+
+SECTION 5 — PUSH NOTIFICATIONS:
+
+VAPID Keys card:
+- Public Key (password input)
+- Private Key (password input)
+- Subject Email (text input)
+- "Generate New VAPID Keys" button — generates a new key pair using the web-push library, populates both fields
+- Warning: "Changing VAPID keys will invalidate all existing push subscriptions"
+
+Firebase card (optional — for native mobile):
+- Server Key (password input)
+- Note: "Only required for native iOS/Android push. PWA uses VAPID."
+
+---
+
+SECTION 6 — ANALYTICS:
+
+Google Analytics card:
+- Measurement ID (text input, format: G-XXXXXXXXXX)
+- Note: "Add this ID to enable Google Analytics tracking on the audience site"
+- Status: Connected if ID populated
+
+Meta Pixel card:
+- Pixel ID (text input)
+- Note: "Enables Facebook/Instagram conversion tracking"
+- Status: Connected if ID populated
+
+Google Tag Manager card:
+- Container ID (text input, format: GTM-XXXXXXX)
+- Note: "Use GTM to manage all tracking scripts in one place"
+- Status: Connected if ID populated
+
+---
+
+SECTION 7 — STORAGE:
+
+Provider selector: Radio buttons — Local Storage | Amazon S3 | Cloudflare R2
+
+Local Storage (show when Local selected):
+- Note: "Files stored on the server. Not recommended for production."
+- Current usage indicator
+
+Amazon S3 fields (show when S3 selected):
+- Bucket Name (text input)
+- Region (text input, e.g. us-east-1)
+- Access Key ID (password input)
+- Secret Access Key (password input)
+- Test Connection button: attempts to list bucket
+- Status: Connected if all 4 fields populated
+
+Cloudflare R2 fields (show when R2 selected):
+- Account ID (text input)
+- Access Key ID (password input)
+- Secret Access Key (password input)
+- Bucket Name (text input)
+- Test Connection button
+- Status: Connected if all 4 fields populated
+
+---
+
+SECTION 8 — PAYMENT:
+
+Stripe card:
+- Mode toggle: Test Mode / Live Mode
+- Publishable Key (text input — not sensitive, can show)
+- Secret Key (password input)
+- Webhook Secret (password input)
+- Note: "Used for future subscription and commerce features"
+- Link: "Open Stripe Dashboard →"
+- Status: Connected if publishable + secret keys populated
+
+---
+
+PART C — OVERALL STATUS SUMMARY:
+
+At the top of the Integrations tab, before the sections, show a compact status summary row:
+- Small cards for each category: Social (X/5 connected) | Email (✓) | SMS (✓) | Push (✓) | Analytics (X/3) | Storage (✓) | Payment (-)
+- Each card: category icon, name, connection fraction or checkmark
+- Clicking a card scrolls to that section
+
+---
+
+PART D — SAVE BEHAVIOR:
+
+- Each section has its own "Save" button
+- On save: PATCH /api/settings/integrations with changed keys
+- Never log or expose full API key values in console or responses
+- Show success toast: "[Category] settings saved"
+- Show error toast if test connection fails with the error message returned
+
+---
+
+VERIFICATION CHECKLIST:
+1. Integrations tab loads with 8 sections and status summary at top
+2. All sections are collapsible with chevron toggle
+3. Entering a SendGrid API key and clicking Save stores it (masked) correctly
+4. Test Connection on Email sends a real test email
+5. "Generate VAPID Keys" button produces a valid key pair and populates both fields
+6. RSS Feed URL shows the platform's actual feed endpoint, copy button works
+7. Storage provider selector shows/hides correct fields
+8. Sensitive fields show masked values (••••abcd) not actual values
+9. Status badges update correctly when fields are populated vs empty
+10. Overall status summary at top reflects current connection state
+11. No integration credentials are stored in plain text (use existing encryption if available, otherwise store in platform_settings as-is for now and note encryption as a future task)
+```
