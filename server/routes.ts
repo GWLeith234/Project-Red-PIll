@@ -6343,10 +6343,12 @@ Return ONLY the JSON array, no markdown formatting.`;
   app.get("/api/public/polls", async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
+      const limitParam = parseInt(req.query.limit as string, 10);
+      const queryLimit = !isNaN(limitParam) && limitParam > 0 ? limitParam : undefined;
       const now = new Date();
-      let polls;
+      let query;
       if (status === "active") {
-        polls = await db.select().from(communityPolls)
+        query = db.select().from(communityPolls)
           .where(and(
             eq(communityPolls.status, "active"),
             eq(communityPolls.isActive, true),
@@ -6357,7 +6359,7 @@ Return ONLY the JSON array, no markdown formatting.`;
           ))
           .orderBy(desc(communityPolls.createdAt));
       } else if (status === "closed") {
-        polls = await db.select().from(communityPolls)
+        query = db.select().from(communityPolls)
           .where(or(
             eq(communityPolls.status, "closed"),
             and(
@@ -6367,9 +6369,10 @@ Return ONLY the JSON array, no markdown formatting.`;
           ))
           .orderBy(desc(communityPolls.expiresAt));
       } else {
-        polls = await db.select().from(communityPolls)
+        query = db.select().from(communityPolls)
           .orderBy(desc(communityPolls.createdAt));
       }
+      const polls = queryLimit ? await query.limit(queryLimit) : await query;
       res.json(polls);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
