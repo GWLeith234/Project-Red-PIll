@@ -1,0 +1,319 @@
+# UI Consistency Fix — MASTER PROMPT (All 15 Pages)
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Apply the standard admin page layout to every admin page in the platform. This is a structural/styling-only fix. Do NOT change any routing, data fetching, API calls, database logic, or page functionality.
+
+═══════════════════════════════════════════
+THE STANDARD (Advertising page = reference)
+═══════════════════════════════════════════
+
+Every admin page must follow this exact vertical structure:
+
+  [1] PageHeader
+      LEFT:  Icon (primary brand color, 24px) + Page Title (white, 700 weight, 24px)
+      RIGHT: [AI Button] [Primary Button]
+             AI Button = purple #6C3FC5, Sparkles icon, label "AI [Action]"
+             Primary Button = primary brand color, label "+ [Action]"
+             8px gap between buttons
+
+  [2] KPI Strip
+      6 cards, auto-sizing to fill full width
+      Each card: label (11px uppercase muted text), value (28px bold WHITE), optional trend
+      Icons on cards: primary color or muted — NEVER individual metric colors
+      Values: always WHITE (#FFFFFF) — NEVER purple, teal, green, blue, or any other color
+
+  [3] Tab Strip (only if page has multiple views)
+
+  [4] Main Content
+
+EXCEPTIONS (pages where KPI strip is genuinely not applicable):
+  - Scheduler: calendar tool, no KPI strip needed. Needs header + buttons only.
+  - Ad Resizer: image tool, use 4 KPI cards (not 6) with static/real data
+  - AI Site Editor: list/table page, use 4 KPI cards
+
+═══════════════════════════════════════════
+DO NOT TOUCH (already correct):
+  - Advertising page
+  - Settings page
+═══════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 1 — DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title + AI Insights button. Missing primary button. Missing KPI strip.
+
+Add primary button to PageHeader: "+ New Content" (primary color, right of AI button)
+Add KPI strip between PageHeader and Live Activity Feed:
+  Card 1: TOTAL SUBSCRIBERS — pull from subscribers table count
+  Card 2: CONTENT PUBLISHED — count of articles published this week
+  Card 3: ACTIVE USERS TODAY — count of sessions in last 24h from page_analytics
+  Card 4: REVENUE MTD — sum from monetization/orders for current month (0 if none)
+  Card 5: PUSH DELIVERY RATE — avg delivery rate from push_campaign_deliveries (show "—" if no data)
+  Card 6: AVG SESSION DURATION — avg time_on_page from page_analytics this week (show "—" if no data)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 2 — CONTENT FACTORY (labeled "Generator" in sidebar)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title + AI Generate (purple). Missing primary button. KPI strip has 6 white-value cards — correct, don't change them.
+
+Add primary button to PageHeader: "+ New Content" (primary color, RIGHT of AI Generate button)
+No other changes needed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 3 — SCHEDULER
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title only. No buttons. No KPI strip. Channel filter pills appear at top.
+
+Add buttons to PageHeader:
+  AI Button: "AI Schedule" (purple)
+  Primary Button: "+ Schedule Post" (primary color)
+
+Do NOT add KPI strip — the calendar is the full-page tool and KPIs would clutter it.
+Move the CHANNELS filter row to immediately below the PageHeader (it's currently in the right position but make sure it's subordinate to the header visually).
+The calendar and Day Detail sidebar remain unchanged.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 4 — MODERATION QUEUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title only. No buttons. The category tiles (Articles, Blogs, Social Posts, Clips, Newsletters, SEO Assets) are NOT a KPI strip — they are content-type filters. The actual KPI strip is missing.
+
+Add buttons to PageHeader:
+  AI Button: "AI Moderate" (purple)
+  Primary Button: "Ship All" (primary color) — ships all approved items at once
+
+Add KPI strip of 6 cards ABOVE the category filter tiles:
+  Card 1: TOTAL PENDING — total count of items awaiting moderation
+  Card 2: APPROVED TODAY — items shipped/approved today
+  Card 3: SOCIAL POSTS — pending social posts count (real data)
+  Card 4: CLIPS — pending clips count (real data)
+  Card 5: NEWSLETTERS — pending newsletters count (real data)
+  Card 6: AVG REVIEW TIME — average time items sit in queue before action (show "—" if no data)
+
+The category tiles remain below the KPI strip — they are content filters, not metrics.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 5 — AI SITE EDITOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title. Has "+ New Page" button floating next to title in header area — this is close but not in the standard PageHeader component. No AI button. No KPI strip.
+
+Restructure PageHeader to standard:
+  LEFT: icon + "AI Site Editor" title
+  RIGHT: AI Button "AI Generate" (purple) + Primary Button "+ New Page" (primary color)
+  Remove the floating "+ New Page" that currently sits inline with the title
+
+Add KPI strip of 4 cards (this is a list/table page — 4 cards acceptable):
+  Card 1: TOTAL PAGES — count of all pages in ai_pages table
+  Card 2: PUBLISHED — count of pages with status = 'published'
+  Card 3: DRAFTS — count with status = 'draft'
+  Card 4: AD COMPLIANCE PENDING — count with ad_compliance = 'review'
+
+Main content (table with Title, Slug, Status, Ad Compliance, Last Modified, Actions) remains unchanged.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 6 — COMMUNITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title. No buttons. Tab strip (Events/Polls/Discussion) appears at top with no header above it. Primary action "+ Add Event" floats inside the tab content area, not in the header.
+
+Restructure to standard layout:
+  [1] PageHeader LEFT: Heart icon + "Community" title
+      PageHeader RIGHT: AI Button "AI Moderate" (purple) + Primary Button that changes label per active tab:
+        - Events tab active → "+ Add Event"
+        - Polls tab active → "+ Add Poll"  
+        - Discussion tab active → "+ Add Post"
+      Implement this with a simple state check on active tab to swap the primary button label/action.
+      Remove the "+ Add Event" button that currently floats inside the Events tab content.
+
+  [2] KPI strip 6 cards:
+      Card 1: ACTIVE EVENTS — upcoming events count
+      Card 2: OPEN POLLS — polls with no expiry or expiry in future
+      Card 3: TOTAL VOTES — sum of all poll votes
+      Card 4: COMMUNITY POSTS — total discussion posts
+      Card 5: FLAGGED POSTS — posts with flagged = true
+      Card 6: ACTIVE USERS — distinct users who posted in last 30 days (show "—" if no data)
+
+  [3] Tab strip: Events | Polls | Discussion
+  [4] Tab content (table/list)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 7 — PAGE BUILDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title. "Create New Page" button at top right (wrong label format, should be "+ Create Page"). No AI button. KPI strip has 6 white-value cards — correct, don't change them.
+
+Add AI Button to PageHeader: "AI Generate" (purple), positioned LEFT of the primary button.
+Rename primary button from "Create New Page" → "+ Create Page" (standard format with + prefix).
+KPI strip values are already white — no change needed there.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 8 — MONETIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title only. No buttons. KPI strip has 6 white-value cards — correct values, don't change them. However there are also secondary "data cards" below tabs (Avg CPM $28.45, Fill Rate 98.5%, etc.) — these are fine as data cards, leave them.
+
+Add buttons to PageHeader:
+  AI Button: "AI Optimize" (purple)
+  Primary Button: "+ New Campaign" (primary color)
+
+KPI strip already correct (white values, 6 cards) — no changes.
+Secondary data cards below tab strip — no changes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 9 — CAMPAIGN BUILDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title. No buttons. KPI strip has 4 colored-value cards (purple/teal icons and values) — WRONG count and WRONG colors.
+
+Add buttons to PageHeader:
+  AI Button: "AI Generate" (purple)
+  Primary Button: "+ New Campaign" (primary color)
+
+Fix KPI strip:
+  Expand to 6 cards. Add: "OPEN RATE" and "TOTAL RECIPIENTS"
+  Fix ALL card icon colors → primary color or muted (not purple/teal per-card)
+  Fix ALL card value colors → white (#FFFFFF)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 10 — AD RESIZER
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title only. No buttons. No KPI strip. Tool layout (upload + platforms + output panel) fills the page.
+
+Add buttons to PageHeader:
+  AI Button: "AI Suggest" (purple) — suggests optimal platform selection based on uploaded image dimensions
+  Primary Button: "Resize All" (primary color) — triggers resize for all checked platforms
+
+Add KPI strip of 4 cards (tool page, 4 is acceptable):
+  Card 1: FORMATS AVAILABLE — static value "70"
+  Card 2: PLATFORMS SUPPORTED — static value "9"
+  Card 3: LAST RESIZED — timestamp of last resize job for this session (show "—" if none)
+  Card 4: TOTAL DOWNLOADS — count of downloads in current session (start at 0)
+
+Tool content (upload + platforms + output) remains unchanged below KPI strip.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 11 — NEWSLETTERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title. "+ New Newsletter" button floats outside PageHeader. No AI button. KPI strip has 4 colored-value cards.
+
+Move "+ New Newsletter" INTO PageHeader right button group.
+Add AI Button: "AI Generate" (purple), positioned LEFT of "+ New Newsletter".
+Fix KPI strip: expand to 6 cards, fix all colors to white values/muted icons:
+  Card 1: ACTIVE SCHEDULES (existing)
+  Card 2: TOTAL RUNS (existing)
+  Card 3: SENT THIS MONTH (existing)
+  Card 4: DRAFTS PENDING (existing)
+  Card 5: TOTAL SUBSCRIBERS — count from subscribers table
+  Card 6: AVG OPEN RATE — avg open rate across all sent newsletters (show "—" if no data)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 12 — PUSH CAMPAIGNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title. "+ New Campaign" button floats outside PageHeader. No AI button. KPI strip has 5 visible cards (6th cut off), colored icons and values.
+
+Move "+ New Campaign" INTO PageHeader right button group.
+Add AI Button: "AI Analyze" (purple), positioned LEFT of "+ New Campaign".
+Fix KPI strip: all 6 cards must fit in one row (reduce card min-width, let them flex):
+  Card 1: TOTAL SUBSCRIBERS
+  Card 2: SENT THIS MONTH
+  Card 3: AVG DELIVERY RATE
+  Card 4: TOTAL DELIVERED
+  Card 5: CLICKS THIS MONTH
+  Card 6: CLICK RATE (new — clicks / delivered as percentage)
+Fix ALL card icon colors → primary color or muted
+Fix ALL card value colors → white (#FFFFFF)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 13 — NETWORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: Has icon + title only. No buttons. Tab strip appears ABOVE KPI strip — wrong order. KPI strip has only 4 oversized cards.
+
+Add buttons to PageHeader:
+  AI Button: "AI Suggest" (purple)
+  Primary Button: "+ Add Lead" (primary color)
+
+Fix layout order to: PageHeader → KPI strip → Tab strip → content
+
+Fix KPI strip to 6 cards (currently 4, needs 2 more):
+  Card 1: TOTAL LEADS
+  Card 2: PIPELINE VALUE
+  Card 3: CLOSED WON
+  Card 4: PENDING AI PROMPTS
+  Card 5: NEW THIS WEEK
+  Card 6: AVG DEAL SIZE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 14 — AUDIENCE CRM
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: No PageHeader at all. Page starts with floating "ADD SUBSCRIBER" button. No KPI strip. Light sidebar/dark content theme mismatch.
+
+Add full PageHeader:
+  LEFT: Users icon (primary color) + "Audience CRM"
+  RIGHT: AI Button "AI Segment" (purple) + Primary Button "+ Add Subscriber" (primary color)
+  Remove the floating "ADD SUBSCRIBER" button entirely.
+
+Add KPI strip of 6 cards:
+  Card 1: TOTAL SUBSCRIBERS
+  Card 2: NEW THIS WEEK
+  Card 3: ACTIVE — subscribers with engagement_stage = 'active'
+  Card 4: AT RISK — subscribers with engagement_stage = 'at_risk'
+  Card 5: AVG OPEN RATE
+  Card 6: CHURN RATE — churned / total as percentage
+
+Layout: PageHeader → KPI strip → Tab strip (Subscribers/Campaigns) → content
+
+Fix sidebar theme: sidebar background must use the same dark CSS variable as the content area. Find the sidebar component and ensure it uses bg-background or equivalent dark token — not bg-gray-100 or any light color.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 15 — SALES CRM
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current: No PageHeader. Page starts with tab strip (Companies/Contacts/Deals/Campaigns) at very top. No KPI strip. Light sidebar/dark content theme mismatch.
+
+Add full PageHeader:
+  LEFT: Briefcase icon (primary color) + "Sales CRM"
+  RIGHT: AI Button "AI Score" (purple) + Primary Button "+ Add Company" (primary color)
+
+Add KPI strip of 6 cards:
+  Card 1: TOTAL COMPANIES — count from commercial_leads
+  Card 2: ACTIVE DEALS — count with pipeline_stage = 'active' or similar
+  Card 3: PIPELINE VALUE — sum of estimated_value for non-closed leads
+  Card 4: CLOSED WON MTD — sum of won deals this month
+  Card 5: NEW LEADS — count created in last 7 days
+  Card 6: AVG DEAL SIZE — avg estimated_value across all leads
+
+Layout: PageHeader → KPI strip → Tab strip → content
+
+Fix sidebar theme: same as Audience CRM — use dark background token.
+
+═══════════════════════════════════════════
+GLOBAL KPI STYLING RULE
+═══════════════════════════════════════════
+
+Find the MetricsStrip or KPI card component. The colored values seen on Push Campaigns, Newsletters, Campaign Builder (purple "3", teal "100%", etc.) are caused by those pages passing color props or using a different variant.
+
+Make ALL pages use the SAME component with the SAME default styling as Advertising:
+  - value className: always text-white font-bold text-2xl — remove any dynamic color class
+  - icon className: always text-primary or text-muted-foreground — never per-card colors
+  - No exceptions
+
+═══════════════════════════════════════════
+VERIFICATION CHECKLIST
+═══════════════════════════════════════════
+
+After changes, verify each page:
+
+[ ] Dashboard: PageHeader has AI Insights + "+ New Content". KPI strip of 6 appears above Live Activity Feed.
+[ ] Content Factory: PageHeader has AI Generate + "+ New Content" side by side.
+[ ] Scheduler: PageHeader has AI Schedule + "+ Schedule Post". No KPI strip. Calendar unchanged.
+[ ] Moderation Queue: PageHeader has AI Moderate + "Ship All". KPI strip of 6 above category tiles. Category tiles unchanged.
+[ ] AI Site Editor: PageHeader standard with AI Generate + "+ New Page". KPI strip of 4 above table.
+[ ] Community: PageHeader has AI Moderate + dynamic primary button. KPI strip of 6. Tabs below KPIs.
+[ ] Page Builder: PageHeader now has AI Generate + "+ Create Page". KPI strip unchanged (already correct).
+[ ] Monetization: PageHeader has AI Optimize + "+ New Campaign". KPI strip unchanged (already correct).
+[ ] Campaign Builder: PageHeader has AI Generate + "+ New Campaign". 6 KPI cards, all white values.
+[ ] Ad Resizer: PageHeader has AI Suggest + "Resize All". 4 KPI cards above tool.
+[ ] Newsletters: 6 KPI cards all white, AI Generate + "+ New Newsletter" in header.
+[ ] Push Campaigns: 6 KPI cards all fitting in one row, all white, AI Analyze + "+ New Campaign" in header.
+[ ] Network: PageHeader has buttons, layout order is Header → KPIs → Tabs → content.
+[ ] Audience CRM: Full PageHeader, 6 KPI cards, no floating button, dark sidebar.
+[ ] Sales CRM: Full PageHeader, 6 KPI cards, tab strip below KPIs, dark sidebar.
+[ ] Advertising page: UNCHANGED and still renders correctly.
+[ ] No KPI card value anywhere in the admin shows a color other than white.
+```

@@ -5309,8 +5309,17 @@ Provide comprehensive social listening intelligence including trending topics, k
 
   app.get("/api/public/legal/:templateType", async (req, res) => {
     try {
+      const slug = req.params.templateType;
+      const legalDoc = await storage.getLegalDocumentBySlug(`/legal/${slug}`);
+      if (legalDoc && legalDoc.isPublished) {
+        return res.json({
+          title: legalDoc.title, slug: legalDoc.slug,
+          content: legalDoc.publishedVersion || legalDoc.content,
+          lastPublishedAt: legalDoc.lastPublishedAt, metaDescription: legalDoc.metaDescription,
+        });
+      }
       const template = await storage.getLegalTemplateByType(req.params.templateType);
-      if (!template) return res.status(404).json({ message: "Legal page not found" });
+      if (!template) return res.status(404).json({ message: "Document not found" });
       const brandingData = await storage.getBranding();
       const settingsData = await storage.getSettings();
       const variables: Record<string, string> = {

@@ -39,8 +39,13 @@ import {
   BellRing, Bot, BookOpen, Palette, Gauge, ShieldCheck,
   Home, Navigation, Wrench, Lock,
   Activity, Target, TrendingUp, AlertCircle, ToggleLeft,
+  Scale, ArrowLeft, ExternalLink, Minus,
   type LucideIcon,
 } from "lucide-react";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import UnderlineExt from '@tiptap/extension-underline';
+import LinkExt from '@tiptap/extension-link';
 
 const TABS = [
   { id: "branding", label: "Branding", icon: Paintbrush },
@@ -48,6 +53,7 @@ const TABS = [
   { id: "ai-config", label: "AI Configuration", icon: Brain },
   { id: "platform-config", label: "Platform Configuration", icon: LayoutGrid },
   { id: "live-site", label: "Live Site & App", icon: Globe2 },
+  { id: "legal", label: "Legal", icon: Scale },
 ] as const;
 
 const TIMEZONES = [
@@ -325,7 +331,10 @@ function RadioGroup({ label, options, value, onChange, testId, disabled }: {
 }
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<string>("branding");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") || "branding";
+  });
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
   const { hasPermission } = useAuth();
@@ -533,6 +542,8 @@ export default function Settings() {
       {activeTab === "platform-config" && <PageConfigurationTab />}
 
       {activeTab === "live-site" && <LiveSiteAppTab />}
+
+      {activeTab === "legal" && <LegalTab />}
     </div>
   );
 }
@@ -5092,6 +5103,484 @@ function AuditLogViewer() {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+const WCAG_ITEMS = [
+  "Content uses plain language (reading level appropriate for general audience)",
+  "All headings follow proper hierarchy (H1 → H2 → H3)",
+  "No color used as the only means of conveying information",
+  "Links have descriptive text (not \"click here\")",
+  "Document has been reviewed by a human (not AI-only)",
+  "Last reviewed within 12 months",
+  "Contact information is accurate and up to date",
+  "Document reflects current platform practices",
+];
+
+function getDocStatus(doc: any): { label: string; color: string } {
+  if (!doc.isPublished) return { label: "Unpublished", color: "bg-muted text-muted-foreground" };
+  if (doc.content !== doc.publishedVersion) return { label: "Draft Changes", color: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30" };
+  return { label: "Published", color: "bg-green-500/20 text-green-600 border-green-500/30" };
+}
+
+function LegalEditorToolbar({ editor }: { editor: any }) {
+  if (!editor) return null;
+
+  const btn = (active: boolean) =>
+    cn("h-8 w-8 flex items-center justify-center text-xs font-bold transition-colors border",
+      active ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:bg-muted");
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 p-2 border-b border-border bg-card/50">
+      <button className={btn(editor.isActive("heading", { level: 1 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>H1</button>
+      <button className={btn(editor.isActive("heading", { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+      <button className={btn(editor.isActive("heading", { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
+      <button className={btn(editor.isActive("heading", { level: 4 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}>H4</button>
+      <span className="w-px h-6 bg-border mx-1" />
+      <button className={btn(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold"><span className="font-bold">B</span></button>
+      <button className={btn(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"><span className="italic">I</span></button>
+      <button className={btn(editor.isActive("underline"))} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline"><span className="underline">U</span></button>
+      <span className="w-px h-6 bg-border mx-1" />
+      <button className={btn(editor.isActive("bulletList"))} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet List">•</button>
+      <button className={btn(editor.isActive("orderedList"))} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Ordered List">1.</button>
+      <span className="w-px h-6 bg-border mx-1" />
+      <button
+        className={btn(editor.isActive("link"))}
+        onClick={() => {
+          if (editor.isActive("link")) {
+            editor.chain().focus().unsetLink().run();
+          } else {
+            const url = window.prompt("Enter URL:");
+            if (url) editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+          }
+        }}
+        title="Link"
+      >🔗</button>
+      <button className={btn(false)} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal Rule"><Minus className="h-3 w-3" /></button>
+    </div>
+  );
+}
+
+function LegalTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showUnpublishDialog, setShowUnpublishDialog] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [wcagOpen, setWcagOpen] = useState(false);
+  const [localTitle, setLocalTitle] = useState("");
+  const [localMeta, setLocalMeta] = useState("");
+  const [localChecklist, setLocalChecklist] = useState<boolean[]>(Array(8).fill(false));
+
+  const { data: docs = [], isLoading: docsLoading } = useQuery({
+    queryKey: ["/api/legal"],
+    queryFn: async () => {
+      const res = await fetch("/api/legal", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load legal documents");
+      return res.json();
+    },
+  });
+
+  const { data: activeDoc, isLoading: docLoading } = useQuery({
+    queryKey: ["/api/legal", editingKey],
+    queryFn: async () => {
+      const res = await fetch(`/api/legal/${editingKey}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load document");
+      return res.json();
+    },
+    enabled: !!editingKey,
+  });
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      UnderlineExt,
+      LinkExt.configure({ openOnClick: false }),
+    ],
+    content: "",
+    editorProps: {
+      attributes: {
+        class: "prose prose-sm dark:prose-invert max-w-none p-4 min-h-[400px] focus:outline-none",
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (activeDoc && editor) {
+      editor.commands.setContent(activeDoc.content || "");
+      setLocalTitle(activeDoc.title || "");
+      setLocalMeta(activeDoc.metaDescription || "");
+      const checklist = activeDoc.wcagChecklist as boolean[] | null;
+      setLocalChecklist(checklist && Array.isArray(checklist) ? checklist : Array(8).fill(false));
+    }
+  }, [activeDoc, editor]);
+
+  const saveDraft = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/legal/${editingKey}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: localTitle,
+          content: editor?.getHTML() || "",
+          metaDescription: localMeta,
+          wcagChecklist: localChecklist,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save draft");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Draft Saved", description: "Your changes have been saved." });
+      qc.invalidateQueries({ queryKey: ["/api/legal"] });
+      qc.invalidateQueries({ queryKey: ["/api/legal", editingKey] });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const publishDoc = useMutation({
+    mutationFn: async () => {
+      await saveDraft.mutateAsync();
+      const res = await fetch(`/api/legal/${editingKey}/publish`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to publish");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Published", description: "Document is now live." });
+      setShowPublishDialog(false);
+      qc.invalidateQueries({ queryKey: ["/api/legal"] });
+      qc.invalidateQueries({ queryKey: ["/api/legal", editingKey] });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const unpublishDoc = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/legal/${editingKey}/unpublish`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to unpublish");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Unpublished", description: "Document has been taken offline." });
+      setShowUnpublishDialog(false);
+      qc.invalidateQueries({ queryKey: ["/api/legal"] });
+      qc.invalidateQueries({ queryKey: ["/api/legal", editingKey] });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  if (editingKey) {
+    const status = activeDoc ? getDocStatus(activeDoc) : null;
+    const publicUrl = activeDoc ? `${window.location.origin}${activeDoc.slug}` : "";
+
+    return (
+      <div className="space-y-4" data-testid="legal-tab">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <button
+            onClick={() => { setEditingKey(null); editor?.commands.clearContent(); }}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="legal-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to documents
+          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {status && <Badge className={cn("text-[10px] font-mono", status.color)}>{status.label}</Badge>}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => saveDraft.mutate()}
+              disabled={saveDraft.isPending}
+              data-testid="legal-save-draft"
+            >
+              {saveDraft.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+              Save Draft
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowPublishDialog(true)}
+              disabled={publishDoc.isPending}
+              data-testid="legal-publish"
+            >
+              {publishDoc.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
+              Publish
+            </Button>
+            {activeDoc?.isPublished && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowUnpublishDialog(true)}
+                disabled={unpublishDoc.isPending}
+                data-testid="legal-unpublish"
+              >
+                {unpublishDoc.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Ban className="h-3 w-3 mr-1" />}
+                Unpublish
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {docLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3 border border-border bg-card/50 overflow-hidden" data-testid="legal-editor">
+              <LegalEditorToolbar editor={editor} />
+              <EditorContent editor={editor} />
+            </div>
+
+            <div className="lg:col-span-2 space-y-4">
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  <SectionHeader icon={Settings2} title="Document Settings" description="Metadata and publishing options" />
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider font-mono text-muted-foreground">Title</Label>
+                    <Input
+                      value={localTitle}
+                      onChange={(e) => setLocalTitle(e.target.value)}
+                      className="mt-1"
+                      data-testid="input-legal-title"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider font-mono text-muted-foreground">
+                      Meta Description ({localMeta.length}/160)
+                    </Label>
+                    <textarea
+                      value={localMeta}
+                      onChange={(e) => setLocalMeta(e.target.value.slice(0, 160))}
+                      className="w-full mt-1 bg-background border border-border px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:border-primary"
+                      maxLength={160}
+                      data-testid="input-legal-meta"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider font-mono text-muted-foreground">Public URL</Label>
+                    <div className="flex items-center gap-2 mt-1 px-3 py-2 bg-muted/30 border border-border text-sm text-muted-foreground truncate">
+                      <Globe className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{publicUrl}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground font-mono">
+                    <div>
+                      <span className="block uppercase tracking-wider mb-0.5">Last Edited</span>
+                      <span className="text-foreground">
+                        {activeDoc?.lastEditedAt ? new Date(activeDoc.lastEditedAt).toLocaleDateString() : "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block uppercase tracking-wider mb-0.5">Last Published</span>
+                      <span className="text-foreground">
+                        {activeDoc?.lastPublishedAt ? new Date(activeDoc.lastPublishedAt).toLocaleDateString() : "Never"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    {activeDoc?.content === editor?.getHTML() ? (
+                      <><CheckCircle2 className="h-3 w-3 text-green-500" /><span className="text-green-500">Synced</span></>
+                    ) : (
+                      <><AlertTriangle className="h-3 w-3 text-yellow-500" /><span className="text-yellow-500">Unsaved changes</span></>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-4">
+                  <button
+                    className="flex items-center justify-between w-full"
+                    onClick={() => setWcagOpen(!wcagOpen)}
+                    data-testid="wcag-checklist"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">WCAG Compliance Checklist</span>
+                    </div>
+                    {wcagOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                  {wcagOpen && (
+                    <div className="mt-3 space-y-2">
+                      {WCAG_ITEMS.map((item, i) => (
+                        <label key={i} className="flex items-start gap-2 cursor-pointer text-sm py-1">
+                          <input
+                            type="checkbox"
+                            checked={localChecklist[i] || false}
+                            onChange={() => {
+                              const next = [...localChecklist];
+                              next[i] = !next[i];
+                              setLocalChecklist(next);
+                            }}
+                            className="mt-0.5"
+                            data-testid={`wcag-item-${i}`}
+                          />
+                          <span className={localChecklist[i] ? "text-foreground" : "text-muted-foreground"}>{item}</span>
+                        </label>
+                      ))}
+                      <p className="text-xs text-muted-foreground font-mono mt-2">
+                        {localChecklist.filter(Boolean).length}/{WCAG_ITEMS.length} complete
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowPreview(true)}
+                data-testid="legal-preview"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Preview Document
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Publish Document</DialogTitle>
+              <DialogDescription>
+                This will make the document publicly accessible. The current draft content will become the published version.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Cancel</Button>
+              <Button onClick={() => publishDoc.mutate()} disabled={publishDoc.isPending}>
+                {publishDoc.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                Confirm Publish
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showUnpublishDialog} onOpenChange={setShowUnpublishDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Unpublish Document</DialogTitle>
+              <DialogDescription>
+                This will remove the document from public access. The draft content will be preserved.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowUnpublishDialog(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => unpublishDoc.mutate()} disabled={unpublishDoc.isPending}>
+                {unpublishDoc.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                Confirm Unpublish
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Document Preview</DialogTitle>
+              <DialogDescription>How this document will appear to your audience</DialogDescription>
+            </DialogHeader>
+            <div className="mx-auto max-w-[720px] py-6">
+              <h1 className="text-2xl font-bold mb-4">{localTitle}</h1>
+              {activeDoc?.lastPublishedAt && (
+                <p className="text-xs text-muted-foreground mb-6">
+                  Last updated: {new Date(activeDoc.lastPublishedAt).toLocaleDateString()}
+                </p>
+              )}
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  const publishedCount = docs.filter((d: any) => d.isPublished).length;
+  const wcagCompleteCount = docs.filter((d: any) => {
+    const cl = d.wcagChecklist as boolean[] | null;
+    return cl && Array.isArray(cl) && cl.length === 8 && cl.every(Boolean);
+  }).length;
+
+  const complianceColor = publishedCount >= 6 ? "text-green-500" : publishedCount >= 4 ? "text-yellow-500" : "text-red-500";
+
+  return (
+    <div className="space-y-5" data-testid="legal-tab">
+      <SectionHeader icon={Scale} title="Legal Documents" description="Manage terms of service, privacy policy, and compliance documents" />
+
+      <div
+        className={cn("border border-border bg-card/50 p-4 flex flex-wrap items-center gap-4 text-sm font-mono", complianceColor)}
+        data-testid="legal-compliance-bar"
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          <span>{publishedCount}/6 documents published</span>
+        </div>
+        <span className="text-border">|</span>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4" />
+          <span>{wcagCompleteCount}/6 WCAG checklists complete</span>
+        </div>
+      </div>
+
+      {docsLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {docs.map((doc: any) => {
+            const status = getDocStatus(doc);
+            const publicUrl = `${window.location.origin}${doc.slug}`;
+            return (
+              <Card key={doc.documentKey} className="border-border" data-testid={`legal-card-${doc.documentKey}`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-foreground leading-tight">{doc.title}</h3>
+                    <Badge className={cn("text-[10px] font-mono flex-shrink-0", status.color)}>{status.label}</Badge>
+                  </div>
+                  <div className="space-y-1.5 text-xs text-muted-foreground font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        {doc.lastPublishedAt
+                          ? `Published ${new Date(doc.lastPublishedAt).toLocaleDateString()}`
+                          : "Never published"}
+                      </span>
+                    </div>
+                    <div className={cn("flex items-center gap-1.5 truncate", !doc.isPublished && "opacity-40")}>
+                      <Globe className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{publicUrl}</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full font-mono text-xs"
+                    onClick={() => setEditingKey(doc.documentKey)}
+                    data-testid={`legal-edit-${doc.documentKey}`}
+                  >
+                    <Edit3 className="h-3 w-3 mr-1.5" />
+                    Edit Document
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );

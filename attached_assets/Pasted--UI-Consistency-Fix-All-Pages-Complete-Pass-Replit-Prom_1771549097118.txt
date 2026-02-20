@@ -1,0 +1,208 @@
+# UI Consistency Fix — All Pages (Complete Pass)
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Fix UI/UX standard violations across 9 admin pages. The Advertising page is the reference implementation — match it exactly. Do NOT change any data, logic, routing, or functionality. Structure and styling only.
+
+THE STANDARD (non-negotiable):
+1. PageHeader: [icon in primary color] [Page Title 24px bold white] ←left | right→ [AI Button: purple #6C3FC5, Sparkles icon, "AI [Action]"] [Primary Button: primary brand color, "+ [Action]"] — 8px gap between buttons
+2. KPI Strip: 6 cards, auto-width, dark card background. Each card: label (11px uppercase muted, NO colored text), value (28px bold WHITE, NO colored text), trend indicator optional. Icons on KPI cards must be muted/white — NOT colored purple/green/blue
+3. Tab strip (where applicable)
+4. Main content
+
+CRITICAL KPI STYLING RULE: KPI card values and icons must be white/muted. The colored values (purple "3", teal "100%", green "6") and colored icons seen on Push Campaigns, Newsletters, and Campaign Builder are WRONG. All values must be white. All icons must be the primary color or muted — never individual metric colors.
+
+---
+
+FIX 1 — DASHBOARD (/admin/dashboard):
+
+Current violations:
+- Has PageHeader with icon + title — CORRECT
+- Has AI Insights button (purple) — CORRECT
+- Missing primary action button
+- Missing KPI strip entirely — goes straight to Live Activity Feed
+
+Required fixes:
+- Add primary button to PageHeader right side, left of AI button: "+ New Content" (primary color)
+- Add KPI strip between PageHeader and the Live Activity Feed:
+  6 cards: Total Subscribers | Content Published (this week) | Active Users Today | Revenue MTD | Push Delivery Rate | Avg Session Duration
+  Pull real data where available, show 0 for empty state
+
+---
+
+FIX 2 — CONTENT FACTORY (/admin/content-factory):
+
+Current violations:
+- Has PageHeader with icon + title — CORRECT
+- Has AI Generate button (purple) — CORRECT
+- Missing primary action button entirely — no primary button visible
+- KPI strip exists with 6 cards — CORRECT count
+- KPI styling appears correct (white values) — check and confirm
+
+Required fixes:
+- Add primary button to PageHeader right side, right of AI Generate: "+ New Content" (primary color)
+- Confirm KPI values are white not colored — fix if colored
+
+---
+
+FIX 3 — CAMPAIGN BUILDER (/admin/campaign-builder):
+
+Current violations:
+- Has PageHeader with icon + title — CORRECT
+- Missing AI button entirely
+- Missing primary action button (there should be one but it's not visible)
+- KPI strip has only 4 cards — needs 6
+- KPI icons are colored (purple, teal, etc.) — WRONG, must be white/muted
+- KPI values appear colored — WRONG, must be white
+
+Required fixes:
+- Add AI button to PageHeader: purple #6C3FC5, "AI Generate" (left of primary button)
+- Add primary button: "+ New Campaign" (primary color)
+- Add 2 more KPI cards to reach 6: "Open Rate" and "Total Recipients"
+- Fix all KPI icon colors → white or muted
+- Fix all KPI value colors → white (#FFFFFF)
+
+---
+
+FIX 4 — AD RESIZER (/admin/ad-resizer):
+
+Current violations:
+- Has PageHeader with icon + title — CORRECT
+- Missing AI button
+- Missing primary action button
+- Missing KPI strip entirely
+- The tool itself (upload + platforms + resize panel) is the main content — this is correct, it's a tool not a data page
+
+Required fixes:
+- Add AI button to PageHeader: "AI Suggest" (purple) — clicking this could suggest optimal platform sizes based on the uploaded image dimensions
+- Add primary button: "Resize All" (primary color) — triggers resize across all selected platforms
+- Add KPI strip with 4 meaningful cards (this page has limited metrics so 4 is acceptable as a minimum):
+  Formats Available | Last Resized | Total Downloads | Platforms Supported
+  Show static/real values: "70" for Formats Available, "9" for Platforms Supported, pull real data for others
+
+---
+
+FIX 5 — NEWSLETTERS (/admin/newsletters):
+
+Current violations:
+- Has PageHeader with icon + title — CORRECT  
+- Missing AI button
+- Primary button "+ New Newsletter" exists but is positioned wrong (floating top right outside PageHeader)
+- KPI strip has only 4 cards — needs 6
+- KPI icons are colored (purple sparkle, purple document, blue arrow, purple clock) — WRONG
+- KPI values are colored (purple "0", purple "4", white "0", white "4") — inconsistent, all must be white
+
+Required fixes:
+- Add AI button to PageHeader: "AI Generate" (purple), positioned LEFT of the primary button
+- Move "+ New Newsletter" button INTO the PageHeader right-button group (it currently floats at top right but outside the standard header component)
+- Add 2 more KPI cards to reach 6: "Total Subscribers" and "Avg Open Rate"
+- Fix all KPI icon colors → white or muted
+- Fix all KPI value colors → white (#FFFFFF) uniformly
+
+---
+
+FIX 6 — PUSH CAMPAIGNS (/admin/push-campaigns):
+
+Current violations:
+- Has PageHeader with icon + title — CORRECT
+- Missing AI button
+- Primary button "+ New Campaign" exists but floats outside PageHeader (top right, not in header component)
+- KPI strip has 5 visible cards (6th is cut off) — needs to fit 6 properly
+- KPI icons are colored (blue, purple, teal, green) — WRONG, must be white/muted
+- KPI values are colored (white "3", white "3", teal "100%", white "6") — inconsistent, all must be white
+- KPI cards are too wide/not auto-sizing to fit 6 across the full width
+
+Required fixes:
+- Add AI button to PageHeader: "AI Analyze" (purple), positioned LEFT of the primary button
+- Move "+ New Campaign" INTO the PageHeader right-button group
+- Fix KPI cards to auto-size so all 6 fit in one row without overflow:
+  6 cards: Total Subscribers | Sent This Month | Avg Delivery Rate | Total Delivered | Clicks This Month | Click Rate
+- Fix all KPI icon colors → white or muted
+- Fix all KPI value colors → white (#FFFFFF) uniformly
+
+---
+
+FIX 7 — NETWORK (/admin/network):
+
+Current violations:
+- Title "Network" has icon — CORRECT
+- Missing AI button and primary action button
+- Tab strip (Audience/Commercial) appears ABOVE KPI strip — wrong order
+- KPI strip has only 4 oversized cards
+
+Required fixes:
+- Add PageHeader buttons: AI button "AI Suggest" (purple) + primary button "+ Add Lead" (primary color)
+- Reorder layout: PageHeader → Tabs → KPI strip → pipeline boards
+- Expand KPI strip to 6 cards: Total Leads | Pipeline Value | Closed Won | Pending AI Prompts | New This Week | Avg Deal Size
+- Fix KPI card sizing so all 6 fit in one row
+
+---
+
+FIX 8 — AUDIENCE CRM (/admin/audience-crm):
+
+Current violations:
+- No PageHeader — page starts with floating "ADD SUBSCRIBER" button
+- No KPI strip
+- Tab strip (Subscribers/Campaigns) has no context above it
+- Light sidebar / dark content theme mismatch
+
+Required fixes:
+- Add full PageHeader: Users icon (primary color) | "Audience CRM" | AI button "AI Segment" (purple) | primary button "+ Add Subscriber" (primary color)
+- Remove the floating "ADD SUBSCRIBER" button — replaced by PageHeader primary button
+- Add KPI strip (6 cards): Total Subscribers | New This Week | Active | At Risk | Avg Open Rate | Churn Rate
+- Tab strip goes below KPI strip
+- Fix sidebar theme: sidebar must use dark background matching content area (check CSS class on sidebar component and ensure it inherits the admin dark theme)
+
+---
+
+FIX 9 — SALES CRM (/admin/sales-crm):
+
+Current violations:
+- No PageHeader — page starts with tabs (Companies/Contacts/Deals/Campaigns) at very top
+- No KPI strip  
+- No title, no icon, no buttons
+- Light sidebar / dark content theme mismatch
+
+Required fixes:
+- Add full PageHeader: Briefcase icon (primary color) | "Sales CRM" | AI button "AI Score" (purple) | primary button "+ Add Company" (primary color)
+- Add KPI strip (6 cards): Total Companies | Active Deals | Pipeline Value | Closed Won MTD | New Leads | Avg Deal Size
+- Tab strip goes below KPI strip
+- Fix sidebar theme: same dark background fix as Audience CRM
+
+---
+
+GLOBAL KPI STYLING FIX (apply to ALL pages above):
+
+The correct KPI card style (reference: Advertising page):
+- Card background: slightly elevated from page background (e.g. bg-card or bg-secondary)
+- Label: 11px, uppercase, letter-spacing, muted text color (e.g. text-muted-foreground)
+- Value: 28px, font-weight 700, text-white — NO exceptions
+- Icon (if present): text-primary or text-muted-foreground — never purple, teal, green, or any metric-specific color
+- Trend: optional small text below value
+
+Find the MetricsStrip or KPI card component used by the broken pages. The colored icons/values are likely caused by those pages passing a color prop or using a different component variant than Advertising uses. Make them all use the same component with the same default styling as Advertising.
+
+---
+
+DO NOT CHANGE:
+- Advertising page (reference — already correct)
+- Settings page (already correct)
+- Any routing, data fetching, API calls, or business logic
+- The actual content/functionality of any page
+
+---
+
+VERIFICATION CHECKLIST:
+1. Dashboard: PageHeader shows icon + title + AI Insights + New Content. KPI strip of 6 appears above Live Activity Feed.
+2. Content Factory: PageHeader shows AI Generate + New Content buttons side by side
+3. Campaign Builder: 6 KPI cards, all white values and muted icons, AI Generate + New Campaign buttons
+4. Ad Resizer: PageHeader has AI Suggest + Resize All. 4 KPI cards visible.
+5. Newsletters: 6 KPI cards, all white values, AI Generate + New Newsletter in header
+6. Push Campaigns: 6 KPI cards all fitting in one row, all white values, AI Analyze + New Campaign in header
+7. Network: PageHeader has buttons, layout is Header → Tabs → KPIs → content
+8. Audience CRM: Full PageHeader present, 6 KPI cards, no floating button, dark sidebar
+9. Sales CRM: Full PageHeader present, 6 KPI cards, tab strip below KPIs, dark sidebar
+10. Advertising page unchanged and still renders correctly
+11. No KPI card across any page shows a colored value (purple, teal, green, blue) — all values white
+```

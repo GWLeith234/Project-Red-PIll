@@ -36,6 +36,7 @@ import SchedulerPage from "@/pages/SchedulerPage";
 import AdResizer from "@/pages/AdResizer";
 import NewsletterManager from "@/pages/NewsletterManager";
 import LegalAdmin from "@/pages/LegalAdmin";
+import LegalPage from "@/pages/LegalPage";
 import SiteBuilder from "@/pages/SiteBuilder";
 import PageBuilder from "@/pages/PageBuilder";
 import BuiltPage from "@/pages/BuiltPage";
@@ -230,13 +231,13 @@ function ProtectedRoutes() {
           <Route path="/sales">{() => <PermissionGate permission="sales.view"><CommercialCRM /></PermissionGate>}</Route>
           <Route path="/audience">{() => <PermissionGate permission="audience.view"><SubscriberCRM /></PermissionGate>}</Route>
           <Route path="/analytics">{() => <PermissionGate permission="analytics.view"><Analytics /></PermissionGate>}</Route>
-          <Route path="/customize">{() => <PermissionGate permission="customize.view"><Customize /></PermissionGate>}</Route>
+          <Route path="/customize">{() => <Redirect to="/settings?tab=branding" />}</Route>
           <Route path="/users">{() => <PermissionGate permission="users.view"><UsersAdmin /></PermissionGate>}</Route>
           <Route path="/settings">{() => <PermissionGate permission="settings.view"><Settings /></PermissionGate>}</Route>
           <Route path="/kanban">{() => <Redirect to="/" />}</Route>
           <Route path="/my-tasks">{() => <Redirect to="/" />}</Route>
           <Route path="/newsletters">{() => <PermissionGate permission="content.view"><NewsletterManager /></PermissionGate>}</Route>
-          <Route path="/legal-admin">{() => <PermissionGate permission="settings.view"><LegalAdmin /></PermissionGate>}</Route>
+          <Route path="/legal-admin">{() => <Redirect to="/settings?tab=legal" />}</Route>
           <Route path="/community">{() => <PermissionGate permission="content.view"><CommunityAdmin /></PermissionGate>}</Route>
           <Route path="/push-campaigns">{() => <PermissionGate permission="content.edit"><PushCampaigns /></PermissionGate>}</Route>
           <Route path="/site-builder">{() => <PermissionGate permission="customize.edit"><SiteBuilder /></PermissionGate>}</Route>
@@ -268,6 +269,7 @@ function App() {
             <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
             <Route path="/events">{() => <AudienceLayout><EventsPage /></AudienceLayout>}</Route>
             <Route path="/community-hub">{() => <AudienceLayout><CommunityPage /></AudienceLayout>}</Route>
+            <Route path="/legal/:slug">{() => <AudienceLayout><LegalPage /></AudienceLayout>}</Route>
             <Route path="/page/:slug">{() => <AudienceLayout><BuiltPage /></AudienceLayout>}</Route>
             <Route path="/analytics/live-map">{() => <LiveMapBroadcast />}</Route>
             <Route>

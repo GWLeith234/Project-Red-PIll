@@ -13,6 +13,33 @@ import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieCons
 import NpsWidget from "@/components/NpsWidget";
 import { NetworkSponsorBanner } from "@/components/SponsorStrip";
 
+function LegalFooterLinks({ platformName }: { platformName: string }) {
+  const { data: legalDocs } = useQuery({
+    queryKey: ["/api/public/legal"],
+    queryFn: async () => {
+      const res = await fetch("/api/public/legal");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 300000,
+  });
+
+  return (
+    <div className="border-t border-border/50 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {platformName}. All rights reserved.</p>
+      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap justify-center">
+        {legalDocs?.map((doc: { title: string; slug: string }) => (
+          <Link key={doc.slug} href={doc.slug} className="hover:text-foreground transition-colors" data-testid={`footer-legal-${doc.slug.split('/').pop()}`}>
+            {doc.title}
+          </Link>
+        ))}
+        <a href="mailto:george@salemmedia.com" className="hover:text-foreground transition-colors">Contact</a>
+        <CookieSettingsLink className="text-xs text-muted-foreground hover:text-muted-foreground cursor-pointer transition-colors" />
+      </div>
+    </div>
+  );
+}
+
 function usePublicPodcasts() {
   return useQuery({
     queryKey: ["/api/public/podcasts"],
@@ -610,15 +637,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="border-t border-border/50 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {platformName}. All rights reserved.</p>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
-              <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
-              <a href="mailto:george@salemmedia.com" className="hover:text-foreground transition-colors">Contact</a>
-              <CookieSettingsLink className="text-xs text-muted-foreground hover:text-muted-foreground cursor-pointer transition-colors" />
-            </div>
-          </div>
+          <LegalFooterLinks platformName={platformName} />
         </div>
       </footer>
     </div>
