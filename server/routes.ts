@@ -6706,8 +6706,8 @@ Return ONLY the JSON array, no markdown formatting.`;
 
   // ── Admin Page Config ──
   const SEED_CONFIGS: Array<Record<string, any>> = [
-    { pageKey: "dashboard", title: "Dashboard", iconName: "LayoutDashboard", route: "/", permission: "dashboard.view", navSection: "command_center", sortOrder: 1, aiActionLabel: "AI Insights", description: "Command center overview with KPIs and alerts" },
-    { pageKey: "content-factory", title: "Content Factory", iconName: "FileText", route: "/content", permission: "content.view", navSection: "content", sortOrder: 10, primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", description: "AI content production pipeline" },
+    { pageKey: "dashboard", title: "Platform | Dashboard", iconName: "LayoutDashboard", route: "/", permission: "dashboard.view", navSection: "command_center", sortOrder: 1, aiActionLabel: "AI Insights", description: "Command center overview with KPIs and alerts" },
+    { pageKey: "content-factory", title: "Generator", iconName: "FileText", route: "/content", permission: "content.view", navSection: "content", sortOrder: 10, primaryActionLabel: "+ New Content", aiActionLabel: "AI Generate", description: "AI content production pipeline" },
     { pageKey: "scheduler", title: "Scheduler", iconName: "CalendarClock", route: "/scheduler", permission: "content.view", navSection: "content", sortOrder: 11, description: "Schedule and manage content publishing" },
     { pageKey: "moderation", title: "Moderation Queue", iconName: "Shield", route: "/moderation", permission: "content.edit", navSection: "content", sortOrder: 12, description: "Review and approve AI-generated content" },
     { pageKey: "ai-site-editor", title: "AI Site Editor", iconName: "PanelLeft", route: "/site-builder", permission: "customize.edit", navSection: "content", sortOrder: 15, primaryActionLabel: "+ New Page", aiActionLabel: "AI Build", description: "Build and customize site pages" },
@@ -6722,11 +6722,11 @@ Return ONLY the JSON array, no markdown formatting.`;
     { pageKey: "network", title: "Network", iconName: "Network", route: "/network", permission: "network.view", navSection: "network", sortOrder: 30, primaryActionLabel: "+ Add Contact", aiActionLabel: "AI Suggest", description: "Podcast network and show management" },
     { pageKey: "audience", title: "Audience CRM", iconName: "ContactRound", route: "/audience", permission: "audience.view", navSection: "network", sortOrder: 31, description: "Audience management and engagement" },
     { pageKey: "sales", title: "Sales CRM", iconName: "Briefcase", route: "/sales", permission: "sales.view", navSection: "network", sortOrder: 32, description: "B2B sales pipeline and deal management" },
-    { pageKey: "analytics", title: "Analytics", iconName: "BarChart3", route: "/analytics", permission: "analytics.view", navSection: "analytics", sortOrder: 40, primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", description: "Audience analytics and reporting" },
+    { pageKey: "analytics", title: "Live Site & App | Dashboard", iconName: "BarChart3", route: "/analytics", permission: "analytics.view", navSection: "command_center", sortOrder: 2, primaryActionLabel: "Export Report", aiActionLabel: "AI Analyze", description: "Audience analytics and reporting" },
     { pageKey: "settings", title: "Settings", iconName: "Settings", route: "/settings", permission: "settings.view", navSection: "admin", sortOrder: 50, description: "Platform configuration and preferences" },
     { pageKey: "users", title: "Users & Permissions", iconName: "Shield", route: "/users", permission: "users.view", navSection: "admin", sortOrder: 51, primaryActionLabel: "+ Add User", description: "Manage users, roles, and permissions" },
-    { pageKey: "customize", title: "Branding", iconName: "Paintbrush", route: "/customize", permission: "customize.view", navSection: "admin", sortOrder: 52, description: "Branding, logos, and theme configuration" },
-    { pageKey: "legal-admin", title: "Legal", iconName: "FileText", route: "/legal-admin", permission: "settings.view", navSection: "admin", sortOrder: 53, description: "Manage terms, privacy, and legal documents" },
+    { pageKey: "customize", title: "Branding", iconName: "Paintbrush", route: "/customize", permission: "customize.view", navSection: "admin", sortOrder: 52, isVisible: false, description: "Branding, logos, and theme configuration" },
+    { pageKey: "legal-admin", title: "Legal", iconName: "FileText", route: "/legal-admin", permission: "settings.view", navSection: "admin", sortOrder: 53, isVisible: false, description: "Manage terms, privacy, and legal documents" },
   ];
 
   app.get("/api/admin/page-config", requireAuth, async (_req, res) => {
@@ -6783,7 +6783,6 @@ Return ONLY the JSON array, no markdown formatting.`;
     { sectionKey: "content", displayName: "CONTENT FACTORY", iconName: "FileText", sortOrder: 10, isCollapsedDefault: false },
     { sectionKey: "monetization", displayName: "REVENUE FACTORY", iconName: "DollarSign", sortOrder: 20, isCollapsedDefault: false },
     { sectionKey: "network", displayName: "AUDIENCE", iconName: "Radio", sortOrder: 30, isCollapsedDefault: false },
-    { sectionKey: "analytics", displayName: "ANALYTICS", iconName: "BarChart3", sortOrder: 40, isCollapsedDefault: false },
     { sectionKey: "admin", displayName: "ADMIN", iconName: "Settings", sortOrder: 50, isCollapsedDefault: false },
   ];
 
