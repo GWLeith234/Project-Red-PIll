@@ -1803,6 +1803,25 @@ export const insertAutoUpsellDraftSchema = createInsertSchema(autoUpsellDrafts).
 export type InsertAutoUpsellDraft = z.infer<typeof insertAutoUpsellDraftSchema>;
 export type AutoUpsellDraft = typeof autoUpsellDrafts.$inferSelect;
 
+export const legalDocuments = pgTable("legal_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentKey: text("document_key").unique().notNull(),
+  title: text("title").notNull(),
+  slug: text("slug").unique().notNull(),
+  content: text("content"),
+  lastPublishedAt: timestamp("last_published_at"),
+  lastEditedAt: timestamp("last_edited_at").defaultNow(),
+  publishedVersion: text("published_version"),
+  isPublished: boolean("is_published").default(false),
+  metaDescription: text("meta_description"),
+  wcagChecklist: jsonb("wcag_checklist"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLegalDocumentSchema = createInsertSchema(legalDocuments).omit({ id: true, createdAt: true });
+export type InsertLegalDocument = z.infer<typeof insertLegalDocumentSchema>;
+export type LegalDocument = typeof legalDocuments.$inferSelect;
+
 export const integrationSettings = pgTable("integration_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   settingKey: text("setting_key").notNull().unique(),

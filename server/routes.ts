@@ -8502,6 +8502,82 @@ Return ONLY valid JSON, no markdown.`
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // ─── Legal Documents ────────────────────────────────────
+  app.get("/api/legal", requirePermission("settings.view"), async (_req, res) => {
+    try {
+      const docs = await storage.getLegalDocuments();
+      res.json(docs.map(d => ({
+        id: d.id, documentKey: d.documentKey, title: d.title, slug: d.slug,
+        lastPublishedAt: d.lastPublishedAt, isPublished: d.isPublished,
+        lastEditedAt: d.lastEditedAt, wcagChecklist: d.wcagChecklist,
+      })));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/legal/:key", requirePermission("settings.view"), async (req, res) => {
+    try {
+      const doc = await storage.getLegalDocument(req.params.key);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      res.json(doc);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/legal/:key", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const { title, content, metaDescription, wcagChecklist } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (content !== undefined) updates.content = content;
+      if (metaDescription !== undefined) updates.metaDescription = metaDescription;
+      if (wcagChecklist !== undefined) updates.wcagChecklist = wcagChecklist;
+      const doc = await storage.updateLegalDocument(req.params.key, updates);
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      res.json(doc);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/legal/:key/publish", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const existing = await storage.getLegalDocument(req.params.key);
+      if (!existing) return res.status(404).json({ message: "Document not found" });
+      const doc = await storage.updateLegalDocument(req.params.key, {
+        publishedVersion: existing.content,
+        lastPublishedAt: new Date(),
+        isPublished: true,
+      });
+      res.json(doc);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/legal/:key/unpublish", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const doc = await storage.updateLegalDocument(req.params.key, { isPublished: false });
+      if (!doc) return res.status(404).json({ message: "Document not found" });
+      res.json(doc);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/public/legal/:slug", async (req, res) => {
+    try {
+      const doc = await storage.getLegalDocumentBySlug(`/legal/${req.params.slug}`);
+      if (!doc || !doc.isPublished) return res.status(404).json({ message: "Document not found" });
+      res.json({
+        title: doc.title, slug: doc.slug,
+        content: doc.publishedVersion || doc.content,
+        lastPublishedAt: doc.lastPublishedAt, metaDescription: doc.metaDescription,
+      });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/public/legal", async (_req, res) => {
+    try {
+      const docs = await storage.getLegalDocuments();
+      res.json(docs.filter(d => d.isPublished).map(d => ({
+        title: d.title, slug: d.slug,
+      })));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // ─── Live Site & App Settings ────────────────────────────────────
   app.get("/api/settings/live-site", requirePermission("settings.view"), async (_req, res) => {
     try {

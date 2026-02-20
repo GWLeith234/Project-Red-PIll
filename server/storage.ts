@@ -86,6 +86,7 @@ import {
   qrScans, type QrScan, type InsertQrScan,
   autoUpsellDrafts, type AutoUpsellDraft, type InsertAutoUpsellDraft,
   integrationSettings, type IntegrationSetting,
+  legalDocuments, type LegalDocument, type InsertLegalDocument,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -149,6 +150,11 @@ export interface IStorage {
 
   getIntegrationSettings(): Promise<Record<string, string>>;
   upsertIntegrationSettings(data: Record<string, string>): Promise<void>;
+
+  getLegalDocuments(): Promise<LegalDocument[]>;
+  getLegalDocument(key: string): Promise<LegalDocument | undefined>;
+  updateLegalDocument(key: string, data: Partial<InsertLegalDocument>): Promise<LegalDocument | undefined>;
+  getLegalDocumentBySlug(slug: string): Promise<LegalDocument | undefined>;
 
   getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
@@ -785,6 +791,28 @@ export class DatabaseStorage implements IStorage {
           set: { settingValue: value, updatedAt: new Date() },
         });
     }
+  }
+
+  async getLegalDocuments(): Promise<LegalDocument[]> {
+    return db.select().from(legalDocuments).orderBy(legalDocuments.documentKey);
+  }
+
+  async getLegalDocument(key: string): Promise<LegalDocument | undefined> {
+    const [doc] = await db.select().from(legalDocuments).where(eq(legalDocuments.documentKey, key));
+    return doc;
+  }
+
+  async updateLegalDocument(key: string, data: Partial<InsertLegalDocument>): Promise<LegalDocument | undefined> {
+    const [doc] = await db.update(legalDocuments)
+      .set({ ...data, lastEditedAt: new Date() })
+      .where(eq(legalDocuments.documentKey, key))
+      .returning();
+    return doc;
+  }
+
+  async getLegalDocumentBySlug(slug: string): Promise<LegalDocument | undefined> {
+    const [doc] = await db.select().from(legalDocuments).where(eq(legalDocuments.slug, slug));
+    return doc;
   }
 
   async getAuditLogs(limit = 50, offset = 0) {
