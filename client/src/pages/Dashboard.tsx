@@ -36,7 +36,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500" data-testid="dashboard-page">
-      <PageHeader pageKey="dashboard" onAIAction={() => setShowAiBrief(true)} />
+      <PageHeader pageKey="dashboard" onAIAction={() => setShowAiBrief(true)} onPrimaryAction={() => {}} primaryActionOverride="+ New Content" />
 
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" data-testid="metrics-skeleton">

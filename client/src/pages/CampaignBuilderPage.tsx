@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -202,28 +203,18 @@ export default function CampaignBuilderPage() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <PageHeader pageKey="campaigns" onPrimaryAction={() => openBuilder()} />
+      <PageHeader pageKey="campaigns" onPrimaryAction={() => openBuilder()} primaryActionOverride="+ New Campaign" onAIAction={() => {}} aiActionOverride="AI Generate" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Total Campaigns", value: stats.total, icon: FileText, color: "text-primary", bgColor: "bg-primary/10", borderColor: "border-primary/20" },
-          { label: "Drafts", value: stats.drafts, icon: Clock, color: "text-chart-4", bgColor: "bg-chart-4/10", borderColor: "border-chart-4/20" },
-          { label: "Sent", value: stats.sent, icon: CheckCircle2, color: "text-accent", bgColor: "bg-accent/10", borderColor: "border-accent/20" },
-          { label: "Total Recipients", value: stats.totalRecipients.toLocaleString(), icon: Users, color: "text-chart-1", bgColor: "bg-chart-1/10", borderColor: "border-chart-1/20" },
-        ].map((stat) => (
-          <Card key={stat.label} className={cn("glass-panel border", stat.borderColor)} data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", stat.bgColor)}>
-                  <stat.icon className={cn("h-4 w-4", stat.color)} />
-                </div>
-                <span className={cn("text-2xl font-bold font-display", stat.color)}>{stat.value}</span>
-              </div>
-              <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{stat.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <MetricsStrip
+        metrics={[
+          { label: "TOTAL CAMPAIGNS", value: stats.total },
+          { label: "ACTIVE", value: stats.sent },
+          { label: "EMAILS SENT", value: stats.totalSent },
+          { label: "BOUNCE RATE", value: stats.totalBounces > 0 && stats.totalSent > 0 ? `${((stats.totalBounces / stats.totalSent) * 100).toFixed(1)}%` : "0%" },
+          { label: "OPEN RATE", value: "—" },
+          { label: "TOTAL RECIPIENTS", value: "—" },
+        ]}
+      />
 
       {stats.sent > 0 && (
         <Card className="glass-panel border-border/50" data-testid="campaign-kpi-dashboard">

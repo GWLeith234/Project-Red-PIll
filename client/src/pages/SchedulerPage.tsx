@@ -383,14 +383,14 @@ export default function SchedulerPage() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <PageHeader pageKey="scheduler" onPrimaryAction={() => openNewDialog()} onAIAction={() => {
+      <PageHeader pageKey="scheduler" onPrimaryAction={() => openNewDialog()} primaryActionOverride="+ Schedule Post" onAIAction={() => {
               setSmartFillRange({
                 from: new Date(currentYear, currentMonth, 1),
                 to: new Date(currentYear, currentMonth + 1, 0),
               });
               setSmartFillMode("review");
               setSmartFillOpen(true);
-            }} isAILoading={autoSchedule.isPending} />
+            }} aiActionOverride="AI Schedule" isAILoading={autoSchedule.isPending} />
 
       <div className="flex flex-wrap gap-2 items-center">
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Channels:</span>

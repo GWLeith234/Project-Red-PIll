@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 
 interface ResizedImage {
   name: string;
@@ -184,7 +185,18 @@ export default function AdResizer() {
 
   return (
     <div className="p-6 space-y-6" data-testid="ad-resizer-page">
-      <PageHeader pageKey="ad-resizer" />
+      <PageHeader pageKey="ad-resizer" onAIAction={() => {}} aiActionOverride="AI Suggest" onPrimaryAction={() => {}} primaryActionOverride="Resize All" />
+
+      <MetricsStrip
+        columns={4}
+        metrics={[
+          { label: "FORMATS AVAILABLE", value: "70" },
+          { label: "PLATFORMS SUPPORTED", value: "9" },
+          { label: "LAST RESIZED", value: "—" },
+          { label: "TOTAL DOWNLOADS", value: 0 },
+        ]}
+      />
+
       {results && (
         <div className="flex justify-end -mt-4">
           <Button variant="outline" onClick={clearAll} data-testid="button-clear-all">

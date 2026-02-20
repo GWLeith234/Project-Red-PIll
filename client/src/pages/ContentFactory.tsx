@@ -207,7 +207,7 @@ export default function ContentFactory() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <PageHeader pageKey="content-factory" onAIAction={() => setShowAIGenerate(true)} />
+      <PageHeader pageKey="content-factory" onAIAction={() => setShowAIGenerate(true)} onPrimaryAction={() => {}} primaryActionOverride="+ New Content" />
 
       {metricsItems.length > 0 && <MetricsStrip metrics={metricsItems} />}
 

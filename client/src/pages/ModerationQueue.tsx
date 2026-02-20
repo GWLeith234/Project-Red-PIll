@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -199,7 +200,16 @@ export default function ModerationQueue() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" data-testid="moderation-queue-page">
-      <PageHeader pageKey="moderation" onPrimaryAction={() => setGenerateOpen(true)} />
+      <PageHeader pageKey="moderation" onPrimaryAction={() => setGenerateOpen(true)} primaryActionOverride="Ship All" onAIAction={() => {}} aiActionOverride="AI Moderate" />
+
+      <MetricsStrip metrics={[
+        { label: "TOTAL PENDING", value: "N/A" },
+        { label: "APPROVED TODAY", value: 0 },
+        { label: "SOCIAL POSTS", value: "N/A" },
+        { label: "CLIPS", value: "N/A" },
+        { label: "NEWSLETTERS", value: "N/A" },
+        { label: "AVG REVIEW TIME", value: "—" },
+      ]} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {CONTENT_TABS.filter(t => t.id !== "all").map(tab => {

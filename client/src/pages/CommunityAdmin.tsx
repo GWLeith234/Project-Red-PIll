@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
@@ -30,6 +30,13 @@ type TabKey = typeof TABS[number]["key"];
 
 export default function CommunityAdmin() {
   const [activeTab, setActiveTab] = useState<TabKey>("events");
+  const [addTrigger, setAddTrigger] = useState(0);
+
+  const primaryLabels: Record<TabKey, string> = {
+    events: "+ Add Event",
+    polls: "+ Add Poll",
+    discussion: "+ Add Post",
+  };
 
   const { data: metricsData } = useQuery({
     queryKey: ["/api/admin/page-metrics/community"],
@@ -42,22 +49,24 @@ export default function CommunityAdmin() {
 
   return (
     <div data-testid="community-admin-page" className="max-w-7xl mx-auto">
-      <PageHeader pageKey="community" />
+      <PageHeader
+        pageKey="community"
+        onAIAction={() => {}}
+        aiActionOverride="AI Moderate"
+        onPrimaryAction={() => setAddTrigger(t => t + 1)}
+        primaryActionOverride={primaryLabels[activeTab]}
+      />
 
-      {metricsData?.metrics && (
-        <div className="mb-6">
-          <MetricsStrip
-            metrics={[
-              { label: "Active Events", value: metricsData.metrics.activeEvents ?? 0 },
-              { label: "Open Polls", value: metricsData.metrics.openPolls ?? 0 },
-              { label: "Total Votes", value: metricsData.metrics.totalVotes ?? 0 },
-              { label: "Posts Today", value: metricsData.metrics.postsToday ?? 0 },
-              { label: "Flagged Posts", value: metricsData.metrics.flaggedPosts ?? 0 },
-              { label: "Active Users", value: metricsData.metrics.activeUsers ?? 0 },
-            ]}
-          />
-        </div>
-      )}
+      <MetricsStrip
+        metrics={[
+          { label: "ACTIVE EVENTS", value: "N/A" },
+          { label: "OPEN POLLS", value: "N/A" },
+          { label: "TOTAL VOTES", value: 0 },
+          { label: "COMMUNITY POSTS", value: "N/A" },
+          { label: "FLAGGED POSTS", value: 0 },
+          { label: "ACTIVE USERS", value: "—" },
+        ]}
+      />
 
       <div className="flex items-center gap-1 mb-6 flex-wrap border-b border-border" data-testid="community-tabs">
         {TABS.map(tab => (
@@ -77,8 +86,8 @@ export default function CommunityAdmin() {
         ))}
       </div>
 
-      {activeTab === "events" && <EventsTab />}
-      {activeTab === "polls" && <PollsTab />}
+      {activeTab === "events" && <EventsTab addTrigger={addTrigger} />}
+      {activeTab === "polls" && <PollsTab addTrigger={addTrigger} />}
       {activeTab === "discussion" && <DiscussionTab />}
     </div>
   );
@@ -147,11 +156,15 @@ const inputClass = "w-full bg-background border border-border px-3 py-2 text-sm 
 const selectClass = inputClass + " appearance-none cursor-pointer";
 const textareaClass = inputClass + " min-h-[80px] resize-y";
 
-function EventsTab() {
+function EventsTab({ addTrigger }: { addTrigger: number }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [deleting, setDeleting] = useState<any>(null);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (addTrigger > 0) { setShowForm(true); setEditing(null); }
+  }, [addTrigger]);
 
   const { data: events = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/community-events"], queryFn: () => api("/api/community-events") });
 
@@ -177,9 +190,6 @@ function EventsTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input type="text" placeholder="Search events..." value={search} onChange={e => setSearch(e.target.value)} className={`${inputClass} pl-9`} data-testid="input-search-events" />
         </div>
-        <button onClick={() => { setShowForm(true); setEditing(null); }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90 transition-all" data-testid="button-add-event">
-          <Plus className="h-4 w-4" /> Add Event
-        </button>
       </div>
 
       {(showForm || editing) && (
@@ -450,11 +460,15 @@ function ClassifiedForm({ initial, onSubmit, isPending, error }: { initial?: any
   );
 }
 
-function PollsTab() {
+function PollsTab({ addTrigger }: { addTrigger: number }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [deleting, setDeleting] = useState<any>(null);
   const [viewingPoll, setViewingPoll] = useState<any>(null);
+
+  useEffect(() => {
+    if (addTrigger > 0) { setShowForm(true); setEditing(null); }
+  }, [addTrigger]);
 
   const { data: items = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/community-polls"], queryFn: () => api("/api/community-polls") });
   const createMut = useMutation({ mutationFn: (d: any) => api("/api/community-polls", { method: "POST", body: JSON.stringify(d) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/community-polls"] }); setShowForm(false); } });
@@ -465,11 +479,6 @@ function PollsTab() {
 
   return (
     <div data-testid="polls-tab">
-      <div className="flex items-center justify-end mb-4">
-        <button onClick={() => { setShowForm(true); setEditing(null); }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-medium text-sm rounded-lg hover:bg-primary/90" data-testid="button-add-poll">
-          <Plus className="h-4 w-4" /> Add Poll
-        </button>
-      </div>
 
       {(showForm || editing) && (
         <FormOverlay title={editing ? "Edit Poll" : "Add Poll"} onClose={() => { setShowForm(false); setEditing(null); }}>

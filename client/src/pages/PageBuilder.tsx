@@ -1132,7 +1132,7 @@ export default function PageBuilder() {
 
   return (
     <div className="p-6" data-testid="page-builder-list">
-      <PageHeader pageKey="page-builder" onPrimaryAction={() => { resetCreateForm(); setShowCreateDialog(true); }} primaryActionOverride="Create New Page" />
+      <PageHeader pageKey="page-builder" onPrimaryAction={() => { resetCreateForm(); setShowCreateDialog(true); }} primaryActionOverride="+ Create Page" onAIAction={() => {}} aiActionOverride="AI Generate" />
 
       <MetricsStrip metrics={[
         { label: "Total Pages", value: pages.length },

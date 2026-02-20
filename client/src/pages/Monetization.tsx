@@ -738,7 +738,7 @@ export default function Monetization() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <PageHeader pageKey="monetization" />
+      <PageHeader pageKey="monetization" onAIAction={() => {}} aiActionOverride="AI Optimize" onPrimaryAction={() => {}} primaryActionOverride="+ New Campaign" />
 
       <MetricsStrip
         metrics={[

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 
 const CADENCE_COLORS: Record<string, string> = {
   daily: "bg-blue-500/10 text-blue-400 border-blue-500/30",
@@ -280,28 +281,16 @@ export default function NewsletterManager() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <PageHeader pageKey="newsletters" onPrimaryAction={openCreateDialog} />
+      <PageHeader pageKey="newsletters" onPrimaryAction={openCreateDialog} primaryActionOverride="+ New Newsletter" onAIAction={() => {}} aiActionOverride="AI Generate" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Active Schedules", value: stats.activeSchedules, icon: Sparkles, color: "text-primary", bgColor: "bg-primary/10", borderColor: "border-primary/20" },
-          { label: "Total Runs", value: stats.totalRuns, icon: FileText, color: "text-chart-4", bgColor: "bg-chart-4/10", borderColor: "border-chart-4/20" },
-          { label: "Sent This Month", value: stats.sentThisMonth, icon: Send, color: "text-accent", bgColor: "bg-accent/10", borderColor: "border-accent/20" },
-          { label: "Drafts Pending", value: stats.draftsPending, icon: Clock, color: "text-chart-1", bgColor: "bg-chart-1/10", borderColor: "border-chart-1/20" },
-        ].map((stat) => (
-          <Card key={stat.label} className={cn("glass-panel border", stat.borderColor)} data-testid={`stat-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", stat.bgColor)}>
-                  <stat.icon className={cn("h-4 w-4", stat.color)} />
-                </div>
-                <span className={cn("text-2xl font-bold font-display", stat.color)}>{stat.value}</span>
-              </div>
-              <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{stat.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <MetricsStrip metrics={[
+        { label: "ACTIVE SCHEDULES", value: stats.activeSchedules },
+        { label: "TOTAL RUNS", value: stats.totalRuns },
+        { label: "SENT THIS MONTH", value: stats.sentThisMonth },
+        { label: "DRAFTS PENDING", value: stats.draftsPending },
+        { label: "TOTAL SUBSCRIBERS", value: "N/A" },
+        { label: "AVG OPEN RATE", value: "—" },
+      ]} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-card/50 border border-border/50 p-1 h-auto" data-testid="tabs-newsletter">
