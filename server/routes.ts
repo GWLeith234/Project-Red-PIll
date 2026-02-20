@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces, adminNavSections, communityEvents, communityPolls } from "@shared/schema";
+import { subscriberBookmarks, pageAnalytics, npsResponses, userFeedback, aiInsightsCache, liveSessions, devicePushSubscriptions, pushCampaigns, pushCampaignLogs, subscribers, contentPieces, adminNavSections, communityEvents, communityPolls, contentGenerationJobs, scheduledPosts } from "@shared/schema";
 import { lookupIP, getRandomDevCity } from "./geo-lookup";
 import { addFeedClient, getRecentActivities, trackSubscriber, trackArticlePublished, trackCommunityPost, trackPollVote, trackNpsSubmission, trackEventCreated, addActivity } from "./activity-feed";
 import type { Response as ExpressResponse } from "express";
@@ -1156,6 +1156,199 @@ export async function registerRoutes(
     const updated = await storage.updateContentPiece(req.params.id, updateData);
     if (!updated) return res.status(404).json({ message: "Content not found" });
     res.json(updated);
+  });
+
+  // ── Content Pipeline: Generation Jobs ──
+  app.post("/api/content/generate/:episodeId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { generateContentWaterfall } = await import("./agents/generator-agent");
+      const episodeId = req.params.episodeId;
+      const episode = await storage.getEpisode(episodeId);
+      if (!episode) return res.status(404).json({ message: "Episode not found" });
+      const podcast = episode.podcastId ? await storage.getPodcast(episode.podcastId) : null;
+      const transcript = (episode as any).transcript || "";
+      const [job] = await db.insert(contentGenerationJobs).values({
+        episodeId,
+        episodeTitle: episode.title,
+        showName: podcast?.title || "The Show",
+        status: "queued",
+        transcript,
+      }).returning();
+      generateContentWaterfall(job.id).then(async (result) => {
+        const { moderateAll } = await import("./agents/moderation-agent");
+        try { await moderateAll(episodeId); } catch (e) { console.error("[Pipeline] Moderation error:", e); }
+      }).catch(err => console.error("[Pipeline] Generation error:", err));
+      res.json({ jobId: job.id, status: "queued" });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/content/jobs", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    try {
+      const jobs = await db.select().from(contentGenerationJobs).orderBy(desc(contentGenerationJobs.createdAt)).limit(50);
+      res.json(jobs);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/content/jobs/:jobId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const [job] = await db.select().from(contentGenerationJobs).where(eq(contentGenerationJobs.id, req.params.jobId));
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      res.json(job);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/content/pieces", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const sourceEpisodeId = req.query.source_episode_id as string | undefined;
+      let pieces;
+      if (sourceEpisodeId) {
+        pieces = await db.select().from(contentPieces).where(eq(contentPieces.sourceEpisodeId, sourceEpisodeId)).orderBy(desc(contentPieces.createdAt));
+      } else {
+        pieces = await db.select().from(contentPieces).orderBy(desc(contentPieces.createdAt)).limit(100);
+      }
+      res.json(pieces);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Content Pipeline: Moderation Agent ──
+  app.post("/api/moderation/piece/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { moderateContentPiece } = await import("./agents/moderation-agent");
+      const result = await moderateContentPiece(req.params.id);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/moderation/episode/:episodeId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { moderateAll } = await import("./agents/moderation-agent");
+      const result = await moderateAll(req.params.episodeId);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/moderation/moderate-all-pending", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    try {
+      const { moderateAllPending } = await import("./agents/moderation-agent");
+      const result = await moderateAllPending();
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/moderation/ship/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const updated = await storage.updateContentPiece(req.params.id, {
+        pipelineStage: "published",
+        publishedAt: new Date(),
+        status: "published",
+        moderationStatus: "approved",
+      });
+      if (!updated) return res.status(404).json({ message: "Content not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/moderation/ship-all", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    try {
+      const approved = await db.select().from(contentPieces).where(eq(contentPieces.moderationStatus, "approved"));
+      let shipped = 0;
+      for (const piece of approved) {
+        if (piece.pipelineStage === "published") continue;
+        await storage.updateContentPiece(piece.id, {
+          pipelineStage: "published",
+          publishedAt: new Date(),
+          status: "published",
+        });
+        shipped++;
+      }
+      res.json({ shipped });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/moderation/apply-rewrite/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const [piece] = await db.select().from(contentPieces).where(eq(contentPieces.id, req.params.id));
+      if (!piece) return res.status(404).json({ message: "Content not found" });
+      if (!piece.aiRewriteSuggestion) return res.status(400).json({ message: "No rewrite suggestion available" });
+      const updated = await storage.updateContentPiece(req.params.id, {
+        body: piece.aiRewriteSuggestion,
+        aiRewriteSuggestion: null,
+        moderationStatus: "pending",
+      });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Content Pipeline: Scheduler Agent ──
+  app.post("/api/scheduler/suggest/:episodeId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { suggestSchedule } = await import("./agents/scheduler-agent");
+      const schedule = await suggestSchedule(req.params.episodeId);
+      res.json(schedule);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/scheduler/confirm/:episodeId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { confirmSchedule } = await import("./agents/scheduler-agent");
+      const schedule = req.body.schedule || [];
+      const posts = await confirmSchedule(req.params.episodeId, schedule);
+      res.json(posts);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/scheduler/calendar", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const start = req.query.start ? new Date(req.query.start as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = req.query.end ? new Date(req.query.end as string) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const posts = await db.select().from(scheduledPosts)
+        .where(and(gte(scheduledPosts.scheduledAt, start), sql`${scheduledPosts.scheduledAt} <= ${end}`))
+        .orderBy(scheduledPosts.scheduledAt);
+      res.json(posts);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/scheduler/reschedule/:postId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { scheduledAt } = req.body;
+      if (!scheduledAt) return res.status(400).json({ message: "scheduledAt required" });
+      await db.update(scheduledPosts).set({ scheduledAt: new Date(scheduledAt) }).where(eq(scheduledPosts.id, req.params.postId));
+      const [updated] = await db.select().from(scheduledPosts).where(eq(scheduledPosts.id, req.params.postId));
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/scheduler/cancel/:postId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      await db.update(scheduledPosts).set({ status: "cancelled" }).where(eq(scheduledPosts.id, req.params.postId));
+      res.json({ cancelled: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // ── Content Pipeline: Analytics ──
+  app.get("/api/analytics/content/:episodeId", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { getContentPerformanceSummary } = await import("./agents/analytics-reporter");
+      const summary = await getContentPerformanceSummary(req.params.episodeId);
+      res.json(summary);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/analytics/content/piece/:id", requireAuth, requirePermission("content.edit"), async (req, res) => {
+    try {
+      const { reportContentPerformance } = await import("./agents/analytics-reporter");
+      const report = await reportContentPerformance(req.params.id);
+      if (!report) return res.status(404).json({ message: "Content not found" });
+      res.json(report);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/analytics/content/refresh", requireAuth, requirePermission("content.edit"), async (_req, res) => {
+    try {
+      const { refreshAllPublishedAnalytics } = await import("./agents/analytics-reporter");
+      const result = await refreshAllPublishedAnalytics();
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   // ── Comments ──
@@ -8705,6 +8898,10 @@ Return ONLY valid JSON, no markdown.`
       res.status(500).json({ message: e.message });
     }
   });
+
+  import("./agents/scheduler-agent").then(({ startPublishScheduler }) => {
+    startPublishScheduler();
+  }).catch(err => console.error("[Pipeline] Failed to start publish scheduler:", err));
 
   return httpServer;
 }
