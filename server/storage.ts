@@ -2104,6 +2104,7 @@ export class DatabaseStorage implements IStorage {
       slug: `${original.slug}-copy-${Date.now()}`,
       status: "draft",
       pageType: original.pageType,
+      podcastId: original.podcastId,
       layout: original.layout,
       metaTitle: original.metaTitle,
       metaDescription: original.metaDescription,

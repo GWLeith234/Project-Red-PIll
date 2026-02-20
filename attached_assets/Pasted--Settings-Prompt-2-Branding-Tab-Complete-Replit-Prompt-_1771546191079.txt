@@ -1,0 +1,201 @@
+# Settings — Prompt 2: Branding Tab (Complete)
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build out the Branding tab in Settings as the single source of truth for all platform visual identity. This merges the existing Theme tab and the standalone Branding admin page into one place and removes both. After this sprint there is exactly ONE place for branding on the entire platform: Settings → Branding.
+
+CONTEXT:
+- Settings page has 5 tabs: Branding, Integrations, AI Configuration, Platform Configuration, Live Site & App
+- The Branding tab currently shows Theme content moved from the old Theme tab
+- A standalone "Branding" page exists in the sidebar under Admin — this gets removed
+- This prompt expands the Branding tab, removes the standalone page, and removes the old Theme tab remnants
+- All branding settings saved here apply platform-wide instantly
+
+---
+
+PART A — CLEANUP (do this first):
+
+(1) Remove the standalone Branding admin page:
+- Remove "Branding" from the admin sidebar navigation
+- Remove it from admin_page_config table in the database
+- If a route exists for /admin/branding, redirect it to /admin/settings?tab=branding
+- Move any functionality from the standalone Branding page into the Branding tab (check what's there first)
+
+(2) Remove Theme as a standalone tab:
+- The old Theme tab content has already been moved to Branding — confirm it is fully present in the Branding tab
+- Remove any remaining reference to a "Theme" tab in the Settings component
+- There should be exactly 5 tabs after this: Branding, Integrations, AI Configuration, Platform Configuration, Live Site & App
+
+---
+
+PART B — DATABASE:
+
+(3) Check if a platform_settings table exists. If not, create it:
+- id: uuid, primary key
+- key: text, unique
+- value: text
+- category: text (branding, ai, integrations, live_site)
+- updated_at: timestamp, default now()
+
+Seed these default branding keys if they don't exist:
+- platform_name: "MediaTech Empire"
+- platform_tagline: "Conservative Media Powered by AI"
+- logo_url: ""
+- logo_dark_url: ""
+- favicon_url: ""
+- og_image_url: ""
+- primary_color: "#1D4ED8"
+- secondary_color: "#6C3FC5"
+- accent_color: "#F59E0B"
+- dark_mode_default: "dark"
+- font_heading: "Inter"
+- font_body: "Inter"
+- email_logo_url: ""
+- email_footer_text: ""
+- push_notification_icon_url: ""
+- watermark_url: ""
+
+(4) API endpoints:
+- GET /api/settings/branding — returns all branding key/value pairs as flat object
+- PATCH /api/settings/branding — accepts { key: value } object, upserts each key, requireAuth
+
+---
+
+PART C — BRANDING TAB UI:
+
+Six collapsible sections with chevron toggles. All open by default. Each section has its own Save button. A master "Save All Branding" button is fixed at the bottom of the page.
+
+---
+
+SECTION 1 — PLATFORM IDENTITY:
+
+- Platform Name: text input, max 50 chars → saves to platform_name
+- Tagline: text input, max 100 chars → saves to platform_tagline
+
+Live preview below showing how name and tagline render in the admin sidebar header.
+
+---
+
+SECTION 2 — LOGOS & ICONS:
+
+Six image fields. Each has: label, description, URL input, image preview (gray placeholder if empty), Clear button.
+
+- Primary Logo (Light): used in audience site header and light mode
+  → logo_url | Recommended: SVG/PNG transparent, max 200px wide
+
+- Primary Logo (Dark): used in dark mode and dark email templates  
+  → logo_dark_url | Recommended: white/light version
+
+- Favicon: browser tab icon, bookmarks, PWA home screen
+  → favicon_url | Recommended: 32x32 or 64x64 PNG
+  → Preview renders in a mock browser tab UI
+
+- Default Social Share Image: shown when content shared on social without a specific image
+  → og_image_url | Recommended: 1200x630px
+  → Preview renders in a mock social share card with platform name overlay
+
+- Push Notification Icon: shown in browser and mobile push notifications
+  → push_notification_icon_url | Recommended: 192x192 PNG
+
+- AI Image Watermark: applied to AI-generated images
+  → watermark_url | Recommended: PNG with transparency
+
+---
+
+SECTION 3 — COLORS:
+
+Bring in all existing Theme color picker functionality. Wire to platform_settings table.
+
+Color fields:
+- Primary Color — buttons, active states, links
+- Secondary Color — locked to #6C3FC5, read-only, label: "AI actions are always purple for consistency"
+- Accent Color — highlights, badges, callouts
+- Background Color — admin background
+- Surface Color — cards, panels
+- Text Primary
+- Text Secondary / Muted
+- Border Color
+- Success (green)
+- Warning (amber)
+- Danger (red)
+
+Each field: label + color picker + hex text input + live swatch.
+
+Color Presets row at top — 5 clickable preset themes:
+- Salem Dark (current default)
+- Salem Light
+- Bold Red
+- Deep Navy
+- Slate
+
+Clicking a preset previews without saving. Separate "Save Colors" button commits.
+
+---
+
+SECTION 4 — TYPOGRAPHY:
+
+Bring in all existing Theme font functionality. Wire to platform_settings table.
+
+- Heading Font: dropdown (Inter, Roboto, Playfair Display, Merriweather, Georgia, Arial)
+- Body Font: same dropdown
+- Font Scale: slider (Small / Medium / Large / X-Large)
+- Line Height: slider (Tight / Normal / Relaxed)
+
+Live preview panel showing a headline, paragraph, and button in selected fonts.
+
+---
+
+SECTION 5 — EMAIL BRANDING:
+
+- Email Logo URL: image URL input + preview → email_logo_url
+- Email Footer Text: textarea → email_footer_text
+  Placeholder: "© 2026 Salem Media. All rights reserved. | Unsubscribe"
+
+Preview: rendered mock email template showing header with logo, placeholder body, and footer.
+
+---
+
+SECTION 6 — SHOW & PODCAST BRANDING:
+
+Table listing all podcasts with branding status:
+Columns: Show Name | Hero Image | Accent Color | Host Image | Status (Branded / Needs Setup)
+
+Each row has "Edit Branding" button that expands inline:
+- Hero Image URL + preview
+- Host Image URL + preview
+- Accent Color picker
+- "Generate QR Color Scheme" button (styles QR codes using accent color)
+- Save button per show
+
+---
+
+PART D — SAVE BEHAVIOR:
+
+- Each section has its own "Save [Section Name]" button
+- Master "Save All Branding" button fixed at page bottom
+- On save: PATCH /api/settings/branding, show success toast "Branding updated"
+- Apply immediately without page refresh:
+  - Colors → update CSS custom properties on :root
+  - Fonts → update font-family CSS variables
+  - Platform name → update rendered instances in current session
+- Changes persist to database and survive page refresh
+
+---
+
+VERIFICATION CHECKLIST:
+1. Standalone "Branding" page is gone from the sidebar — link removed, route redirects to Settings
+2. Settings has exactly 5 tabs — no "Theme" tab visible anywhere
+3. Branding tab loads with all 6 sections
+4. Platform Name and Tagline save and update the sidebar header immediately
+5. Logo fields show image previews for valid URLs
+6. Favicon preview renders in mock browser tab
+7. OG Image preview renders in mock social share card
+8. Color pickers update admin theme in real-time
+9. Color presets apply all colors at once on click
+10. Font dropdowns show live preview
+11. Email section shows rendered email template preview
+12. Show branding table lists all podcasts with status
+13. All saves persist to database and survive page refresh
+14. No branding or theme controls exist anywhere else on the platform
+```

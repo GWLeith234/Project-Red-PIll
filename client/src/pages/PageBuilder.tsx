@@ -83,6 +83,7 @@ interface BuiltPage {
   slug: string;
   status: string;
   pageType: string;
+  podcastId: string | null;
   layout: PageBlock[];
   metaTitle: string | null;
   metaDescription: string | null;
