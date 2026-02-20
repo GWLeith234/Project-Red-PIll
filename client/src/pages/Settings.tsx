@@ -532,7 +532,7 @@ export default function Settings() {
 
       {activeTab === "platform-config" && <PageConfigurationTab />}
 
-      {activeTab === "live-site" && <LiveSiteAppPlaceholderTab />}
+      {activeTab === "live-site" && <LiveSiteAppTab />}
     </div>
   );
 }
@@ -2555,50 +2555,755 @@ function AIConfigurationTab() {
   );
 }
 
-function LiveSiteAppPlaceholderTab() {
-  const configCategories = [
-    { icon: Home, name: "Homepage Content", description: "Configure hero sections, featured content, and homepage layout" },
-    { icon: Navigation, name: "Navigation & Menus", description: "Manage audience-facing navigation structure and menu items" },
-    { icon: Smartphone, name: "PWA & Mobile App", description: "Progressive web app settings, icons, splash screens, and offline behavior" },
-    { icon: Wrench, name: "Maintenance Mode", description: "Enable maintenance mode with custom messaging for scheduled downtime" },
-    { icon: Lock, name: "Cookie & Privacy", description: "Cookie consent banners, privacy policy links, and GDPR compliance settings" },
-    { icon: Megaphone, name: "Ad Zones", description: "Configure advertising placements, sponsorship zones, and ad display rules" },
-  ];
+function LiveSiteAppTab() {
+  const { toast } = useToast();
+  const { data: lsSettings, isLoading } = useQuery({
+    queryKey: ["/api/settings/live-site"],
+    queryFn: () => fetch("/api/settings/live-site", { credentials: "include" }).then(r => r.json()),
+  });
+
+  const LS_DEFAULTS: Record<string, string> = {
+    ls_home_hero_enabled: "true", ls_home_hero_autoplay: "true", ls_home_hero_interval: "5000",
+    ls_home_featured_poll_enabled: "true", ls_home_featured_poll_id: "",
+    ls_home_featured_events_enabled: "true", ls_home_featured_events_count: "3",
+    ls_home_latest_episodes_count: "6", ls_home_latest_articles_count: "6",
+    ls_home_community_preview_enabled: "true", ls_home_community_preview_count: "3",
+    ls_home_breaking_news_enabled: "false", ls_home_breaking_news_text: "",
+    ls_nav_bottom_home: "true", ls_nav_bottom_listen: "true", ls_nav_bottom_news: "true",
+    ls_nav_bottom_search: "true", ls_nav_bottom_community: "true",
+    ls_nav_show_categories: "true", ls_nav_show_trending: "true",
+    ls_nav_show_discover: "true", ls_nav_show_events: "true",
+    ls_pwa_app_name: "Salem Media", ls_pwa_short_name: "Salem",
+    ls_pwa_description: "Conservative news and podcasts powered by AI",
+    ls_pwa_theme_color: "#1D4ED8", ls_pwa_background_color: "#0F172A",
+    ls_pwa_display: "standalone", ls_pwa_orientation: "portrait",
+    ls_pwa_icon_192_url: "", ls_pwa_icon_512_url: "", ls_pwa_splash_screen_url: "",
+    ls_pwa_ios_status_bar: "black-translucent",
+    ls_maintenance_mode_enabled: "false", ls_maintenance_mode_title: "We'll be right back",
+    ls_maintenance_mode_message: "We're making some improvements. Check back soon.",
+    ls_maintenance_mode_estimated_time: "", ls_maintenance_contact_email: "",
+    ls_cookie_banner_enabled: "true",
+    ls_cookie_banner_text: "We use cookies to improve your experience. By continuing, you agree to our Privacy Policy.",
+    ls_cookie_banner_accept_text: "Accept", ls_cookie_banner_decline_text: "Decline",
+    ls_cookie_banner_position: "bottom",
+    ls_rate_us_enabled: "true", ls_rate_us_trigger_visits: "3",
+    ls_rate_us_app_store_url: "", ls_rate_us_play_store_url: "",
+    ls_search_enabled: "true", ls_dark_mode_toggle_enabled: "true", ls_bookmark_enabled: "true",
+    ls_adzone_home_leaderboard_enabled: "true", ls_adzone_home_rectangle_enabled: "true",
+    ls_adzone_article_inline_enabled: "true", ls_adzone_article_sidebar_enabled: "true",
+    ls_adzone_podcast_player_enabled: "true", ls_adzone_mobile_banner_enabled: "true",
+  };
+
+  const [form, setForm] = useState<Record<string, string>>({ ...LS_DEFAULTS });
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    homepage: true, navigation: true, pwa: true, maintenance: true,
+    cookie: true, audience: true, adzones: true,
+  });
+  const [maintenanceConfirm, setMaintenanceConfirm] = useState(false);
+  const [pwaManifestOpen, setPwaManifestOpen] = useState(false);
+
+  useEffect(() => {
+    if (lsSettings && typeof lsSettings === "object") {
+      setForm(prev => {
+        const merged = { ...LS_DEFAULTS };
+        for (const [k, v] of Object.entries(lsSettings)) {
+          if (typeof v === "string" && v !== "") merged[k] = v as string;
+        }
+        return merged;
+      });
+    }
+  }, [lsSettings]);
+
+  const f = (key: string) => form[key] || LS_DEFAULTS[key] || "";
+  const setF = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+  const toggleSection = (id: string) => setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+  const isOn = (key: string) => f(key) === "true";
+  const toggleF = (key: string) => setF(key, isOn(key) ? "false" : "true");
+
+  const saveSection = async (sectionName: string, keys: string[]) => {
+    setSaving(prev => ({ ...prev, [sectionName]: true }));
+    try {
+      const payload: Record<string, string> = {};
+      keys.forEach(k => { payload[k] = f(k); });
+      const res = await fetch("/api/settings/live-site", {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/live-site"] });
+      toast({ title: `${sectionName} saved` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, [sectionName]: false }));
+    }
+  };
+
+  const saveAll = async () => {
+    setSaving(prev => ({ ...prev, all: true }));
+    try {
+      const res = await fetch("/api/settings/live-site", {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/live-site"] });
+      toast({ title: "All Live Site settings saved" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, all: false }));
+    }
+  };
+
+  const activateMaintenanceMode = async () => {
+    try {
+      const res = await fetch("/api/settings/live-site/maintenance", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error("Failed to toggle maintenance mode");
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/live-site"] });
+      const result = await res.json();
+      setF("ls_maintenance_mode_enabled", result.maintenance_mode_enabled);
+      toast({ title: result.maintenance_mode_enabled === "true" ? "Maintenance mode activated" : "Maintenance mode deactivated" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
+    setMaintenanceConfirm(false);
+  };
+
+  function CollapsibleSection({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) {
+    const isOpen = openSections[id] !== false;
+    return (
+      <div className="border border-border bg-card/50" data-testid={`ls-section-${id}`}>
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+          data-testid={`toggle-ls-section-${id}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 border border-muted-foreground/20 bg-muted/20 flex items-center justify-center">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">{title}</span>
+          </div>
+          {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {isOpen && <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">{children}</div>}
+      </div>
+    );
+  }
+
+  function SaveBtn({ section, keys, label }: { section: string; keys: string[]; label?: string }) {
+    return (
+      <div className="flex justify-end pt-2">
+        <button onClick={() => saveSection(section, keys)} disabled={saving[section]}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-mono uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          data-testid={`button-save-${section}`}>
+          {saving[section] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          {label || `Save ${section}`}
+        </button>
+      </div>
+    );
+  }
+
+  function ToggleRow({ label, settingKey, note, locked }: { label: string; settingKey: string; note?: string; locked?: boolean }) {
+    return (
+      <div className="flex items-center justify-between py-2">
+        <div className="flex-1">
+          <span className="text-sm text-foreground">{label}</span>
+          {note && <p className="text-[11px] text-muted-foreground mt-0.5">{note}</p>}
+        </div>
+        <button
+          onClick={() => !locked && toggleF(settingKey)}
+          disabled={locked}
+          className={cn(
+            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+            isOn(settingKey) ? "bg-primary" : "bg-muted-foreground/30",
+            locked && "opacity-60 cursor-not-allowed"
+          )}
+          data-testid={`toggle-${settingKey}`}
+        >
+          <span className={cn("inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform", isOn(settingKey) ? "translate-x-4" : "translate-x-0.5")} />
+        </button>
+      </div>
+    );
+  }
+
+  const heroInterval = Math.round(parseInt(f("ls_home_hero_interval")) / 1000) || 5;
+  const isMaintenance = isOn("ls_maintenance_mode_enabled");
+  const activeAdZones = ["ls_adzone_home_leaderboard_enabled", "ls_adzone_home_rectangle_enabled", "ls_adzone_article_inline_enabled", "ls_adzone_article_sidebar_enabled", "ls_adzone_podcast_player_enabled", "ls_adzone_mobile_banner_enabled"].filter(k => isOn(k)).length;
+  const pwaConfigured = f("ls_pwa_icon_192_url") !== "" && f("ls_pwa_icon_512_url") !== "";
+
+  const manifest = JSON.stringify({
+    name: f("ls_pwa_app_name"), short_name: f("ls_pwa_short_name"),
+    description: f("ls_pwa_description"), theme_color: f("ls_pwa_theme_color"),
+    background_color: f("ls_pwa_background_color"), display: f("ls_pwa_display"),
+    orientation: f("ls_pwa_orientation"),
+    icons: [
+      ...(f("ls_pwa_icon_192_url") ? [{ src: f("ls_pwa_icon_192_url"), sizes: "192x192", type: "image/png" }] : []),
+      ...(f("ls_pwa_icon_512_url") ? [{ src: f("ls_pwa_icon_512_url"), sizes: "512x512", type: "image/png" }] : []),
+    ],
+    start_url: "/", scope: "/",
+  }, null, 2);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4" data-testid="live-site-tab">
+        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+      </div>
+    );
+  }
+
+  const HOMEPAGE_KEYS = ["ls_home_hero_enabled","ls_home_hero_autoplay","ls_home_hero_interval","ls_home_featured_poll_enabled","ls_home_featured_poll_id","ls_home_featured_events_enabled","ls_home_featured_events_count","ls_home_latest_episodes_count","ls_home_latest_articles_count","ls_home_community_preview_enabled","ls_home_community_preview_count","ls_home_breaking_news_enabled","ls_home_breaking_news_text"];
+  const NAV_KEYS = ["ls_nav_bottom_home","ls_nav_bottom_listen","ls_nav_bottom_news","ls_nav_bottom_search","ls_nav_bottom_community","ls_nav_show_categories","ls_nav_show_trending","ls_nav_show_discover","ls_nav_show_events"];
+  const PWA_KEYS = ["ls_pwa_app_name","ls_pwa_short_name","ls_pwa_description","ls_pwa_theme_color","ls_pwa_background_color","ls_pwa_display","ls_pwa_orientation","ls_pwa_icon_192_url","ls_pwa_icon_512_url","ls_pwa_splash_screen_url","ls_pwa_ios_status_bar"];
+  const MAINT_KEYS = ["ls_maintenance_mode_enabled","ls_maintenance_mode_title","ls_maintenance_mode_message","ls_maintenance_mode_estimated_time","ls_maintenance_contact_email"];
+  const COOKIE_KEYS = ["ls_cookie_banner_enabled","ls_cookie_banner_text","ls_cookie_banner_accept_text","ls_cookie_banner_decline_text","ls_cookie_banner_position"];
+  const AUDIENCE_KEYS = ["ls_rate_us_enabled","ls_rate_us_trigger_visits","ls_rate_us_app_store_url","ls_rate_us_play_store_url","ls_search_enabled","ls_dark_mode_toggle_enabled","ls_bookmark_enabled"];
+  const ADZONE_KEYS = ["ls_adzone_home_leaderboard_enabled","ls_adzone_home_rectangle_enabled","ls_adzone_article_inline_enabled","ls_adzone_article_sidebar_enabled","ls_adzone_podcast_player_enabled","ls_adzone_mobile_banner_enabled"];
 
   return (
-    <div className="space-y-6" data-testid="live-site-tab">
-      <div className="border border-border bg-card/50 p-4 sm:p-6">
-        <SectionHeader icon={Globe2} title="Live Site & App" description="Configure your audience-facing website and mobile app experience" />
+    <div className="space-y-4" data-testid="live-site-tab">
+      <SectionHeader icon={Globe2} title="Live Site & App" description="Configure your audience-facing website and mobile app experience" />
 
-        <div className="space-y-1">
-          {configCategories.map((cat) => {
-            const Icon = cat.icon;
-            return (
-              <div
-                key={cat.name}
-                className="flex items-center gap-4 px-4 py-3 border border-border/50 bg-card/30 hover:bg-card/50 transition-colors"
-                data-testid={`live-site-row-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <div className="h-9 w-9 border border-muted-foreground/20 bg-muted/30 flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+      {/* Status Bar */}
+      <div className="border border-border bg-card/50 p-4 flex flex-wrap items-center gap-4" data-testid="ls-status-bar">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Site Status:</span>
+          {isMaintenance ? (
+            <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px] font-mono uppercase" data-testid="badge-maintenance">Maintenance</Badge>
+          ) : (
+            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] font-mono uppercase" data-testid="badge-live">Live</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-mono">
+          <span>Active Ad Zones: <strong className="text-foreground">{activeAdZones}/6</strong></span>
+          <span>PWA Configured: <strong className={pwaConfigured ? "text-emerald-400" : "text-red-400"}>{pwaConfigured ? "Yes" : "No"}</strong></span>
+          <span>Breaking News: <strong className={isOn("ls_home_breaking_news_enabled") ? "text-emerald-400" : "text-muted-foreground"}>{isOn("ls_home_breaking_news_enabled") ? "ON" : "OFF"}</strong></span>
+        </div>
+        <div className="ml-auto">
+          <button
+            onClick={() => window.open("/", "_blank")}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono uppercase tracking-wider border border-border hover:bg-muted/30 transition-colors"
+            data-testid="button-view-live-site"
+          >
+            <Globe2 className="h-3 w-3" /> View Live Site
+          </button>
+        </div>
+      </div>
+
+      {/* SECTION 1: Homepage Content */}
+      <CollapsibleSection id="homepage" title="Homepage Content" icon={Home}>
+        <div className="space-y-4">
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Hero Carousel</h4>
+            <ToggleRow label="Enable Hero Carousel" settingKey="ls_home_hero_enabled" />
+            {isOn("ls_home_hero_enabled") && (
+              <>
+                <ToggleRow label="Autoplay" settingKey="ls_home_hero_autoplay" />
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Slide Interval (seconds)</label>
+                  <Input type="number" min={3} max={10} value={heroInterval}
+                    onChange={e => setF("ls_home_hero_interval", String(parseInt(e.target.value || "5") * 1000))}
+                    className="h-8 text-sm max-w-[120px]" data-testid="input-hero-interval" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{cat.description}</p>
+              </>
+            )}
+            <p className="text-[11px] text-muted-foreground italic">Manage hero slides in Page Builder → Home page</p>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Content Sections</h4>
+            <ToggleRow label="Featured Poll" settingKey="ls_home_featured_poll_enabled" />
+            {isOn("ls_home_featured_poll_enabled") && (
+              <div className="pl-4 border-l-2 border-primary/30">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Poll Selection</label>
+                <Input value={f("ls_home_featured_poll_id")} onChange={e => setF("ls_home_featured_poll_id", e.target.value)}
+                  placeholder="Auto (latest active poll)" className="h-8 text-sm" data-testid="input-featured-poll-id" />
+              </div>
+            )}
+            <ToggleRow label="Featured Events" settingKey="ls_home_featured_events_enabled" />
+            {isOn("ls_home_featured_events_enabled") && (
+              <div className="pl-4 border-l-2 border-primary/30">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Count</label>
+                <select value={f("ls_home_featured_events_count")} onChange={e => setF("ls_home_featured_events_count", e.target.value)}
+                  className="bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-events-count">
+                  {[1,2,3,4,5,6].map(n => <option key={n} value={String(n)}>{n}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-foreground">Latest Episodes</span>
+              <select value={f("ls_home_latest_episodes_count")} onChange={e => setF("ls_home_latest_episodes_count", e.target.value)}
+                className="bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-episodes-count">
+                {[3,6,9,12].map(n => <option key={n} value={String(n)}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-foreground">Latest Articles</span>
+              <select value={f("ls_home_latest_articles_count")} onChange={e => setF("ls_home_latest_articles_count", e.target.value)}
+                className="bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-articles-count">
+                {[3,6,9,12].map(n => <option key={n} value={String(n)}>{n}</option>)}
+              </select>
+            </div>
+            <ToggleRow label="Community Preview" settingKey="ls_home_community_preview_enabled" />
+            {isOn("ls_home_community_preview_enabled") && (
+              <div className="pl-4 border-l-2 border-primary/30">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Count</label>
+                <select value={f("ls_home_community_preview_count")} onChange={e => setF("ls_home_community_preview_count", e.target.value)}
+                  className="bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-community-count">
+                  {[1,2,3,4,5].map(n => <option key={n} value={String(n)}>{n}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Breaking News Ticker</h4>
+            <ToggleRow label="Enable Breaking News Ticker" settingKey="ls_home_breaking_news_enabled" />
+            {isOn("ls_home_breaking_news_enabled") && (
+              <>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Ticker Text</label>
+                  <Input value={f("ls_home_breaking_news_text")} onChange={e => setF("ls_home_breaking_news_text", e.target.value.slice(0, 200))}
+                    placeholder="BREAKING: Enter breaking news text here" maxLength={200}
+                    className="h-8 text-sm" data-testid="input-breaking-news-text" />
+                  <p className="text-[10px] text-muted-foreground mt-1">{f("ls_home_breaking_news_text").length}/200 characters</p>
                 </div>
-                <button
-                  disabled
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/50 bg-card/20 cursor-not-allowed"
-                  title="Coming soon"
-                  data-testid={`button-configure-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  Configure
-                  <ArrowRight className="h-3 w-3" />
+                <p className="text-[11px] text-muted-foreground italic">Appears as a scrolling banner at the top of the audience site when enabled</p>
+                {f("ls_home_breaking_news_text") && (
+                  <div className="bg-red-600 text-white py-1.5 px-4 text-xs font-semibold overflow-hidden whitespace-nowrap" data-testid="preview-breaking-news">
+                    <div className="animate-pulse inline-block mr-2">BREAKING</div>
+                    {f("ls_home_breaking_news_text")}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <SaveBtn section="Homepage" keys={HOMEPAGE_KEYS} />
+        </div>
+      </CollapsibleSection>
+
+      {/* SECTION 2: Navigation & Menus */}
+      <CollapsibleSection id="navigation" title="Navigation & Menus" icon={Navigation}>
+        <div className="space-y-4">
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Bottom Navigation Bar (Mobile)</h4>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-2">
+                  <Home className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Home</span>
+                  <Badge variant="outline" className="text-[9px] ml-1">Locked</Badge>
+                </div>
+                <button disabled className={cn("relative inline-flex h-5 w-9 items-center rounded-full bg-primary opacity-60 cursor-not-allowed")} data-testid="toggle-ls_nav_bottom_home">
+                  <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-4" />
                 </button>
               </div>
-            );
-          })}
+              {[
+                { key: "ls_nav_bottom_listen", icon: Volume2, label: "Listen" },
+                { key: "ls_nav_bottom_news", icon: FileText, label: "News" },
+                { key: "ls_nav_bottom_search", icon: SearchIcon, label: "Search" },
+                { key: "ls_nav_bottom_community", icon: Heart, label: "Community" },
+              ].map(item => (
+                <div key={item.key} className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">{item.label}</span>
+                  </div>
+                  <button onClick={() => toggleF(item.key)}
+                    className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", isOn(item.key) ? "bg-primary" : "bg-muted-foreground/30")}
+                    data-testid={`toggle-${item.key}`}>
+                    <span className={cn("inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform", isOn(item.key) ? "translate-x-4" : "translate-x-0.5")} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground italic">Home tab cannot be disabled</p>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Top Navigation Categories</h4>
+            <ToggleRow label="Show Categories Row" settingKey="ls_nav_show_categories" />
+            <ToggleRow label="Show Trending" settingKey="ls_nav_show_trending" />
+            <ToggleRow label="Show Discover" settingKey="ls_nav_show_discover" />
+            <ToggleRow label="Show Events" settingKey="ls_nav_show_events" />
+            <p className="text-[11px] text-muted-foreground italic">These appear in the horizontal scroll navigation below the site header</p>
+          </div>
+          <SaveBtn section="Navigation" keys={NAV_KEYS} />
         </div>
+      </CollapsibleSection>
+
+      {/* SECTION 3: PWA & Mobile App */}
+      <CollapsibleSection id="pwa" title="PWA & Mobile App" icon={Smartphone}>
+        <div className="space-y-4">
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">App Identity</h4>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">App Name</label>
+              <Input value={f("ls_pwa_app_name")} onChange={e => setF("ls_pwa_app_name", e.target.value.slice(0, 45))}
+                maxLength={45} className="h-8 text-sm" data-testid="input-pwa-app-name" />
+              <p className="text-[10px] text-muted-foreground mt-1">Full name shown in app stores and install prompts ({f("ls_pwa_app_name").length}/45)</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Short Name</label>
+              <Input value={f("ls_pwa_short_name")} onChange={e => setF("ls_pwa_short_name", e.target.value.slice(0, 12))}
+                maxLength={12} className="h-8 text-sm" data-testid="input-pwa-short-name" />
+              <p className="text-[10px] text-muted-foreground mt-1">Shown on home screen under the icon ({f("ls_pwa_short_name").length}/12)</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Description</label>
+              <textarea value={f("ls_pwa_description")} onChange={e => setF("ls_pwa_description", e.target.value.slice(0, 200))}
+                maxLength={200} rows={2} className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none" data-testid="input-pwa-description" />
+              <p className="text-[10px] text-muted-foreground mt-1">{f("ls_pwa_description").length}/200</p>
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">App Colors</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Theme Color</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={f("ls_pwa_theme_color")} onChange={e => setF("ls_pwa_theme_color", e.target.value)}
+                    className="h-8 w-10 border border-border cursor-pointer" data-testid="color-pwa-theme" />
+                  <Input value={f("ls_pwa_theme_color")} onChange={e => setF("ls_pwa_theme_color", e.target.value)}
+                    className="h-8 text-sm font-mono flex-1" data-testid="input-pwa-theme-color" />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Browser chrome color on Android</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Background Color</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={f("ls_pwa_background_color")} onChange={e => setF("ls_pwa_background_color", e.target.value)}
+                    className="h-8 w-10 border border-border cursor-pointer" data-testid="color-pwa-bg" />
+                  <Input value={f("ls_pwa_background_color")} onChange={e => setF("ls_pwa_background_color", e.target.value)}
+                    className="h-8 text-sm font-mono flex-1" data-testid="input-pwa-bg-color" />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Splash screen background color</p>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">iOS Status Bar Style</label>
+              <select value={f("ls_pwa_ios_status_bar")} onChange={e => setF("ls_pwa_ios_status_bar", e.target.value)}
+                className="bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-ios-status-bar">
+                <option value="default">Default</option>
+                <option value="black">Black</option>
+                <option value="black-translucent">Black Translucent</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">App Icons</h4>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">192x192 Icon URL</label>
+              <Input value={f("ls_pwa_icon_192_url")} onChange={e => setF("ls_pwa_icon_192_url", e.target.value)}
+                placeholder="https://..." className="h-8 text-sm" data-testid="input-pwa-icon-192" />
+              {f("ls_pwa_icon_192_url") && <img src={f("ls_pwa_icon_192_url")} alt="192x192 icon" className="h-12 w-12 border border-border mt-2 object-contain" />}
+              <p className="text-[10px] text-muted-foreground mt-1">Required for Android home screen and PWA install</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">512x512 Icon URL</label>
+              <Input value={f("ls_pwa_icon_512_url")} onChange={e => setF("ls_pwa_icon_512_url", e.target.value)}
+                placeholder="https://..." className="h-8 text-sm" data-testid="input-pwa-icon-512" />
+              {f("ls_pwa_icon_512_url") && <img src={f("ls_pwa_icon_512_url")} alt="512x512 icon" className="h-16 w-16 border border-border mt-2 object-contain" />}
+              <p className="text-[10px] text-muted-foreground mt-1">Required for splash screen and app stores</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Splash Screen URL</label>
+              <Input value={f("ls_pwa_splash_screen_url")} onChange={e => setF("ls_pwa_splash_screen_url", e.target.value)}
+                placeholder="https://..." className="h-8 text-sm" data-testid="input-pwa-splash" />
+              {f("ls_pwa_splash_screen_url") && <img src={f("ls_pwa_splash_screen_url")} alt="Splash screen" className="h-24 border border-border mt-2 object-contain" />}
+              <p className="text-[10px] text-muted-foreground mt-1">Full screen image shown while app loads on iOS</p>
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Display Settings</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Display Mode</label>
+                <select value={f("ls_pwa_display")} onChange={e => setF("ls_pwa_display", e.target.value)}
+                  className="w-full bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-pwa-display">
+                  <option value="standalone">Standalone (no browser chrome)</option>
+                  <option value="fullscreen">Fullscreen</option>
+                  <option value="minimal-ui">Minimal UI</option>
+                  <option value="browser">Browser</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Orientation</label>
+                <select value={f("ls_pwa_orientation")} onChange={e => setF("ls_pwa_orientation", e.target.value)}
+                  className="w-full bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-pwa-orientation">
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                  <option value="any">Any</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">PWA Manifest Preview</h4>
+            <button onClick={() => setPwaManifestOpen(!pwaManifestOpen)}
+              className="flex items-center gap-2 text-xs text-primary hover:underline font-mono" data-testid="toggle-manifest-preview">
+              {pwaManifestOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              {pwaManifestOpen ? "Hide" : "View"} manifest.json
+            </button>
+            {pwaManifestOpen && (
+              <pre className="bg-background border border-border p-3 text-xs font-mono text-foreground overflow-auto max-h-64" data-testid="manifest-preview">{manifest}</pre>
+            )}
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-1.5 text-xs font-mono">
+                {f("ls_pwa_icon_192_url") ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <AlertCircle className="h-3.5 w-3.5 text-red-400" />}
+                <span className={f("ls_pwa_icon_192_url") ? "text-emerald-400" : "text-red-400"}>192x192 Icon</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-mono">
+                {f("ls_pwa_icon_512_url") ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <AlertCircle className="h-3.5 w-3.5 text-red-400" />}
+                <span className={f("ls_pwa_icon_512_url") ? "text-emerald-400" : "text-red-400"}>512x512 Icon</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-mono">
+                {f("ls_pwa_app_name") ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <AlertCircle className="h-3.5 w-3.5 text-red-400" />}
+                <span className={f("ls_pwa_app_name") ? "text-emerald-400" : "text-red-400"}>Manifest Valid</span>
+              </div>
+            </div>
+          </div>
+          <SaveBtn section="PWA" keys={PWA_KEYS} />
+        </div>
+      </CollapsibleSection>
+
+      {/* SECTION 4: Maintenance Mode */}
+      <CollapsibleSection id="maintenance" title="Maintenance Mode" icon={Wrench}>
+        <div className="space-y-4">
+          {isMaintenance && (
+            <div className="bg-red-500/10 border border-red-500/30 p-3 flex items-center gap-2" data-testid="maintenance-active-warning">
+              <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0" />
+              <span className="text-xs text-red-400 font-semibold">MAINTENANCE MODE IS CURRENTLY ACTIVE — All audience visitors see the maintenance page</span>
+            </div>
+          )}
+
+          <div className={cn("border p-4 space-y-3", isMaintenance ? "border-red-500/30 bg-red-500/5" : "border-border bg-card/30")}>
+            <ToggleRow label="Enable Maintenance Mode" settingKey="ls_maintenance_mode_enabled" />
+            <div className="bg-yellow-500/10 border border-yellow-500/30 p-2 flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-400 mt-0.5 flex-shrink-0" />
+              <span className="text-[11px] text-yellow-400">Enabling this will show a maintenance page to ALL audience visitors immediately</span>
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Page Title</label>
+              <Input value={f("ls_maintenance_mode_title")} onChange={e => setF("ls_maintenance_mode_title", e.target.value)}
+                className="h-8 text-sm" data-testid="input-maintenance-title" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Message</label>
+              <textarea value={f("ls_maintenance_mode_message")} onChange={e => setF("ls_maintenance_mode_message", e.target.value)}
+                rows={3} className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none" data-testid="input-maintenance-message" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Estimated Return Time</label>
+              <Input value={f("ls_maintenance_mode_estimated_time")} onChange={e => setF("ls_maintenance_mode_estimated_time", e.target.value)}
+                placeholder="Back online in approximately 2 hours" className="h-8 text-sm" data-testid="input-maintenance-eta" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Contact Email</label>
+              <Input value={f("ls_maintenance_contact_email")} onChange={e => setF("ls_maintenance_contact_email", e.target.value)}
+                type="email" className="h-8 text-sm" data-testid="input-maintenance-email" />
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Live Preview</h4>
+            <div className="bg-background border border-border p-8 text-center space-y-3" data-testid="maintenance-preview">
+              <Wrench className="h-10 w-10 mx-auto text-muted-foreground" />
+              <h3 className="text-lg font-bold text-foreground">{f("ls_maintenance_mode_title") || "We'll be right back"}</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">{f("ls_maintenance_mode_message") || "We're making some improvements. Check back soon."}</p>
+              {f("ls_maintenance_mode_estimated_time") && (
+                <p className="text-xs text-muted-foreground italic">{f("ls_maintenance_mode_estimated_time")}</p>
+              )}
+              {f("ls_maintenance_contact_email") && (
+                <p className="text-xs text-muted-foreground">Contact: <span className="text-primary">{f("ls_maintenance_contact_email")}</span></p>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground italic">Admin users are never shown the maintenance page. Use an incognito window to test.</p>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <SaveBtn section="Maintenance" keys={MAINT_KEYS} />
+            <button onClick={() => setMaintenanceConfirm(true)}
+              className={cn("flex items-center gap-2 px-4 py-2 text-xs font-mono uppercase tracking-wider",
+                isMaintenance ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-600 text-white hover:bg-red-700")}
+              data-testid="button-activate-maintenance">
+              <AlertTriangle className="h-3 w-3" />
+              {isMaintenance ? "Deactivate Maintenance Mode" : "Activate Maintenance Mode"}
+            </button>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      {/* Maintenance Confirmation Dialog */}
+      <Dialog open={maintenanceConfirm} onOpenChange={setMaintenanceConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isMaintenance ? "Deactivate Maintenance Mode?" : "Activate Maintenance Mode?"}</DialogTitle>
+            <DialogDescription>
+              {isMaintenance
+                ? "This will restore normal site access for all visitors."
+                : "This will immediately show the maintenance page to all visitors. Continue?"}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMaintenanceConfirm(false)} data-testid="button-cancel-maintenance">Cancel</Button>
+            <Button variant={isMaintenance ? "default" : "destructive"} onClick={activateMaintenanceMode} data-testid="button-confirm-maintenance">
+              {isMaintenance ? "Deactivate" : "Activate Now"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SECTION 5: Cookie & Privacy Banner */}
+      <CollapsibleSection id="cookie" title="Cookie & Privacy Banner" icon={Cookie}>
+        <div className="space-y-4">
+          <ToggleRow label="Enable Cookie Banner" settingKey="ls_cookie_banner_enabled" />
+
+          {isOn("ls_cookie_banner_enabled") && (
+            <div className="border border-border bg-card/30 p-4 space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Banner Text</label>
+                <textarea value={f("ls_cookie_banner_text")} onChange={e => setF("ls_cookie_banner_text", e.target.value.slice(0, 200))}
+                  maxLength={200} rows={2} className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none" data-testid="input-cookie-text" />
+                <p className="text-[10px] text-muted-foreground mt-1">{f("ls_cookie_banner_text").length}/200</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Accept Button Text</label>
+                  <Input value={f("ls_cookie_banner_accept_text")} onChange={e => setF("ls_cookie_banner_accept_text", e.target.value)}
+                    className="h-8 text-sm" data-testid="input-cookie-accept" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Decline Button Text</label>
+                  <Input value={f("ls_cookie_banner_decline_text")} onChange={e => setF("ls_cookie_banner_decline_text", e.target.value)}
+                    className="h-8 text-sm" data-testid="input-cookie-decline" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Position</label>
+                <div className="flex gap-4">
+                  {["bottom", "top"].map(pos => (
+                    <label key={pos} className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="cookie-position" checked={f("ls_cookie_banner_position") === pos}
+                        onChange={() => setF("ls_cookie_banner_position", pos)} className="accent-primary" data-testid={`radio-cookie-${pos}`} />
+                      <span className="text-sm capitalize">{pos}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Live Preview</h4>
+                <div className="relative bg-background border border-border min-h-[120px]" data-testid="cookie-preview">
+                  <div className="p-4 text-center text-xs text-muted-foreground">Page Content</div>
+                  <div className={cn("absolute left-0 right-0 bg-card border-t border-border px-4 py-3 flex items-center justify-between gap-4",
+                    f("ls_cookie_banner_position") === "top" ? "top-0 border-t-0 border-b" : "bottom-0")}>
+                    <p className="text-[11px] text-foreground flex-1">{f("ls_cookie_banner_text")}</p>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button className="px-3 py-1 text-[10px] font-mono uppercase border border-border bg-card hover:bg-muted/50">{f("ls_cookie_banner_decline_text")}</button>
+                      <button className="px-3 py-1 text-[10px] font-mono uppercase bg-primary text-primary-foreground">{f("ls_cookie_banner_accept_text")}</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <SaveBtn section="Cookie & Privacy" keys={COOKIE_KEYS} />
+        </div>
+      </CollapsibleSection>
+
+      {/* SECTION 6: Audience Features */}
+      <CollapsibleSection id="audience" title="Audience Features" icon={Heart}>
+        <div className="space-y-4">
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Rate Us Prompt</h4>
+            <ToggleRow label="Enable Rate Us Prompt" settingKey="ls_rate_us_enabled" />
+            {isOn("ls_rate_us_enabled") && (
+              <div className="pl-4 border-l-2 border-primary/30 space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Show After X Visits</label>
+                  <Input type="number" min={1} max={10} value={f("ls_rate_us_trigger_visits")}
+                    onChange={e => setF("ls_rate_us_trigger_visits", e.target.value)}
+                    className="h-8 text-sm max-w-[120px]" data-testid="input-rate-trigger" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">App Store URL</label>
+                  <Input value={f("ls_rate_us_app_store_url")} onChange={e => setF("ls_rate_us_app_store_url", e.target.value)}
+                    placeholder="https://apps.apple.com/app/..." className="h-8 text-sm" data-testid="input-appstore-url" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Play Store URL</label>
+                  <Input value={f("ls_rate_us_play_store_url")} onChange={e => setF("ls_rate_us_play_store_url", e.target.value)}
+                    placeholder="https://play.google.com/store/apps/..." className="h-8 text-sm" data-testid="input-playstore-url" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Other Feature Toggles</h4>
+            <ToggleRow label="Enable Search" settingKey="ls_search_enabled" note="Shows search icon in header and /search page" />
+            <ToggleRow label="Dark/Light Mode Toggle" settingKey="ls_dark_mode_toggle_enabled" note="Shows a moon/sun icon in the header for visitors to switch modes" />
+            <ToggleRow label="Bookmarks" settingKey="ls_bookmark_enabled" note="Allows visitors to save articles and episodes" />
+          </div>
+          <SaveBtn section="Audience Features" keys={AUDIENCE_KEYS} />
+        </div>
+      </CollapsibleSection>
+
+      {/* SECTION 7: Ad Zones */}
+      <CollapsibleSection id="adzones" title="Ad Zones" icon={Megaphone}>
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">Enable or disable ad placement zones across the audience site. Disabling a zone removes ads from that location without deleting campaigns.</p>
+          <div className="border border-border bg-card/30 divide-y divide-border">
+            {[
+              { key: "ls_adzone_home_leaderboard_enabled", label: "Home Page — Leaderboard", desc: "728x90 below hero" },
+              { key: "ls_adzone_home_rectangle_enabled", label: "Home Page — Rectangle", desc: "300x250 in content feed" },
+              { key: "ls_adzone_article_inline_enabled", label: "Article Pages — Inline", desc: "Between paragraphs" },
+              { key: "ls_adzone_article_sidebar_enabled", label: "Article Pages — Sidebar", desc: "300x250 right column" },
+              { key: "ls_adzone_podcast_player_enabled", label: "Podcast Player — Sponsor Panel", desc: "Sponsor display in player" },
+              { key: "ls_adzone_mobile_banner_enabled", label: "Mobile — Banner", desc: "320x50 above bottom nav" },
+            ].map(zone => (
+              <div key={zone.key} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <span className="text-sm text-foreground font-medium">{zone.label}</span>
+                  <p className="text-[11px] text-muted-foreground">{zone.desc}</p>
+                </div>
+                <button onClick={() => toggleF(zone.key)}
+                  className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", isOn(zone.key) ? "bg-primary" : "bg-muted-foreground/30")}
+                  data-testid={`toggle-${zone.key}`}>
+                  <span className={cn("inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform", isOn(zone.key) ? "translate-x-4" : "translate-x-0.5")} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground italic">Manage ad content and sponsorships in Revenue Factory → Advertising</p>
+          <SaveBtn section="Ad Zones" keys={ADZONE_KEYS} />
+        </div>
+      </CollapsibleSection>
+
+      {/* Save All Footer */}
+      <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur border-t border-border p-4 flex items-center justify-between -mx-4 mt-6" data-testid="ls-save-all-footer">
+        <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Unsaved changes apply to all sections</span>
+        <button onClick={saveAll} disabled={saving.all}
+          className="flex items-center gap-2 px-6 py-2.5 text-xs font-mono uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          data-testid="button-save-all-live-site">
+          {saving.all ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Save All Live Site Settings
+        </button>
       </div>
     </div>
   );

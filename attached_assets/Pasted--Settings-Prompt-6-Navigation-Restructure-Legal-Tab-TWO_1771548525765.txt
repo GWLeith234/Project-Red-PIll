@@ -1,0 +1,270 @@
+# Settings — Prompt 6: Navigation Restructure + Legal Tab
+
+## TWO PROMPTS — Run in order. Complete and verify Prompt 6A before running 6B.
+
+---
+
+## Prompt 6A: Navigation Restructure
+
+### Replit Prompt — Copy and paste this entire block
+
+```
+Restructure the admin sidebar navigation and rename pages as specified. This is a database and routing change — no new features, just renaming and reorganizing what exists.
+
+CONTEXT:
+- Admin navigation is driven by the admin_page_config table
+- Changes here update the sidebar immediately
+- Do NOT delete any pages — only rename, move, and reorganize
+
+---
+
+CHANGE 1 — COMMAND CENTER SECTION:
+
+Current state: Command Center section contains a page called "Dashboard"
+Required changes:
+- Rename the page "Dashboard" → "Platform | Dashboard"
+- Keep it as the first item in Command Center
+- Keep the same route (/admin/dashboard), icon, and all existing functionality
+- Update the page_key in admin_page_config if needed to reflect new label
+
+Current state: Analytics exists as its own sidebar section or page
+Required changes:
+- Move the Analytics page into the Command Center section
+- Rename it "Live Site & App | Dashboard"
+- Keep the same route (/admin/analytics), icon, and all existing functionality
+- It should appear directly below "Platform | Dashboard" in the Command Center section
+- Remove Analytics as a standalone section/category from the sidebar
+
+---
+
+CHANGE 2 — CONTENT FACTORY SECTION:
+
+Current state: Content Factory section contains a page called "Content Factory"
+Required changes:
+- Rename the page "Content Factory" → "Generator"
+- Keep the same route, icon, and all existing functionality
+- The section is still called "Content Factory" — only the page name changes
+
+---
+
+CHANGE 3 — ADMIN SECTION:
+
+Current state: Admin section contains a "Branding" page
+Required changes:
+- Remove "Branding" from the Admin sidebar section entirely
+- Set is_visible = false in admin_page_config for the branding page_key
+- Add a redirect: if anyone navigates to the old Branding route, redirect to /admin/settings?tab=branding
+- Do NOT delete the route handler yet — just redirect it
+
+Current state: Admin section contains "Legal" and "Terms & Service" (or similar) pages
+Required changes:
+- Remove both pages from the Admin sidebar section
+- Set is_visible = false in admin_page_config for both page_keys
+- Add redirects: old Legal and T&S routes redirect to /admin/settings?tab=legal
+- Do NOT delete the route handlers yet — just redirect them
+
+---
+
+CHANGE 4 — SETTINGS PAGE:
+
+Current state: Settings has 5 tabs: Branding, Integrations, AI Configuration, Platform Configuration, Live Site & App
+Required change:
+- Add a 6th tab: Legal
+- Tab order: Branding | Integrations | AI Configuration | Platform Configuration | Live Site & App | Legal
+- Legal tab shows a placeholder for now: "Legal documents editor — coming in next prompt"
+- The tab must exist and be clickable before Prompt 6B runs
+
+---
+
+DATABASE CHANGES:
+
+Update admin_page_config table:
+1. WHERE page_key = 'dashboard': set title = 'Platform | Dashboard'
+2. WHERE page_key = 'analytics': set title = 'Live Site & App | Dashboard', update section to 'command-center', update sort_order to appear after dashboard
+3. WHERE page_key = 'content-factory' (the page, not the section): set title = 'Generator'
+4. WHERE page_key = 'branding': set is_visible = false
+5. WHERE page_key = 'legal' (and 'terms-of-service' or equivalent): set is_visible = false for both
+
+If a page_key doesn't exist exactly as named above, find the closest match by title and apply the change to that record.
+
+---
+
+VERIFICATION CHECKLIST:
+1. Admin sidebar Command Center section shows "Platform | Dashboard" and "Live Site & App | Dashboard"
+2. Analytics no longer appears as its own section in the sidebar
+3. Content Factory section shows "Generator" as the page name
+4. Branding does not appear anywhere in the sidebar
+5. Legal and T&S do not appear anywhere in the sidebar
+6. Navigating to old Branding, Legal, and T&S routes redirects to Settings
+7. Settings shows 6 tabs with Legal as the last tab
+8. All renamed pages still function exactly as before — only labels changed
+```
+
+---
+
+## Prompt 6B: Settings — Legal Tab (Run after 6A is verified)
+
+### Replit Prompt — Copy and paste this entire block
+
+```
+Build out the Legal tab in Settings. This is a full content management system for all platform legal documents. Each document is editable by an admin and publishes directly to the live audience site and mobile app.
+
+CONTEXT:
+- Settings → Legal tab currently shows a placeholder
+- The old Legal and Terms & Service admin pages have been removed (redirected to this tab)
+- Six legal documents need to be managed: Privacy Policy, Terms of Service, Cookie Policy, Disclaimer, DMCA, Community Guidelines
+- Each document has its own public-facing URL on the audience site
+- Changes publish immediately when the admin clicks Publish
+
+---
+
+PART A — DATABASE:
+
+(1) Create legal_documents table:
+- id: uuid, primary key
+- document_key: text, unique (privacy-policy, terms-of-service, cookie-policy, disclaimer, dmca, community-guidelines)
+- title: text, not null
+- slug: text, unique (maps to audience URL: /legal/privacy-policy, /legal/terms-of-service, etc.)
+- content: text (full HTML/rich text content)
+- last_published_at: timestamp, nullable
+- last_edited_at: timestamp, default now()
+- published_version: text (copy of content at last publish — allows comparing draft vs live)
+- is_published: boolean, default false
+- meta_description: text, nullable
+- created_at: timestamp, default now()
+
+Seed all six documents with default titles, slugs, and placeholder content:
+
+| document_key | title | slug |
+|---|---|---|
+| privacy-policy | Privacy Policy | /legal/privacy-policy |
+| terms-of-service | Terms of Service | /legal/terms-of-service |
+| cookie-policy | Cookie Policy | /legal/cookie-policy |
+| disclaimer | Disclaimer | /legal/disclaimer |
+| dmca | DMCA Policy | /legal/dmca |
+| community-guidelines | Community Guidelines | /legal/community-guidelines |
+
+Each seeded document gets a sensible starter template (2-3 paragraphs of placeholder text appropriate to that document type).
+
+(2) API endpoints:
+- GET /api/legal — returns all 6 documents (id, document_key, title, slug, last_published_at, is_published — NOT full content)
+- GET /api/legal/:key — returns full document including content and published_version
+- PATCH /api/legal/:key — updates title, content, meta_description. Sets last_edited_at. requireAuth. Does NOT publish.
+- POST /api/legal/:key/publish — copies content → published_version, sets last_published_at = now(), is_published = true. requireAuth.
+- POST /api/legal/:key/unpublish — sets is_published = false. requireAuth.
+- GET /api/public/legal/:slug — public endpoint, returns published_version only. Returns 404 if is_published = false.
+
+---
+
+PART B — AUDIENCE SITE ROUTES:
+
+(3) Create public legal pages on the audience site:
+- Route: /legal/:slug (e.g. /legal/privacy-policy)
+- Fetches from GET /api/public/legal/:slug
+- Renders using a clean legal document template:
+  - Page title (document title)
+  - Last updated date (last_published_at, formatted: "Last updated: February 19, 2026")
+  - Full document content rendered as HTML
+  - Standard audience site header and footer
+  - No ads, no sidebar — clean single-column reading layout
+  - Max width 720px, centered, good line height for readability
+
+(4) Add legal links to the audience site footer:
+- Privacy Policy | Terms of Service | Cookie Policy | Disclaimer | DMCA | Community Guidelines
+- Each links to the corresponding /legal/:slug route
+- Only show links for documents where is_published = true
+
+---
+
+PART C — LEGAL TAB UI:
+
+The Legal tab has two views: Document List (default) and Document Editor (when a document is selected).
+
+DOCUMENT LIST VIEW:
+
+Six document cards in a 2-column grid (3 rows):
+Each card shows:
+- Document title
+- Status badge: green "Published" | yellow "Draft Changes" | gray "Unpublished"
+  - Published: is_published = true AND content matches published_version
+  - Draft Changes: is_published = true BUT content differs from published_version (unsaved edits)
+  - Unpublished: is_published = false
+- Last published date (or "Never published")
+- Public URL (grayed out if unpublished, clickable link if published)
+- "Edit" button → opens Document Editor view
+
+DOCUMENT EDITOR VIEW:
+
+Full-width editor replacing the document list. Header shows:
+- Back arrow → returns to document list
+- Document title (editable inline)
+- Status badge
+- Three action buttons right-aligned:
+  - "Save Draft" — saves without publishing
+  - "Publish" — saves and publishes (with confirmation: "This will make changes live on the audience site immediately")
+  - "Unpublish" — with confirmation: "This will remove this document from the audience site"
+
+Editor layout — two columns:
+
+LEFT COLUMN (60% width) — Rich Text Editor:
+- Use a rich text editor (install and use TipTap or Quill — whichever is simpler to integrate)
+- Support: headings (H1-H4), bold, italic, underline, ordered lists, unordered lists, links, horizontal rule
+- Toolbar above the editor with formatting buttons
+- Full height, scrollable
+
+RIGHT COLUMN (40% width) — Document Settings + Preview:
+
+Document Settings panel:
+- Document Title: text input
+- Meta Description: textarea, max 160 chars (for SEO)
+- Public URL: read-only display of the /legal/:slug path
+- Last edited: timestamp
+- Last published: timestamp or "Never published"
+- Published version indicator: "✓ In sync" if content matches published_version, "⚠ Unpublished changes" if different
+
+WCAG Compliance Checklist (collapsed by default, expandable):
+- Label: "Accessibility Checklist"
+- Checklist of 8 items with manual checkboxes (admin checks these off, stored as part of document metadata):
+  □ Content uses plain language (reading level appropriate for general audience)
+  □ All headings follow proper hierarchy (H1 → H2 → H3)
+  □ No color used as the only means of conveying information
+  □ Links have descriptive text (not "click here")
+  □ Document has been reviewed by a human (not AI-only)
+  □ Last reviewed within 12 months
+  □ Contact information is accurate and up to date
+  □ Document reflects current platform practices
+
+Add wcag_checklist: jsonb column to legal_documents table to store checkbox states.
+
+Live Preview toggle:
+- "Preview" button in the right column
+- Shows a modal with the document rendered exactly as it will appear on the audience site
+- Renders using the same legal document template as the public /legal/:slug page
+
+---
+
+PART D — WCAG COMPLIANCE SUMMARY:
+
+At the top of the Legal tab document list (above the cards), add a compact compliance summary bar:
+- "Compliance Status: X/6 documents published | X/6 WCAG checklists complete"
+- Green if all 6 published and all checklists complete
+- Yellow if some published but checklists incomplete
+- Red if fewer than 4 documents published
+
+---
+
+VERIFICATION CHECKLIST:
+1. Legal tab shows 6 document cards with correct status badges
+2. Clicking Edit opens the document editor with rich text editor loaded
+3. Rich text editor supports headings, bold, italic, lists, links
+4. "Save Draft" saves content without changing published_version or last_published_at
+5. "Publish" saves content AND updates published_version and last_published_at
+6. After publishing, /legal/privacy-policy (and all 6 slugs) render on audience site
+7. Audience site footer shows links only for published documents
+8. Unpublishing a document returns 404 on the audience site and hides footer link
+9. "Draft Changes" status badge appears when content differs from published_version
+10. WCAG checklist checkboxes save and persist
+11. Compliance summary bar at top shows correct counts
+12. Preview modal renders document as it appears on audience site
+13. Legal documents render cleanly on mobile (single column, readable font size)
+```

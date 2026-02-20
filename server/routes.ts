@@ -8502,5 +8502,55 @@ Return ONLY valid JSON, no markdown.`
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // ─── Live Site & App Settings ────────────────────────────────────
+  app.get("/api/settings/live-site", requirePermission("settings.view"), async (_req, res) => {
+    try {
+      const allSettings = await storage.getIntegrationSettings();
+      const lsSettings: Record<string, string> = {};
+      for (const [key, value] of Object.entries(allSettings)) {
+        if (key.startsWith("ls_")) {
+          lsSettings[key] = value;
+        }
+      }
+      res.json(lsSettings);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/settings/live-site", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const updates: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.body)) {
+        if (typeof value === "string" && key.startsWith("ls_")) {
+          updates[key] = value;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        await storage.upsertIntegrationSettings(updates);
+      }
+      const allSettings = await storage.getIntegrationSettings();
+      const lsSettings: Record<string, string> = {};
+      for (const [k, v] of Object.entries(allSettings)) {
+        if (k.startsWith("ls_")) lsSettings[k] = v;
+      }
+      res.json(lsSettings);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/settings/live-site/maintenance", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const allSettings = await storage.getIntegrationSettings();
+      const currentState = allSettings.ls_maintenance_mode_enabled || "false";
+      const newState = currentState === "true" ? "false" : "true";
+      await storage.upsertIntegrationSettings({ ls_maintenance_mode_enabled: newState });
+      res.json({ maintenance_mode_enabled: newState });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   return httpServer;
 }
