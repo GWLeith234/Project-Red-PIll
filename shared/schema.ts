@@ -1803,4 +1803,15 @@ export const insertAutoUpsellDraftSchema = createInsertSchema(autoUpsellDrafts).
 export type InsertAutoUpsellDraft = z.infer<typeof insertAutoUpsellDraftSchema>;
 export type AutoUpsellDraft = typeof autoUpsellDrafts.$inferSelect;
 
+export const integrationSettings = pgTable("integration_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  settingKey: text("setting_key").notNull().unique(),
+  settingValue: text("setting_value").default(""),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertIntegrationSettingSchema = createInsertSchema(integrationSettings).omit({ id: true, updatedAt: true });
+export type InsertIntegrationSetting = z.infer<typeof insertIntegrationSettingSchema>;
+export type IntegrationSetting = typeof integrationSettings.$inferSelect;
+
 export * from "./models/chat";

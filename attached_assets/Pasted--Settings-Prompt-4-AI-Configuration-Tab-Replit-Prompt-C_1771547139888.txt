@@ -1,0 +1,263 @@
+# Settings — Prompt 4: AI Configuration Tab
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build out the AI Configuration tab in Settings. This is the single place where all AI behavior, content rules, provider settings, and usage controls are managed across the entire platform. Replace the placeholder list that currently exists with real, functional configuration forms.
+
+CONTEXT:
+- Settings → AI Configuration tab currently shows a placeholder list of categories
+- AI settings are currently scattered across the platform (content factory, moderation, analytics, CRM)
+- This prompt consolidates ALL AI configuration into one tab and removes scattered AI settings from other pages
+- Uses the existing platform_settings table (category: 'ai')
+- Uses the existing AI provider system (server/ai-providers.ts)
+
+---
+
+PART A — DATABASE:
+
+(1) Add these keys to platform_settings table (category: 'ai') if they don't exist:
+
+Provider Settings:
+- ai_primary_provider: "claude" (claude, openai, auto)
+- ai_fallback_provider: "openai"
+- ai_claude_model: "claude-opus-4-6"
+- ai_openai_model: "gpt-4o"
+- ai_temperature: "0.7"
+- ai_max_tokens_per_request: "2000"
+- ai_daily_token_budget: "500000"
+- ai_token_alert_threshold: "80" (percentage, triggers warning)
+
+Brand Voice & Content Rules:
+- ai_platform_name: "Salem Media"
+- ai_brand_voice: "authoritative, conversational, patriotic, no-nonsense"
+- ai_target_audience: "conservative Americans aged 35-65 who value traditional values, free speech, and limited government"
+- ai_content_guidelines: "Always frame content from a conservative perspective. Avoid liberal media framing. Support free speech. Be direct and confident."
+- ai_prohibited_topics: "Do not generate content that promotes socialism, critical race theory, or mainstream media narratives without critical analysis."
+- ai_preferred_topics: "Politics, economics, foreign policy, Second Amendment, religious freedom, free speech, border security"
+- ai_competitor_avoidance: "Do not reference or recommend CNN, MSNBC, NYT, WaPo, or similar outlets favorably"
+
+Auto-Generation Settings:
+- ai_auto_generate_articles: "true"
+- ai_auto_generate_social: "true"
+- ai_auto_generate_newsletter: "false"
+- ai_auto_generate_seo: "true"
+- ai_auto_generate_clips_summary: "true"
+- ai_auto_publish_articles: "false" (if true, skip moderation queue)
+- ai_article_min_word_count: "400"
+- ai_article_max_word_count: "1200"
+- ai_social_platforms: "twitter,facebook,linkedin" (comma separated)
+
+Moderation Settings:
+- ai_moderation_enabled: "true"
+- ai_moderation_sensitivity: "medium" (low, medium, high)
+- ai_auto_hide_flagged: "false"
+- ai_moderation_topics: "spam,harassment,profanity,threats"
+
+AdvisorAI Settings:
+- ai_advisor_enabled: "true"
+- ai_advisor_ctr_threshold: "1.5" (percentage — triggers upsell prompt)
+- ai_advisor_qr_scan_threshold: "50" (monthly scans — triggers upsell)
+- ai_advisor_auto_draft: "true"
+
+Analytics AI Settings:
+- ai_analytics_digest_enabled: "true"
+- ai_analytics_digest_schedule: "weekly" (daily, weekly, off)
+- ai_analytics_digest_recipients: "" (comma separated emails)
+- ai_insights_cache_hours: "24"
+
+(2) API endpoints:
+- GET /api/settings/ai — returns all AI settings as flat object
+- PATCH /api/settings/ai — upserts settings, requireAuth
+- GET /api/settings/ai/usage — returns token usage stats (today, this week, this month, daily average)
+- POST /api/settings/ai/test — sends a test prompt to the configured primary provider and returns the response
+
+---
+
+PART B — AI CONFIGURATION TAB UI:
+
+Six collapsible sections with chevron toggles. All open by default. Each section has its own Save button. Master "Save All AI Settings" fixed at page bottom.
+
+---
+
+SECTION 1 — AI PROVIDER SETTINGS:
+
+Primary Provider card:
+- Primary Provider: dropdown → Claude (Anthropic) | OpenAI | Auto (use best available)
+- Fallback Provider: dropdown → same options
+- Note: "Auto mode selects the best provider based on task type and availability"
+
+Claude Settings (show when Claude is primary or fallback):
+- Model: dropdown → claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-4-5
+- Note next to each model: Opus (most capable, highest cost) | Sonnet (balanced) | Haiku (fastest, lowest cost)
+
+OpenAI Settings (show when OpenAI is primary or fallback):
+- Model: dropdown → gpt-4o | gpt-4o-mini | gpt-3.5-turbo
+
+Generation Parameters:
+- Temperature: slider 0.0 to 1.0 with labeled stops (0.0 = Precise, 0.5 = Balanced, 1.0 = Creative) → ai_temperature
+- Max Tokens Per Request: number input (500-8000) → ai_max_tokens_per_request
+
+Test Connection card:
+- "Test AI Connection" button → calls POST /api/settings/ai/test
+- Shows: provider used, response time in ms, sample output ("Hello from [provider]!")
+- Green success or red error state
+
+---
+
+SECTION 2 — USAGE & LIMITS:
+
+Usage Dashboard (read-only, from GET /api/settings/ai/usage):
+- Four metric cards: Tokens Today | Tokens This Week | Tokens This Month | Daily Average
+- Progress bar showing daily usage vs daily budget (ai_daily_token_budget)
+- Color: green under 60%, yellow 60-80%, red over 80%
+
+Budget Controls:
+- Daily Token Budget: number input with formatted display (e.g. "500,000 tokens") → ai_daily_token_budget
+- Alert Threshold: slider 50-95% → ai_token_alert_threshold
+- Note: "When usage reaches this threshold, a warning appears in the admin header"
+- Hard Limit toggle: "Stop AI generation when daily budget is reached" (if off, just warns)
+
+Cost Estimator (informational):
+- Small card showing estimated monthly cost based on current usage pace
+- Formula: (tokens_this_month / days_elapsed * 30) * estimated_cost_per_token
+- Note: "Estimate only. Actual costs vary by provider and model."
+
+---
+
+SECTION 3 — BRAND VOICE & CONTENT RULES:
+
+These rules are injected into every AI prompt across the platform as system context.
+
+- Platform Name: text input → ai_platform_name
+- Brand Voice: text input, max 200 chars → ai_brand_voice
+  Placeholder: "authoritative, conversational, patriotic, no-nonsense"
+  Helper: "Describe your brand's tone in 3-6 adjectives or phrases"
+
+- Target Audience: textarea, max 300 chars → ai_target_audience
+  Placeholder: "Conservative Americans aged 35-65 who value traditional values..."
+
+- Content Guidelines: textarea, max 500 chars → ai_content_guidelines
+  Label: "What should AI always do when creating content?"
+  Placeholder: "Always frame content from a conservative perspective..."
+
+- Prohibited Topics: textarea, max 500 chars → ai_prohibited_topics
+  Label: "What should AI never write about or how should it never frame things?"
+
+- Preferred Topics: textarea, max 300 chars → ai_preferred_topics
+  Label: "What topics does your audience care most about?"
+
+- Competitor Avoidance: textarea, max 300 chars → ai_competitor_avoidance
+  Label: "Which outlets or brands should AI avoid referencing favorably?"
+
+Preview panel: "How AI sees your brand" — shows a formatted summary of the above settings as they would appear in an AI system prompt. Updates live as fields change.
+
+---
+
+SECTION 4 — AUTO-GENERATION SETTINGS:
+
+Content Types toggle group:
+Each content type has an enable/disable toggle + settings that expand when enabled:
+
+Articles toggle → ai_auto_generate_articles
+  When enabled shows:
+  - Min word count: number input → ai_article_min_word_count
+  - Max word count: number input → ai_article_max_word_count
+  - Auto-publish (skip moderation queue): toggle → ai_auto_publish_articles
+    Warning: "Enabling this publishes AI content without human review"
+
+Social Posts toggle → ai_auto_generate_social
+  When enabled shows:
+  - Platforms: checkbox group (Twitter/X, Facebook, LinkedIn, Instagram) → ai_social_platforms
+
+Newsletter toggle → ai_auto_generate_newsletter
+
+SEO Metadata toggle → ai_auto_generate_seo
+
+Clips Summary toggle → ai_auto_generate_clips_summary
+
+Global note at bottom of section: "These settings control what gets auto-generated when a podcast episode is processed. Individual episodes can override these defaults."
+
+---
+
+SECTION 5 — MODERATION SETTINGS:
+
+- AI Moderation: master toggle → ai_moderation_enabled
+  Note: "AI reviews community posts before they appear publicly"
+
+When enabled shows:
+- Sensitivity: radio buttons → ai_moderation_sensitivity
+  Low: "Flag only obvious violations (spam, threats)"
+  Medium: "Flag violations plus borderline content for human review" (recommended)
+  High: "Flag anything potentially controversial — requires more human review"
+
+- Auto-hide Flagged Posts: toggle → ai_auto_hide_flagged
+  Note: "If off, flagged posts stay visible until manually reviewed"
+
+- Monitored Topics: tag input → ai_moderation_topics
+  Default tags: spam, harassment, profanity, threats
+  User can add/remove tags
+  Note: "AI will flag posts containing these topics for review"
+
+Moderation Stats card (read-only):
+- Posts reviewed today | Posts flagged today | Auto-hidden today | Avg review time
+- Pull from existing moderation data if available
+
+---
+
+SECTION 6 — ADVISOR AI & ANALYTICS:
+
+AdvisorAI Settings:
+- AdvisorAI: master toggle → ai_advisor_enabled
+  Label: "Automatically generate upsell prompts when ad campaigns perform above threshold"
+
+When enabled shows:
+- CTR Threshold: number input with % suffix → ai_advisor_ctr_threshold
+  Label: "Generate upsell prompt when campaign CTR exceeds this percentage"
+  Default: 1.5%
+
+- QR Scan Threshold: number input → ai_advisor_qr_scan_threshold
+  Label: "Generate upsell prompt when monthly QR scans exceed this number"
+  Default: 50
+
+- Auto-Draft Prompts: toggle → ai_advisor_auto_draft
+  Label: "Automatically draft upsell messages (requires admin approval before sending)"
+
+Analytics AI Settings:
+- Weekly Digest: toggle → ai_analytics_digest_enabled
+- Schedule: dropdown → Daily | Weekly | Off → ai_analytics_digest_schedule
+- Recipients: tag input for email addresses → ai_analytics_digest_recipients
+- Insights Cache: number input (hours) → ai_insights_cache_hours
+  Label: "How long to cache AI-generated insights before regenerating"
+  Default: 24 hours
+
+---
+
+PART C — CONSOLIDATION CLEANUP:
+
+After building the above, find and remove scattered AI configuration from other parts of the platform:
+
+1. If any AI provider settings (API keys, model selection) exist in a separate config file or admin page outside Settings, note their location in a comment but do NOT move API keys — those stay in Integrations tab. Only move behavioral settings (temperature, model choice, rules).
+
+2. If content generation rules or tone settings exist anywhere in the Content Factory page, move them here and replace with a link: "AI content rules are managed in Settings → AI Configuration"
+
+3. If moderation sensitivity settings exist on the Community or Moderation Queue page as their own config, replace with a link to this tab.
+
+4. If AdvisorAI thresholds exist on the Advertising page as their own settings, replace with a link to this tab.
+
+---
+
+VERIFICATION CHECKLIST:
+1. AI Configuration tab loads with 6 sections
+2. Provider dropdown changes show/hide correct model options
+3. Test Connection button returns a real response from the configured provider
+4. Usage metrics show real token consumption data (or 0 if no data yet)
+5. Daily budget progress bar shows correct color based on usage percentage
+6. Brand voice fields save and persist — verify by refreshing page
+7. Preview panel updates live as brand voice fields are edited
+8. Auto-generation toggles expand/collapse their sub-settings correctly
+9. Auto-publish warning appears clearly when that toggle is enabled
+10. Moderation sensitivity radio buttons save correctly
+11. AdvisorAI threshold fields save and match values used in the advertising system
+12. No duplicate AI configuration controls exist elsewhere on the platform
+```

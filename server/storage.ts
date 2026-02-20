@@ -85,6 +85,7 @@ import {
   adClicks, type AdClick, type InsertAdClick,
   qrScans, type QrScan, type InsertQrScan,
   autoUpsellDrafts, type AutoUpsellDraft, type InsertAutoUpsellDraft,
+  integrationSettings, type IntegrationSetting,
 } from "@shared/schema";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -145,6 +146,9 @@ export interface IStorage {
 
   getSettings(): Promise<PlatformSettings | undefined>;
   upsertSettings(data: Partial<InsertPlatformSettings>): Promise<PlatformSettings>;
+
+  getIntegrationSettings(): Promise<Record<string, string>>;
+  upsertIntegrationSettings(data: Record<string, string>): Promise<void>;
 
   getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
   createAuditLog(data: InsertAuditLog): Promise<AuditLog>;
@@ -761,6 +765,26 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(platformSettings).values(data as InsertPlatformSettings).returning();
     return created;
+  }
+
+  async getIntegrationSettings(): Promise<Record<string, string>> {
+    const rows = await db.select().from(integrationSettings);
+    const result: Record<string, string> = {};
+    for (const row of rows) {
+      result[row.settingKey] = row.settingValue || "";
+    }
+    return result;
+  }
+
+  async upsertIntegrationSettings(data: Record<string, string>): Promise<void> {
+    for (const [key, value] of Object.entries(data)) {
+      await db.insert(integrationSettings)
+        .values({ settingKey: key, settingValue: value, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: integrationSettings.settingKey,
+          set: { settingValue: value, updatedAt: new Date() },
+        });
+    }
   }
 
   async getAuditLogs(limit = 50, offset = 0) {
