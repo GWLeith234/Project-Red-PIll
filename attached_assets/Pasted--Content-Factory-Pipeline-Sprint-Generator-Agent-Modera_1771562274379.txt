@@ -1,0 +1,417 @@
+# Content Factory Pipeline Sprint
+## Generator Agent → Moderation Agent → Scheduler Agent → Analytics
+
+---
+
+## The Vision
+
+One episode in. A cascade of content out. Every piece AI-reviewed, quality-scored, scheduled at the optimal time, and reported back to analytics automatically. Three agents, one assembly line, zero manual busywork.
+
+```
+INGEST (audio/video/text)
+    ↓
+GENERATOR AGENT
+  → Transcription
+  → Blog Article (long-form)
+  → Newsletter (email format)
+  → Social Posts (X, Facebook, LinkedIn, Instagram — platform-native copy)
+  → Clip Suggestions (viral moments with timestamps)
+  → SEO Backlink Targets (anchor text + suggested placement)
+    ↓
+MODERATION AGENT (auto-runs on each output)
+  → Quality Score (0-100)
+  → Brand Voice Check (conservative, on-brand)
+  → Rewrite suggestions for low-scoring pieces
+  → "AI Reviewed ✓" badge when passed
+    ↓
+SCHEDULER AGENT
+  → Suggests optimal posting time per platform
+  → Sequences the content cascade (blog first → social → newsletter → clips)
+  → Places items on calendar
+    ↓
+PUBLISHED
+    ↓
+ANALYTICS (auto-reports performance back per content piece)
+```
+
+---
+
+## Page 1: Content Factory (Enhanced)
+
+### Standard PageHeader
+- Icon: FileText (primary color)
+- Title: "Content Factory"
+- AI Button: "AI Generate" (purple)
+- Primary Button: "+ New Content" (primary color)
+
+### KPI Strip (6 cards, white values)
+- TOTAL PIECES
+- PUBLISHED
+- IN MODERATION
+- DRAFTS
+- AI GENERATED
+- AVG TIME TO PUBLISH
+
+### Processing Queue (existing — enhance)
+Shows active transcription/generation jobs with progress bars. Add:
+- Stage indicator per job: Transcribing → Generating → Moderating → Ready
+- ETA per job
+- Cancel button
+
+### Tabs (existing structure, enhanced content)
+Pipeline | Upload | Clips | Newsletter | Shows
+
+---
+
+## Page 2: Moderation Queue (Enhanced)
+
+### Standard PageHeader
+- Icon: Shield (primary color)
+- Title: "Moderation Queue"
+- AI Button: "AI Moderate All" (purple) — runs AI moderation on all unreviewed items
+- Primary Button: "Ship All Approved" (primary color)
+
+### KPI Strip (6 cards, white values)
+- TOTAL PENDING
+- AI REVIEWED
+- APPROVED TODAY
+- FLAGGED
+- AVG QUALITY SCORE
+- AVG REVIEW TIME
+
+### Content becomes an AI-powered review board (not just a list)
+
+---
+
+## Page 3: Scheduler (Enhanced)
+
+### Standard PageHeader
+- Icon: Calendar (primary color)
+- Title: "Scheduler"
+- AI Button: "AI Schedule" (purple) — auto-schedules all approved unscheduled content
+- Primary Button: "+ Schedule Post" (primary color)
+
+### KPI Strip (6 cards, white values)
+- SCHEDULED THIS WEEK
+- PUBLISHED TODAY
+- PLATFORMS ACTIVE
+- NEXT POST (time)
+- ON-TIME RATE
+- ENGAGEMENT RATE (from analytics)
+
+### Calendar remains — enhanced with AI suggestions
+
+---
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build the Content Factory Pipeline — three connected admin pages (Content Factory, Moderation Queue, Scheduler) wired together as an AI-powered assembly line, with automated reporting back to the Analytics system.
+
+Follow the platform UI/UX standard on all three pages:
+  - PageHeader: icon (primary color) + title | AI button (purple #6C3FC5, Sparkles icon) + primary button (primary color)
+  - KPI Strip: 6 cards, white values, muted labels, auto-sizing
+  - Tabs below KPI strip
+  - Main content below tabs
+
+Do NOT break existing functionality. Enhance what's there.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART A — DATABASE ADDITIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(1) Add columns to content_pieces table (or equivalent articles/content table) if not present:
+    - pipeline_stage: text, default 'draft'
+      Values: 'transcribing' | 'generating' | 'moderating' | 'review_ready' | 'approved' | 'scheduled' | 'published'
+    - source_episode_id: uuid, nullable (which episode this was generated from)
+    - content_type: text ('blog' | 'newsletter' | 'social_x' | 'social_facebook' | 'social_linkedin' | 'social_instagram' | 'clip_suggestion' | 'seo_backlink')
+    - ai_quality_score: integer, nullable (0-100, set by Moderation Agent)
+    - ai_quality_notes: text, nullable (AI feedback on the piece)
+    - ai_reviewed_at: timestamp, nullable
+    - ai_rewrite_suggestion: text, nullable
+    - moderation_status: text, default 'pending' ('pending' | 'approved' | 'flagged' | 'rejected')
+    - scheduled_at: timestamp, nullable
+    - published_at: timestamp, nullable
+    - platform: text, nullable (which platform this is scheduled/published to)
+    - analytics_impressions: integer, default 0
+    - analytics_clicks: integer, default 0
+    - analytics_engagement_rate: numeric, default 0
+    - analytics_reported_at: timestamp, nullable
+
+(2) Add content_generation_jobs table:
+    - id: uuid, primary key
+    - episode_id: uuid (source episode)
+    - episode_title: text
+    - show_name: text
+    - status: text, default 'queued' ('queued' | 'transcribing' | 'generating' | 'moderating' | 'complete' | 'failed')
+    - stage_progress: integer, default 0 (0-100 within current stage)
+    - transcript: text, nullable (populated after transcription)
+    - outputs_generated: integer, default 0 (count of content pieces created)
+    - error_message: text, nullable
+    - started_at: timestamp, nullable
+    - completed_at: timestamp, nullable
+    - created_at: timestamp, default now
+
+(3) Add scheduled_posts table:
+    - id: uuid, primary key
+    - content_piece_id: uuid, references content_pieces
+    - platform: text ('x' | 'facebook' | 'linkedin' | 'instagram' | 'blog' | 'newsletter')
+    - scheduled_at: timestamp, not null
+    - published_at: timestamp, nullable
+    - status: text, default 'scheduled' ('scheduled' | 'published' | 'failed' | 'cancelled')
+    - ai_suggested: boolean, default false (true if scheduler agent suggested this time)
+    - ai_suggestion_reason: text, nullable
+    - analytics_reported: boolean, default false
+    - created_at: timestamp, default now
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART B — GENERATOR AGENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(4) Create server/agents/generator-agent.ts
+
+This agent runs after transcription completes for an episode. It reads the transcript and generates a full content waterfall.
+
+Function: generateContentWaterfall(jobId: string)
+
+Step 1 — Read transcript from content_generation_jobs table.
+Step 2 — Generate each of the following using the AI provider system (server/ai-providers.ts). Run them sequentially, updating stage_progress as each completes. Update outputs_generated count after each successful generation. Each piece is inserted into content_pieces with pipeline_stage = 'moderating'.
+
+BLOG ARTICLE:
+Prompt: "You are a conservative media content writer for [show_name]. Based on this transcript, write a compelling long-form blog article (800-1200 words). Include: an attention-grabbing headline, an introduction that hooks the reader, 3-4 substantive sections with subheadings, key quotes from the episode pulled verbatim, a conclusion with a clear takeaway. Write in the voice of [host_name]. Transcript: [transcript]"
+Output fields: title, body (HTML), content_type='blog', excerpt (150 chars)
+
+NEWSLETTER:
+Prompt: "Write a newsletter-format email based on this podcast transcript. Format: Subject line (max 60 chars, high open rate), Preview text (90 chars), Opening paragraph (personal, direct), 3 key insights from the episode as scannable bullets with brief explanation each, 1 featured quote, Call to action to listen to the full episode. Keep total length under 500 words. Show: [show_name]. Transcript: [transcript]"
+Output fields: title (subject line), body (HTML email format), content_type='newsletter'
+
+SOCIAL — X (Twitter):
+Prompt: "Write 3 different tweet-thread options based on this transcript. Each option: Tweet 1 (hook, max 280 chars), Tweet 2 (key point, max 280 chars), Tweet 3 (CTA, max 280 chars). Make them punchy, conservative in tone, shareable. Include relevant hashtags on Tweet 3 only. Label each option clearly. Show: [show_name]. Transcript: [transcript]"
+Output: 3 separate content_pieces, content_type='social_x', each containing one tweet thread option
+
+SOCIAL — FACEBOOK:
+Prompt: "Write a Facebook post based on this podcast transcript. 150-250 words. Conversational tone. Start with a strong opening line that stops the scroll. Include the key insight from the episode. End with a question to drive comments. No hashtags. Show: [show_name]. Transcript: [transcript]"
+Output: content_type='social_facebook'
+
+SOCIAL — LINKEDIN:
+Prompt: "Write a LinkedIn post based on this podcast transcript. 200-300 words. Professional but engaging. Format: Bold opening line, 3-4 short paragraphs, 3-5 relevant hashtags at the end. Focus on the business/policy insight angle. Show: [show_name]. Transcript: [transcript]"
+Output: content_type='social_linkedin'
+
+SOCIAL — INSTAGRAM:
+Prompt: "Write an Instagram caption based on this podcast transcript. 100-150 words. Energetic tone. Strong first line (shows before the 'more' cutoff). 5-7 relevant hashtags at the end. Also suggest a visual concept for the image (describe in 1 sentence what the graphic should show). Show: [show_name]. Transcript: [transcript]"
+Output: content_type='social_instagram', store visual suggestion in ai_quality_notes
+
+CLIP SUGGESTIONS:
+Prompt: "Analyze this transcript and identify the 3-5 best moments for short-form video clips (30-90 seconds each). For each clip: Start timestamp (MM:SS format), End timestamp, Hook line (the first sentence that makes someone keep watching), Why it's viral-worthy (1 sentence), Suggested caption for social. Transcript: [transcript]"
+Output: One content_piece per clip suggestion, content_type='clip_suggestion', body contains the structured clip data as JSON
+
+SEO BACKLINK TARGETS:
+Prompt: "Based on this podcast transcript about [show_name], identify 5-8 SEO backlink opportunities. For each: Target keyword phrase (what people search for), Suggested anchor text for a backlink, Recommended content type to create (article, listicle, FAQ), Brief description of what that content piece should cover to rank for this keyword and naturally earn backlinks. Transcript: [transcript]"
+Output: One content_piece, content_type='seo_backlink', body contains the structured list
+
+Step 3 — After all pieces generated, update job status to 'moderating'. Automatically trigger the Moderation Agent for all generated pieces.
+
+(5) Add API endpoints:
+    POST /api/content/generate/:episodeId — starts a generation job, returns job_id
+    GET /api/content/jobs/:jobId — returns job status and progress
+    GET /api/content/jobs — returns all jobs (for processing queue display)
+    GET /api/content/pieces?source_episode_id=xxx — returns all pieces from one episode
+
+(6) Wire the "AI Generate" button on Content Factory PageHeader:
+    Click → modal opens asking user to select an episode from a dropdown (or it's pre-selected if one is highlighted in the Pipeline tab)
+    Confirm → POST /api/content/generate/:episodeId
+    Job appears immediately in Processing Queue with stage "Generating..." and progress bar
+    Processing Queue auto-refreshes every 5 seconds via polling (or SSE if available)
+    When job reaches 'complete', show a toast: "Content generated — X pieces ready for review" with link to Moderation Queue
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART C — MODERATION AGENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(7) Create server/agents/moderation-agent.ts
+
+Function: moderateContentPiece(contentPieceId: string)
+- Fetch content piece from database
+- Build a type-specific prompt based on content_type:
+
+For blog/newsletter:
+Prompt: "You are a senior editor for a conservative media platform. Review this content piece and provide: 1) Quality Score 0-100 (consider: writing quality, factual grounding, brand voice, engagement potential), 2) Brand Voice Check: does it sound like [show_name]? (pass/fail + reason), 3) Top 3 specific improvements needed, 4) If score below 75, provide a rewritten version of the weakest paragraph. Be direct and specific."
+
+For social posts:
+Prompt: "Review this social media post for [platform]. Score 0-100 based on: platform-native feel, hook strength, shareability, conservative brand voice, character limits respected. If score below 75, provide an improved rewrite. List top 2 specific improvements."
+
+For clip suggestions:
+Prompt: "Review these clip suggestions for viral potential. Score each 0-100 based on: hook strength, emotional resonance, shareability, political relevance. Rank them from most to least viral. Flag any that might be controversial or misrepresent the host's position."
+
+For SEO backlinks:
+Prompt: "Review these SEO backlink targets. Score the overall strategy 0-100 based on: keyword relevance, achievability, traffic potential for a conservative media site. Suggest the top 3 to prioritize and explain why."
+
+- Parse response and update content piece:
+  ai_quality_score = parsed score
+  ai_quality_notes = feedback text
+  ai_rewrite_suggestion = rewrite if provided
+  ai_reviewed_at = now()
+  moderation_status = score >= 75 ? 'approved' : 'flagged'
+  pipeline_stage = 'review_ready'
+
+Function: moderateAll(episodeId: string)
+- Fetch all content pieces for this episode with moderation_status = 'pending'
+- Run moderateContentPiece() on each sequentially
+- Return summary: { total, approved, flagged, avgScore }
+
+(8) Add API endpoints:
+    POST /api/moderation/piece/:id — runs moderation on one piece
+    POST /api/moderation/episode/:episodeId — runs moderation on all pieces from an episode
+    POST /api/moderation/approve/:id — manually approve a piece (sets moderation_status='approved', pipeline_stage='approved')
+    POST /api/moderation/reject/:id — reject a piece
+    POST /api/moderation/ship/:id — ship/publish a piece (sets pipeline_stage='published', published_at=now())
+    POST /api/moderation/ship-all — ships all approved pieces
+
+(9) Rebuild the Moderation Queue page UI:
+
+PageHeader: Shield icon + "Moderation Queue" | "AI Moderate All" (purple) + "Ship All Approved" (primary color)
+
+KPI Strip (6 cards, white values, muted labels):
+  TOTAL PENDING | AI REVIEWED | APPROVED TODAY | FLAGGED | AVG QUALITY SCORE | AVG REVIEW TIME
+
+Category filter tiles (existing — keep):
+  Articles | Blogs | Social Posts | Clips | Newsletters | SEO Assets
+
+Content list — upgrade each row to a full review card:
+
+Each card shows:
+  LEFT: content type icon + platform badge + headline/title (truncated 2 lines)
+  CENTER: AI Quality Score badge (color: green ≥75, yellow 50-74, red <50) + "AI Reviewed ✓" or "Pending Review" label + 1-line AI feedback summary
+  RIGHT: Action buttons: [View] [Edit] [Approve ✓] [Reject ✗] [Ship →]
+
+Expand/collapse: clicking a card expands it to show:
+  - Full content preview
+  - Full AI quality notes
+  - AI rewrite suggestion (if score < 75) with "Apply Rewrite" button that replaces the content
+  - Moderation status timeline: Generated → AI Reviewed → [Approved/Flagged] → Shipped
+
+"AI Moderate All" button:
+  - Runs moderation on all pending pieces
+  - Shows progress (X of Y moderated...)
+  - When complete: toast with summary "22 approved, 3 flagged — review flagged items"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART D — SCHEDULER AGENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(10) Create server/agents/scheduler-agent.ts
+
+Function: suggestSchedule(episodeId: string)
+- Fetch all approved content pieces for this episode
+- Group by content_type
+- Send to AI with platform best-practices context:
+
+Prompt: "You are a social media scheduler for a conservative news/podcast platform. We have the following approved content pieces ready to publish from episode '[episode_title]': [list each piece by type]. Create an optimal publishing schedule for the next 7 days. Rules: 1) Blog article publishes first (drives SEO and backlinks), 2) Newsletter sends day 2 morning, 3) Social posts stagger across the week — don't post same platform twice in one day, 4) Best times: X/Twitter 7am and 6pm CT, Facebook 9am and 3pm CT, LinkedIn 8am Tuesday-Thursday, Instagram 12pm any day, 5) Clip suggestions go to the video editor queue (flag as 'clip_ready', don't schedule directly). For each piece provide: content_type, platform, suggested_datetime (ISO format, CT timezone), reason (1 sentence why this time)."
+
+- Parse the response
+- Insert into scheduled_posts table with ai_suggested=true and ai_suggestion_reason
+- Update content_piece pipeline_stage to 'scheduled'
+- Return the schedule as an array
+
+Function: publishDueItems()
+- Find all scheduled_posts where scheduled_at <= now() AND status = 'scheduled'
+- For each: update status to 'published', update content_piece published_at = now(), pipeline_stage = 'published'
+- Trigger analytics reporting (see Part E)
+- This function runs every 5 minutes via a setInterval or cron-style loop on the server
+
+(11) Add API endpoints:
+    POST /api/scheduler/suggest/:episodeId — runs suggestSchedule, returns proposed schedule
+    POST /api/scheduler/confirm/:episodeId — confirms and saves the suggested schedule
+    GET /api/scheduler/calendar?start=xxx&end=xxx — returns scheduled_posts for calendar view
+    POST /api/scheduler/reschedule/:postId — update scheduled_at for one post
+    DELETE /api/scheduler/cancel/:postId — cancel a scheduled post
+
+(12) Upgrade the Scheduler page UI:
+
+PageHeader: Calendar icon + "Scheduler" | "AI Schedule" (purple) + "+ Schedule Post" (primary color)
+
+KPI Strip (6 cards, white values):
+  SCHEDULED THIS WEEK | PUBLISHED TODAY | PLATFORMS ACTIVE | NEXT POST | ON-TIME RATE | AVG ENGAGEMENT RATE
+
+Channel filter pills (existing — keep):
+  All | X | Facebook | LinkedIn | Instagram | Blog | Newsletter
+
+Calendar view (existing — enhance):
+  - Each calendar event pill shows: platform icon + content title (truncated) + status dot (green=published, blue=scheduled, yellow=ai-suggested, red=failed)
+  - Click event → side panel opens showing full content preview, platform, scheduled time, AI suggestion reason, [Edit Time] [Cancel] [Publish Now] buttons
+  - AI-suggested items have a subtle purple Sparkles indicator
+
+"AI Schedule" button:
+  - Opens modal: "Select episode to auto-schedule"
+  - Dropdown of episodes with approved-but-unscheduled content
+  - Click "Generate Schedule" → calls suggestSchedule
+  - Shows proposed schedule as a list before confirming: "Blog: Feb 21 8am • Newsletter: Feb 22 7am • X Thread 1: Feb 21 7am..." etc.
+  - [Confirm Schedule] button → saves all to calendar
+  - Items appear on calendar with purple Sparkles badge indicating AI-suggested
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART E — ANALYTICS WIRING
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(13) Create server/agents/analytics-reporter.ts
+
+Function: reportContentPerformance(contentPieceId: string)
+- This runs automatically when a piece is marked as published
+- For now: pull any available data (page_analytics views matching the content URL, click data if available)
+- Update content_piece: analytics_impressions, analytics_clicks, analytics_engagement_rate, analytics_reported_at
+- This function will be called again on a schedule (daily) to refresh numbers as they accumulate
+
+Function: getContentPerformanceSummary(episodeId: string)
+- Returns aggregate performance across all pieces from one episode:
+  { totalImpressions, totalClicks, avgEngagementRate, bestPerformingPiece, bestPlatform }
+
+(14) Add analytics API endpoints:
+    GET /api/analytics/content/:episodeId — returns performance summary for all pieces from episode
+    GET /api/analytics/content/piece/:id — returns performance for one piece
+    POST /api/analytics/content/refresh — re-pulls latest data for all published pieces
+
+(15) Wire Content Factory → Analytics:
+    On Content Factory Pipeline tab, when viewing a completed episode, show a "Performance" section at the bottom:
+    - Collapsed by default, "View Performance →" expand link
+    - Shows: total impressions across all pieces, best-performing content type, best platform, engagement trend chart (simple sparkline)
+    - "View full report →" links to Analytics page filtered to this episode
+
+(16) On the Analytics page, add a "Content Pipeline" section (or confirm it exists):
+    - Content Leaderboard by Episode: which episode generated the most total impressions across all its derivative content
+    - Content Leaderboard by Type: blog vs newsletter vs social — which content type drives the most traffic
+    - Platform Performance: which platform (X, Facebook, LinkedIn, Instagram) gets the most clicks from scheduled posts
+    - Pipeline Velocity: avg time from episode upload → first piece published (goal: under 24 hours)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART F — PIPELINE STATUS VISIBILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(17) Add a Pipeline Status indicator to the Content Factory page — a visual pipeline tracker per episode showing where each episode's content currently sits:
+
+For each episode in the queue, show a horizontal progress bar with 5 stages:
+  [Transcribed] → [Generated] → [Moderated] → [Scheduled] → [Published]
+  
+Each stage is filled/colored when complete. Currently active stage pulses.
+Click any stage to jump to the relevant tab/page.
+
+This gives George a bird's eye view: "I can see Episode 140 is at 'Moderated' — 8 pieces approved, 2 flagged. Episode 141 is at 'Scheduled' — all content going out this week."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFICATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Select an episode in Content Factory → click "AI Generate" → job appears in Processing Queue with stage progress
+[ ] After generation: 10+ content pieces appear (blog, newsletter, 3x social X, FB, LinkedIn, Instagram, clips, SEO)
+[ ] Each piece auto-triggers Moderation Agent → quality score appears on each piece
+[ ] Pieces with score ≥75 auto-marked "Approved", <75 marked "Flagged" with rewrite suggestion
+[ ] Moderation Queue shows all pieces with quality score badges and AI feedback
+[ ] "Apply Rewrite" button replaces content with AI suggestion
+[ ] "Ship All Approved" ships all approved pieces
+[ ] Scheduler "AI Schedule" → selects episode → shows proposed 7-day schedule
+[ ] Confirm schedule → all pieces appear on calendar with purple AI badge
+[ ] Published pieces trigger analytics reporting — impressions/clicks update on content pieces
+[ ] Analytics page shows Content Pipeline section with episode leaderboard
+[ ] Pipeline status bars on Content Factory show correct stage per episode
+[ ] All three pages follow PageHeader + KPI strip + tabs standard
+[ ] KPI values are white, labels are muted — no colored values
+```

@@ -139,12 +139,26 @@ export const contentPieces = pgTable("content_pieces", {
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  pipelineStage: text("pipeline_stage").default("draft"),
+  sourceEpisodeId: varchar("source_episode_id"),
+  contentType: text("content_type"),
+  aiQualityScore: integer("ai_quality_score"),
+  aiQualityNotes: text("ai_quality_notes"),
+  aiReviewedAt: timestamp("ai_reviewed_at"),
+  aiRewriteSuggestion: text("ai_rewrite_suggestion"),
+  moderationStatus: text("moderation_status").default("pending"),
+  analyticsImpressions: integer("analytics_impressions").default(0),
+  analyticsClicks: integer("analytics_clicks").default(0),
+  analyticsEngagementRate: real("analytics_engagement_rate").default(0),
+  analyticsReportedAt: timestamp("analytics_reported_at"),
 }, (table) => [
   index("content_pieces_episode_id_idx").on(table.episodeId),
   index("content_pieces_status_idx").on(table.status),
   index("content_pieces_type_idx").on(table.type),
   index("content_pieces_assigned_to_idx").on(table.assignedTo),
   index("content_pieces_scheduled_idx").on(table.scheduledPublishAt),
+  index("content_pieces_pipeline_stage_idx").on(table.pipelineStage),
+  index("content_pieces_moderation_status_idx").on(table.moderationStatus),
 ]);
 
 export const advertisers = pgTable("advertisers", {
@@ -642,10 +656,31 @@ export const scheduledPosts = pgTable("scheduled_posts", {
   hashtags: text("hashtags").array().default(sql`ARRAY[]::text[]`),
   mediaUrls: text("media_urls").array().default(sql`ARRAY[]::text[]`),
   aiSuggestion: text("ai_suggestion"),
+  aiSuggested: boolean("ai_suggested").default(false),
+  aiSuggestionReason: text("ai_suggestion_reason"),
+  analyticsReported: boolean("analytics_reported").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("scheduled_posts_content_piece_id_idx").on(table.contentPieceId),
+]);
+
+export const contentGenerationJobs = pgTable("content_generation_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  episodeId: varchar("episode_id").notNull(),
+  episodeTitle: text("episode_title").notNull(),
+  showName: text("show_name").notNull(),
+  status: text("status").default("queued").notNull(),
+  stageProgress: integer("stage_progress").default(0),
+  transcript: text("transcript"),
+  outputsGenerated: integer("outputs_generated").default(0),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("content_generation_jobs_episode_id_idx").on(table.episodeId),
+  index("content_generation_jobs_status_idx").on(table.status),
 ]);
 
 export const clipAssets = pgTable("clip_assets", {
@@ -745,6 +780,7 @@ export const insertNewsLayoutSectionSchema = createInsertSchema(newsLayoutSectio
 export const insertCrmListSchema = createInsertSchema(crmLists).omit({ id: true, createdAt: true });
 export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true });
 export const insertScheduledPostSchema = createInsertSchema(scheduledPosts).omit({ id: true, createdAt: true });
+export const insertContentGenerationJobSchema = createInsertSchema(contentGenerationJobs).omit({ id: true, createdAt: true });
 export const insertClipAssetSchema = createInsertSchema(clipAssets).omit({ id: true, createdAt: true });
 export const insertNewsletterScheduleSchema = createInsertSchema(newsletterSchedules).omit({ id: true, createdAt: true });
 export const insertNewsletterRunSchema = createInsertSchema(newsletterRuns).omit({ id: true, createdAt: true });
@@ -876,6 +912,8 @@ export type InsertSocialAccount = z.infer<typeof insertSocialAccountSchema>;
 export type SocialAccount = typeof socialAccounts.$inferSelect;
 export type InsertScheduledPost = z.infer<typeof insertScheduledPostSchema>;
 export type ScheduledPost = typeof scheduledPosts.$inferSelect;
+export type InsertContentGenerationJob = z.infer<typeof insertContentGenerationJobSchema>;
+export type ContentGenerationJob = typeof contentGenerationJobs.$inferSelect;
 export type InsertClipAsset = z.infer<typeof insertClipAssetSchema>;
 export type ClipAsset = typeof clipAssets.$inferSelect;
 export type InsertNewsletterSchedule = z.infer<typeof insertNewsletterScheduleSchema>;
