@@ -1614,6 +1614,18 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  app.get("/api/settings/branding", requireAuth, async (_req, res) => {
+    const data = await storage.getBranding();
+    res.json(data || {});
+  });
+
+  app.patch("/api/settings/branding", requireAuth, async (req, res) => {
+    const parsed = insertBrandingSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const data = await storage.upsertBranding(parsed.data);
+    res.json(data);
+  });
+
   app.get("/api/hero-slides", requirePermission("customize.view"), async (_req, res) => {
     const slides = await storage.getHeroSlides();
     res.json(slides);

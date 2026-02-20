@@ -327,17 +327,12 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<string>("branding");
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
-  const { data: branding, isLoading: brandingLoading } = useBranding();
-  const updateBranding = useUpdateBranding();
   const { hasPermission } = useAuth();
   const { toast } = useToast();
   const canEdit = hasPermission("settings.edit");
   const [smartLoading, setSmartLoading] = useState(false);
   const [smartReasons, setSmartReasons] = useState<Record<string, string>>({});
   const [smartApplied, setSmartApplied] = useState(false);
-  const [companyName, setCompanyName] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [logoUploading, setLogoUploading] = useState(false);
 
   const [form, setForm] = useState({
     companyLocation: "",
@@ -378,13 +373,6 @@ export default function Settings() {
     dataRetentionDays: 365,
     apiKeysEnabled: false,
   });
-
-  useEffect(() => {
-    if (branding) {
-      setCompanyName(branding.companyName || "");
-      setLogoUrl(branding.logoUrl || "");
-    }
-  }, [branding]);
 
   useEffect(() => {
     if (settings) {
@@ -429,49 +417,6 @@ export default function Settings() {
       });
     }
   }, [settings]);
-
-  const handleSaveBranding = () => {
-    if (!canEdit) return;
-    updateBranding.mutate({ companyName, logoUrl }, {
-      onSuccess: () => {
-        toast({ title: "Branding Saved", description: "Company name and logo have been updated." });
-      },
-      onError: (err: any) => {
-        toast({ title: "Error", description: err.message, variant: "destructive" });
-      },
-    });
-  };
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
-      return;
-    }
-    setLogoUploading(true);
-    try {
-      const urlRes = await fetch("/api/uploads/request-url", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!urlRes.ok) throw new Error("Failed to get upload URL");
-      const { uploadURL, objectPath } = await urlRes.json();
-      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      const newLogoUrl = objectPath;
-      setLogoUrl(newLogoUrl);
-      updateBranding.mutate({ companyName, logoUrl: newLogoUrl }, {
-        onSuccess: () => toast({ title: "Logo Updated", description: "Your logo has been uploaded and saved." }),
-      });
-    } catch (err: any) {
-      toast({ title: "Upload Error", description: err.message, variant: "destructive" });
-    } finally {
-      setLogoUploading(false);
-    }
-  };
 
   const handleSave = () => {
     if (!canEdit) return;
@@ -578,7 +523,7 @@ export default function Settings() {
         })}
       </div>
 
-      {activeTab === "branding" && <BrandingTab canEdit={canEdit} companyName={companyName} setCompanyName={setCompanyName} logoUrl={logoUrl} setLogoUrl={setLogoUrl} branding={branding} handleSaveBranding={handleSaveBranding} handleLogoUpload={handleLogoUpload} logoUploading={logoUploading} updateBranding={updateBranding} />}
+      {activeTab === "branding" && <BrandingTab canEdit={canEdit} />}
 
       {activeTab === "integrations" && <IntegrationsPlaceholderTab />}
 
@@ -587,8 +532,14 @@ export default function Settings() {
       {activeTab === "platform-config" && <PageConfigurationTab />}
 
       {activeTab === "live-site" && <LiveSiteAppPlaceholderTab />}
+    </div>
+  );
+}
 
-      {activeTab === "_legacy_platform_hidden" && <>
+
+{/* Legacy block removed - branding is now in BrandingTab */}
+function _LegacyRemoved() { return null; }
+{false && <>
       <div className="flex items-center gap-3 flex-shrink-0 justify-end -mt-4 mb-4">
         {canEdit && (
           <button
@@ -1191,103 +1142,674 @@ type PageCfg = {
   aiActionLabel: string | null;
 };
 
-function BrandingTab({ canEdit, companyName, setCompanyName, logoUrl, setLogoUrl, branding, handleSaveBranding, handleLogoUpload, logoUploading, updateBranding }: {
-  canEdit: boolean;
-  companyName: string;
-  setCompanyName: (v: string) => void;
-  logoUrl: string;
-  setLogoUrl: (v: string) => void;
-  branding: any;
-  handleSaveBranding: () => void;
-  handleLogoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  logoUploading: boolean;
-  updateBranding: any;
-}) {
+function BrandingTab({ canEdit }: { canEdit: boolean }) {
   const { toast } = useToast();
+  const { setTheme } = useTheme();
+  const { data: branding, isLoading: brandingLoading } = useBranding();
+  const updateBranding = useUpdateBranding();
+  const { data: podcasts } = usePodcasts();
 
-  return (
-    <div className="space-y-6" data-testid="branding-tab">
-      <div className="border border-border bg-card/50 p-4 sm:p-6 space-y-5">
-        <SectionHeader icon={Building2} title="Brand Identity" description="Company name, logo, and visual identity" />
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    identity: true, logos: true, colors: true, typography: true, email: true, shows: true,
+  });
 
-        <div data-testid="company-name">
-          <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
-            <span className="flex items-center gap-1.5">
-              <Building2 className="h-3 w-3" />
-              Platform Name
-            </span>
-          </label>
-          <div className="flex gap-2">
+  const [form, setForm] = useState({
+    companyName: "", tagline: "",
+    logoUrl: "", logoDarkUrl: "", faviconUrl: "", ogImageUrl: "", pushNotificationIconUrl: "", watermarkUrl: "",
+    primaryColor: "#1D4ED8", secondaryColor: "#6C3FC5", accentColor: "#F59E0B",
+    backgroundColor: "#0f172a", surfaceColor: "", textPrimaryColor: "", textSecondaryColor: "",
+    borderColor: "", successColor: "#22C55E", warningColor: "#F59E0B", dangerColor: "#EF4444",
+    themeMode: "dark" as string,
+    fontHeading: "Inter", fontBody: "Inter", fontScale: "medium", lineHeight: "normal",
+    emailLogoUrl: "", emailFooterText: "",
+  });
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (branding) {
+      setForm({
+        companyName: (branding as any).companyName || "",
+        tagline: (branding as any).tagline || "",
+        logoUrl: (branding as any).logoUrl || "",
+        logoDarkUrl: (branding as any).logoDarkUrl || "",
+        faviconUrl: (branding as any).faviconUrl || "",
+        ogImageUrl: (branding as any).ogImageUrl || "",
+        pushNotificationIconUrl: (branding as any).pushNotificationIconUrl || "",
+        watermarkUrl: (branding as any).watermarkUrl || "",
+        primaryColor: (branding as any).primaryColor || "#1D4ED8",
+        secondaryColor: (branding as any).secondaryColor || "#6C3FC5",
+        accentColor: (branding as any).accentColor || "#F59E0B",
+        backgroundColor: (branding as any).backgroundColor || "#0f172a",
+        surfaceColor: (branding as any).surfaceColor || "",
+        textPrimaryColor: (branding as any).textPrimaryColor || "",
+        textSecondaryColor: (branding as any).textSecondaryColor || "",
+        borderColor: (branding as any).borderColor || "",
+        successColor: (branding as any).successColor || "#22C55E",
+        warningColor: (branding as any).warningColor || "#F59E0B",
+        dangerColor: (branding as any).dangerColor || "#EF4444",
+        themeMode: (branding as any).themeMode || "dark",
+        fontHeading: (branding as any).fontHeading || "Inter",
+        fontBody: (branding as any).fontBody || "Inter",
+        fontScale: (branding as any).fontScale || "medium",
+        lineHeight: (branding as any).lineHeight || "normal",
+        emailLogoUrl: (branding as any).emailLogoUrl || "",
+        emailFooterText: (branding as any).emailFooterText || "",
+      });
+    }
+  }, [branding]);
+
+  const updateField = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
+
+  const saveSection = async (sectionName: string, fields: Record<string, any>) => {
+    setSaving(sectionName);
+    try {
+      await updateBranding.mutateAsync(fields);
+      toast({ title: `${sectionName} Saved`, description: "Changes have been applied." });
+    } catch {
+      toast({ title: "Error", description: `Failed to save ${sectionName.toLowerCase()}`, variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveAll = async () => {
+    setSaving("all");
+    try {
+      await updateBranding.mutateAsync(form);
+      toast({ title: "All Branding Saved", description: "All branding settings have been updated." });
+    } catch {
+      toast({ title: "Error", description: "Failed to save branding settings", variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldKey: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      updateField(fieldKey, objectPath);
+      await updateBranding.mutateAsync({ [fieldKey]: objectPath });
+      toast({ title: "Image Uploaded", description: "Your image has been saved." });
+    } catch (err: any) {
+      toast({ title: "Upload Error", description: err.message, variant: "destructive" });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const toggleSection = (key: string) => setExpanded(e => ({ ...e, [key]: !e[key] }));
+
+  const COLOR_PRESETS = [
+    { name: "Salem Dark", colors: { primaryColor: "#1D4ED8", accentColor: "#F59E0B", backgroundColor: "#0f172a", successColor: "#22C55E", warningColor: "#F59E0B", dangerColor: "#EF4444" } },
+    { name: "Salem Light", colors: { primaryColor: "#2563EB", accentColor: "#D97706", backgroundColor: "#f8fafc", successColor: "#16A34A", warningColor: "#D97706", dangerColor: "#DC2626" } },
+    { name: "Bold Red", colors: { primaryColor: "#DC2626", accentColor: "#F59E0B", backgroundColor: "#1a1a1a", successColor: "#22C55E", warningColor: "#F59E0B", dangerColor: "#EF4444" } },
+    { name: "Deep Navy", colors: { primaryColor: "#1E3A5F", accentColor: "#0EA5E9", backgroundColor: "#0c1929", successColor: "#22C55E", warningColor: "#F59E0B", dangerColor: "#EF4444" } },
+    { name: "Slate", colors: { primaryColor: "#475569", accentColor: "#8B5CF6", backgroundColor: "#1e293b", successColor: "#22C55E", warningColor: "#F59E0B", dangerColor: "#EF4444" } },
+  ];
+
+  const FONT_OPTIONS = [
+    { value: "Inter", label: "Inter" },
+    { value: "Roboto", label: "Roboto" },
+    { value: "Playfair Display", label: "Playfair Display" },
+    { value: "Merriweather", label: "Merriweather" },
+    { value: "Georgia", label: "Georgia" },
+    { value: "Arial", label: "Arial" },
+  ];
+
+  const FONT_SCALE_OPTIONS = [
+    { value: "small", label: "Small" },
+    { value: "medium", label: "Medium" },
+    { value: "large", label: "Large" },
+    { value: "x-large", label: "X-Large" },
+  ];
+
+  const LINE_HEIGHT_OPTIONS = [
+    { value: "tight", label: "Tight" },
+    { value: "normal", label: "Normal" },
+    { value: "relaxed", label: "Relaxed" },
+  ];
+
+  function CollapsibleSection({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) {
+    return (
+      <div className="border border-border bg-card/50" data-testid={`section-${id}`}>
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between p-4 sm:p-5 hover:bg-card/80 transition-colors"
+          data-testid={`button-toggle-${id}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 border border-primary/30 bg-primary/5 flex items-center justify-center">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">{title}</h3>
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", !expanded[id] && "-rotate-90")} />
+        </button>
+        {expanded[id] && <div className="px-4 sm:px-5 pb-5 space-y-5 border-t border-border/50 pt-5">{children}</div>}
+      </div>
+    );
+  }
+
+  function ImageField({ label, description, fieldKey, recommended }: { label: string; description: string; fieldKey: string; recommended: string }) {
+    const value = (form as any)[fieldKey] || "";
+    return (
+      <div className="space-y-2" data-testid={`image-field-${fieldKey}`}>
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block">
+          <span className="flex items-center gap-1.5"><ImageIcon className="h-3 w-3" />{label}</span>
+        </label>
+        <div className="flex items-start gap-4">
+          {value ? (
+            <div className="relative group">
+              <div className="h-16 w-40 border border-border bg-background flex items-center justify-center p-2">
+                <img src={value} alt={label} className="max-h-full max-w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              </div>
+              {canEdit && (
+                <button
+                  onClick={() => { updateField(fieldKey, ""); updateBranding.mutate({ [fieldKey]: "" }); }}
+                  className="absolute -top-2 -right-2 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  data-testid={`button-clear-${fieldKey}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="h-16 w-40 border border-dashed border-muted-foreground/30 bg-background/50 flex items-center justify-center text-muted-foreground/50">
+              <ImageIcon className="h-6 w-6" />
+            </div>
+          )}
+          <div className="flex-1 space-y-2">
             <input
               type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="e.g. MediaTech Empire"
+              value={value}
+              onChange={(e) => updateField(fieldKey, e.target.value)}
+              placeholder="Enter image URL..."
               disabled={!canEdit}
-              className="flex-1 bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground/50"
-              data-testid="input-company-name"
+              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 placeholder:text-muted-foreground/50"
+              data-testid={`input-${fieldKey}`}
             />
-            {canEdit && companyName !== (branding?.companyName || "") && (
-              <button
-                onClick={handleSaveBranding}
-                disabled={updateBranding.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50"
-                data-testid="button-save-company-name"
-              >
-                {updateBranding.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                Save
-              </button>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">Displayed in the sidebar, emails, and public pages</p>
-        </div>
-
-        <div data-testid="company-logo">
-          <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
-            <span className="flex items-center gap-1.5">
-              <ImageIcon className="h-3 w-3" />
-              Platform Logo
-            </span>
-          </label>
-          <div className="flex items-center gap-4">
-            {logoUrl ? (
-              <div className="relative group">
-                <div className="h-16 w-40 border border-border bg-background flex items-center justify-center p-2">
-                  <img src={logoUrl} alt="Company logo" className="max-h-full max-w-full object-contain" />
-                </div>
-                {canEdit && (
-                  <button
-                    onClick={() => {
-                      setLogoUrl("");
-                      updateBranding.mutate({ companyName, logoUrl: "" }, {
-                        onSuccess: () => toast({ title: "Logo Removed" }),
-                      });
-                    }}
-                    className="absolute -top-2 -right-2 h-5 w-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    data-testid="button-remove-logo"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="h-16 w-40 border border-dashed border-muted-foreground/30 bg-background/50 flex items-center justify-center text-muted-foreground/50">
-                <ImageIcon className="h-6 w-6" />
-              </div>
-            )}
             {canEdit && (
-              <label className="flex items-center gap-1.5 px-3 py-2 bg-card border border-border text-muted-foreground text-xs font-mono uppercase tracking-wider hover:border-primary/30 hover:text-foreground transition-colors cursor-pointer">
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border text-muted-foreground text-xs font-mono uppercase tracking-wider hover:border-primary/30 hover:text-foreground transition-colors cursor-pointer">
                 {logoUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                {logoUploading ? "Uploading..." : "Upload Logo"}
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="sr-only" data-testid="input-logo-upload" />
+                Upload
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, fieldKey)} className="sr-only" data-testid={`upload-${fieldKey}`} />
               </label>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Recommended: PNG or SVG, at least 200px wide</p>
         </div>
+        <p className="text-[11px] text-muted-foreground">{description} — {recommended}</p>
       </div>
+    );
+  }
 
-      <ThemeSettingsTab canEdit={canEdit} />
+  function ColorField({ label, fieldKey, description, readOnly }: { label: string; fieldKey: string; description?: string; readOnly?: boolean }) {
+    const value = (form as any)[fieldKey] || "#000000";
+    return (
+      <div className="flex items-center gap-3" data-testid={`color-field-${fieldKey}`}>
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => !readOnly && updateField(fieldKey, e.target.value)}
+          disabled={!canEdit || readOnly}
+          className="h-9 w-9 border border-border cursor-pointer disabled:cursor-not-allowed bg-transparent p-0"
+          data-testid={`color-picker-${fieldKey}`}
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-foreground">{label}</span>
+            {readOnly && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">Locked</Badge>}
+          </div>
+          {description && <p className="text-[10px] text-muted-foreground">{description}</p>}
+        </div>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => !readOnly && updateField(fieldKey, e.target.value)}
+          disabled={!canEdit || readOnly}
+          className="w-24 bg-background border border-border px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+          data-testid={`input-color-${fieldKey}`}
+        />
+        <div className="h-6 w-6 border border-border" style={{ backgroundColor: value }} />
+      </div>
+    );
+  }
+
+  function SaveSectionButton({ sectionName, fields }: { sectionName: string; fields: Record<string, any> }) {
+    if (!canEdit) return null;
+    return (
+      <button
+        onClick={() => saveSection(sectionName, fields)}
+        disabled={saving !== null}
+        className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50"
+        data-testid={`button-save-${sectionName.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        {saving === sectionName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+        Save {sectionName}
+      </button>
+    );
+  }
+
+  if (brandingLoading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <div className="space-y-4" data-testid="branding-tab">
+      <CollapsibleSection id="identity" title="Platform Identity" icon={Building2}>
+        <div className="space-y-4">
+          <div data-testid="field-platform-name">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+              <span className="flex items-center gap-1.5"><Building2 className="h-3 w-3" />Platform Name</span>
+            </label>
+            <input
+              type="text"
+              value={form.companyName}
+              onChange={(e) => updateField("companyName", e.target.value.slice(0, 50))}
+              placeholder="e.g. MediaTech Empire"
+              disabled={!canEdit}
+              maxLength={50}
+              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 placeholder:text-muted-foreground/50"
+              data-testid="input-platform-name"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Displayed in the sidebar, emails, and public pages ({form.companyName.length}/50)</p>
+          </div>
+
+          <div data-testid="field-tagline">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+              <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" />Tagline</span>
+            </label>
+            <input
+              type="text"
+              value={form.tagline}
+              onChange={(e) => updateField("tagline", e.target.value.slice(0, 100))}
+              placeholder="e.g. Conservative Media Powered by AI"
+              disabled={!canEdit}
+              maxLength={100}
+              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 placeholder:text-muted-foreground/50"
+              data-testid="input-tagline"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Short description shown under the platform name ({form.tagline.length}/100)</p>
+          </div>
+
+          <div className="bg-muted/30 border border-border p-4">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mb-2">Sidebar Preview</p>
+            <div className="bg-card border border-border p-3 flex items-center gap-3 max-w-xs">
+              {form.logoUrl ? (
+                <img src={form.logoUrl} alt="" className="h-8 max-w-[100px] object-contain" />
+              ) : (
+                <div className="h-8 w-8 bg-primary/10 border border-primary/30 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
+              )}
+              <div>
+                <p className="text-sm font-semibold text-foreground leading-tight">{form.companyName || "Platform Name"}</p>
+                <p className="text-[10px] text-muted-foreground">{form.tagline || "Your tagline here"}</p>
+              </div>
+            </div>
+          </div>
+
+          <SaveSectionButton sectionName="Platform Identity" fields={{ companyName: form.companyName, tagline: form.tagline }} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="logos" title="Logos & Icons" icon={ImageIcon}>
+        <div className="space-y-6">
+          <ImageField label="Primary Logo (Light)" description="Used in audience site header and light mode" fieldKey="logoUrl" recommended="SVG/PNG transparent, max 200px wide" />
+          <ImageField label="Primary Logo (Dark)" description="Used in dark mode and dark email templates" fieldKey="logoDarkUrl" recommended="White/light version" />
+          <ImageField label="Favicon" description="Browser tab icon, bookmarks, PWA home screen" fieldKey="faviconUrl" recommended="32x32 or 64x64 PNG" />
+
+          {form.faviconUrl && (
+            <div className="bg-muted/30 border border-border p-4">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mb-2">Browser Tab Preview</p>
+              <div className="bg-card border border-border inline-flex items-center gap-2 px-3 py-1.5 rounded-t-lg">
+                <img src={form.faviconUrl} alt="" className="h-4 w-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <span className="text-xs text-foreground truncate max-w-[120px]">{form.companyName || "Page Title"}</span>
+                <X className="h-3 w-3 text-muted-foreground" />
+              </div>
+            </div>
+          )}
+
+          <ImageField label="Default Social Share Image" description="Shown when content shared on social without a specific image" fieldKey="ogImageUrl" recommended="1200x630px" />
+
+          {form.ogImageUrl && (
+            <div className="bg-muted/30 border border-border p-4">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mb-2">Social Share Card Preview</p>
+              <div className="bg-card border border-border max-w-sm overflow-hidden">
+                <div className="h-40 bg-muted relative">
+                  <img src={form.ogImageUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <div className="absolute inset-0 bg-black/30 flex items-end p-3">
+                    <span className="text-white text-sm font-semibold">{form.companyName || "Platform"}</span>
+                  </div>
+                </div>
+                <div className="p-3">
+                  <p className="text-xs text-muted-foreground uppercase">{form.companyName || "platform"}.com</p>
+                  <p className="text-sm font-medium text-foreground mt-0.5">{form.companyName || "Platform Name"}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{form.tagline || "Your platform description"}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <ImageField label="Push Notification Icon" description="Shown in browser and mobile push notifications" fieldKey="pushNotificationIconUrl" recommended="192x192 PNG" />
+          <ImageField label="AI Image Watermark" description="Applied to AI-generated images" fieldKey="watermarkUrl" recommended="PNG with transparency" />
+
+          <SaveSectionButton sectionName="Logos & Icons" fields={{
+            logoUrl: form.logoUrl, logoDarkUrl: form.logoDarkUrl, faviconUrl: form.faviconUrl,
+            ogImageUrl: form.ogImageUrl, pushNotificationIconUrl: form.pushNotificationIconUrl, watermarkUrl: form.watermarkUrl,
+          }} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="colors" title="Colors" icon={Palette}>
+        <div className="space-y-5">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-mono mb-3">Color Presets</p>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => { if (!canEdit) return; setForm(f => ({ ...f, ...preset.colors })); }}
+                  className="flex items-center gap-2 px-3 py-2 border border-border bg-card/50 hover:border-primary/50 transition-colors text-xs font-medium"
+                  data-testid={`preset-${preset.name.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  <div className="flex gap-0.5">
+                    {Object.values(preset.colors).slice(0, 3).map((c, i) => (
+                      <div key={i} className="h-4 w-4 border border-border/50" style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-mono mb-3">Theme Default</p>
+            <div className="flex gap-2">
+              {([
+                { value: "dark", label: "Dark", icon: Moon },
+                { value: "light", label: "Light", icon: Sun },
+                { value: "system", label: "System", icon: Monitor },
+              ] as const).map((opt) => {
+                const ThIcon = opt.icon;
+                const isActive = form.themeMode === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => { if (!canEdit) return; updateField("themeMode", opt.value); setTheme(opt.value); }}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 border-2 transition-all text-sm",
+                      isActive ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                    )}
+                    data-testid={`theme-option-${opt.value}`}
+                  >
+                    <ThIcon className="h-4 w-4" />
+                    {opt.label}
+                    {isActive && <Check className="h-3 w-3" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <ColorField label="Primary Color" fieldKey="primaryColor" description="Buttons, active states, links" />
+            <ColorField label="Secondary Color" fieldKey="secondaryColor" description="AI actions are always purple for consistency" readOnly />
+            <ColorField label="Accent Color" fieldKey="accentColor" description="Highlights, badges, callouts" />
+            <ColorField label="Background Color" fieldKey="backgroundColor" description="Admin background" />
+            <ColorField label="Surface Color" fieldKey="surfaceColor" description="Cards, panels" />
+            <ColorField label="Text Primary" fieldKey="textPrimaryColor" description="Main text color" />
+            <ColorField label="Text Secondary / Muted" fieldKey="textSecondaryColor" description="Secondary text, labels" />
+            <ColorField label="Border Color" fieldKey="borderColor" description="Borders, dividers" />
+            <ColorField label="Success" fieldKey="successColor" description="Success states, confirmations" />
+            <ColorField label="Warning" fieldKey="warningColor" description="Warnings, caution states" />
+            <ColorField label="Danger" fieldKey="dangerColor" description="Errors, destructive actions" />
+          </div>
+
+          <SaveSectionButton sectionName="Colors" fields={{
+            primaryColor: form.primaryColor, secondaryColor: form.secondaryColor, accentColor: form.accentColor,
+            backgroundColor: form.backgroundColor, surfaceColor: form.surfaceColor,
+            textPrimaryColor: form.textPrimaryColor, textSecondaryColor: form.textSecondaryColor,
+            borderColor: form.borderColor, successColor: form.successColor, warningColor: form.warningColor,
+            dangerColor: form.dangerColor, themeMode: form.themeMode,
+          }} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="typography" title="Typography" icon={FileIcon}>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div data-testid="field-font-heading">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">Heading Font</label>
+              <select
+                value={form.fontHeading}
+                onChange={(e) => updateField("fontHeading", e.target.value)}
+                disabled={!canEdit}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary appearance-none cursor-pointer disabled:opacity-50"
+                data-testid="select-font-heading"
+              >
+                {FONT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div data-testid="field-font-body">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">Body Font</label>
+              <select
+                value={form.fontBody}
+                onChange={(e) => updateField("fontBody", e.target.value)}
+                disabled={!canEdit}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary appearance-none cursor-pointer disabled:opacity-50"
+                data-testid="select-font-body"
+              >
+                {FONT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div data-testid="field-font-scale">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">Font Scale</label>
+              <div className="flex gap-1">
+                {FONT_SCALE_OPTIONS.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => canEdit && updateField("fontScale", o.value)}
+                    className={cn(
+                      "flex-1 px-2 py-1.5 text-xs border transition-colors",
+                      form.fontScale === o.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                    )}
+                    data-testid={`font-scale-${o.value}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div data-testid="field-line-height">
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">Line Height</label>
+              <div className="flex gap-1">
+                {LINE_HEIGHT_OPTIONS.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => canEdit && updateField("lineHeight", o.value)}
+                    className={cn(
+                      "flex-1 px-2 py-1.5 text-xs border transition-colors",
+                      form.lineHeight === o.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-muted-foreground/30"
+                    )}
+                    data-testid={`line-height-${o.value}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-muted/30 border border-border p-5">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mb-3">Preview</p>
+            <div style={{ fontFamily: form.fontHeading }}>
+              <h3 className="text-xl font-bold text-foreground mb-2">The Quick Brown Fox Jumps</h3>
+            </div>
+            <div style={{ fontFamily: form.fontBody }}>
+              <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+              </p>
+            </div>
+            <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold" style={{ fontFamily: form.fontBody }}>
+              Sample Button
+            </button>
+          </div>
+
+          <SaveSectionButton sectionName="Typography" fields={{ fontHeading: form.fontHeading, fontBody: form.fontBody, fontScale: form.fontScale, lineHeight: form.lineHeight }} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="email" title="Email Branding" icon={Mail}>
+        <div className="space-y-5">
+          <ImageField label="Email Logo" description="Displayed at the top of all outgoing emails" fieldKey="emailLogoUrl" recommended="PNG, max 400px wide" />
+
+          <div data-testid="field-email-footer">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1.5">
+              <span className="flex items-center gap-1.5"><FileText className="h-3 w-3" />Email Footer Text</span>
+            </label>
+            <textarea
+              value={form.emailFooterText}
+              onChange={(e) => updateField("emailFooterText", e.target.value)}
+              placeholder="© 2026 Salem Media. All rights reserved. | Unsubscribe"
+              disabled={!canEdit}
+              rows={3}
+              className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary disabled:opacity-50 placeholder:text-muted-foreground/50 resize-none"
+              data-testid="input-email-footer"
+            />
+          </div>
+
+          <div className="bg-muted/30 border border-border p-4">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono mb-3">Email Preview</p>
+            <div className="bg-white border border-gray-200 max-w-md mx-auto overflow-hidden rounded">
+              <div className="bg-gray-50 border-b border-gray-200 p-4 flex items-center justify-center min-h-[60px]">
+                {form.emailLogoUrl ? (
+                  <img src={form.emailLogoUrl} alt="" className="max-h-10 max-w-[200px] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <span className="text-gray-400 text-sm font-semibold">{form.companyName || "Your Logo"}</span>
+                )}
+              </div>
+              <div className="p-5">
+                <div className="h-3 w-3/4 bg-gray-200 rounded mb-3" />
+                <div className="h-2 w-full bg-gray-100 rounded mb-2" />
+                <div className="h-2 w-full bg-gray-100 rounded mb-2" />
+                <div className="h-2 w-2/3 bg-gray-100 rounded mb-4" />
+                <div className="h-8 w-32 bg-blue-500 rounded" />
+              </div>
+              <div className="bg-gray-50 border-t border-gray-200 p-3">
+                <p className="text-[10px] text-gray-400 text-center">{form.emailFooterText || "\u00a9 2026 Company. All rights reserved."}</p>
+              </div>
+            </div>
+          </div>
+
+          <SaveSectionButton sectionName="Email Branding" fields={{ emailLogoUrl: form.emailLogoUrl, emailFooterText: form.emailFooterText }} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection id="shows" title="Show & Podcast Branding" icon={Mic}>
+        <div className="space-y-4">
+          {!podcasts || (podcasts as any[]).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">No podcasts found. Add podcasts in the Content Factory to configure show branding.</p>
+          ) : (
+            <div className="border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-muted-foreground">Show Name</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden md:table-cell">Hero Image</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden md:table-cell">Accent Color</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-muted-foreground hidden lg:table-cell">Host Image</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(podcasts as any[]).map((podcast: any) => {
+                    const hasBranding = !!(podcast.heroImageUrl || podcast.imageUrl);
+                    return (
+                      <tr key={podcast.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors" data-testid={`show-row-${podcast.id}`}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {podcast.imageUrl ? (
+                              <img src={podcast.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                            ) : (
+                              <div className="h-8 w-8 bg-muted rounded flex items-center justify-center"><Mic className="h-4 w-4 text-muted-foreground" /></div>
+                            )}
+                            <span className="font-medium text-foreground">{podcast.title}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          {podcast.heroImageUrl ? (
+                            <div className="h-8 w-14 rounded overflow-hidden border border-border">
+                              <img src={podcast.heroImageUrl} alt="" className="h-full w-full object-cover" />
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">\u2014</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          {podcast.accentColor ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-5 w-5 rounded border border-border" style={{ backgroundColor: podcast.accentColor }} />
+                              <span className="text-xs font-mono text-muted-foreground">{podcast.accentColor}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">\u2014</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          {podcast.hostImageUrl ? (
+                            <img src={podcast.hostImageUrl} alt="" className="h-8 w-8 rounded-full object-cover border border-border" />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">\u2014</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={hasBranding ? "default" : "secondary"} className={cn("text-[10px]", hasBranding ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" : "")}>
+                            {hasBranding ? "Branded" : "Needs Setup"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">To edit individual show branding, go to the show detail page in Content Factory \u2192 Branding tab.</p>
+        </div>
+      </CollapsibleSection>
+
+      {canEdit && (
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-border p-4 -mx-4 sm:-mx-6 flex justify-end z-10">
+          <button
+            onClick={saveAll}
+            disabled={saving !== null}
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
+            data-testid="button-save-all-branding"
+          >
+            {saving === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save All Branding
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1432,127 +1954,6 @@ function LiveSiteAppPlaceholderTab() {
             );
           })}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ThemeSettingsTab({ canEdit }: { canEdit: boolean }) {
-  const { toast } = useToast();
-  const { mode, setTheme, theme } = useTheme();
-  const { data: branding } = useBranding();
-  const updateBranding = useUpdateBranding();
-  const [selectedMode, setSelectedMode] = useState<"light" | "dark" | "system">(mode);
-
-  useEffect(() => {
-    setSelectedMode(mode);
-  }, [mode]);
-
-  const handleSave = async () => {
-    setTheme(selectedMode);
-    try {
-      await updateBranding.mutateAsync({ themeMode: selectedMode });
-      toast({ title: "Theme updated", description: `Default theme set to ${selectedMode}` });
-    } catch {
-      toast({ title: "Error", description: "Failed to save theme", variant: "destructive" });
-    }
-  };
-
-  const themeOptions = [
-    { value: "dark" as const, label: "Dark Mode", icon: Moon, description: "Dark background with light text. Easier on the eyes in low light." },
-    { value: "light" as const, label: "Light Mode", icon: Sun, description: "Light background with dark text. Best for bright environments." },
-    { value: "system" as const, label: "System", icon: Monitor, description: "Automatically match your device's appearance settings." },
-  ];
-
-  return (
-    <div className="space-y-6" data-testid="theme-settings-tab">
-      <div className="bg-card border border-border p-6">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-1">Theme Preference</h3>
-        <p className="text-xs text-muted-foreground mb-6">Choose how the platform looks. This sets the default for all users. Individual users can override with the theme toggle button.</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {themeOptions.map((opt) => {
-            const Icon = opt.icon;
-            const isSelected = selectedMode === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  setSelectedMode(opt.value);
-                  setTheme(opt.value);
-                }}
-                className={cn(
-                  "flex flex-col items-center gap-3 p-6 border-2 transition-all text-left",
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/30"
-                )}
-                disabled={!canEdit}
-                data-testid={`theme-option-${opt.value}`}
-              >
-                <div className={cn(
-                  "h-12 w-12 rounded-full flex items-center justify-center transition-colors",
-                  isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                )}>
-                  <Icon className="h-6 w-6" />
-                </div>
-                <div className="text-center">
-                  <p className={cn("text-sm font-semibold", isSelected ? "text-primary" : "text-foreground")}>{opt.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{opt.description}</p>
-                </div>
-                {isSelected && (
-                  <div className="flex items-center gap-1 text-primary text-xs font-medium">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Active
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="bg-muted/50 border border-border p-4 mb-6">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Preview</h4>
-          <div className={cn("rounded-lg overflow-hidden border border-border", theme === "dark" ? "bg-[hsl(222,47%,11%)]" : "bg-white")}>
-            <div className={cn("h-8 flex items-center px-3 gap-2 border-b", theme === "dark" ? "bg-[hsl(222,47%,9%)] border-[hsl(217,32%,17%)]" : "bg-[hsl(220,14%,96%)] border-[hsl(220,13%,91%)]")}>
-              <div className="flex gap-1">
-                <div className="h-2 w-2 rounded-full bg-red-500/70" />
-                <div className="h-2 w-2 rounded-full bg-yellow-500/70" />
-                <div className="h-2 w-2 rounded-full bg-green-500/70" />
-              </div>
-              <div className={cn("h-3 w-20 rounded-sm", theme === "dark" ? "bg-[hsl(217,19%,27%)]" : "bg-[hsl(220,13%,91%)]")} />
-            </div>
-            <div className="flex h-32">
-              <div className={cn("w-16 p-2 space-y-1.5 border-r", theme === "dark" ? "bg-[hsl(222,47%,9%)] border-[hsl(217,32%,17%)]" : "bg-[hsl(220,14%,96%)] border-[hsl(220,13%,91%)]")}>
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className={cn("h-2 rounded-sm", i === 1 ? "bg-[hsl(217,91%,60%)]" : theme === "dark" ? "bg-[hsl(217,19%,27%)]" : "bg-[hsl(220,13%,91%)]")} />
-                ))}
-              </div>
-              <div className="flex-1 p-3 space-y-2">
-                <div className={cn("h-3 w-24 rounded-sm", theme === "dark" ? "bg-[hsl(45,93%,47%)]" : "bg-[hsl(45,93%,37%)]")} />
-                <div className="grid grid-cols-3 gap-2">
-                  {[1,2,3].map(i => (
-                    <div key={i} className={cn("h-12 rounded-sm border", theme === "dark" ? "bg-[hsl(222,47%,13%)] border-[hsl(217,32%,17%)]" : "bg-white border-[hsl(220,13%,91%)]")}>
-                      <div className={cn("h-2 w-8 mt-2 mx-2 rounded-sm", theme === "dark" ? "bg-[hsl(215,20%,65%)]" : "bg-[hsl(220,9%,46%)]")} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {canEdit && (
-          <button
-            onClick={handleSave}
-            disabled={updateBranding.isPending}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 text-sm font-semibold uppercase tracking-wider hover:bg-primary/90 transition-colors disabled:opacity-50"
-            data-testid="button-save-theme"
-          >
-            {updateBranding.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Theme Default
-          </button>
-        )}
       </div>
     </div>
   );
