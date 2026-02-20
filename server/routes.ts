@@ -1734,6 +1734,150 @@ export async function registerRoutes(
     }
   });
 
+  // ── AI Configuration Settings ──
+  app.get("/api/settings/ai", requirePermission("settings.view"), async (_req, res) => {
+    try {
+      const allSettings = await storage.getIntegrationSettings();
+      const aiSettings: Record<string, string> = {};
+      for (const [key, value] of Object.entries(allSettings)) {
+        if (key.startsWith("ai_")) {
+          aiSettings[key] = value;
+        }
+      }
+      res.json(aiSettings);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/settings/ai", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const updates: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.body)) {
+        if (typeof value === "string" && key.startsWith("ai_")) {
+          updates[key] = value;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        await storage.upsertIntegrationSettings(updates);
+      }
+      const allSettings = await storage.getIntegrationSettings();
+      const aiSettings: Record<string, string> = {};
+      for (const [k, v] of Object.entries(allSettings)) {
+        if (k.startsWith("ai_")) aiSettings[k] = v;
+      }
+      res.json(aiSettings);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/settings/ai/usage", requirePermission("settings.view"), async (_req, res) => {
+    try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const logs = await db.select().from(
+        (await import("@shared/schema")).aiContentLog
+      );
+
+      let tokensToday = 0, tokensWeek = 0, tokensMonth = 0;
+      for (const log of logs) {
+        const logDate = log.createdAt ? new Date(log.createdAt) : null;
+        if (!logDate) continue;
+        const tokens = (log as any).tokensUsed || 0;
+        if (logDate >= monthStart) {
+          tokensMonth += tokens;
+          if (logDate >= weekStart) {
+            tokensWeek += tokens;
+            if (logDate >= todayStart) {
+              tokensToday += tokens;
+            }
+          }
+        }
+      }
+
+      const daysInMonth = Math.max(1, Math.ceil((now.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)));
+      const dailyAverage = Math.round(tokensMonth / daysInMonth);
+
+      res.json({
+        tokensToday,
+        tokensWeek,
+        tokensMonth,
+        dailyAverage,
+        daysElapsed: daysInMonth,
+      });
+    } catch (e: any) {
+      res.json({ tokensToday: 0, tokensWeek: 0, tokensMonth: 0, dailyAverage: 0, daysElapsed: 1 });
+    }
+  });
+
+  app.post("/api/settings/ai/test", requirePermission("settings.edit"), async (req, res) => {
+    try {
+      const aiSettings = await storage.getIntegrationSettings();
+      const provider = aiSettings.ai_primary_provider || "claude";
+      const startTime = Date.now();
+
+      let responseText = "";
+      let usedProvider = provider;
+
+      if (provider === "claude" || provider === "auto") {
+        try {
+          const { claude } = await import("./ai-providers");
+          const model = aiSettings.ai_claude_model || "claude-opus-4-6";
+          const response = await claude.messages.create({
+            model,
+            max_tokens: 100,
+            messages: [{ role: "user", content: "Say hello and identify yourself in one short sentence." }],
+          });
+          responseText = (response.content[0] as any).text || "Response received";
+          usedProvider = "claude";
+        } catch (claudeErr: any) {
+          if (provider === "auto") {
+            const { openai } = await import("./ai-providers");
+            const model = aiSettings.ai_openai_model || "gpt-4o";
+            const response = await openai.chat.completions.create({
+              model,
+              max_tokens: 100,
+              messages: [{ role: "user", content: "Say hello and identify yourself in one short sentence." }],
+            });
+            responseText = response.choices[0]?.message?.content || "Response received";
+            usedProvider = "openai";
+          } else {
+            throw claudeErr;
+          }
+        }
+      } else if (provider === "openai") {
+        const { openai } = await import("./ai-providers");
+        const model = aiSettings.ai_openai_model || "gpt-4o";
+        const response = await openai.chat.completions.create({
+          model,
+          max_tokens: 100,
+          messages: [{ role: "user", content: "Say hello and identify yourself in one short sentence." }],
+        });
+        responseText = response.choices[0]?.message?.content || "Response received";
+        usedProvider = "openai";
+      }
+
+      const elapsed = Date.now() - startTime;
+      res.json({
+        success: true,
+        provider: usedProvider,
+        model: usedProvider === "claude" ? (aiSettings.ai_claude_model || "claude-opus-4-6") : (aiSettings.ai_openai_model || "gpt-4o"),
+        responseTime: elapsed,
+        response: responseText,
+      });
+    } catch (e: any) {
+      res.json({
+        success: false,
+        message: e.message || "AI connection test failed",
+      });
+    }
+  });
+
   app.get("/api/hero-slides", requirePermission("customize.view"), async (_req, res) => {
     const slides = await storage.getHeroSlides();
     res.json(slides);

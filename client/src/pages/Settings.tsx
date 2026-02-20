@@ -38,6 +38,7 @@ import {
   MessageSquare, Rss, CreditCard, BarChart, HardDrive,
   BellRing, Bot, BookOpen, Palette, Gauge, ShieldCheck,
   Home, Navigation, Wrench, Lock,
+  Activity, Target, TrendingUp, AlertCircle, ToggleLeft,
   type LucideIcon,
 } from "lucide-react";
 
@@ -527,7 +528,7 @@ export default function Settings() {
 
       {activeTab === "integrations" && <IntegrationsTab />}
 
-      {activeTab === "ai-config" && <AIConfigurationPlaceholderTab />}
+      {activeTab === "ai-config" && <AIConfigurationTab />}
 
       {activeTab === "platform-config" && <PageConfigurationTab />}
 
@@ -1805,50 +1806,750 @@ function IntegrationsTab() {
   );
 }
 
-function AIConfigurationPlaceholderTab() {
-  const configCategories = [
-    { icon: Bot, name: "AI Provider Settings", description: "Configure AI model providers, API keys, and fallback preferences" },
-    { icon: FileText, name: "Content Generation Rules", description: "Set default parameters for AI-generated articles, social posts, and summaries" },
-    { icon: Palette, name: "Brand Voice & Tone", description: "Define your brand's writing style, tone guidelines, and vocabulary preferences" },
-    { icon: Sparkles, name: "Auto-Generation Settings", description: "Configure automatic content creation triggers and scheduling rules" },
-    { icon: ShieldCheck, name: "Moderation Settings", description: "Set content review policies, approval workflows, and safety filters" },
-    { icon: Gauge, name: "Usage & Limits", description: "Monitor AI usage quotas, rate limits, and cost controls" },
-  ];
+function AIConfigurationTab() {
+  const { toast } = useToast();
+  const { data: aiSettings, isLoading } = useQuery({
+    queryKey: ["/api/settings/ai"],
+    queryFn: () => fetch("/api/settings/ai", { credentials: "include" }).then(r => r.json()),
+  });
+  const { data: usage } = useQuery({
+    queryKey: ["/api/settings/ai/usage"],
+    queryFn: () => fetch("/api/settings/ai/usage", { credentials: "include" }).then(r => r.json()),
+    refetchInterval: 60000,
+  });
+
+  const AI_DEFAULTS: Record<string, string> = {
+    ai_primary_provider: "claude", ai_fallback_provider: "openai",
+    ai_claude_model: "claude-opus-4-6", ai_openai_model: "gpt-4o",
+    ai_temperature: "0.7", ai_max_tokens_per_request: "2000",
+    ai_daily_token_budget: "500000", ai_token_alert_threshold: "80",
+    ai_platform_name: "Salem Media",
+    ai_brand_voice: "authoritative, conversational, patriotic, no-nonsense",
+    ai_target_audience: "conservative Americans aged 35-65 who value traditional values, free speech, and limited government",
+    ai_content_guidelines: "Always frame content from a conservative perspective. Avoid liberal media framing. Support free speech. Be direct and confident.",
+    ai_prohibited_topics: "Do not generate content that promotes socialism, critical race theory, or mainstream media narratives without critical analysis.",
+    ai_preferred_topics: "Politics, economics, foreign policy, Second Amendment, religious freedom, free speech, border security",
+    ai_competitor_avoidance: "Do not reference or recommend CNN, MSNBC, NYT, WaPo, or similar outlets favorably",
+    ai_auto_generate_articles: "true", ai_auto_generate_social: "true",
+    ai_auto_generate_newsletter: "false", ai_auto_generate_seo: "true",
+    ai_auto_generate_clips_summary: "true", ai_auto_publish_articles: "false",
+    ai_article_min_word_count: "400", ai_article_max_word_count: "1200",
+    ai_social_platforms: "twitter,facebook,linkedin",
+    ai_moderation_enabled: "true", ai_moderation_sensitivity: "medium",
+    ai_auto_hide_flagged: "false", ai_moderation_topics: "spam,harassment,profanity,threats",
+    ai_advisor_enabled: "true", ai_advisor_ctr_threshold: "1.5",
+    ai_advisor_qr_scan_threshold: "50", ai_advisor_auto_draft: "true",
+    ai_analytics_digest_enabled: "true", ai_analytics_digest_schedule: "weekly",
+    ai_analytics_digest_recipients: "", ai_insights_cache_hours: "24",
+  };
+
+  const [form, setForm] = useState<Record<string, string>>({ ...AI_DEFAULTS });
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [moderationTags, setModerationTags] = useState<string[]>(["spam", "harassment", "profanity", "threats"]);
+  const [newModTag, setNewModTag] = useState("");
+  const [digestEmails, setDigestEmails] = useState<string[]>([]);
+  const [newEmail, setNewEmail] = useState("");
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    provider: true, usage: true, brand: true, autogen: true, moderation: true, advisor: true,
+  });
+
+  useEffect(() => {
+    if (aiSettings && typeof aiSettings === "object") {
+      setForm(prev => {
+        const merged = { ...AI_DEFAULTS };
+        for (const [k, v] of Object.entries(aiSettings)) {
+          if (typeof v === "string" && v !== "") merged[k] = v;
+        }
+        return merged;
+      });
+      const topics = (aiSettings.ai_moderation_topics || AI_DEFAULTS.ai_moderation_topics || "").split(",").filter(Boolean);
+      setModerationTags(topics);
+      const emails = (aiSettings.ai_analytics_digest_recipients || "").split(",").filter(Boolean);
+      setDigestEmails(emails);
+    }
+  }, [aiSettings]);
+
+  const f = (key: string) => form[key] || AI_DEFAULTS[key] || "";
+  const setF = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+  const toggleSection = (id: string) => setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const saveSection = async (sectionName: string, keys: string[]) => {
+    setSaving(prev => ({ ...prev, [sectionName]: true }));
+    try {
+      const payload: Record<string, string> = {};
+      keys.forEach(k => { payload[k] = f(k); });
+      const res = await fetch("/api/settings/ai", {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/ai"] });
+      toast({ title: `${sectionName} saved` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, [sectionName]: false }));
+    }
+  };
+
+  const saveAll = async () => {
+    setSaving(prev => ({ ...prev, all: true }));
+    try {
+      const res = await fetch("/api/settings/ai", {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/ai"] });
+      toast({ title: "All AI settings saved" });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, all: false }));
+    }
+  };
+
+  const testConnection = async () => {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/settings/ai/test", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const result = await res.json();
+      setTestResult(result);
+    } catch (e: any) {
+      setTestResult({ success: false, message: e.message });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  function CollapsibleAISection({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) {
+    const isOpen = openSections[id] !== false;
+    return (
+      <div className="border border-border bg-card/50" data-testid={`ai-section-${id}`}>
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+          data-testid={`toggle-ai-section-${id}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 border border-muted-foreground/20 bg-muted/20 flex items-center justify-center">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">{title}</span>
+          </div>
+          {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        {isOpen && <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">{children}</div>}
+      </div>
+    );
+  }
+
+  function SaveSectionBtn({ section, keys, label }: { section: string; keys: string[]; label?: string }) {
+    return (
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={() => saveSection(section, keys)}
+          disabled={saving[section]}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-mono uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          data-testid={`button-save-${section}`}
+        >
+          {saving[section] ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          {label || `Save ${section}`}
+        </button>
+      </div>
+    );
+  }
+
+  const showClaude = f("ai_primary_provider") === "claude" || f("ai_primary_provider") === "auto" || f("ai_fallback_provider") === "claude";
+  const showOpenAI = f("ai_primary_provider") === "openai" || f("ai_primary_provider") === "auto" || f("ai_fallback_provider") === "openai";
+
+  const budget = parseInt(f("ai_daily_token_budget")) || 500000;
+  const tokensToday = usage?.tokensToday || 0;
+  const usagePercent = Math.min(100, Math.round((tokensToday / budget) * 100));
+  const usageColor = usagePercent >= 80 ? "bg-red-500" : usagePercent >= 60 ? "bg-yellow-500" : "bg-emerald-500";
+
+  const brandPreview = `You are an AI content assistant for ${f("ai_platform_name")}.\n\nBrand Voice: ${f("ai_brand_voice")}\n\nTarget Audience: ${f("ai_target_audience")}\n\nContent Guidelines: ${f("ai_content_guidelines")}\n\nProhibited Topics: ${f("ai_prohibited_topics")}\n\nPreferred Topics: ${f("ai_preferred_topics")}\n\nCompetitor Avoidance: ${f("ai_competitor_avoidance")}`;
+
+  const tempVal = parseFloat(f("ai_temperature")) || 0.7;
+  const tempLabel = tempVal <= 0.3 ? "Precise" : tempVal <= 0.7 ? "Balanced" : "Creative";
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4" data-testid="ai-config-tab">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6" data-testid="ai-config-tab">
-      <div className="border border-border bg-card/50 p-4 sm:p-6">
-        <SectionHeader icon={Brain} title="AI Configuration" description="Manage AI behavior, content rules, and provider settings across the platform" />
+    <div className="space-y-4" data-testid="ai-config-tab">
+      <SectionHeader icon={Brain} title="AI Configuration" description="Manage AI behavior, content rules, and provider settings across the platform" />
 
-        <div className="space-y-1">
-          {configCategories.map((cat) => {
-            const Icon = cat.icon;
-            return (
-              <div
-                key={cat.name}
-                className="flex items-center gap-4 px-4 py-3 border border-border/50 bg-card/30 hover:bg-card/50 transition-colors"
-                data-testid={`ai-config-row-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <div className="h-9 w-9 border border-muted-foreground/20 bg-muted/30 flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+      {/* SECTION 1: Provider Settings */}
+      <CollapsibleAISection id="provider" title="AI Provider Settings" icon={Bot}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="border border-border bg-card/30 p-4 space-y-4">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Primary Provider</h4>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Primary Provider</label>
+              <select value={f("ai_primary_provider")} onChange={e => setF("ai_primary_provider", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-ai-primary-provider">
+                <option value="claude">Claude (Anthropic)</option>
+                <option value="openai">OpenAI</option>
+                <option value="auto">Auto (use best available)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Fallback Provider</label>
+              <select value={f("ai_fallback_provider")} onChange={e => setF("ai_fallback_provider", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-ai-fallback-provider">
+                <option value="claude">Claude (Anthropic)</option>
+                <option value="openai">OpenAI</option>
+                <option value="auto">Auto</option>
+              </select>
+            </div>
+            <p className="text-[11px] text-muted-foreground italic">Auto mode selects the best provider based on task type and availability</p>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-4">
+            {showClaude && (
+              <div>
+                <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Claude Settings</h4>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Model</label>
+                <select value={f("ai_claude_model")} onChange={e => setF("ai_claude_model", e.target.value)}
+                  className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-ai-claude-model">
+                  <option value="claude-opus-4-6">Claude Opus 4.6 (most capable, highest cost)</option>
+                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (balanced)</option>
+                  <option value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, lowest cost)</option>
+                </select>
+              </div>
+            )}
+            {showOpenAI && (
+              <div className={showClaude ? "mt-4" : ""}>
+                <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">OpenAI Settings</h4>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Model</label>
+                <select value={f("ai_openai_model")} onChange={e => setF("ai_openai_model", e.target.value)}
+                  className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-ai-openai-model">
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4o-mini">GPT-4o Mini</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border border-border bg-card/30 p-4 space-y-4">
+          <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Generation Parameters</h4>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">
+                Temperature: {tempVal.toFixed(1)} — {tempLabel}
+              </label>
+              <input type="range" min="0" max="1" step="0.1" value={tempVal}
+                onChange={e => setF("ai_temperature", e.target.value)}
+                className="w-full accent-primary" data-testid="slider-ai-temperature" />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>0.0 Precise</span><span>0.5 Balanced</span><span>1.0 Creative</span>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Max Tokens Per Request</label>
+              <input type="number" min={500} max={8000} value={f("ai_max_tokens_per_request")}
+                onChange={e => setF("ai_max_tokens_per_request", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-max-tokens" />
+              <p className="text-[10px] text-muted-foreground mt-1">Range: 500 – 8,000</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border border-border bg-card/30 p-4 space-y-3">
+          <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Test Connection</h4>
+          <button onClick={testConnection} disabled={testLoading}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-mono uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            data-testid="button-test-ai-connection">
+            {testLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+            Test AI Connection
+          </button>
+          {testResult && (
+            <div className={cn("p-3 border text-sm", testResult.success ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400" : "border-red-500/30 bg-red-500/5 text-red-400")}
+              data-testid="ai-test-result">
+              {testResult.success ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Connected successfully</div>
+                  <p className="text-[11px] text-muted-foreground">Provider: {testResult.provider} ({testResult.model}) — {testResult.responseTime}ms</p>
+                  <p className="text-xs text-foreground/80 mt-1 italic">"{testResult.response}"</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{cat.description}</p>
+              ) : (
+                <div className="flex items-center gap-2"><AlertCircle className="h-4 w-4" /> {testResult.message}</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <SaveSectionBtn section="Provider" keys={["ai_primary_provider", "ai_fallback_provider", "ai_claude_model", "ai_openai_model", "ai_temperature", "ai_max_tokens_per_request"]} />
+      </CollapsibleAISection>
+
+      {/* SECTION 2: Usage & Limits */}
+      <CollapsibleAISection id="usage" title="Usage & Limits" icon={Gauge}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Tokens Today", value: tokensToday },
+            { label: "Tokens This Week", value: usage?.tokensWeek || 0 },
+            { label: "Tokens This Month", value: usage?.tokensMonth || 0 },
+            { label: "Daily Average", value: usage?.dailyAverage || 0 },
+          ].map(m => (
+            <div key={m.label} className="border border-border bg-card/30 p-3 text-center" data-testid={`metric-${m.label.toLowerCase().replace(/\s+/g, '-')}`}>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{m.label}</p>
+              <p className="text-lg font-bold text-foreground mt-1">{m.value.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="border border-border bg-card/30 p-4 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground font-mono uppercase tracking-wider">Daily Usage vs Budget</span>
+            <span className="font-mono text-foreground">{tokensToday.toLocaleString()} / {budget.toLocaleString()}</span>
+          </div>
+          <div className="w-full h-3 bg-muted/30 border border-border overflow-hidden">
+            <div className={cn("h-full transition-all", usageColor)} style={{ width: `${usagePercent}%` }} />
+          </div>
+          <p className="text-[10px] text-muted-foreground">{usagePercent}% of daily budget used</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Daily Token Budget</label>
+              <input type="number" min={10000} value={f("ai_daily_token_budget")}
+                onChange={e => setF("ai_daily_token_budget", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-daily-budget" />
+              <p className="text-[10px] text-muted-foreground mt-1">{parseInt(f("ai_daily_token_budget") || "0").toLocaleString()} tokens</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">
+                Alert Threshold: {f("ai_token_alert_threshold")}%
+              </label>
+              <input type="range" min="50" max="95" step="5" value={f("ai_token_alert_threshold")}
+                onChange={e => setF("ai_token_alert_threshold", e.target.value)}
+                className="w-full accent-primary" data-testid="slider-ai-alert-threshold" />
+              <p className="text-[10px] text-muted-foreground mt-1">When usage reaches this threshold, a warning appears in the admin header</p>
+            </div>
+          </div>
+          <div className="border border-border bg-card/30 p-4 space-y-2">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Cost Estimator</h4>
+            {(() => {
+              const daysElapsed = usage?.daysElapsed || 1;
+              const projectedMonthly = Math.round((usage?.tokensMonth || 0) / daysElapsed * 30);
+              const estimatedCost = (projectedMonthly / 1000000 * 3).toFixed(2);
+              return (
+                <>
+                  <p className="text-sm text-foreground">Projected monthly: <span className="font-bold">{projectedMonthly.toLocaleString()}</span> tokens</p>
+                  <p className="text-sm text-foreground">Estimated cost: <span className="font-bold">${estimatedCost}</span>/month</p>
+                  <p className="text-[10px] text-muted-foreground italic">Estimate only. Actual costs vary by provider and model.</p>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
+        <SaveSectionBtn section="Usage" keys={["ai_daily_token_budget", "ai_token_alert_threshold"]} />
+      </CollapsibleAISection>
+
+      {/* SECTION 3: Brand Voice & Content Rules */}
+      <CollapsibleAISection id="brand" title="Brand Voice & Content Rules" icon={Palette}>
+        <p className="text-[11px] text-muted-foreground italic mb-2">These rules are injected into every AI prompt across the platform as system context.</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Platform Name</label>
+              <input type="text" value={f("ai_platform_name")} onChange={e => setF("ai_platform_name", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-platform-name" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Brand Voice</label>
+              <input type="text" value={f("ai_brand_voice")} onChange={e => setF("ai_brand_voice", e.target.value)} maxLength={200}
+                placeholder="authoritative, conversational, patriotic, no-nonsense"
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary placeholder:text-muted-foreground/50" data-testid="input-ai-brand-voice" />
+              <p className="text-[10px] text-muted-foreground mt-1">Describe your brand's tone in 3-6 adjectives or phrases ({f("ai_brand_voice").length}/200)</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Target Audience</label>
+              <textarea value={f("ai_target_audience")} onChange={e => setF("ai_target_audience", e.target.value)} maxLength={300} rows={2}
+                placeholder="Conservative Americans aged 35-65 who value traditional values..."
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none placeholder:text-muted-foreground/50" data-testid="input-ai-target-audience" />
+              <p className="text-[10px] text-muted-foreground">{f("ai_target_audience").length}/300</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Content Guidelines</label>
+              <textarea value={f("ai_content_guidelines")} onChange={e => setF("ai_content_guidelines", e.target.value)} maxLength={500} rows={3}
+                placeholder="Always frame content from a conservative perspective..."
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none placeholder:text-muted-foreground/50" data-testid="input-ai-content-guidelines" />
+              <p className="text-[10px] text-muted-foreground">What should AI always do when creating content? ({f("ai_content_guidelines").length}/500)</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Prohibited Topics</label>
+              <textarea value={f("ai_prohibited_topics")} onChange={e => setF("ai_prohibited_topics", e.target.value)} maxLength={500} rows={2}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none placeholder:text-muted-foreground/50" data-testid="input-ai-prohibited-topics" />
+              <p className="text-[10px] text-muted-foreground">What should AI never write about or how should it never frame things? ({f("ai_prohibited_topics").length}/500)</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Preferred Topics</label>
+              <textarea value={f("ai_preferred_topics")} onChange={e => setF("ai_preferred_topics", e.target.value)} maxLength={300} rows={2}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none placeholder:text-muted-foreground/50" data-testid="input-ai-preferred-topics" />
+              <p className="text-[10px] text-muted-foreground">What topics does your audience care most about? ({f("ai_preferred_topics").length}/300)</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Competitor Avoidance</label>
+              <textarea value={f("ai_competitor_avoidance")} onChange={e => setF("ai_competitor_avoidance", e.target.value)} maxLength={300} rows={2}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary resize-none placeholder:text-muted-foreground/50" data-testid="input-ai-competitor-avoidance" />
+              <p className="text-[10px] text-muted-foreground">Which outlets or brands should AI avoid referencing favorably? ({f("ai_competitor_avoidance").length}/300)</p>
+            </div>
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-2 h-fit sticky top-4">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2"><Eye className="h-3 w-3" /> How AI Sees Your Brand</h4>
+            <pre className="text-[11px] text-foreground/80 whitespace-pre-wrap font-mono bg-background/50 border border-border p-3 max-h-[500px] overflow-y-auto" data-testid="ai-brand-preview">
+              {brandPreview}
+            </pre>
+          </div>
+        </div>
+
+        <SaveSectionBtn section="Brand Voice" keys={["ai_platform_name", "ai_brand_voice", "ai_target_audience", "ai_content_guidelines", "ai_prohibited_topics", "ai_preferred_topics", "ai_competitor_avoidance"]} />
+      </CollapsibleAISection>
+
+      {/* SECTION 4: Auto-Generation Settings */}
+      <CollapsibleAISection id="autogen" title="Auto-Generation Settings" icon={Sparkles}>
+        <div className="space-y-3">
+          {/* Articles */}
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">Articles</span>
+              </div>
+              <button onClick={() => setF("ai_auto_generate_articles", f("ai_auto_generate_articles") === "true" ? "false" : "true")}
+                className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_auto_generate_articles") === "true" ? "bg-primary" : "bg-muted")}
+                data-testid="toggle-ai-auto-articles">
+                <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_auto_generate_articles") === "true" && "translate-x-5")} />
+              </button>
+            </div>
+            {f("ai_auto_generate_articles") === "true" && (
+              <div className="pl-6 space-y-3 border-l-2 border-primary/20">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Min Word Count</label>
+                    <input type="number" value={f("ai_article_min_word_count")} onChange={e => setF("ai_article_min_word_count", e.target.value)}
+                      className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-min-words" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Max Word Count</label>
+                    <input type="number" value={f("ai_article_max_word_count")} onChange={e => setF("ai_article_max_word_count", e.target.value)}
+                      className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-max-words" />
+                  </div>
                 </div>
-                <button
-                  disabled
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/50 bg-card/20 cursor-not-allowed"
-                  title="Coming soon"
-                  data-testid={`button-configure-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  Configure
-                  <ArrowRight className="h-3 w-3" />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-foreground">Auto-publish (skip moderation queue)</span>
+                    {f("ai_auto_publish_articles") === "true" && (
+                      <p className="text-[10px] text-yellow-500 flex items-center gap-1 mt-0.5"><AlertTriangle className="h-3 w-3" /> Enabling this publishes AI content without human review</p>
+                    )}
+                  </div>
+                  <button onClick={() => setF("ai_auto_publish_articles", f("ai_auto_publish_articles") === "true" ? "false" : "true")}
+                    className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_auto_publish_articles") === "true" ? "bg-yellow-500" : "bg-muted")}
+                    data-testid="toggle-ai-auto-publish">
+                    <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_auto_publish_articles") === "true" && "translate-x-5")} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Social Posts */}
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">Social Posts</span>
+              </div>
+              <button onClick={() => setF("ai_auto_generate_social", f("ai_auto_generate_social") === "true" ? "false" : "true")}
+                className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_auto_generate_social") === "true" ? "bg-primary" : "bg-muted")}
+                data-testid="toggle-ai-auto-social">
+                <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_auto_generate_social") === "true" && "translate-x-5")} />
+              </button>
+            </div>
+            {f("ai_auto_generate_social") === "true" && (
+              <div className="pl-6 border-l-2 border-primary/20">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Platforms</label>
+                <div className="flex flex-wrap gap-2">
+                  {["twitter", "facebook", "linkedin", "instagram"].map(p => {
+                    const platforms = (f("ai_social_platforms") || "").split(",");
+                    const active = platforms.includes(p);
+                    return (
+                      <button key={p} onClick={() => {
+                        const updated = active ? platforms.filter(x => x !== p) : [...platforms, p];
+                        setF("ai_social_platforms", updated.filter(Boolean).join(","));
+                      }}
+                        className={cn("px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted/30")}
+                        data-testid={`toggle-platform-${p}`}>
+                        {p === "twitter" ? "Twitter/X" : p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Simple toggles */}
+          {[
+            { key: "ai_auto_generate_newsletter", label: "Newsletter", icon: Mail },
+            { key: "ai_auto_generate_seo", label: "SEO Metadata", icon: Globe },
+            { key: "ai_auto_generate_clips_summary", label: "Clips Summary", icon: Mic },
+          ].map(item => (
+            <div key={item.key} className="border border-border bg-card/30 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <item.icon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{item.label}</span>
+              </div>
+              <button onClick={() => setF(item.key, f(item.key) === "true" ? "false" : "true")}
+                className={cn("relative w-10 h-5 rounded-full transition-colors", f(item.key) === "true" ? "bg-primary" : "bg-muted")}
+                data-testid={`toggle-${item.key}`}>
+                <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f(item.key) === "true" && "translate-x-5")} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[10px] text-muted-foreground italic">These settings control what gets auto-generated when a podcast episode is processed. Individual episodes can override these defaults.</p>
+
+        <SaveSectionBtn section="Auto-Generation" keys={["ai_auto_generate_articles", "ai_auto_generate_social", "ai_auto_generate_newsletter", "ai_auto_generate_seo", "ai_auto_generate_clips_summary", "ai_auto_publish_articles", "ai_article_min_word_count", "ai_article_max_word_count", "ai_social_platforms"]} />
+      </CollapsibleAISection>
+
+      {/* SECTION 5: Moderation Settings */}
+      <CollapsibleAISection id="moderation" title="Moderation Settings" icon={ShieldCheck}>
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm font-semibold text-foreground">AI Moderation</span>
+            <p className="text-[10px] text-muted-foreground">AI reviews community posts before they appear publicly</p>
+          </div>
+          <button onClick={() => setF("ai_moderation_enabled", f("ai_moderation_enabled") === "true" ? "false" : "true")}
+            className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_moderation_enabled") === "true" ? "bg-primary" : "bg-muted")}
+            data-testid="toggle-ai-moderation">
+            <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_moderation_enabled") === "true" && "translate-x-5")} />
+          </button>
+        </div>
+
+        {f("ai_moderation_enabled") === "true" && (
+          <div className="space-y-4 pl-4 border-l-2 border-primary/20">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Sensitivity</label>
+              <div className="space-y-2">
+                {[
+                  { value: "low", label: "Low", desc: "Flag only obvious violations (spam, threats)" },
+                  { value: "medium", label: "Medium", desc: "Flag violations plus borderline content for human review (recommended)" },
+                  { value: "high", label: "High", desc: "Flag anything potentially controversial — requires more human review" },
+                ].map(opt => (
+                  <label key={opt.value} className={cn("flex items-start gap-3 p-3 border cursor-pointer transition-colors",
+                    f("ai_moderation_sensitivity") === opt.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30")}
+                    data-testid={`radio-moderation-${opt.value}`}>
+                    <input type="radio" name="moderation_sensitivity" value={opt.value} checked={f("ai_moderation_sensitivity") === opt.value}
+                      onChange={e => setF("ai_moderation_sensitivity", e.target.value)} className="mt-0.5 accent-primary" />
+                    <div>
+                      <span className="text-sm font-semibold text-foreground">{opt.label}</span>
+                      <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs text-foreground">Auto-hide Flagged Posts</span>
+                <p className="text-[10px] text-muted-foreground">If off, flagged posts stay visible until manually reviewed</p>
+              </div>
+              <button onClick={() => setF("ai_auto_hide_flagged", f("ai_auto_hide_flagged") === "true" ? "false" : "true")}
+                className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_auto_hide_flagged") === "true" ? "bg-primary" : "bg-muted")}
+                data-testid="toggle-ai-auto-hide">
+                <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_auto_hide_flagged") === "true" && "translate-x-5")} />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Monitored Topics</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {moderationTags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-border bg-card/30 text-foreground" data-testid={`tag-moderation-${tag}`}>
+                    {tag}
+                    <button onClick={() => {
+                      const updated = moderationTags.filter(t => t !== tag);
+                      setModerationTags(updated);
+                      setF("ai_moderation_topics", updated.join(","));
+                    }} className="hover:text-red-400"><X className="h-3 w-3" /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <input type="text" value={newModTag} onChange={e => setNewModTag(e.target.value)} placeholder="Add topic..."
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && newModTag.trim()) {
+                      const updated = [...moderationTags, newModTag.trim()];
+                      setModerationTags(updated);
+                      setF("ai_moderation_topics", updated.join(","));
+                      setNewModTag("");
+                    }
+                  }}
+                  className="flex-1 bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-moderation-tag" />
+                <button onClick={() => {
+                  if (newModTag.trim()) {
+                    const updated = [...moderationTags, newModTag.trim()];
+                    setModerationTags(updated);
+                    setF("ai_moderation_topics", updated.join(","));
+                    setNewModTag("");
+                  }
+                }} className="px-3 py-1.5 border border-border bg-card hover:bg-muted transition-colors text-xs" data-testid="button-add-mod-tag">
+                  <Plus className="h-3 w-3" />
                 </button>
               </div>
-            );
-          })}
+              <p className="text-[10px] text-muted-foreground mt-1">AI will flag posts containing these topics for review</p>
+            </div>
+          </div>
+        )}
+
+        <SaveSectionBtn section="Moderation" keys={["ai_moderation_enabled", "ai_moderation_sensitivity", "ai_auto_hide_flagged", "ai_moderation_topics"]} />
+      </CollapsibleAISection>
+
+      {/* SECTION 6: Advisor AI & Analytics */}
+      <CollapsibleAISection id="advisor" title="Advisor AI & Analytics" icon={Lightbulb}>
+        <div className="space-y-4">
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-semibold text-foreground">AdvisorAI</span>
+                <p className="text-[10px] text-muted-foreground">Automatically generate upsell prompts when ad campaigns perform above threshold</p>
+              </div>
+              <button onClick={() => setF("ai_advisor_enabled", f("ai_advisor_enabled") === "true" ? "false" : "true")}
+                className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_advisor_enabled") === "true" ? "bg-primary" : "bg-muted")}
+                data-testid="toggle-ai-advisor">
+                <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_advisor_enabled") === "true" && "translate-x-5")} />
+              </button>
+            </div>
+
+            {f("ai_advisor_enabled") === "true" && (
+              <div className="pl-4 border-l-2 border-primary/20 space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">CTR Threshold (%)</label>
+                  <input type="number" step="0.1" value={f("ai_advisor_ctr_threshold")} onChange={e => setF("ai_advisor_ctr_threshold", e.target.value)}
+                    className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-ctr-threshold" />
+                  <p className="text-[10px] text-muted-foreground mt-1">Generate upsell prompt when campaign CTR exceeds this percentage</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">QR Scan Threshold</label>
+                  <input type="number" value={f("ai_advisor_qr_scan_threshold")} onChange={e => setF("ai_advisor_qr_scan_threshold", e.target.value)}
+                    className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-qr-threshold" />
+                  <p className="text-[10px] text-muted-foreground mt-1">Generate upsell prompt when monthly QR scans exceed this number</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-foreground">Auto-Draft Prompts</span>
+                    <p className="text-[10px] text-muted-foreground">Automatically draft upsell messages (requires admin approval before sending)</p>
+                  </div>
+                  <button onClick={() => setF("ai_advisor_auto_draft", f("ai_advisor_auto_draft") === "true" ? "false" : "true")}
+                    className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_advisor_auto_draft") === "true" ? "bg-primary" : "bg-muted")}
+                    data-testid="toggle-ai-auto-draft">
+                    <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_advisor_auto_draft") === "true" && "translate-x-5")} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border border-border bg-card/30 p-4 space-y-3">
+            <h4 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Analytics AI Settings</h4>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground">Weekly Digest</span>
+              <button onClick={() => setF("ai_analytics_digest_enabled", f("ai_analytics_digest_enabled") === "true" ? "false" : "true")}
+                className={cn("relative w-10 h-5 rounded-full transition-colors", f("ai_analytics_digest_enabled") === "true" ? "bg-primary" : "bg-muted")}
+                data-testid="toggle-ai-digest">
+                <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform", f("ai_analytics_digest_enabled") === "true" && "translate-x-5")} />
+              </button>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Schedule</label>
+              <select value={f("ai_analytics_digest_schedule")} onChange={e => setF("ai_analytics_digest_schedule", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="select-ai-digest-schedule">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Recipients</label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {digestEmails.map(email => (
+                  <span key={email} className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-border bg-card/30 text-foreground" data-testid={`tag-email-${email}`}>
+                    {email}
+                    <button onClick={() => {
+                      const updated = digestEmails.filter(e => e !== email);
+                      setDigestEmails(updated);
+                      setF("ai_analytics_digest_recipients", updated.join(","));
+                    }} className="hover:text-red-400"><X className="h-3 w-3" /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-1">
+                <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="email@example.com"
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && newEmail.trim() && newEmail.includes("@")) {
+                      const updated = [...digestEmails, newEmail.trim()];
+                      setDigestEmails(updated);
+                      setF("ai_analytics_digest_recipients", updated.join(","));
+                      setNewEmail("");
+                    }
+                  }}
+                  className="flex-1 bg-background border border-border px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-digest-email" />
+                <button onClick={() => {
+                  if (newEmail.trim() && newEmail.includes("@")) {
+                    const updated = [...digestEmails, newEmail.trim()];
+                    setDigestEmails(updated);
+                    setF("ai_analytics_digest_recipients", updated.join(","));
+                    setNewEmail("");
+                  }
+                }} className="px-3 py-1.5 border border-border bg-card hover:bg-muted transition-colors text-xs" data-testid="button-add-digest-email">
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Insights Cache (hours)</label>
+              <input type="number" value={f("ai_insights_cache_hours")} onChange={e => setF("ai_insights_cache_hours", e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary" data-testid="input-ai-cache-hours" />
+              <p className="text-[10px] text-muted-foreground mt-1">How long to cache AI-generated insights before regenerating</p>
+            </div>
+          </div>
         </div>
+
+        <SaveSectionBtn section="Advisor & Analytics" keys={["ai_advisor_enabled", "ai_advisor_ctr_threshold", "ai_advisor_qr_scan_threshold", "ai_advisor_auto_draft", "ai_analytics_digest_enabled", "ai_analytics_digest_schedule", "ai_analytics_digest_recipients", "ai_insights_cache_hours"]} />
+      </CollapsibleAISection>
+
+      {/* Fixed Save All button */}
+      <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-border p-4 -mx-4 flex justify-end">
+        <button onClick={saveAll} disabled={saving.all}
+          className="flex items-center gap-2 px-6 py-2.5 text-xs font-mono uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          data-testid="button-save-all-ai">
+          {saving.all ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          Save All AI Settings
+        </button>
       </div>
     </div>
   );

@@ -1,0 +1,289 @@
+# Settings — Prompt 5: Live Site & App Tab
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build out the Live Site & App tab in Settings. This is the single place where all audience-facing website and mobile app configuration is managed. Replace the placeholder list that currently exists with real, functional configuration forms.
+
+CONTEXT:
+- Settings → Live Site & App tab currently shows a placeholder list of categories
+- Configuration for the audience site is currently scattered across the codebase (hardcoded values, env variables, individual component settings)
+- This prompt surfaces all audience-facing controls into one admin tab
+- Uses the existing platform_settings table (category: 'live_site')
+
+---
+
+PART A — DATABASE:
+
+(1) Add these keys to platform_settings table (category: 'live_site') if they don't exist:
+
+Homepage:
+- home_hero_enabled: "true"
+- home_hero_autoplay: "true"
+- home_hero_interval: "5000" (ms between slides)
+- home_featured_poll_enabled: "true"
+- home_featured_poll_id: "" (ID of poll to feature, empty = auto-select latest)
+- home_featured_events_enabled: "true"
+- home_featured_events_count: "3"
+- home_latest_episodes_count: "6"
+- home_latest_articles_count: "6"
+- home_community_preview_enabled: "true"
+- home_community_preview_count: "3"
+- home_breaking_news_enabled: "false"
+- home_breaking_news_text: ""
+
+Navigation:
+- nav_bottom_home: "true"
+- nav_bottom_listen: "true"
+- nav_bottom_news: "true"
+- nav_bottom_search: "true"
+- nav_bottom_community: "true"
+- nav_show_categories: "true"
+- nav_show_trending: "true"
+- nav_show_discover: "true"
+- nav_show_events: "true"
+
+PWA & Mobile App:
+- pwa_app_name: "Salem Media"
+- pwa_short_name: "Salem"
+- pwa_description: "Conservative news and podcasts powered by AI"
+- pwa_theme_color: "#1D4ED8"
+- pwa_background_color: "#0F172A"
+- pwa_display: "standalone"
+- pwa_orientation: "portrait"
+- pwa_icon_192_url: ""
+- pwa_icon_512_url: ""
+- pwa_splash_screen_url: ""
+- pwa_ios_status_bar: "black-translucent"
+
+Maintenance & System:
+- maintenance_mode_enabled: "false"
+- maintenance_mode_title: "We'll be right back"
+- maintenance_mode_message: "We're making some improvements. Check back soon."
+- maintenance_mode_estimated_time: ""
+- maintenance_contact_email: ""
+
+Cookie & Privacy:
+- cookie_banner_enabled: "true"
+- cookie_banner_text: "We use cookies to improve your experience. By continuing, you agree to our Privacy Policy."
+- cookie_banner_accept_text: "Accept"
+- cookie_banner_decline_text: "Decline"
+- cookie_banner_position: "bottom" (bottom, top)
+
+Audience Features:
+- rate_us_enabled: "true"
+- rate_us_trigger_visits: "3" (show after X visits)
+- rate_us_app_store_url: ""
+- rate_us_play_store_url: ""
+- search_enabled: "true"
+- dark_mode_toggle_enabled: "true"
+- bookmark_enabled: "true"
+
+Ad Zones:
+- adzone_home_leaderboard_enabled: "true"
+- adzone_home_rectangle_enabled: "true"
+- adzone_article_inline_enabled: "true"
+- adzone_article_sidebar_enabled: "true"
+- adzone_podcast_player_enabled: "true"
+- adzone_mobile_banner_enabled: "true"
+
+(2) API endpoints:
+- GET /api/settings/live-site — returns all live site settings as flat object
+- PATCH /api/settings/live-site — upserts settings, requireAuth
+- POST /api/settings/live-site/maintenance — toggles maintenance mode immediately
+
+---
+
+PART B — LIVE SITE & APP TAB UI:
+
+Seven collapsible sections. All open by default. Each section has its own Save button. Master "Save All" fixed at page bottom.
+
+---
+
+SECTION 1 — HOMEPAGE CONTENT:
+
+Hero Carousel:
+- Enable Hero Carousel: toggle → home_hero_enabled
+- Autoplay: toggle → home_hero_autoplay
+- Slide Interval: number input (seconds, 3-10) → home_hero_interval (convert to ms on save)
+- Note: "Manage hero slides in Page Builder → Home page"
+
+Content Sections (each with enable toggle + count selector):
+- Featured Poll: toggle → home_featured_poll_enabled
+  When enabled: Poll selector dropdown (lists published polls) → home_featured_poll_id
+  Option: "Auto (latest active poll)"
+
+- Featured Events: toggle → home_featured_events_enabled
+  Count: 1-6 → home_featured_events_count
+
+- Latest Episodes: count selector 3/6/9/12 → home_latest_episodes_count
+
+- Latest Articles: count selector 3/6/9/12 → home_latest_articles_count
+
+- Community Preview: toggle → home_community_preview_enabled
+  Count: 1-5 → home_community_preview_count
+
+Breaking News Ticker:
+- Enable Breaking News Ticker: toggle → home_breaking_news_enabled
+- Ticker Text: text input, max 200 chars → home_breaking_news_text
+  Placeholder: "BREAKING: Enter breaking news text here"
+  Note: "Appears as a scrolling banner at the top of the audience site when enabled"
+  Live preview of the ticker below the input
+
+---
+
+SECTION 2 — NAVIGATION & MENUS:
+
+Bottom Navigation Bar (mobile):
+- Five toggles for bottom nav tabs. Each shows the icon and label:
+  - 🏠 Home → nav_bottom_home (locked, cannot disable)
+  - 🎧 Listen → nav_bottom_listen
+  - 📰 News → nav_bottom_news
+  - 🔍 Search → nav_bottom_search
+  - 👥 Community → nav_bottom_community
+- Note: "Home tab cannot be disabled"
+
+Top Navigation Categories (horizontal scroll row):
+- Show Categories Row: toggle → nav_show_categories
+- Show Trending: toggle → nav_show_trending
+- Show Discover: toggle → nav_show_discover
+- Show Events: toggle → nav_show_events
+- Note: "These appear in the horizontal scroll navigation below the site header"
+
+---
+
+SECTION 3 — PWA & MOBILE APP:
+
+App Identity:
+- App Name: text input (max 45 chars) → pwa_app_name
+  Note: "Full name shown in app stores and install prompts"
+- Short Name: text input (max 12 chars) → pwa_short_name
+  Note: "Shown on home screen under the icon"
+- Description: textarea (max 200 chars) → pwa_description
+
+App Colors:
+- Theme Color: color picker + hex input → pwa_theme_color
+  Note: "Browser chrome color on Android"
+- Background Color: color picker + hex input → pwa_background_color
+  Note: "Splash screen background color"
+- iOS Status Bar Style: dropdown → pwa_ios_status_bar
+  Options: default | black | black-translucent
+
+App Icons:
+- 192x192 Icon URL: image input + preview → pwa_icon_192_url
+  Note: "Required for Android home screen and PWA install"
+- 512x512 Icon URL: image input + preview → pwa_icon_512_url
+  Note: "Required for splash screen and app stores"
+- Splash Screen URL: image input + preview → pwa_splash_screen_url
+  Note: "Full screen image shown while app loads on iOS"
+
+Display Settings:
+- Display Mode: dropdown → pwa_display
+  Options: standalone (no browser chrome) | fullscreen | minimal-ui | browser
+- Orientation: dropdown → pwa_orientation
+  Options: portrait | landscape | any
+
+PWA Manifest Preview:
+- Collapsible "View manifest.json" section showing the generated manifest as formatted JSON
+- "Validate PWA" button that checks: icons exist, manifest is valid, service worker is registered
+- Green/red status indicators for each check
+
+---
+
+SECTION 4 — MAINTENANCE MODE:
+
+Maintenance Mode toggle with prominent red warning styling:
+- Enable Maintenance Mode: large toggle → maintenance_mode_enabled
+  Warning banner: "⚠️ Enabling this will show a maintenance page to ALL audience visitors immediately"
+
+When enabled, fields appear:
+- Page Title: text input → maintenance_mode_title
+  Default: "We'll be right back"
+- Message: textarea → maintenance_mode_message
+  Default: "We're making some improvements. Check back soon."
+- Estimated Return Time: text input → maintenance_mode_estimated_time
+  Placeholder: "Back online in approximately 2 hours"
+- Contact Email: text input → maintenance_contact_email
+
+Live Preview: shows exactly what visitors will see during maintenance mode.
+
+Note: "Admin users are never shown the maintenance page. Use an incognito window to test."
+
+"Activate Maintenance Mode" button (separate from Save, calls POST /api/settings/live-site/maintenance) — requires a confirmation dialog: "This will immediately show the maintenance page to all visitors. Continue?"
+
+---
+
+SECTION 5 — COOKIE & PRIVACY BANNER:
+
+- Enable Cookie Banner: toggle → cookie_banner_enabled
+- Banner Text: textarea, max 200 chars → cookie_banner_text
+- Accept Button Text: text input → cookie_banner_accept_text
+- Decline Button Text: text input → cookie_banner_decline_text
+- Position: radio buttons → cookie_banner_position
+  Bottom | Top
+
+Live Preview: renders the cookie banner exactly as it appears on the audience site, positioned at top or bottom based on selection.
+
+---
+
+SECTION 6 — AUDIENCE FEATURES:
+
+Rate Us Prompt:
+- Enable Rate Us Prompt: toggle → rate_us_enabled
+- Show After X Visits: number input (1-10) → rate_us_trigger_visits
+- App Store URL: text input → rate_us_app_store_url
+  Placeholder: "https://apps.apple.com/app/..."
+- Play Store URL: text input → rate_us_play_store_url
+  Placeholder: "https://play.google.com/store/apps/..."
+
+Other Feature Toggles:
+- Enable Search: toggle → search_enabled
+  Note: "Shows search icon in header and /search page"
+- Dark/Light Mode Toggle: toggle → dark_mode_toggle_enabled
+  Note: "Shows a moon/sun icon in the header for visitors to switch modes"
+- Bookmarks: toggle → bookmark_enabled
+  Note: "Allows visitors to save articles and episodes"
+
+---
+
+SECTION 7 — AD ZONES:
+
+Description at top: "Enable or disable ad placement zones across the audience site. Disabling a zone removes ads from that location without deleting campaigns."
+
+Toggle list — each with zone name, location description, and enable/disable toggle:
+
+- Home Page — Leaderboard (728x90 below hero) → adzone_home_leaderboard_enabled
+- Home Page — Rectangle (300x250 in content feed) → adzone_home_rectangle_enabled
+- Article Pages — Inline (between paragraphs) → adzone_article_inline_enabled
+- Article Pages — Sidebar (300x250 right column) → adzone_article_sidebar_enabled
+- Podcast Player — Sponsor Panel → adzone_podcast_player_enabled
+- Mobile — Banner (320x50 above bottom nav) → adzone_mobile_banner_enabled
+
+Note: "Manage ad content and sponsorships in Revenue Factory → Advertising"
+
+---
+
+PART C — LIVE SITE STATUS INDICATOR:
+
+At the very top of the Live Site & App tab, before all sections, show a status bar:
+
+- Site Status: green "LIVE" badge or red "MAINTENANCE" badge (based on maintenance_mode_enabled)
+- Quick stats: Active Ad Zones (count enabled) | PWA Configured (yes/no based on icons + manifest) | Breaking News (ON/OFF)
+- "View Live Site" button → opens audience site in new tab
+
+---
+
+VERIFICATION CHECKLIST:
+1. Live Site & App tab loads with 7 sections and status bar at top
+2. Status bar shows correct LIVE/MAINTENANCE state
+3. Breaking news ticker toggle + text saves and immediately shows/hides ticker on audience site
+4. Maintenance mode toggle shows warning, requires confirmation, activates immediately
+5. Maintenance mode preview shows what visitors will see
+6. Cookie banner preview renders correctly at top/bottom position
+7. PWA section shows manifest preview JSON
+8. PWA validate button checks icons and service worker
+9. Bottom nav toggles reflect on the audience site mobile navigation
+10. Ad zone toggles disable/enable the correct placements
+11. All settings persist to database and survive page refresh
+12. "View Live Site" button opens audience site correctly
+```
