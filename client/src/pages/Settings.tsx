@@ -525,7 +525,7 @@ export default function Settings() {
 
       {activeTab === "branding" && <BrandingTab canEdit={canEdit} />}
 
-      {activeTab === "integrations" && <IntegrationsPlaceholderTab />}
+      {activeTab === "integrations" && <IntegrationsTab />}
 
       {activeTab === "ai-config" && <AIConfigurationPlaceholderTab />}
 
@@ -1221,48 +1221,585 @@ function BrandingTab({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-function IntegrationsPlaceholderTab() {
-  const integrationCategories = [
-    { icon: MessageSquare, name: "Social Media", platforms: "Twitter/X, Facebook, LinkedIn, Instagram, YouTube", status: "Not configured" },
-    { icon: Rss, name: "Podcast Distribution", platforms: "Apple Podcasts, Spotify, RSS", status: "Not configured" },
-    { icon: Mail, name: "Email", platforms: "SMTP, SendGrid", status: "Not configured" },
-    { icon: Smartphone, name: "SMS", platforms: "Twilio", status: "Not configured" },
-    { icon: BellRing, name: "Push Notifications", platforms: "VAPID, Firebase", status: "Not configured" },
-    { icon: BarChart, name: "Analytics", platforms: "Google Analytics, Meta Pixel", status: "Not configured" },
-    { icon: HardDrive, name: "Storage", platforms: "S3, Cloudflare R2", status: "Not configured" },
-    { icon: CreditCard, name: "Payment", platforms: "Stripe", status: "Not configured" },
+function IntegrationsTab() {
+  const { toast } = useToast();
+  const { data: integrations, isLoading } = useQuery({
+    queryKey: ["/api/settings/integrations"],
+    queryFn: () => fetch("/api/settings/integrations", { credentials: "include" }).then(r => r.json()),
+  });
+
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [visibility, setVisibility] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    social: true, podcast: true, email: true, sms: true, push: true, analytics: true, storage: true, payment: true
+  });
+
+  useEffect(() => {
+    if (integrations) setForm(prev => ({ ...integrations, ...Object.fromEntries(Object.entries(prev).filter(([_, v]) => v !== "")) }));
+  }, [integrations]);
+
+  const f = (key: string) => form[key] || "";
+  const setF = (key: string, value: string) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+    setDirty(prev => ({ ...prev, [key]: true }));
+  };
+  const toggleVis = (key: string) => setVisibility(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleSection = (id: string) => setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const saveSection = async (sectionName: string, keys: string[]) => {
+    setSaving(prev => ({ ...prev, [sectionName]: true }));
+    try {
+      const payload: Record<string, string> = {};
+      keys.forEach(k => { payload[k] = f(k); });
+      const res = await fetch("/api/settings/integrations", {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = await res.json();
+      setForm(prev => ({ ...prev, ...updated }));
+      keys.forEach(k => setDirty(prev => ({ ...prev, [k]: false })));
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/integrations"] });
+      toast({ title: `${sectionName} settings saved` });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, [sectionName]: false }));
+    }
+  };
+
+  const testConnection = async (integration: string, label: string) => {
+    setTesting(prev => ({ ...prev, [integration]: true }));
+    try {
+      const res = await fetch(`/api/settings/integrations/test/${integration}`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const result = await res.json();
+      toast({
+        title: result.success ? `${label} Connected` : `${label} Test Failed`,
+        description: result.message,
+        variant: result.success ? "default" : "destructive",
+      });
+    } catch (e: any) {
+      toast({ title: "Test Failed", description: e.message, variant: "destructive" });
+    } finally {
+      setTesting(prev => ({ ...prev, [integration]: false }));
+    }
+  };
+
+  const hasValue = (key: string) => {
+    const v = f(key);
+    return v !== "" && v !== undefined;
+  };
+
+  type StatusType = "connected" | "partial" | "not_configured";
+  const getStatus = (requiredKeys: string[]): StatusType => {
+    const filled = requiredKeys.filter(k => hasValue(k)).length;
+    if (filled === 0) return "not_configured";
+    if (filled === requiredKeys.length) return "connected";
+    return "partial";
+  };
+
+  const statusBadge = (status: StatusType) => {
+    const cfg = {
+      connected: { dot: "bg-emerald-500", text: "Connected", cls: "border-emerald-500/30 text-emerald-500" },
+      partial: { dot: "bg-yellow-500", text: "Partial", cls: "border-yellow-500/30 text-yellow-500" },
+      not_configured: { dot: "bg-muted-foreground/40", text: "Not Configured", cls: "border-border text-muted-foreground" },
+    }[status];
+    return (
+      <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border", cfg.cls)}>
+        <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
+        {cfg.text}
+      </span>
+    );
+  };
+
+  function SecureField({ label, fieldKey, testId }: { label: string; fieldKey: string; testId: string }) {
+    const isVisible = visibility[fieldKey];
+    return (
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">{label}</label>
+        <div className="flex gap-1">
+          <input
+            type={isVisible ? "text" : "password"}
+            value={f(fieldKey)}
+            onChange={(e) => setF(fieldKey, e.target.value)}
+            placeholder={hasValue(fieldKey) && !dirty[fieldKey] ? "••••••••••••" : ""}
+            className="flex-1 bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary placeholder:text-muted-foreground/50 font-mono"
+            data-testid={testId}
+          />
+          <button onClick={() => toggleVis(fieldKey)} className="px-2 border border-border bg-card hover:bg-muted transition-colors" data-testid={`toggle-${testId}`}>
+            {isVisible ? <EyeOff className="h-3.5 w-3.5 text-muted-foreground" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function TextField({ label, fieldKey, testId, readOnly, placeholder, note }: { label: string; fieldKey: string; testId: string; readOnly?: boolean; placeholder?: string; note?: string }) {
+    return (
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">{label}</label>
+        <input
+          type="text"
+          value={f(fieldKey)}
+          onChange={(e) => setF(fieldKey, e.target.value)}
+          readOnly={readOnly}
+          placeholder={placeholder}
+          className={cn("w-full bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary placeholder:text-muted-foreground/50", readOnly && "opacity-60 cursor-not-allowed")}
+          data-testid={testId}
+        />
+        {note && <p className="text-[11px] text-muted-foreground mt-1">{note}</p>}
+      </div>
+    );
+  }
+
+  function IntegrationCard({ name, icon: Icon, status, children, testId }: { name: string; icon: any; status: StatusType; children: React.ReactNode; testId: string }) {
+    return (
+      <div className="border border-border bg-card/30 p-4 space-y-3" data-testid={testId}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 border border-muted-foreground/20 bg-muted/20 flex items-center justify-center">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">{name}</span>
+          </div>
+          {statusBadge(status)}
+        </div>
+        <div className="space-y-3">{children}</div>
+      </div>
+    );
+  }
+
+  function SectionSaveButton({ sectionName, keys }: { sectionName: string; keys: string[] }) {
+    const isSaving = saving[sectionName];
+    return (
+      <button
+        onClick={() => saveSection(sectionName, keys)}
+        disabled={isSaving}
+        className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 border border-primary/30 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/20 transition-colors disabled:opacity-50 mt-3"
+        data-testid={`button-save-${sectionName.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+        Save {sectionName}
+      </button>
+    );
+  }
+
+  function TestButton({ integration, label }: { integration: string; label: string }) {
+    const isTesting = testing[integration];
+    return (
+      <button
+        onClick={() => testConnection(integration, label)}
+        disabled={isTesting}
+        className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-xs font-mono uppercase tracking-wider hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-50"
+        data-testid={`button-test-${integration}`}
+      >
+        {isTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+        Test Connection
+      </button>
+    );
+  }
+
+  function CollapsibleIntSection({ id, title, icon: Icon, status, children }: { id: string; title: string; icon: any; status: StatusType; children: React.ReactNode }) {
+    const isOpen = openSections[id] !== false;
+    return (
+      <div className="border border-border bg-card/50" data-testid={`section-${id}`}>
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+          data-testid={`toggle-section-${id}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 border border-muted-foreground/20 bg-muted/20 flex items-center justify-center">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">{title}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {statusBadge(status)}
+            {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </button>
+        {isOpen && <div className="px-4 pb-4 space-y-4 border-t border-border pt-4">{children}</div>}
+      </div>
+    );
+  }
+
+  const socialKeys = ["twitter_api_key", "twitter_api_secret", "twitter_access_token", "twitter_access_secret", "facebook_page_id", "facebook_access_token", "linkedin_org_id", "linkedin_access_token", "instagram_account_id", "youtube_channel_id", "youtube_api_key"];
+  const podcastKeys = ["apple_podcasts_feed_url", "spotify_show_id", "iheart_feed_url", "rss_feed_url"];
+  const emailKeys = ["email_provider", "sendgrid_api_key", "smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_name", "smtp_from_email", "mailgun_api_key", "mailgun_domain"];
+  const smsKeys = ["twilio_account_sid", "twilio_auth_token", "twilio_phone_number"];
+  const pushKeys = ["vapid_public_key", "vapid_private_key", "vapid_subject", "firebase_server_key"];
+  const analyticsKeys = ["google_analytics_id", "meta_pixel_id", "gtm_container_id"];
+  const storageKeys = ["storage_provider", "s3_bucket", "s3_region", "s3_access_key", "s3_secret_key", "cloudflare_r2_account_id", "cloudflare_r2_access_key", "cloudflare_r2_secret_key", "cloudflare_r2_bucket"];
+  const paymentKeys = ["stripe_publishable_key", "stripe_secret_key", "stripe_webhook_secret"];
+
+  const twitterStatus = getStatus(["twitter_api_key", "twitter_api_secret", "twitter_access_token", "twitter_access_secret"]);
+  const facebookStatus = getStatus(["facebook_page_id", "facebook_access_token"]);
+  const linkedinStatus = getStatus(["linkedin_org_id", "linkedin_access_token"]);
+  const instagramStatus = getStatus(["instagram_account_id"]);
+  const youtubeStatus = getStatus(["youtube_channel_id", "youtube_api_key"]);
+  const socialConnected = [twitterStatus, facebookStatus, linkedinStatus, instagramStatus, youtubeStatus].filter(s => s === "connected").length;
+
+  const emailProvider = f("email_provider");
+  const emailStatus = (() => {
+    if (emailProvider === "sendgrid") return getStatus(["sendgrid_api_key"]);
+    if (emailProvider === "smtp") return getStatus(["smtp_host", "smtp_username", "smtp_password"]);
+    if (emailProvider === "mailgun") return getStatus(["mailgun_api_key", "mailgun_domain"]);
+    return "not_configured" as StatusType;
+  })();
+  const smsStatus = getStatus(smsKeys);
+  const pushStatus = getStatus(["vapid_public_key", "vapid_private_key"]);
+  const gaStatus = getStatus(["google_analytics_id"]);
+  const pixelStatus = getStatus(["meta_pixel_id"]);
+  const gtmStatus = getStatus(["gtm_container_id"]);
+  const analyticsConnected = [gaStatus, pixelStatus, gtmStatus].filter(s => s === "connected").length;
+  const storageProvider = f("storage_provider");
+  const storageStatus = (() => {
+    if (storageProvider === "s3") return getStatus(["s3_bucket", "s3_region", "s3_access_key", "s3_secret_key"]);
+    if (storageProvider === "cloudflare_r2") return getStatus(["cloudflare_r2_account_id", "cloudflare_r2_bucket", "cloudflare_r2_access_key", "cloudflare_r2_secret_key"]);
+    if (storageProvider === "local") return "connected" as StatusType;
+    return "not_configured" as StatusType;
+  })();
+  const stripeStatus = getStatus(["stripe_publishable_key", "stripe_secret_key"]);
+
+  const overallSocialStatus: StatusType = socialConnected === 5 ? "connected" : socialConnected > 0 ? "partial" : "not_configured";
+  const overallAnalyticsStatus: StatusType = analyticsConnected === 3 ? "connected" : analyticsConnected > 0 ? "partial" : "not_configured";
+
+  const summaryCards = [
+    { id: "social", icon: MessageSquare, label: "Social", detail: `${socialConnected}/5`, status: overallSocialStatus },
+    { id: "podcast", icon: Rss, label: "Podcast", detail: hasValue("rss_feed_url") ? "✓" : "-", status: hasValue("rss_feed_url") ? "connected" as StatusType : "not_configured" as StatusType },
+    { id: "email", icon: Mail, label: "Email", detail: emailStatus === "connected" ? "✓" : "-", status: emailStatus },
+    { id: "sms", icon: Smartphone, label: "SMS", detail: smsStatus === "connected" ? "✓" : "-", status: smsStatus },
+    { id: "push", icon: BellRing, label: "Push", detail: pushStatus === "connected" ? "✓" : "-", status: pushStatus },
+    { id: "analytics", icon: BarChart, label: "Analytics", detail: `${analyticsConnected}/3`, status: overallAnalyticsStatus },
+    { id: "storage", icon: HardDrive, label: "Storage", detail: storageStatus === "connected" ? "✓" : "-", status: storageStatus },
+    { id: "payment", icon: CreditCard, label: "Payment", detail: stripeStatus === "connected" ? "✓" : "-", status: stripeStatus },
   ];
 
-  return (
-    <div className="space-y-6" data-testid="integrations-tab">
-      <div className="border border-border bg-card/50 p-4 sm:p-6">
-        <SectionHeader icon={Plug} title="Integrations" description="Connect third-party services and platforms" />
+  const handleCopyRss = () => {
+    const url = f("rss_feed_url") || `${window.location.origin}/api/public/rss`;
+    navigator.clipboard.writeText(url);
+    toast({ title: "RSS Feed URL copied to clipboard" });
+  };
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {integrationCategories.map((cat) => {
-            const Icon = cat.icon;
-            return (
-              <div
-                key={cat.name}
-                className="border border-border bg-card/30 p-4 space-y-3 hover:border-border/80 transition-colors"
-                data-testid={`integration-card-${cat.name.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="h-10 w-10 border border-muted-foreground/20 bg-muted/30 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 bg-muted/50 text-muted-foreground">
-                    {cat.status}
-                  </Badge>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{cat.platforms}</p>
-                </div>
+  const handleGenerateVapid = async () => {
+    const array = new Uint8Array(65);
+    crypto.getRandomValues(array);
+    const publicKey = btoa(String.fromCharCode(...array)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const privateArray = new Uint8Array(32);
+    crypto.getRandomValues(privateArray);
+    const privateKey = btoa(String.fromCharCode(...privateArray)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    setF("vapid_public_key", publicKey);
+    setF("vapid_private_key", privateKey);
+    toast({ title: "VAPID keys generated", description: "Save to apply the new keys" });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4" data-testid="integrations-tab-loading">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="integrations-tab">
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2" data-testid="integrations-summary">
+        {summaryCards.map(card => {
+          const Icon = card.icon;
+          const dotColor = card.status === "connected" ? "bg-emerald-500" : card.status === "partial" ? "bg-yellow-500" : "bg-muted-foreground/40";
+          return (
+            <button
+              key={card.id}
+              onClick={() => {
+                document.getElementById(`section-${card.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="flex flex-col items-center gap-1 p-2 border border-border bg-card/50 hover:border-primary/30 transition-colors"
+              data-testid={`summary-${card.id}`}
+            >
+              <Icon className="h-4 w-4 text-muted-foreground" />
+              <span className="text-[10px] font-mono text-muted-foreground uppercase">{card.label}</span>
+              <div className="flex items-center gap-1">
+                <span className={cn("h-1.5 w-1.5 rounded-full", dotColor)} />
+                <span className="text-[10px] font-semibold text-foreground">{card.detail}</span>
               </div>
-            );
-          })}
-        </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div id="section-social">
+        <CollapsibleIntSection id="social" title="Social Media" icon={MessageSquare} status={overallSocialStatus}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <IntegrationCard name="Twitter / X" icon={MessageSquare} status={twitterStatus} testId="card-twitter">
+              <SecureField label="API Key" fieldKey="twitter_api_key" testId="input-twitter-api-key" />
+              <SecureField label="API Secret" fieldKey="twitter_api_secret" testId="input-twitter-api-secret" />
+              <SecureField label="Access Token" fieldKey="twitter_access_token" testId="input-twitter-access-token" />
+              <SecureField label="Access Token Secret" fieldKey="twitter_access_secret" testId="input-twitter-access-secret" />
+              <TestButton integration="twitter" label="Twitter" />
+            </IntegrationCard>
+
+            <IntegrationCard name="Facebook" icon={Facebook} status={facebookStatus} testId="card-facebook">
+              <TextField label="Page ID" fieldKey="facebook_page_id" testId="input-facebook-page-id" placeholder="e.g. 123456789" />
+              <SecureField label="Page Access Token" fieldKey="facebook_access_token" testId="input-facebook-access-token" />
+              <TestButton integration="facebook" label="Facebook" />
+            </IntegrationCard>
+
+            <IntegrationCard name="LinkedIn" icon={Linkedin} status={linkedinStatus} testId="card-linkedin">
+              <TextField label="Organization ID" fieldKey="linkedin_org_id" testId="input-linkedin-org-id" />
+              <SecureField label="Access Token" fieldKey="linkedin_access_token" testId="input-linkedin-access-token" />
+            </IntegrationCard>
+
+            <IntegrationCard name="Instagram" icon={ImageIcon} status={instagramStatus} testId="card-instagram">
+              <TextField label="Account ID" fieldKey="instagram_account_id" testId="input-instagram-account-id" note="Instagram requires a Facebook Business account connection" />
+            </IntegrationCard>
+
+            <IntegrationCard name="YouTube" icon={Radio} status={youtubeStatus} testId="card-youtube">
+              <TextField label="Channel ID" fieldKey="youtube_channel_id" testId="input-youtube-channel-id" />
+              <SecureField label="API Key" fieldKey="youtube_api_key" testId="input-youtube-api-key" />
+            </IntegrationCard>
+          </div>
+          <SectionSaveButton sectionName="Social Media" keys={socialKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-podcast">
+        <CollapsibleIntSection id="podcast" title="Podcast Distribution" icon={Rss} status={hasValue("apple_podcasts_feed_url") || hasValue("spotify_show_id") ? "connected" : "not_configured"}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <IntegrationCard name="Apple Podcasts" icon={Rss} status={getStatus(["apple_podcasts_feed_url"])} testId="card-apple-podcasts">
+              <TextField label="RSS Feed URL" fieldKey="apple_podcasts_feed_url" testId="input-apple-feed" placeholder="Your RSS feed URL to submit to Apple" />
+              <p className="text-[11px] text-muted-foreground">Submit your RSS feed to Apple Podcasts Connect</p>
+              <a href="https://podcastsconnect.apple.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                Open Apple Podcasts Connect <ArrowRight className="h-3 w-3" />
+              </a>
+            </IntegrationCard>
+
+            <IntegrationCard name="Spotify" icon={Rss} status={getStatus(["spotify_show_id"])} testId="card-spotify">
+              <TextField label="Show ID" fieldKey="spotify_show_id" testId="input-spotify-show-id" note="Add your RSS feed at podcasters.spotify.com to get your Show ID" />
+              <a href="https://podcasters.spotify.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                Open Spotify for Podcasters <ArrowRight className="h-3 w-3" />
+              </a>
+            </IntegrationCard>
+
+            <IntegrationCard name="iHeart" icon={Rss} status={getStatus(["iheart_feed_url"])} testId="card-iheart">
+              <TextField label="Feed URL" fieldKey="iheart_feed_url" testId="input-iheart-feed" />
+              <a href="https://www.iheart.com/podcast" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                Open iHeartRadio Podcast Portal <ArrowRight className="h-3 w-3" />
+              </a>
+            </IntegrationCard>
+
+            <IntegrationCard name="RSS Feed" icon={Rss} status={"connected"} testId="card-rss">
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-1">Feed URL</label>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={f("rss_feed_url") || `${window.location.origin}/api/public/rss`}
+                    readOnly
+                    className="flex-1 bg-background border border-border px-3 py-2 text-sm text-foreground font-mono opacity-60 cursor-not-allowed"
+                    data-testid="input-rss-feed-url"
+                  />
+                  <button onClick={handleCopyRss} className="px-3 border border-border bg-card hover:bg-muted transition-colors" data-testid="button-copy-rss">
+                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Submit this URL to any podcast directory</p>
+              </div>
+            </IntegrationCard>
+          </div>
+          <SectionSaveButton sectionName="Podcast Distribution" keys={podcastKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-email">
+        <CollapsibleIntSection id="email" title="Email" icon={Mail} status={emailStatus}>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Email Provider</label>
+              <div className="flex gap-3">
+                {(["sendgrid", "smtp", "mailgun"] as const).map(p => (
+                  <label key={p} className={cn("flex items-center gap-2 px-3 py-2 border cursor-pointer transition-colors", emailProvider === p ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-border/80")}>
+                    <input type="radio" name="email_provider" value={p} checked={emailProvider === p} onChange={() => setF("email_provider", p)} className="sr-only" />
+                    <span className={cn("h-3 w-3 rounded-full border-2", emailProvider === p ? "border-primary bg-primary" : "border-muted-foreground/40")} />
+                    <span className="text-xs font-mono uppercase">{p}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {emailProvider === "sendgrid" && (
+              <IntegrationCard name="SendGrid" icon={Mail} status={getStatus(["sendgrid_api_key"])} testId="card-sendgrid">
+                <SecureField label="API Key" fieldKey="sendgrid_api_key" testId="input-sendgrid-api-key" />
+                <TextField label="From Name" fieldKey="smtp_from_name" testId="input-sendgrid-from-name" placeholder="e.g. MediaTech Empire" />
+                <TextField label="From Email" fieldKey="smtp_from_email" testId="input-sendgrid-from-email" placeholder="e.g. noreply@example.com" />
+                <TestButton integration="email" label="SendGrid" />
+              </IntegrationCard>
+            )}
+
+            {emailProvider === "smtp" && (
+              <IntegrationCard name="SMTP" icon={Mail} status={getStatus(["smtp_host", "smtp_username", "smtp_password"])} testId="card-smtp">
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField label="Host" fieldKey="smtp_host" testId="input-smtp-host" placeholder="e.g. smtp.gmail.com" />
+                  <TextField label="Port" fieldKey="smtp_port" testId="input-smtp-port" placeholder="587" />
+                </div>
+                <TextField label="Username" fieldKey="smtp_username" testId="input-smtp-username" />
+                <SecureField label="Password" fieldKey="smtp_password" testId="input-smtp-password" />
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField label="From Name" fieldKey="smtp_from_name" testId="input-smtp-from-name" />
+                  <TextField label="From Email" fieldKey="smtp_from_email" testId="input-smtp-from-email" />
+                </div>
+                <TestButton integration="email" label="SMTP" />
+              </IntegrationCard>
+            )}
+
+            {emailProvider === "mailgun" && (
+              <IntegrationCard name="Mailgun" icon={Mail} status={getStatus(["mailgun_api_key", "mailgun_domain"])} testId="card-mailgun">
+                <SecureField label="API Key" fieldKey="mailgun_api_key" testId="input-mailgun-api-key" />
+                <TextField label="Domain" fieldKey="mailgun_domain" testId="input-mailgun-domain" placeholder="e.g. mg.example.com" />
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField label="From Name" fieldKey="smtp_from_name" testId="input-mailgun-from-name" />
+                  <TextField label="From Email" fieldKey="smtp_from_email" testId="input-mailgun-from-email" />
+                </div>
+                <TestButton integration="email" label="Mailgun" />
+              </IntegrationCard>
+            )}
+          </div>
+          <SectionSaveButton sectionName="Email" keys={emailKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-sms">
+        <CollapsibleIntSection id="sms" title="SMS" icon={Smartphone} status={smsStatus}>
+          <IntegrationCard name="Twilio" icon={Smartphone} status={smsStatus} testId="card-twilio">
+            <SecureField label="Account SID" fieldKey="twilio_account_sid" testId="input-twilio-sid" />
+            <SecureField label="Auth Token" fieldKey="twilio_auth_token" testId="input-twilio-token" />
+            <TextField label="Phone Number" fieldKey="twilio_phone_number" testId="input-twilio-phone" placeholder="+1XXXXXXXXXX" />
+            <TestButton integration="twilio" label="Twilio" />
+          </IntegrationCard>
+          <SectionSaveButton sectionName="SMS" keys={smsKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-push">
+        <CollapsibleIntSection id="push" title="Push Notifications" icon={BellRing} status={pushStatus}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <IntegrationCard name="VAPID Keys" icon={BellRing} status={getStatus(["vapid_public_key", "vapid_private_key"])} testId="card-vapid">
+              <SecureField label="Public Key" fieldKey="vapid_public_key" testId="input-vapid-public" />
+              <SecureField label="Private Key" fieldKey="vapid_private_key" testId="input-vapid-private" />
+              <TextField label="Subject Email" fieldKey="vapid_subject" testId="input-vapid-subject" placeholder="mailto:admin@example.com" />
+              <button
+                onClick={handleGenerateVapid}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-primary/30 bg-primary/5 text-primary text-xs font-mono uppercase tracking-wider hover:bg-primary/10 transition-colors"
+                data-testid="button-generate-vapid"
+              >
+                <RefreshCw className="h-3 w-3" /> Generate New VAPID Keys
+              </button>
+              <p className="text-[11px] text-yellow-500 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Changing VAPID keys will invalidate all existing push subscriptions
+              </p>
+            </IntegrationCard>
+
+            <IntegrationCard name="Firebase (Optional)" icon={BellRing} status={getStatus(["firebase_server_key"])} testId="card-firebase">
+              <SecureField label="Server Key" fieldKey="firebase_server_key" testId="input-firebase-key" />
+              <p className="text-[11px] text-muted-foreground">Only required for native iOS/Android push. PWA uses VAPID.</p>
+            </IntegrationCard>
+          </div>
+          <SectionSaveButton sectionName="Push Notifications" keys={pushKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-analytics">
+        <CollapsibleIntSection id="analytics" title="Analytics" icon={BarChart} status={overallAnalyticsStatus}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <IntegrationCard name="Google Analytics" icon={BarChart} status={gaStatus} testId="card-ga">
+              <TextField label="Measurement ID" fieldKey="google_analytics_id" testId="input-ga-id" placeholder="G-XXXXXXXXXX" note="Add this ID to enable Google Analytics tracking on the audience site" />
+            </IntegrationCard>
+
+            <IntegrationCard name="Meta Pixel" icon={BarChart} status={pixelStatus} testId="card-meta-pixel">
+              <TextField label="Pixel ID" fieldKey="meta_pixel_id" testId="input-meta-pixel-id" placeholder="e.g. 1234567890" note="Enables Facebook/Instagram conversion tracking" />
+            </IntegrationCard>
+
+            <IntegrationCard name="Google Tag Manager" icon={BarChart} status={gtmStatus} testId="card-gtm">
+              <TextField label="Container ID" fieldKey="gtm_container_id" testId="input-gtm-id" placeholder="GTM-XXXXXXX" note="Use GTM to manage all tracking scripts in one place" />
+            </IntegrationCard>
+          </div>
+          <SectionSaveButton sectionName="Analytics" keys={analyticsKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-storage">
+        <CollapsibleIntSection id="storage" title="Storage" icon={HardDrive} status={storageStatus}>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-mono block mb-2">Storage Provider</label>
+              <div className="flex gap-3">
+                {([["local", "Local Storage"], ["s3", "Amazon S3"], ["cloudflare_r2", "Cloudflare R2"]] as const).map(([val, label]) => (
+                  <label key={val} className={cn("flex items-center gap-2 px-3 py-2 border cursor-pointer transition-colors", storageProvider === val ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-border/80")}>
+                    <input type="radio" name="storage_provider" value={val} checked={storageProvider === val} onChange={() => setF("storage_provider", val)} className="sr-only" />
+                    <span className={cn("h-3 w-3 rounded-full border-2", storageProvider === val ? "border-primary bg-primary" : "border-muted-foreground/40")} />
+                    <span className="text-xs font-mono uppercase">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {storageProvider === "local" && (
+              <div className="border border-border bg-card/30 p-4" data-testid="card-local-storage">
+                <p className="text-[11px] text-yellow-500 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Files stored on the server. Not recommended for production.
+                </p>
+              </div>
+            )}
+
+            {storageProvider === "s3" && (
+              <IntegrationCard name="Amazon S3" icon={HardDrive} status={getStatus(["s3_bucket", "s3_region", "s3_access_key", "s3_secret_key"])} testId="card-s3">
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField label="Bucket Name" fieldKey="s3_bucket" testId="input-s3-bucket" placeholder="my-bucket" />
+                  <TextField label="Region" fieldKey="s3_region" testId="input-s3-region" placeholder="us-east-1" />
+                </div>
+                <SecureField label="Access Key ID" fieldKey="s3_access_key" testId="input-s3-access-key" />
+                <SecureField label="Secret Access Key" fieldKey="s3_secret_key" testId="input-s3-secret-key" />
+                <TestButton integration="storage" label="Amazon S3" />
+              </IntegrationCard>
+            )}
+
+            {storageProvider === "cloudflare_r2" && (
+              <IntegrationCard name="Cloudflare R2" icon={HardDrive} status={getStatus(["cloudflare_r2_account_id", "cloudflare_r2_bucket", "cloudflare_r2_access_key", "cloudflare_r2_secret_key"])} testId="card-r2">
+                <TextField label="Account ID" fieldKey="cloudflare_r2_account_id" testId="input-r2-account-id" />
+                <TextField label="Bucket Name" fieldKey="cloudflare_r2_bucket" testId="input-r2-bucket" />
+                <SecureField label="Access Key ID" fieldKey="cloudflare_r2_access_key" testId="input-r2-access-key" />
+                <SecureField label="Secret Access Key" fieldKey="cloudflare_r2_secret_key" testId="input-r2-secret-key" />
+                <TestButton integration="storage" label="Cloudflare R2" />
+              </IntegrationCard>
+            )}
+          </div>
+          <SectionSaveButton sectionName="Storage" keys={storageKeys} />
+        </CollapsibleIntSection>
+      </div>
+
+      <div id="section-payment">
+        <CollapsibleIntSection id="payment" title="Payment" icon={CreditCard} status={stripeStatus}>
+          <IntegrationCard name="Stripe" icon={CreditCard} status={stripeStatus} testId="card-stripe">
+            <TextField label="Publishable Key" fieldKey="stripe_publishable_key" testId="input-stripe-pk" placeholder="pk_test_..." />
+            <SecureField label="Secret Key" fieldKey="stripe_secret_key" testId="input-stripe-sk" />
+            <SecureField label="Webhook Secret" fieldKey="stripe_webhook_secret" testId="input-stripe-webhook" />
+            <p className="text-[11px] text-muted-foreground">Used for future subscription and commerce features</p>
+            <div className="flex items-center gap-3">
+              <TestButton integration="stripe" label="Stripe" />
+              <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                Open Stripe Dashboard <ArrowRight className="h-3 w-3" />
+              </a>
+            </div>
+          </IntegrationCard>
+          <SectionSaveButton sectionName="Payment" keys={paymentKeys} />
+        </CollapsibleIntSection>
       </div>
     </div>
   );

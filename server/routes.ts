@@ -1641,7 +1641,7 @@ export async function registerRoutes(
     return "••••••••••••" + val.slice(-4);
   }
 
-  app.get("/api/settings/integrations", requireAuth, async (_req, res) => {
+  app.get("/api/settings/integrations", requirePermission("settings.view"), async (_req, res) => {
     try {
       const data = await storage.getIntegrationSettings();
       const masked: Record<string, string> = {};
@@ -1654,7 +1654,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/settings/integrations", requireAuth, async (req, res) => {
+  app.patch("/api/settings/integrations", requirePermission("settings.edit"), async (req, res) => {
     try {
       const updates: Record<string, string> = {};
       for (const [key, value] of Object.entries(req.body)) {
@@ -1677,7 +1677,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/settings/integrations/test/:integration", requireAuth, async (req, res) => {
+  app.post("/api/settings/integrations/test/:integration", requirePermission("settings.edit"), async (req, res) => {
     const { integration } = req.params;
     try {
       const settings = await storage.getIntegrationSettings();
