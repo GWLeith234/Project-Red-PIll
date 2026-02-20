@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
@@ -341,23 +342,16 @@ export default function PushCampaigns() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700">
-      <PageHeader pageKey="push-campaigns" onPrimaryAction={openCreateDialog} onAIAction={fetchAiSuggestions} />
+      <PageHeader pageKey="push-campaigns" onPrimaryAction={openCreateDialog} primaryActionOverride="+ New Campaign" onAIAction={fetchAiSuggestions} aiActionOverride="AI Analyze" />
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3" data-testid="metrics-strip">
-        {metricsCards.map((stat) => (
-          <Card key={stat.label} className={cn("glass-panel border", stat.borderColor)} data-testid={`metric-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center", stat.bgColor)}>
-                  <stat.icon className={cn("h-3.5 w-3.5", stat.color)} />
-                </div>
-                <span className={cn("text-xl font-bold font-display", stat.color)} data-testid={`metric-value-${stat.label.toLowerCase().replace(/\s+/g, "-")}`}>{stat.value}</span>
-              </div>
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{stat.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <MetricsStrip metrics={[
+        { label: "TOTAL SUBSCRIBERS", value: stats?.totalSubscribers ?? 0 },
+        { label: "SENT THIS MONTH", value: stats?.sentThisMonth ?? 0 },
+        { label: "AVG DELIVERY RATE", value: `${stats?.avgDeliveryRate ?? 0}%` },
+        { label: "TOTAL DELIVERED", value: stats?.totalDelivered ?? 0 },
+        { label: "CLICKS THIS MONTH", value: stats?.clicksThisMonth ?? 0 },
+        { label: "CLICK RATE", value: "—" },
+      ]} />
 
       {isLoading ? (
         <div className="space-y-3">

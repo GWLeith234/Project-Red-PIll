@@ -1,5 +1,6 @@
 import { useState } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1363,20 +1364,16 @@ export default function SubscriberCRM() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <PageHeader pageKey="subscriber-crm" />
-        {activeTab === "subscribers" ? (
-          <Button onClick={() => setShowAddForm(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider w-full sm:w-auto" data-testid="button-add-subscriber">
-            <UserPlus className="mr-2 h-3 w-3" />
-            Add Subscriber
-          </Button>
-        ) : (
-          <Button onClick={() => openBuilder()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider w-full sm:w-auto" data-testid="button-new-campaign">
-            <Plus className="mr-2 h-3 w-3" />
-            New Campaign
-          </Button>
-        )}
-      </div>
+      <PageHeader pageKey="audience" onAIAction={() => {}} aiActionOverride="AI Segment" onPrimaryAction={() => setShowAddForm(true)} primaryActionOverride="+ Add Subscriber" />
+
+      <MetricsStrip metrics={[
+        { label: "TOTAL SUBSCRIBERS", value: "N/A" },
+        { label: "NEW THIS WEEK", value: "N/A" },
+        { label: "ACTIVE", value: "N/A" },
+        { label: "AT RISK", value: "N/A" },
+        { label: "AVG OPEN RATE", value: "—" },
+        { label: "CHURN RATE", value: "—" },
+      ]} />
 
       <div className="flex gap-1 border-b border-border/50">
         <button

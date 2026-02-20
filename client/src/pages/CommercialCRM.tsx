@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import PageHeader from "@/components/admin/PageHeader";
+import MetricsStrip from "@/components/admin/MetricsStrip";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -3199,7 +3200,16 @@ function ContactCampaignsTab() {
 export default function CommercialCRM() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <PageHeader pageKey="commercial-crm" />
+      <PageHeader pageKey="sales" onAIAction={() => {}} aiActionOverride="AI Score" onPrimaryAction={() => {}} primaryActionOverride="+ Add Company" />
+
+      <MetricsStrip metrics={[
+        { label: "TOTAL COMPANIES", value: "N/A" },
+        { label: "ACTIVE DEALS", value: "N/A" },
+        { label: "PIPELINE VALUE", value: "$0" },
+        { label: "CLOSED WON MTD", value: "$0" },
+        { label: "NEW LEADS", value: "N/A" },
+        { label: "AVG DEAL SIZE", value: "—" },
+      ]} />
 
       <Tabs defaultValue="companies" className="w-full">
         <TabsList className="bg-card/50 border border-border/50 w-full overflow-x-auto" data-testid="crm-tabs">

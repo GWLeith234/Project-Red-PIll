@@ -317,18 +317,21 @@ export default function Network() {
   const closedWonValue = leads.filter((l: any) => l.pipelineStage === "closed_won").reduce((s: number, l: any) => s + (l.estimatedValue || 0), 0);
 
   const audienceMetrics = [
-    { label: "Total Subscribers", value: subscribers.length },
-    { label: "New", value: subscribers.filter((s: any) => s.engagementStage === "new").length },
-    { label: "Engaged", value: subscribers.filter((s: any) => s.engagementStage === "engaged").length },
-    { label: "At Risk", value: subscribers.filter((s: any) => s.engagementStage === "at_risk").length },
-    { label: "Churned", value: subscribers.filter((s: any) => s.engagementStage === "churned").length },
+    { label: "TOTAL SUBSCRIBERS", value: subscribers.length },
+    { label: "NEW", value: subscribers.filter((s: any) => s.engagementStage === "new").length },
+    { label: "ENGAGED", value: subscribers.filter((s: any) => s.engagementStage === "engaged").length },
+    { label: "AT RISK", value: subscribers.filter((s: any) => s.engagementStage === "at_risk").length },
+    { label: "CHURNED", value: subscribers.filter((s: any) => s.engagementStage === "churned").length },
+    { label: "AVG ENGAGEMENT", value: "—" },
   ];
 
   const commercialMetrics = [
-    { label: "Total Leads", value: totalLeads },
-    { label: "Pipeline Value", value: `$${Math.round(totalPipelineValue).toLocaleString()}` },
-    { label: "Closed Won", value: `$${Math.round(closedWonValue).toLocaleString()}` },
-    { label: "Pending AI Prompts", value: pendingPrompts.length },
+    { label: "TOTAL LEADS", value: totalLeads },
+    { label: "PIPELINE VALUE", value: `$${Math.round(totalPipelineValue).toLocaleString()}` },
+    { label: "CLOSED WON", value: `$${Math.round(closedWonValue).toLocaleString()}` },
+    { label: "PENDING AI PROMPTS", value: pendingPrompts.length },
+    { label: "NEW THIS WEEK", value: "N/A" },
+    { label: "AVG DEAL SIZE", value: "—" },
   ];
 
   const pipelineChartData = pipelineValue ? Object.entries(STAGE_MAP).map(([key, { title }]) => ({
@@ -339,43 +342,21 @@ export default function Network() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <PageHeader pageKey="network" />
+      <PageHeader pageKey="network" onAIAction={() => {}} aiActionOverride="AI Suggest" onPrimaryAction={() => setShowAddLead(true)} primaryActionOverride="+ Add Lead" />
 
-      <div className="flex items-center gap-1 border-b border-border mb-6" data-testid="tab-toggle">
+      <MetricsStrip metrics={tab === "commercial" ? commercialMetrics : audienceMetrics} />
+
+      <div className="flex items-center gap-1 border-b border-border" data-testid="tab-toggle">
         <button onClick={() => setTab("audience")} className={`flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium transition-all border-b-2 -mb-px ${tab === "audience" ? "border-primary text-primary font-semibold" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`} data-testid="tab-audience">
           <Users className="w-4 h-4" />Audience
         </button>
         <button onClick={() => setTab("commercial")} className={`flex items-center gap-1.5 px-4 py-2.5 text-[14px] font-medium transition-all border-b-2 -mb-px ${tab === "commercial" ? "border-primary text-primary font-semibold" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"}`} data-testid="tab-commercial">
           <DollarSign className="w-4 h-4" />Commercial
         </button>
-        <div className="ml-auto flex items-center gap-2">
-          {tab === "commercial" && (
-            <>
-              <button onClick={() => setShowAiSuggest(true)} className="px-3 py-2 text-xs bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg hover:bg-purple-600/30 transition-colors relative" data-testid="button-ai-suggest">
-                <Brain className="w-3.5 h-3.5 inline mr-1" />AI Suggest
-                {pendingPrompts.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-mono">
-                    {pendingPrompts.length}
-                  </span>
-                )}
-              </button>
-              <button onClick={() => setShowAddLead(true)} className="px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors" data-testid="button-add-lead">
-                <Plus className="w-3.5 h-3.5 inline mr-1" />Add Lead
-              </button>
-            </>
-          )}
-          {tab === "audience" && (
-            <button onClick={() => resegmentMutation.mutate()} disabled={resegmentMutation.isPending} className="px-3 py-2 text-xs bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors" data-testid="button-resegment">
-              <RotateCcw className={`w-3.5 h-3.5 inline mr-1 ${resegmentMutation.isPending ? "animate-spin" : ""}`} />
-              {resegmentMutation.isPending ? "Segmenting..." : "Resegment Now"}
-            </button>
-          )}
-        </div>
       </div>
 
       {tab === "audience" && (
         <div className="space-y-6">
-          <MetricsStrip metrics={audienceMetrics} />
           {resegmentMutation.data && (
             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 text-xs text-green-400" data-testid="resegment-result">
               Segmentation complete: {resegmentMutation.data.total} subscribers classified — {resegmentMutation.data.new} new, {resegmentMutation.data.engaged} engaged, {resegmentMutation.data.active} active, {resegmentMutation.data.atRisk} at risk, {resegmentMutation.data.churned} churned
@@ -403,8 +384,6 @@ export default function Network() {
 
       {tab === "commercial" && (
         <div className="space-y-6">
-          <MetricsStrip metrics={commercialMetrics} />
-
           <DataCard title="New Business Pipeline">
             <PipelineBoard columns={buildLeadColumns(newLogoLeads)} draggable onDrop={handlePipelineDrop} />
           </DataCard>
