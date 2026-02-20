@@ -17,14 +17,17 @@ import {
   Loader2, Wand2, Tag, Newspaper, Send,
   MessageSquare, Scissors, Mail, Search as SearchIcon, Globe,
   LayoutGrid, Mic, Film, Rocket, CalendarClock,
-  ExternalLink, Play
+  ExternalLink, Play, ChevronDown, ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SortableList } from "@/components/ui/sortable-list";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   useModerationQueue, useModerationCounts, useApproveStory, useRejectStory,
   useUpdateModerationPiece, useGenerateStory, useEpisodes, usePodcasts,
-  useClipAssets, useUpdateClipAsset, useReorderContentPieces
+  useClipAssets, useUpdateClipAsset, useReorderContentPieces,
+  useModeratePiece, useModerateAllPending, useShipPiece, useShipAll,
+  useApplyRewrite, useContentPipelinePieces
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import ArticleEditor, { type EditorBlock, markdownToBlocks, blocksToMarkdown } from "@/components/ArticleEditor";
@@ -75,6 +78,11 @@ export default function ModerationQueue() {
   const updateClip = useUpdateClipAsset();
   const generateStory = useGenerateStory();
   const reorderContent = useReorderContentPieces();
+  const moderatePiece = useModeratePiece();
+  const moderateAllPending = useModerateAllPending();
+  const shipAll = useShipAll();
+  const applyRewrite = useApplyRewrite();
+  const { data: pipelinePieces } = useContentPipelinePieces();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("all");
@@ -200,7 +208,23 @@ export default function ModerationQueue() {
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-5 duration-700" data-testid="moderation-queue-page">
-      <PageHeader pageKey="moderation" onPrimaryAction={() => setGenerateOpen(true)} primaryActionOverride="Ship All" onAIAction={() => {}} aiActionOverride="AI Moderate" />
+      <PageHeader
+        pageKey="moderation"
+        onPrimaryAction={() => {
+          shipAll.mutate(undefined, {
+            onSuccess: () => toast({ title: "All Shipped", description: "All approved content has been scheduled." }),
+            onError: (err: any) => toast({ title: "Ship All Failed", description: err.message, variant: "destructive" }),
+          });
+        }}
+        primaryActionOverride="Ship All"
+        onAIAction={() => {
+          moderateAllPending.mutate(undefined, {
+            onSuccess: () => toast({ title: "AI Moderation Complete", description: "All pending pieces have been reviewed by AI." }),
+            onError: (err: any) => toast({ title: "AI Moderation Failed", description: err.message, variant: "destructive" }),
+          });
+        }}
+        aiActionOverride="AI Moderate"
+      />
 
       <MetricsStrip metrics={[
         { label: "TOTAL PENDING", value: "N/A" },
@@ -304,17 +328,35 @@ export default function ModerationQueue() {
         <SortableList
           items={filteredQueue}
           onReorder={handleReorderContent}
-          renderItem={(item: any) => (
-            <ContentCard
-              item={item}
-              onPreview={() => setPreviewItem(item)}
-              onEdit={() => openEditor(item)}
-              onApprove={() => handleApprove(item)}
-              onReject={() => handleReject(item)}
-              approving={approveStory.isPending || updateClip.isPending}
-              rejecting={rejectStory.isPending || updateClip.isPending}
-            />
-          )}
+          renderItem={(item: any) => {
+            const pipelineData = (pipelinePieces || []).find((p: any) => p.id === item.id);
+            const merged = pipelineData ? { ...item, ...pipelineData } : item;
+            return (
+              <ContentCard
+                item={merged}
+                onPreview={() => setPreviewItem(item)}
+                onEdit={() => openEditor(item)}
+                onApprove={() => handleApprove(item)}
+                onReject={() => handleReject(item)}
+                approving={approveStory.isPending || updateClip.isPending}
+                rejecting={rejectStory.isPending || updateClip.isPending}
+                onAIReview={(id: string) => {
+                  moderatePiece.mutate(id, {
+                    onSuccess: () => toast({ title: "AI Review Complete", description: "Piece has been reviewed by AI." }),
+                    onError: (err: any) => toast({ title: "AI Review Failed", description: err.message, variant: "destructive" }),
+                  });
+                }}
+                onApplyRewrite={(id: string) => {
+                  applyRewrite.mutate(id, {
+                    onSuccess: () => toast({ title: "Rewrite Applied", description: "AI rewrite suggestion has been applied." }),
+                    onError: (err: any) => toast({ title: "Rewrite Failed", description: err.message, variant: "destructive" }),
+                  });
+                }}
+                aiReviewing={moderatePiece.isPending}
+                applyingRewrite={applyRewrite.isPending}
+              />
+            );
+          }}
           renderOverlay={(item: any) => (
             <div className="p-3 bg-card rounded-lg border border-primary/30">
               <p className="text-sm font-semibold">{item.title}</p>
@@ -737,7 +779,29 @@ function LiveSitePreviewDialog({ item, onClose, onShipNow, onSchedule, shipping 
   );
 }
 
-function ContentCard({ item, onPreview, onEdit, onApprove, onReject, approving, rejecting }: {
+const PIPELINE_STAGES = ["generating", "moderating", "review_ready", "approved", "scheduled", "published"];
+
+function getPipelineStageIndex(stage?: string): number {
+  if (!stage) return -1;
+  return PIPELINE_STAGES.indexOf(stage);
+}
+
+function getModerationStatusConfig(status?: string) {
+  switch (status) {
+    case "approved": return { label: "Approved", color: "border-emerald-500/50 text-emerald-400 bg-emerald-500/10" };
+    case "flagged": return { label: "Flagged", color: "border-amber-500/50 text-amber-400 bg-amber-500/10" };
+    case "rejected": return { label: "Rejected", color: "border-red-500/50 text-red-400 bg-red-500/10" };
+    default: return { label: "Pending", color: "border-violet-500/50 text-violet-400 bg-violet-500/10" };
+  }
+}
+
+function getQualityScoreColor(score: number) {
+  if (score < 50) return "border-red-500/50 text-red-400 bg-red-500/10";
+  if (score < 75) return "border-amber-500/50 text-amber-400 bg-amber-500/10";
+  return "border-emerald-500/50 text-emerald-400 bg-emerald-500/10";
+}
+
+function ContentCard({ item, onPreview, onEdit, onApprove, onReject, approving, rejecting, onAIReview, onApplyRewrite, aiReviewing, applyingRewrite }: {
   item: any;
   onPreview: () => void;
   onEdit: () => void;
@@ -745,7 +809,12 @@ function ContentCard({ item, onPreview, onEdit, onApprove, onReject, approving, 
   onReject: () => void;
   approving: boolean;
   rejecting: boolean;
+  onAIReview?: (id: string) => void;
+  onApplyRewrite?: (id: string) => void;
+  aiReviewing?: boolean;
+  applyingRewrite?: boolean;
 }) {
+  const [notesOpen, setNotesOpen] = useState(false);
   const typeConf = getTypeConfig(item.type);
   const TypeIcon = typeConf.icon;
   const isClip = item.type === "clip" || item._isClip;
@@ -758,66 +827,149 @@ function ContentCard({ item, onPreview, onEdit, onApprove, onReject, approving, 
     ? `${item.episode.title}${item.episode.podcast ? ` · ${item.episode.podcast.title}` : ""}`
     : item.summary?.slice(0, 80) || item.description?.slice(0, 80) || "";
 
+  const hasAIScore = item.ai_quality_score != null;
+  const hasModerationStatus = !!item.moderation_status;
+  const hasNotes = !!item.ai_quality_notes;
+  const hasRewrite = !!item.ai_rewrite_suggestion && item.moderation_status === "flagged";
+  const pipelineStage = item.pipeline_stage;
+  const stageIndex = getPipelineStageIndex(pipelineStage);
+
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/40 bg-card/40 hover:border-border hover:bg-card/60 transition-all group"
+      className="rounded-lg border border-border/40 bg-card/40 hover:border-border hover:bg-card/60 transition-all group"
       data-testid={`card-moderation-${item.id}`}
     >
-      <div className={cn(
-        "w-1 self-stretch rounded-full shrink-0",
-        item.status === "in_review" ? "bg-amber-500" : item.status === "draft" ? "bg-blue-500" : item.status === "approved" ? "bg-green-500" : item.status === "published" ? "bg-emerald-500" : "bg-violet-500"
-      )} />
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className={cn(
+          "w-1 self-stretch rounded-full shrink-0",
+          item.status === "in_review" ? "bg-amber-500" : item.status === "draft" ? "bg-blue-500" : item.status === "approved" ? "bg-green-500" : item.status === "published" ? "bg-emerald-500" : "bg-violet-500"
+        )} />
 
-      <div className={cn("h-7 w-7 rounded-md flex items-center justify-center shrink-0 border", typeConf.color)}>
-        <TypeIcon className="h-3.5 w-3.5" />
+        <div className={cn("h-7 w-7 rounded-md flex items-center justify-center shrink-0 border", typeConf.color)}>
+          <TypeIcon className="h-3.5 w-3.5" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate leading-tight" data-testid={`text-story-title-${item.id}`}>{item.title}</p>
+          <p className="text-[11px] text-muted-foreground font-mono truncate">{subtitle}</p>
+        </div>
+
+        {hasAIScore && (
+          <Badge variant="outline" className={cn("font-mono text-[10px] shrink-0", getQualityScoreColor(item.ai_quality_score))} data-testid={`badge-quality-${item.id}`}>
+            <Sparkles className="w-2.5 h-2.5 mr-1" />{item.ai_quality_score}/100
+          </Badge>
+        )}
+
+        {hasModerationStatus && (
+          <Badge variant="outline" className={cn("font-mono text-[10px] shrink-0", getModerationStatusConfig(item.moderation_status).color)} data-testid={`badge-moderation-${item.id}`}>
+            {getModerationStatusConfig(item.moderation_status).label}
+          </Badge>
+        )}
+
+        {pipelineStage && (
+          <div className="hidden lg:flex items-center gap-1 shrink-0" title={`Stage: ${pipelineStage}`} data-testid={`pipeline-stage-${item.id}`}>
+            {PIPELINE_STAGES.map((stage, i) => (
+              <div
+                key={stage}
+                className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  i <= stageIndex ? (i === stageIndex ? "bg-violet-500" : "bg-violet-500/40") : "bg-muted-foreground/20"
+                )}
+                title={stage}
+              />
+            ))}
+          </div>
+        )}
+
+        {item.seoKeywords?.length > 0 && (
+          <div className="hidden xl:flex items-center gap-1 shrink-0">
+            {item.seoKeywords.slice(0, 2).map((kw: string, i: number) => (
+              <span key={i} className="text-[9px] font-mono text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">{kw}</span>
+            ))}
+            {item.seoKeywords.length > 2 && <span className="text-[9px] font-mono text-muted-foreground">+{item.seoKeywords.length - 2}</span>}
+          </div>
+        )}
+
+        {item.aiGenerated && (
+          <Bot className="h-3.5 w-3.5 text-primary/50 shrink-0 hidden md:block" title="AI Generated" />
+        )}
+
+        <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="sm" onClick={onPreview} className="h-7 w-7 p-0" title="Preview" data-testid={`button-preview-${item.id}`}>
+            <Eye className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 w-7 p-0" title="Edit" data-testid={`button-edit-${item.id}`}>
+            <Edit3 className="w-3.5 h-3.5" />
+          </Button>
+          {onAIReview && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
+              onClick={() => onAIReview(item.id)}
+              disabled={aiReviewing}
+              title="AI Review"
+              data-testid={`button-ai-review-${item.id}`}
+            >
+              {aiReviewing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
+            </Button>
+          )}
+          <Button
+            size="sm"
+            className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-mono"
+            onClick={onApprove}
+            disabled={approving}
+            data-testid={`button-approve-${item.id}`}
+          >
+            <CheckCircle2 className="w-3 h-3 mr-1" /> Ship
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            onClick={onReject}
+            disabled={rejecting}
+            title="Reject"
+            data-testid={`button-reject-${item.id}`}
+          >
+            <XCircle className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate leading-tight" data-testid={`text-story-title-${item.id}`}>{item.title}</p>
-        <p className="text-[11px] text-muted-foreground font-mono truncate">{subtitle}</p>
-      </div>
-
-      {item.seoKeywords?.length > 0 && (
-        <div className="hidden xl:flex items-center gap-1 shrink-0">
-          {item.seoKeywords.slice(0, 2).map((kw: string, i: number) => (
-            <span key={i} className="text-[9px] font-mono text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded">{kw}</span>
-          ))}
-          {item.seoKeywords.length > 2 && <span className="text-[9px] font-mono text-muted-foreground">+{item.seoKeywords.length - 2}</span>}
+      {(hasNotes || hasRewrite) && (
+        <div className="px-3 pb-2.5 space-y-2">
+          {hasNotes && (
+            <Collapsible open={notesOpen} onOpenChange={setNotesOpen}>
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center gap-1.5 text-[10px] font-mono text-violet-400 hover:text-violet-300 transition-colors" data-testid={`toggle-notes-${item.id}`}>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  AI Quality Notes
+                  {notesOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-1.5 p-2.5 rounded-md bg-violet-500/5 border border-violet-500/20 text-xs text-muted-foreground leading-relaxed" data-testid={`notes-content-${item.id}`}>
+                  {item.ai_quality_notes}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+          {hasRewrite && onApplyRewrite && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] font-mono border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
+              onClick={() => onApplyRewrite(item.id)}
+              disabled={applyingRewrite}
+              data-testid={`button-apply-rewrite-${item.id}`}
+            >
+              {applyingRewrite ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Wand2 className="w-3 h-3 mr-1" />}
+              Apply AI Rewrite
+            </Button>
+          )}
         </div>
       )}
-
-      {item.aiGenerated && (
-        <Bot className="h-3.5 w-3.5 text-primary/50 shrink-0 hidden md:block" title="AI Generated" />
-      )}
-
-      <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-        <Button variant="ghost" size="sm" onClick={onPreview} className="h-7 w-7 p-0" title="Preview" data-testid={`button-preview-${item.id}`}>
-          <Eye className="w-3.5 h-3.5" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 w-7 p-0" title="Edit" data-testid={`button-edit-${item.id}`}>
-          <Edit3 className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          size="sm"
-          className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-mono"
-          onClick={onApprove}
-          disabled={approving}
-          data-testid={`button-approve-${item.id}`}
-        >
-          <CheckCircle2 className="w-3 h-3 mr-1" /> Ship
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-          onClick={onReject}
-          disabled={rejecting}
-          title="Reject"
-          data-testid={`button-reject-${item.id}`}
-        >
-          <XCircle className="w-3.5 h-3.5" />
-        </Button>
-      </div>
     </div>
   );
 }

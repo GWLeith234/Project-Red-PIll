@@ -32,7 +32,9 @@ import {
   useQueueTranscription, useRunFullPipeline, useSmartSuggestions, useGenerateNewsletter,
   useClipAssets, useUpdateClipAsset, useDeleteClipAsset,
   useNewsletterRuns, useSendNewsletter, useDeleteNewsletterRun,
-  useUpdateContentPiece
+  useUpdateContentPiece,
+  useContentGenerationJobs, useGenerateContentPipeline, useContentPipelinePieces,
+  useContentAnalytics, useRefreshContentAnalytics
 } from "@/lib/api";
 import { useUpload } from "@/hooks/use-upload";
 import { useToast } from "@/hooks/use-toast";
@@ -184,6 +186,112 @@ function ProcessingQueue() {
   );
 }
 
+function ContentPerformanceLeaderboard() {
+  const { data: episodes } = useEpisodes();
+  const [analyticsEpisodeId, setAnalyticsEpisodeId] = useState<string>("");
+  const { data: analytics, isLoading: analyticsLoading } = useContentAnalytics(analyticsEpisodeId || undefined);
+  const refreshAnalytics = useRefreshContentAnalytics();
+
+  const pieces = analytics?.pieces || analytics?.contentPieces || (Array.isArray(analytics) ? analytics : []);
+
+  return (
+    <DataCard title="Content Performance Leaderboard" subtitle="Top content by engagement metrics">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <Select value={analyticsEpisodeId} onValueChange={setAnalyticsEpisodeId}>
+            <SelectTrigger className="flex-1 h-8 font-mono text-xs" data-testid="select-analytics-episode">
+              <SelectValue placeholder="Select episode for analytics..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(episodes || []).map((ep: any) => (
+                <SelectItem key={ep.id} value={ep.id} className="font-mono text-xs">
+                  {ep.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-mono text-[10px] uppercase tracking-wider shrink-0"
+            onClick={() => refreshAnalytics.mutate()}
+            disabled={refreshAnalytics.isPending}
+            data-testid="button-refresh-analytics"
+          >
+            {refreshAnalytics.isPending ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-1.5 h-3 w-3" />}
+            Refresh
+          </Button>
+        </div>
+
+        {!analyticsEpisodeId ? (
+          <EmptyState
+            icon={BarChart3}
+            title="Select an Episode"
+            description="Choose an episode above to view content performance analytics"
+          />
+        ) : analyticsLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          </div>
+        ) : pieces.length === 0 ? (
+          <EmptyState
+            icon={BarChart3}
+            title="No Analytics Data"
+            description="No content performance data available for this episode yet"
+          />
+        ) : (
+          <div className="border border-border/30 rounded-lg overflow-hidden">
+            <div className="grid grid-cols-[1fr_80px_80px_100px] gap-2 px-3 py-2 bg-muted/20 border-b border-border/30">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Content</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground text-right">Impressions</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground text-right">Clicks</span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground text-right">Engagement</span>
+            </div>
+            <div className="divide-y divide-border/20">
+              {pieces.map((piece: any, idx: number) => {
+                const impressions = piece.impressions ?? piece.views ?? 0;
+                const clicks = piece.clicks ?? 0;
+                const engagement = piece.engagementRate ?? (impressions > 0 ? ((clicks / impressions) * 100) : 0);
+                return (
+                  <div key={piece.id || idx} className="grid grid-cols-[1fr_80px_80px_100px] gap-2 px-3 py-2.5 hover:bg-card/30 transition-colors" data-testid={`analytics-row-${piece.id || idx}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant="outline" className="font-mono text-[8px] uppercase shrink-0 h-4 px-1">{piece.type || "content"}</Badge>
+                      <span className="text-xs font-medium truncate" data-testid={`analytics-title-${piece.id || idx}`}>{piece.title || "Untitled"}</span>
+                    </div>
+                    <span className="text-xs font-mono tabular-nums text-right" data-testid={`analytics-impressions-${piece.id || idx}`}>
+                      {impressions.toLocaleString()}
+                    </span>
+                    <span className="text-xs font-mono tabular-nums text-right" data-testid={`analytics-clicks-${piece.id || idx}`}>
+                      {clicks.toLocaleString()}
+                    </span>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <div className="w-12 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            engagement >= 5 ? "bg-emerald-500" : engagement >= 2 ? "bg-amber-400" : "bg-red-500"
+                          )}
+                          style={{ width: `${Math.min(engagement * 10, 100)}%` }}
+                        />
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-mono font-bold tabular-nums w-10 text-right",
+                        engagement >= 5 ? "text-emerald-500" : engagement >= 2 ? "text-amber-400" : "text-red-500"
+                      )} data-testid={`analytics-engagement-${piece.id || idx}`}>
+                        {engagement.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </DataCard>
+  );
+}
+
 export default function ContentFactory() {
   const urlParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const initialTab = urlParams.get("tab") || "pipeline";
@@ -249,13 +357,7 @@ export default function ContentFactory() {
         </TabsContent>
       </Tabs>
 
-      <DataCard title="Content Performance Leaderboard" subtitle="Top articles by engagement">
-        <EmptyState
-          icon={BarChart3}
-          title="Performance Tracking"
-          description="Performance tracking coming soon"
-        />
-      </DataCard>
+      <ContentPerformanceLeaderboard />
 
       {showAIGenerate && <AIGenerateModal onClose={() => setShowAIGenerate(false)} />}
     </div>
@@ -681,8 +783,217 @@ function PipelineTab() {
     );
   }
 
+  const [cascadeEpisodeId, setCascadeEpisodeId] = useState<string>("");
+  const generatePipeline = useGenerateContentPipeline();
+  const { data: generationJobs } = useContentGenerationJobs(cascadeEpisodeId || undefined);
+  const { data: pipelinePieces } = useContentPipelinePieces(cascadeEpisodeId || undefined);
+
+  const pipelineTypeConfig: Record<string, { icon: any; title: string; color: string }> = {
+    blog: { icon: PenLine, title: "Blog Posts", color: "text-violet-500" },
+    newsletter: { icon: Mail, title: "Newsletter", color: "text-amber-400" },
+    social_x: { icon: XIcon, title: "X / Twitter", color: "text-foreground" },
+    social_facebook: { icon: Facebook, title: "Facebook", color: "text-blue-500" },
+    social_linkedin: { icon: Linkedin, title: "LinkedIn", color: "text-sky-600" },
+    social_instagram: { icon: InstagramIcon, title: "Instagram", color: "text-pink-500" },
+    clip_suggestion: { icon: Scissors, title: "Clip Suggestions", color: "text-red-500" },
+    seo_backlink: { icon: Search, title: "SEO Backlinks", color: "text-emerald-400" },
+  };
+
+  function getStageBadgeStyle(stage: string) {
+    switch (stage) {
+      case "generating": return "border-primary/50 text-primary bg-primary/10 animate-pulse";
+      case "moderating": return "border-amber-400/50 text-amber-400 bg-amber-400/10";
+      case "review_ready": return "border-sky-400/50 text-sky-400 bg-sky-400/10";
+      case "approved": return "border-emerald-500/50 text-emerald-500 bg-emerald-500/10";
+      case "scheduled": return "border-violet-500/50 text-violet-500 bg-violet-500/10";
+      case "published": return "border-blue-500/50 text-blue-500 bg-blue-500/10";
+      default: return "border-muted text-muted-foreground";
+    }
+  }
+
+  function getModerationBadgeStyle(status: string) {
+    switch (status) {
+      case "approved": return "border-emerald-500/50 text-emerald-500";
+      case "flagged": return "border-amber-400/50 text-amber-400";
+      case "rejected": return "border-red-500/50 text-red-500";
+      default: return "border-muted text-muted-foreground";
+    }
+  }
+
+  function getQualityColor(score: number) {
+    if (score >= 75) return "bg-emerald-500";
+    if (score >= 50) return "bg-amber-400";
+    return "bg-red-500";
+  }
+
+  const pipelineGrouped: Record<string, any[]> = {};
+  if (pipelinePieces && Array.isArray(pipelinePieces)) {
+    for (const piece of pipelinePieces) {
+      const t = piece.type as string;
+      if (!pipelineGrouped[t]) pipelineGrouped[t] = [];
+      pipelineGrouped[t].push(piece);
+    }
+  }
+
+  function handleGenerateCascade() {
+    if (!cascadeEpisodeId) return;
+    generatePipeline.mutate(cascadeEpisodeId, {
+      onSuccess: () => toast({ title: "Content Cascade Started", description: "AI is generating content for all channels." }),
+      onError: (err: any) => toast({ title: "Generation Error", description: err.message, variant: "destructive" }),
+    });
+  }
+
   return (
     <div className="space-y-6">
+      <Card className="glass-panel border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent" data-testid="card-ai-content-factory">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <CardTitle className="font-display text-lg">AI Content Factory</CardTitle>
+            <Badge variant="outline" className="font-mono text-[10px] border-primary/50 text-primary ml-auto">Cascade Generator</Badge>
+          </div>
+          <CardDescription className="font-mono text-xs">Select an episode and generate content across all channels simultaneously</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select value={cascadeEpisodeId} onValueChange={setCascadeEpisodeId}>
+              <SelectTrigger className="flex-1 h-9 font-mono text-xs" data-testid="select-cascade-episode">
+                <SelectValue placeholder="Select an episode..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(episodes || []).map((ep: any) => (
+                  <SelectItem key={ep.id} value={ep.id} className="font-mono text-xs">
+                    {ep.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleGenerateCascade}
+              disabled={!cascadeEpisodeId || generatePipeline.isPending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider shrink-0"
+              data-testid="button-generate-cascade"
+            >
+              {generatePipeline.isPending ? (
+                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              ) : (
+                <Zap className="mr-2 h-3 w-3" />
+              )}
+              Generate Content Cascade
+            </Button>
+          </div>
+
+          {generationJobs && Array.isArray(generationJobs) && generationJobs.length > 0 && (
+            <div className="space-y-2" data-testid="generation-jobs-queue">
+              <div className="flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Generation Queue</span>
+                <Badge variant="outline" className="font-mono text-[10px] border-primary/30 text-primary ml-auto">
+                  {generationJobs.filter((j: any) => j.status === "running").length} running
+                </Badge>
+              </div>
+              <div className="divide-y divide-border/30 border border-border/30 rounded-lg overflow-hidden">
+                {generationJobs.map((job: any) => (
+                  <div key={job.id} className="flex items-center gap-3 px-3 py-2 bg-card/20" data-testid={`job-${job.id}`}>
+                    <div className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      job.status === "completed" ? "bg-emerald-500" :
+                      job.status === "running" ? "bg-primary animate-pulse" :
+                      job.status === "failed" ? "bg-red-500" :
+                      "bg-muted-foreground/40"
+                    )} />
+                    <span className="text-xs font-medium truncate flex-1" data-testid={`job-type-${job.id}`}>{job.contentType || job.type || "Content"}</span>
+                    {job.progress != null && (
+                      <div className="w-16 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${job.progress}%` }} />
+                      </div>
+                    )}
+                    <Badge variant="outline" className={cn(
+                      "font-mono text-[8px] uppercase shrink-0",
+                      job.status === "completed" ? "border-emerald-500/50 text-emerald-500" :
+                      job.status === "running" ? "border-primary/50 text-primary" :
+                      job.status === "failed" ? "border-red-500/50 text-red-500" :
+                      "border-muted text-muted-foreground"
+                    )} data-testid={`job-status-${job.id}`}>{job.status}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {cascadeEpisodeId && Object.keys(pipelineGrouped).length > 0 && (
+        <div className="space-y-3" data-testid="pipeline-pieces-grouped">
+          <div className="flex items-center gap-1.5">
+            <LayoutGrid className="h-3.5 w-3.5 text-primary" />
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Generated Content by Channel</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(pipelineTypeConfig).map(([type, config]) => {
+              const items = pipelineGrouped[type] || [];
+              if (items.length === 0) return null;
+              const TypeIcon = config.icon;
+              return (
+                <Card key={type} className="glass-panel border-border/50 hover:border-primary/30 transition-all" data-testid={`pipeline-card-${type}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      {typeof TypeIcon === "function" && TypeIcon.length <= 1 ? (
+                        <TypeIcon className={cn("h-4 w-4", config.color)} />
+                      ) : (
+                        <TypeIcon className={cn("h-4 w-4", config.color)} />
+                      )}
+                      <CardTitle className="text-sm font-display">{config.title}</CardTitle>
+                      <Badge variant="outline" className="ml-auto font-mono text-[10px]">{items.length}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {items.map((piece: any) => (
+                      <div key={piece.id} className="p-2.5 rounded-lg bg-card/30 border border-border/30 space-y-2" data-testid={`pipeline-piece-${piece.id}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-medium truncate">{piece.title}</span>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setPreviewPiece(piece); setEditMode(false); }} data-testid={`button-view-pipeline-${piece.id}`}>
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {piece.pipelineStage && (
+                            <Badge variant="outline" className={cn("text-[8px] uppercase font-mono h-4 px-1.5", getStageBadgeStyle(piece.pipelineStage))} data-testid={`stage-${piece.id}`}>
+                              {piece.pipelineStage}
+                            </Badge>
+                          )}
+                          {piece.moderationStatus && (
+                            <Badge variant="outline" className={cn("text-[8px] uppercase font-mono h-4 px-1.5", getModerationBadgeStyle(piece.moderationStatus))} data-testid={`moderation-${piece.id}`}>
+                              {piece.moderationStatus}
+                            </Badge>
+                          )}
+                        </div>
+                        {piece.aiQualityScore != null && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[9px] text-muted-foreground shrink-0">Quality</span>
+                            <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                              <div
+                                className={cn("h-full rounded-full transition-all", getQualityColor(piece.aiQualityScore))}
+                                style={{ width: `${piece.aiQualityScore}%` }}
+                              />
+                            </div>
+                            <span className={cn(
+                              "font-mono text-[9px] font-bold tabular-nums w-6 text-right",
+                              piece.aiQualityScore >= 75 ? "text-emerald-500" :
+                              piece.aiQualityScore >= 50 ? "text-amber-400" : "text-red-500"
+                            )}>{piece.aiQualityScore}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <Card className="glass-panel border-border/50">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">

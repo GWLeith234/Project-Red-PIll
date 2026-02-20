@@ -22,6 +22,8 @@ import {
   useContentPieces, useScheduledPosts, useCreateScheduledPost,
   useUpdateScheduledPost, useDeleteScheduledPost, useSmartSuggestions,
   useAutoSchedule, useEpisodes,
+  useSchedulerSuggest, useSchedulerConfirm, useSchedulerCalendar,
+  useReschedulePost, useCancelScheduledPost, useContentPipelinePieces,
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -110,7 +112,12 @@ export default function SchedulerPage() {
   const deletePost = useDeleteScheduledPost();
   const smartSuggestions = useSmartSuggestions();
   const autoSchedule = useAutoSchedule();
+  const schedulerSuggest = useSchedulerSuggest();
+  const schedulerConfirm = useSchedulerConfirm();
   const { toast } = useToast();
+
+  const [aiEpisodeId, setAiEpisodeId] = useState<string>("");
+  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
 
   function getContentUrl(piece: any): string {
     if (!piece) return "";
@@ -423,6 +430,124 @@ export default function SchedulerPage() {
         })}
       </div>
 
+      <Card className="glass-panel border-violet-500/30 bg-violet-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-violet-400" />
+            AI Schedule Episode
+          </CardTitle>
+          <CardDescription className="font-mono text-xs">
+            Select an episode and let AI suggest optimal posting times across all channels
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Episode</Label>
+              <Select value={aiEpisodeId} onValueChange={(v) => { setAiEpisodeId(v); setAiSuggestions(null); }}>
+                <SelectTrigger data-testid="select-ai-episode">
+                  <SelectValue placeholder="Select episode..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {episodes?.map((ep: any) => (
+                    <SelectItem key={ep.id} value={ep.id}>{ep.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              className="bg-violet-600 hover:bg-violet-700 text-white font-mono text-[10px] uppercase tracking-wider"
+              disabled={!aiEpisodeId || schedulerSuggest.isPending}
+              onClick={() => {
+                schedulerSuggest.mutate(aiEpisodeId, {
+                  onSuccess: (data: any) => {
+                    setAiSuggestions(data);
+                    toast({ title: "AI Suggestions Ready", description: "Review the suggested schedule below" });
+                  },
+                  onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+                });
+              }}
+              data-testid="button-ai-suggest-schedule"
+            >
+              {schedulerSuggest.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+              AI Suggest Schedule
+            </Button>
+          </div>
+
+          {aiSuggestions && (
+            <div className="mt-4 space-y-3">
+              {aiSuggestions.strategy && (
+                <p className="text-xs text-muted-foreground font-mono">{aiSuggestions.strategy}</p>
+              )}
+              {(aiSuggestions.suggestions || aiSuggestions.scheduledItems || []).length > 0 && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {(aiSuggestions.suggestions || aiSuggestions.scheduledItems || []).map((item: any, i: number) => {
+                      const cfg = getChannelConfig(item.platform || "");
+                      return (
+                        <div key={i} className={cn("p-3 rounded-lg border", cfg.bg, cfg.border)} data-testid={`ai-episode-suggestion-${i}`}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <cfg.icon className={cn("h-3.5 w-3.5", cfg.color)} />
+                            <span className={cn("font-mono text-xs font-semibold", cfg.color)}>{cfg.label}</span>
+                            <Sparkles className="h-2.5 w-2.5 text-violet-400 ml-auto" />
+                          </div>
+                          {item.title && <p className="text-xs font-medium truncate">{item.title}</p>}
+                          {(item.postText || item.suggestedText) && (
+                            <p className="text-[10px] text-foreground/70 mt-1 line-clamp-2 italic">"{(item.postText || item.suggestedText).slice(0, 100)}"</p>
+                          )}
+                          <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-muted-foreground font-mono">
+                            <Clock className="h-2.5 w-2.5" />
+                            {item.scheduledAt
+                              ? new Date(item.scheduledAt).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+                              : item.bestTime || "TBD"}
+                          </div>
+                          {(item.reason || item.ai_suggestion_reason) && (
+                            <p className="text-[10px] text-violet-400/80 mt-1 italic">{item.reason || item.ai_suggestion_reason}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="font-mono text-[10px] uppercase tracking-wider"
+                      onClick={() => setAiSuggestions(null)}
+                      data-testid="button-dismiss-ai-episode"
+                    >
+                      Dismiss
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-violet-600 hover:bg-violet-700 text-white font-mono text-[10px] uppercase tracking-wider"
+                      disabled={schedulerConfirm.isPending}
+                      onClick={() => {
+                        schedulerConfirm.mutate(aiEpisodeId, {
+                          onSuccess: () => {
+                            toast({ title: "Schedule Confirmed!", description: "All AI-suggested posts have been scheduled" });
+                            setAiSuggestions(null);
+                          },
+                          onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+                        });
+                      }}
+                      data-testid="button-confirm-all-ai-episode"
+                    >
+                      {schedulerConfirm.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
+                      Confirm All
+                    </Button>
+                  </div>
+                </>
+              )}
+              {(aiSuggestions.suggestions || aiSuggestions.scheduledItems || []).length === 0 && (
+                <p className="text-xs text-muted-foreground font-mono text-center py-2">No suggestions returned. Try a different episode.</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {autoScheduleResult && autoScheduleResult.scheduledItems?.length > 0 && (
         <Card className="glass-panel border-primary/30 bg-primary/5">
           <CardHeader className="pb-3">
@@ -597,6 +722,7 @@ export default function SchedulerPage() {
                                   <span className="flex items-center gap-1">
                                     <cfg.icon className="h-2 w-2 shrink-0" />
                                     {piece?.title?.slice(0, 20) || "Post"}
+                                    {post.ai_suggested && <Sparkles className="h-2 w-2 text-violet-400 shrink-0" />}
                                   </span>
                                 </div>
                               </HoverCardTrigger>
@@ -629,6 +755,16 @@ export default function SchedulerPage() {
                                     <Clock className="h-2.5 w-2.5" />
                                     {new Date(post.scheduledAt).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                                   </div>
+                                  {post.ai_suggested && (
+                                    <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-violet-500/20">
+                                      <Badge variant="outline" className="font-mono text-[8px] uppercase border-violet-500/40 text-violet-400 bg-violet-500/10 gap-1">
+                                        <Sparkles className="h-2 w-2" /> AI Suggested
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  {post.ai_suggestion_reason && (
+                                    <p className="text-[10px] text-violet-400/80 mt-1 italic leading-snug">{post.ai_suggestion_reason}</p>
+                                  )}
                                 </div>
                               </HoverCardContent>
                             </HoverCard>
@@ -709,9 +845,26 @@ export default function SchedulerPage() {
                         {post.postText && (
                           <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{post.postText}</p>
                         )}
-                        <Badge variant="outline" className={cn("font-mono text-[8px] uppercase mt-1.5", statusColor(post.status))}>
-                          {post.status}
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                          <Badge variant="outline" className={cn("font-mono text-[8px] uppercase", statusColor(post.status))}>
+                            {post.status}
+                          </Badge>
+                          {post.ai_suggested && (
+                            <Badge variant="outline" className="font-mono text-[8px] uppercase border-violet-500/40 text-violet-400 bg-violet-500/10 gap-0.5" data-testid={`badge-ai-${post.id}`}>
+                              <Sparkles className="h-2 w-2" /> AI Suggested
+                            </Badge>
+                          )}
+                          {post.analytics_reported && (
+                            <Badge variant="outline" className="font-mono text-[8px] uppercase border-emerald-500/40 text-emerald-400 bg-emerald-500/10" data-testid={`badge-analytics-${post.id}`}>
+                              📊 Analytics
+                            </Badge>
+                          )}
+                        </div>
+                        {post.ai_suggestion_reason && (
+                          <p className="text-[10px] text-violet-400/80 mt-1.5 italic leading-snug border-l-2 border-violet-500/30 pl-2" data-testid={`text-ai-reason-${post.id}`}>
+                            {post.ai_suggestion_reason}
+                          </p>
+                        )}
                       </div>
                     );
                   })}
