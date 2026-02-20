@@ -1064,6 +1064,7 @@ export const builtPages = pgTable("built_pages", {
   slug: text("slug").notNull().unique(),
   status: text("status").default("draft"),
   pageType: text("page_type").default("custom"),
+  podcastId: varchar("podcast_id"),
   layout: jsonb("layout").notNull().default([]),
   metaTitle: text("meta_title"),
   metaDescription: text("meta_description"),

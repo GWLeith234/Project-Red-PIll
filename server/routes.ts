@@ -6526,6 +6526,27 @@ Return ONLY the JSON array, no markdown formatting.`;
       for (const cfg of SEED_CONFIGS) {
         await storage.upsertAdminPageConfig(cfg as any);
       }
+
+      const existingTemplates = await storage.getPageTemplates();
+      const hasShowPageTemplate = existingTemplates.some((t: any) => t.isSystem && t.name === "Show Page");
+      if (!hasShowPageTemplate) {
+        await storage.createPageTemplate({
+          name: "Show Page",
+          description: "Premium branded show page with hero, episode feed, sponsor panel, and subscribe widget. Automatically pulls content from the linked podcast.",
+          templateType: "show_page",
+          isDefault: false,
+          isSystem: true,
+          layout: [
+            { id: "hero_1", type: "hero", order: 0, settings: { heading: "{{show.title}}", subheading: "Hosted by {{show.host}}", backgroundImage: "{{show.heroImageUrl}}", accentColor: "{{show.accentColor}}", buttonText: "Subscribe", buttonUrl: "#subscribe", height: "500", overlay: true } },
+            { id: "text_1", type: "text", order: 1, settings: { content: "{{show.description}}", alignment: "left", maxWidth: "800px" } },
+            { id: "feed_1", type: "podcast_feed", order: 2, settings: { podcastId: "{{show.id}}", limit: 10, columns: 1, showDescription: true, title: "Latest Episodes" } },
+            { id: "ad_1", type: "ad_unit", order: 3, settings: { zone: "show_page", placement: "mid_content", podcastId: "{{show.id}}", title: "Sponsored" } },
+            { id: "sub_1", type: "subscribe_widget", order: 4, settings: { podcastId: "{{show.id}}", title: "Never Miss an Episode", buttonText: "Subscribe Now" } },
+          ],
+          rowsConfig: [],
+        });
+        console.log("Seeded system 'Show Page' template");
+      }
     } catch (e) { console.error("Failed to seed admin page/nav configs:", e); }
   })();
 
@@ -7741,6 +7762,62 @@ Return ONLY valid JSON, no markdown.`
     try {
       const page = await storage.duplicateBuiltPage(req.params.id);
       if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/pages/show/:podcastId", requireAuth, async (req, res) => {
+    try {
+      const page = await storage.getBuiltPageByPodcastId(req.params.podcastId);
+      if (!page) return res.status(404).json({ message: "No show page found for this podcast" });
+      res.json(page);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/pages/show/create-from-template", requireAuth, requirePermission("customize.edit"), async (req, res) => {
+    try {
+      const { podcastId } = req.body;
+      if (!podcastId) return res.status(400).json({ message: "podcastId is required" });
+
+      const existing = await storage.getBuiltPageByPodcastId(podcastId);
+      if (existing) return res.json(existing);
+
+      const podcast = await storage.getPodcast(podcastId);
+      if (!podcast) return res.status(404).json({ message: "Podcast not found" });
+
+      const templates = await storage.getPageTemplates();
+      const showTemplate = templates.find((t: any) => t.isSystem && t.name === "Show Page");
+
+      const templateLayout = showTemplate?.layout || [];
+      const resolvedLayout = JSON.parse(
+        JSON.stringify(templateLayout)
+          .replace(/\{\{show\.title\}\}/g, podcast.title)
+          .replace(/\{\{show\.host\}\}/g, podcast.host)
+          .replace(/\{\{show\.description\}\}/g, (podcast.description || "").replace(/"/g, '\\"'))
+          .replace(/\{\{show\.heroImageUrl\}\}/g, podcast.heroImageUrl || "")
+          .replace(/\{\{show\.accentColor\}\}/g, podcast.accentColor || "#C0392B")
+          .replace(/\{\{show\.id\}\}/g, podcastId)
+          .replace(/\{\{show\.coverImage\}\}/g, podcast.coverImage || "")
+      );
+
+      const slug = podcast.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      let finalSlug = slug;
+      const existingSlug = await storage.getBuiltPageBySlug(slug);
+      if (existingSlug) finalSlug = `${slug}-show`;
+      const existingSlug2 = await storage.getBuiltPageBySlug(finalSlug);
+      if (existingSlug2) finalSlug = `${slug}-show-${Date.now()}`;
+
+      const page = await storage.createBuiltPage({
+        title: `${podcast.title} — Show Page`,
+        slug: finalSlug,
+        pageType: "show_page",
+        podcastId,
+        layout: resolvedLayout,
+        metaTitle: podcast.title,
+        metaDescription: podcast.description || `Listen to ${podcast.title}`,
+        coverImage: podcast.heroImageUrl || podcast.coverImage || null,
+      });
+
       res.json(page);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });

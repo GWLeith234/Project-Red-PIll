@@ -488,6 +488,7 @@ export interface IStorage {
   getBuiltPages(): Promise<BuiltPage[]>;
   getBuiltPage(id: string): Promise<BuiltPage | undefined>;
   getBuiltPageBySlug(slug: string): Promise<BuiltPage | undefined>;
+  getBuiltPageByPodcastId(podcastId: string): Promise<BuiltPage | undefined>;
   createBuiltPage(data: InsertBuiltPage): Promise<BuiltPage>;
   updateBuiltPage(id: string, data: Partial<InsertBuiltPage>): Promise<BuiltPage | undefined>;
   deleteBuiltPage(id: string): Promise<void>;
@@ -2070,6 +2071,10 @@ export class DatabaseStorage implements IStorage {
   }
   async getBuiltPageBySlug(slug: string) {
     const [p] = await db.select().from(builtPages).where(eq(builtPages.slug, slug));
+    return p;
+  }
+  async getBuiltPageByPodcastId(podcastId: string) {
+    const [p] = await db.select().from(builtPages).where(eq(builtPages.podcastId, podcastId));
     return p;
   }
   async createBuiltPage(data: InsertBuiltPage) {

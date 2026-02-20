@@ -646,8 +646,11 @@ export default function PageBuilder() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const [mode, setMode] = useState<"list" | "editor">("list");
-  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+  const urlParams = new URLSearchParams(window.location.search);
+  const editFromUrl = urlParams.get("edit");
+
+  const [mode, setMode] = useState<"list" | "editor">(editFromUrl ? "editor" : "list");
+  const [editingPageId, setEditingPageId] = useState<string | null>(editFromUrl);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -681,8 +684,14 @@ export default function PageBuilder() {
     enabled: !!editingPageId && mode === "editor",
   });
 
-  const { data: templates = [] } = useQuery<any[]>({
-    queryKey: ["/api/ai-page-builder/page-templates"],
+  const { data: rawTemplates = [] } = useQuery<any[]>({
+    queryKey: ["/api/page-templates"],
+  });
+
+  const templates = [...rawTemplates].sort((a, b) => {
+    if (a.isSystem && !b.isSystem) return -1;
+    if (!a.isSystem && b.isSystem) return 1;
+    return (a.name || "").localeCompare(b.name || "");
   });
 
   useEffect(() => {
@@ -1296,12 +1305,20 @@ export default function PageBuilder() {
                       key={template.id}
                       onClick={() => setSelectedTemplateId(template.id)}
                       className={cn(
-                        "p-3 rounded-lg border cursor-pointer transition-colors text-center text-sm",
+                        "p-3 rounded-lg border cursor-pointer transition-colors text-center text-sm relative",
                         selectedTemplateId === template.id ? "border-blue-500 bg-blue-500/10" : "border-border hover:border-muted-foreground/30"
                       )}
                       data-testid={`template-${template.id}`}
                     >
+                      {template.isSystem && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" data-testid={`badge-recommended-${template.id}`}>
+                          Recommended
+                        </span>
+                      )}
                       {template.name || template.title}
+                      {template.description && (
+                        <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{template.description}</p>
+                      )}
                     </div>
                   ))}
                 </div>

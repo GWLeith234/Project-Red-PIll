@@ -18,9 +18,10 @@ import {
   Scissors, Play, ThumbsUp, ThumbsDown, Calendar, Plus, Trash2,
   Edit3, Eye, Building2, Sparkles, Zap, Send, Save,
   ChevronRight, AlertTriangle, ImagePlus, Music, Film, X as XCloseIcon,
-  TrendingUp, Target, BarChart3, Lightbulb, Hash, RefreshCw, BellRing
+  TrendingUp, Target, BarChart3, Lightbulb, Hash, RefreshCw, BellRing, LayoutGrid
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocation } from "wouter";
 import PageHeader from "@/components/admin/PageHeader";
 import AIGenerateModal from "@/components/admin/AIGenerateModal";
 import MetricsStrip from "@/components/admin/MetricsStrip";
@@ -2267,8 +2268,10 @@ function ShowBrandingTab() {
   const { data: podcasts, isLoading } = usePodcasts();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ heroImageUrl: "", accentColor: "", hostImageUrl: "", coverImage: "", description: "", host: "", title: "" });
+  const [creatingShowPage, setCreatingShowPage] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, any> }) => {
@@ -2499,6 +2502,42 @@ function ShowBrandingTab() {
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setEditingId(null)} data-testid="button-cancel-branding">
               Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!editingId || creatingShowPage) return;
+                setCreatingShowPage(true);
+                try {
+                  const checkRes = await fetch(`/api/pages/show/${editingId}`, { credentials: "include" });
+                  if (checkRes.ok) {
+                    const existingPage = await checkRes.json();
+                    setEditingId(null);
+                    navigate(`/page-builder?edit=${existingPage.id}`);
+                    return;
+                  }
+                  const createRes = await fetch("/api/pages/show/create-from-template", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ podcastId: editingId }),
+                  });
+                  if (!createRes.ok) throw new Error("Failed to create show page");
+                  const newPage = await createRes.json();
+                  toast({ title: "Show Page Created", description: "Opening in the page builder..." });
+                  setEditingId(null);
+                  navigate(`/page-builder?edit=${newPage.id}`);
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setCreatingShowPage(false);
+                }
+              }}
+              disabled={creatingShowPage}
+              data-testid="button-create-show-page"
+            >
+              {creatingShowPage ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <LayoutGrid className="h-4 w-4 mr-1.5" />}
+              Create Show Page
             </Button>
             <a
               href={`/show/${editingId}`}
