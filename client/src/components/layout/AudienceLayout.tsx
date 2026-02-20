@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp, CalendarDays, Users } from "lucide-react";
+import { Menu, X, Mic, Headphones, Newspaper, Radio, ChevronDown, Bell, BellRing, Home, Search, Bookmark, FileText, ChevronLeft, ChevronRight, Shuffle, TrendingUp, CalendarDays, Users, BarChart3 } from "lucide-react";
 import { useReadLater } from "@/hooks/use-read-later";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { usePageTracking } from "@/hooks/use-page-tracking";
@@ -13,7 +13,7 @@ import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieCons
 import NpsWidget from "@/components/NpsWidget";
 import { NetworkSponsorBanner } from "@/components/SponsorStrip";
 
-function LegalFooterLinks({ platformName }: { platformName: string }) {
+function LegalFooterLinks() {
   const { data: legalDocs } = useQuery({
     queryKey: ["/api/public/legal"],
     queryFn: async () => {
@@ -25,18 +25,18 @@ function LegalFooterLinks({ platformName }: { platformName: string }) {
   });
 
   return (
-    <div className="border-t border-border/50 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-      <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {platformName}. All rights reserved.</p>
-      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap justify-center">
-        {legalDocs?.map((doc: { title: string; slug: string }) => (
-          <Link key={doc.slug} href={doc.slug} className="hover:text-foreground transition-colors" data-testid={`footer-legal-${doc.slug.split('/').pop()}`}>
+    <ul className="space-y-1.5">
+      {legalDocs?.map((doc: { title: string; slug: string }) => (
+        <li key={doc.slug}>
+          <Link href={doc.slug} className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid={`footer-legal-${doc.slug.split('/').pop()}`}>
             {doc.title}
           </Link>
-        ))}
-        <a href="mailto:george@salemmedia.com" className="hover:text-foreground transition-colors">Contact</a>
-        <CookieSettingsLink className="text-xs text-muted-foreground hover:text-muted-foreground cursor-pointer transition-colors" />
-      </div>
-    </div>
+        </li>
+      ))}
+      <li>
+        <CookieSettingsLink className="text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors" />
+      </li>
+    </ul>
   );
 }
 
@@ -106,6 +106,7 @@ function PresetsBar({ podcasts, primaryColor }: { podcasts: any[]; primaryColor:
     { id: "__discover", label: "Discover", href: "/podcasts", icon: <Shuffle className="h-5 w-5" /> },
     { id: "__events", label: "Events", href: "/events", icon: <CalendarDays className="h-5 w-5" /> },
     { id: "__community", label: "Community", href: "/community-hub", icon: <Users className="h-5 w-5" /> },
+    { id: "__polls", label: "Polls", href: "/polls", icon: <BarChart3 className="h-5 w-5" /> },
     ...podcasts.map((p: any) => ({
       id: p.id,
       label: p.title,
@@ -281,6 +282,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
     if (path === "read-later") return location === "/read-later";
     if (path === "events") return location === "/events";
     if (path === "community-hub") return location === "/community-hub";
+    if (path === "polls") return location === "/polls";
     return false;
   };
 
@@ -311,6 +313,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
                     { href: "/news", label: "News", path: "news", icon: Newspaper },
                     { href: "/events", label: "Events", path: "events", icon: CalendarDays },
                     { href: "/community-hub", label: "Community", path: "community-hub", icon: Users },
+                    { href: "/polls", label: "Polls", path: "polls", icon: BarChart3 },
                   ].map(({ href, label, path, icon: Icon }) => (
                     <Link
                       key={path}
@@ -425,6 +428,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
                 { href: "/news", label: "News", icon: Newspaper },
                 { href: "/events", label: "Events", icon: CalendarDays },
                 { href: "/community-hub", label: "Community", icon: Users },
+                { href: "/polls", label: "Polls", icon: BarChart3 },
                 { href: "/search", label: "Search", icon: Search },
               ].map(({ href, label, icon: Icon }) => (
                 <Link
@@ -557,7 +561,7 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
 
       <footer className="bg-background text-muted-foreground print:hidden" data-testid="audience-footer">
         <div className="max-w-[1400px] mx-auto px-4 py-10">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-8">
             <div className="col-span-2">
               <div className="flex items-center gap-2.5 mb-3">
                 {logoUrl ? (
@@ -586,58 +590,55 @@ function AudienceLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
 
             <div>
-              <h4 className="text-foreground text-xs font-bold uppercase tracking-wider mb-3">Shows</h4>
-              <ul className="space-y-1.5">
-                {podcasts?.slice(0, 5).map((p: any) => (
-                  <li key={p.id}>
-                    <Link href={`/show/${p.id}`} className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid={`footer-show-${p.id}`}>
-                      {p.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
               <h4 className="text-foreground text-xs font-bold uppercase tracking-wider mb-3">Explore</h4>
               <ul className="space-y-1.5">
-                <li><Link href="/home" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Home</Link></li>
-                <li><Link href="/podcasts" className="text-sm text-muted-foreground hover:text-foreground transition-colors">All Podcasts</Link></li>
-                <li><Link href="/news" className="text-sm text-muted-foreground hover:text-foreground transition-colors">News</Link></li>
-                <li><Link href="/events" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Events</Link></li>
-                <li><Link href="/community-hub" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Community</Link></li>
-                <li><Link href="/search" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Search</Link></li>
+                <li><Link href="/news" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-news">News</Link></li>
+                <li><Link href="/podcasts" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-podcasts">Podcasts</Link></li>
+                <li><Link href="/events" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-events">Events</Link></li>
+                <li><Link href="/community-hub" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-community">Community</Link></li>
+                <li><Link href="/polls" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-polls">Polls</Link></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-foreground text-xs font-bold uppercase tracking-wider mb-3">Get the App</h4>
-              <div className="space-y-2">
-                <div className="opacity-60 cursor-not-allowed" data-testid="link-app-store">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 rounded-lg pointer-events-none">
-                    <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground leading-none">Download on the</p>
-                      <p className="text-xs text-foreground font-medium leading-tight">App Store</p>
-                    </div>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground text-center mt-1">Coming Soon</p>
-                </div>
-                <div className="opacity-60 cursor-not-allowed" data-testid="link-google-play">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-muted/60 rounded-lg pointer-events-none">
-                    <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 12l2.302-3.492zM5.864 2.658L16.8 9.99l-2.302 2.302L5.864 3.658z"/></svg>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground leading-none">Get it on</p>
-                      <p className="text-xs text-foreground font-medium leading-tight">Google Play</p>
-                    </div>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground text-center mt-1">Coming Soon</p>
-                </div>
-              </div>
+              <h4 className="text-foreground text-xs font-bold uppercase tracking-wider mb-3">Company</h4>
+              <ul className="space-y-1.5">
+                <li><a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-about">About</a></li>
+                <li><a href="mailto:george@salemmedia.com" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-contact">Contact</a></li>
+                <li><a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="footer-link-advertise">Advertise With Us</a></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-foreground text-xs font-bold uppercase tracking-wider mb-3">Legal</h4>
+              <LegalFooterLinks />
+            </div>
+
+            <div>
+              <h4 className="text-foreground text-xs font-bold uppercase tracking-wider mb-3">Newsletter</h4>
+              <p className="text-sm text-muted-foreground mb-3">Stay up to date with the latest news and updates.</p>
+              <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-2">
+                <input
+                  type="email"
+                  placeholder="Your email"
+                  className="w-full px-3 py-2 text-sm bg-muted/60 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  data-testid="input-footer-newsletter-email"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg transition-all hover:brightness-110"
+                  style={{ backgroundColor: primaryColor, color: "#111" }}
+                  data-testid="button-footer-newsletter-subscribe"
+                >
+                  Subscribe
+                </button>
+              </form>
             </div>
           </div>
 
-          <LegalFooterLinks platformName={platformName} />
+          <div className="border-t border-border/50 pt-5 flex items-center justify-center">
+            <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {platformName}. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>

@@ -6340,6 +6340,73 @@ Return ONLY the JSON array, no markdown formatting.`;
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
+  app.get("/api/public/polls", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const now = new Date();
+      let polls;
+      if (status === "active") {
+        polls = await db.select().from(communityPolls)
+          .where(and(
+            eq(communityPolls.status, "active"),
+            eq(communityPolls.isActive, true),
+            or(
+              sql`${communityPolls.expiresAt} IS NULL`,
+              sql`${communityPolls.expiresAt} > ${now}`
+            )
+          ))
+          .orderBy(desc(communityPolls.createdAt));
+      } else if (status === "closed") {
+        polls = await db.select().from(communityPolls)
+          .where(or(
+            eq(communityPolls.status, "closed"),
+            and(
+              sql`${communityPolls.expiresAt} IS NOT NULL`,
+              sql`${communityPolls.expiresAt} < ${now}`
+            )
+          ))
+          .orderBy(desc(communityPolls.expiresAt));
+      } else {
+        polls = await db.select().from(communityPolls)
+          .orderBy(desc(communityPolls.createdAt));
+      }
+      res.json(polls);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/polls/featured", async (_req, res) => {
+    try {
+      const now = new Date();
+      const activePolls = await db.select().from(communityPolls)
+        .where(and(
+          eq(communityPolls.status, "active"),
+          eq(communityPolls.isActive, true),
+          or(
+            sql`${communityPolls.expiresAt} IS NULL`,
+            sql`${communityPolls.expiresAt} > ${now}`
+          )
+        ))
+        .orderBy(desc(communityPolls.totalVotes), desc(communityPolls.createdAt))
+        .limit(1);
+      res.json(activePolls[0] || null);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/public/polls/:id/results", async (req, res) => {
+    try {
+      const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.id, req.params.id));
+      if (!poll) return res.status(404).json({ message: "Poll not found" });
+      const options = Array.isArray(poll.options) ? poll.options : [];
+      const totalVotes = poll.totalVotes || 0;
+      const optionsWithPercentages = options.map((opt: any) => ({
+        ...opt,
+        votes: opt.votes || 0,
+        percentage: totalVotes > 0 ? Math.round(((opt.votes || 0) / totalVotes) * 10000) / 100 : 0,
+      }));
+      res.json({ ...poll, options: optionsWithPercentages, totalVotes });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
   app.get("/api/public/polls/:id", async (req, res) => {
     try {
       const [poll] = await db.select().from(communityPolls).where(eq(communityPolls.id, req.params.id));

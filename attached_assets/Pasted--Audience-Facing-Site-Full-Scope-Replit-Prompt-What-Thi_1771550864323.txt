@@ -1,0 +1,316 @@
+# Audience-Facing Site — Full Scope & Replit Prompt
+
+## What This Is
+
+The audience-facing site is everything the public sees at the root domain. The admin is the cockpit — this is the plane itself. It needs to be fast, clean, mobile-friendly, and conversion-focused (subscribe, vote, engage).
+
+---
+
+## Pages & Components to Build/Fix
+
+### A-1: Homepage
+- Hero section with featured article or episode (pulled from CMS)
+- Breaking news ticker (horizontal scrolling, pulled from admin Live Site settings)
+- Featured Poll Widget (embeddable 300x300 box — see A-3)
+- Recent episodes grid (3 most recent, card format)
+- Recent articles grid (6 most recent)
+- Featured events (next 2 upcoming events)
+- Community preview (3 most recent discussion posts)
+- Email subscribe CTA bar (full-width, above footer)
+
+### A-2: /news
+- Article list with search and category filter
+- Pagination or infinite scroll
+- Article cards: thumbnail, headline, category tag, date, read time
+
+### A-3: Poll Widget (EMBEDDABLE — 300x300px)
+This is the primary new deliverable. Used in:
+  - Homepage (featured poll slot)
+  - Sidebar of article pages
+  - Any page via embed code
+
+**Widget behavior:**
+- Fixed 300x300px box
+- Shows: poll question (truncated if needed), answer options as clickable buttons, deadline countdown ("Closes in 2d 14h")
+- Vote state: after voting, options animate into results bars showing percentage + vote count
+- If visitor already voted (check localStorage by poll_id), show results immediately on load — don't show voting options again
+- Active polls only (expiry > now OR no expiry set)
+- If no active poll exists, widget shows the most recently closed poll results with "Poll Closed" badge
+
+**Widget after poll closes:**
+- Deadline passes → widget automatically flips to results-only view with "Poll Closed" label
+- "View all polls →" link takes user to /polls page
+
+### A-4: /polls (Dedicated Polls Page)
+Full-page polls archive and voting hub.
+
+**Layout:**
+- Page header: "Community Polls" title + subtitle
+- Active polls section: grid of poll cards (open for voting)
+- Closed polls section: grid of past polls showing final results
+
+**Poll card (active):**
+- Question
+- Options (vote inline on the card)
+- Deadline badge ("Closes Feb 25")
+- Total votes count
+- After voting: results bars animate in
+
+**Poll card (closed):**
+- Question
+- Final results as horizontal bars with percentages
+- "Poll Closed [date]" badge
+- Total vote count
+
+**How closed polls get here:**
+- When a poll's expiry date passes OR admin manually closes it in admin Community → Polls tab, it automatically moves from "active" to appearing in the Closed section on /polls
+- No manual migration needed — the /polls page queries by status/expiry date
+
+**API needed:**
+- GET /api/public/polls?status=active — returns active polls
+- GET /api/public/polls?status=closed — returns closed polls with results
+- POST /api/public/polls/:id/vote — submits vote, returns updated results
+- GET /api/public/polls/:id/results — returns current results for a poll
+
+### A-5: /events
+- Upcoming events in card grid
+- Each card: cover image, title, date badge, location, category, "Add to Calendar" button (.ics download)
+- Past events section (collapsed by default)
+- Filter by category
+
+### A-6: /community (Discussion)
+- Thread list view: most recent posts at top
+- Each post: author name, avatar initials, timestamp, message preview, reply count, like count
+- Click post → thread detail view with replies
+- "Start a Discussion" button → simple form (name required, email optional, message up to 2000 chars)
+- Reply inline on thread detail
+- Like button (heart icon, increments on click, stored in localStorage to prevent double-likes)
+- Rate limited: 1 post per IP per minute
+- Admin-pinned posts appear at top with pin badge
+
+### A-7: Article Page
+- Full article content
+- Author byline, date, read time, category
+- Poll widget embedded in right sidebar (300x300, shows current active poll)
+- Related articles (3, by same category)
+- Share buttons (Twitter/X, Facebook, copy link)
+- Subscribe CTA below article
+
+### A-8: Episode/Podcast Page
+- Episode player (HTML5 audio)
+- Episode title, show name, date, description
+- Show notes / transcript (expandable)
+- Subscribe CTA
+- Related episodes (3, same show)
+
+### A-9: Navigation & Footer
+- Top nav: Logo | News | Podcasts | Events | Community | Polls | Search icon | Subscribe button
+- Mobile: hamburger menu with same links
+- Footer: Logo | About | Contact | Privacy Policy | Terms of Service | Newsletter signup
+- Footer links to /legal/privacy-policy etc. (pulling from published legal documents)
+
+---
+
+## Replit Prompt — Copy and paste this entire block
+
+```
+Build and polish the audience-facing public site. This is everything visitors see at the root domain. The admin is already built — this sprint connects it to the public.
+
+Do NOT change any admin pages, API authentication, or database schemas unless adding new columns or tables specifically called out below.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART A — POLL SYSTEM (highest priority)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(1) Ensure polls table has these columns (add if missing):
+    - status: text, default 'active' ('active' | 'closed')
+    - expires_at: timestamp, nullable
+    - total_votes: integer, default 0
+    Add a computed status rule: if expires_at is not null and expires_at < now(), treat as 'closed' regardless of status column.
+
+(2) Ensure poll_votes table exists:
+    - id: uuid, primary key
+    - poll_id: uuid, references polls
+    - option_index: integer (which option was selected, 0-indexed)
+    - voter_fingerprint: text (SHA256 hash of IP + user agent — for dedup without storing PII)
+    - created_at: timestamp, default now
+
+(3) Add/verify public API endpoints (no auth required):
+    GET /api/public/polls?status=active — polls where status='active' AND (expires_at IS NULL OR expires_at > now())
+    GET /api/public/polls?status=closed — polls where status='closed' OR expires_at < now(), ordered by expires_at desc
+    GET /api/public/polls/featured — returns the single active poll with highest total_votes (or most recently created if tied)
+    GET /api/public/polls/:id/results — returns poll with options array including vote_count per option and percentage
+    POST /api/public/polls/:id/vote — body: { optionIndex: number, fingerprint: string }
+      - Check if fingerprint already voted on this poll_id — if so return 409 with current results
+      - Insert vote, increment total_votes on poll and vote_count on the option
+      - Return updated results immediately
+    Rate limit: 10 votes per IP per minute
+
+(4) Build PollWidget component — client/src/components/PollWidget.tsx:
+    Fixed 300x300px container (min-width: 300px, min-height: 300px, max-width: 300px, max-height: 300px)
+    Overflow hidden, rounded corners (8px), dark card background matching site theme
+
+    VOTING STATE (poll is active, user hasn't voted):
+    - Header: "Community Poll" label (small, muted) + deadline badge ("Closes in Xd Xh" or "Closes today" — calculated from expires_at, or "No deadline" if null)
+    - Question text: 16px, bold, max 2 lines with ellipsis
+    - Options: stacked buttons, full width, dark border, on hover highlight primary color
+    - Vote button not needed — clicking an option submits immediately
+    - Below options: "X votes cast" in small muted text
+
+    RESULTS STATE (after voting OR poll is closed OR already voted):
+    - Header: "Community Poll" label + "Poll Closed" badge in red if closed, or "Your vote recorded ✓" if just voted
+    - Question text same
+    - Each option shows as a results bar:
+        - Option text on left
+        - Animated fill bar (0% → actual% on mount, 600ms ease-out transition)
+        - Percentage on right (bold)
+        - Highlight the winning option in primary color, others in muted
+        - If user voted for this option, show a checkmark
+    - Below bars: "X total votes" in small muted text
+    - If poll is closed: "Poll Closed" footer link → /polls
+
+    EMPTY STATE (no active poll):
+    - Show most recently closed poll in results state
+    - Or if no polls at all: "No active poll" placeholder
+
+    VOTE PERSISTENCE: On successful vote, store { pollId, optionIndex } in localStorage key 'salem_votes'. On widget mount, check localStorage first — if already voted, go straight to results state with the stored optionIndex highlighted.
+
+    FINGERPRINT: Generate fingerprint client-side as btoa(navigator.userAgent + screen.width + screen.height) — simple, no PII, good enough for dedup.
+
+    Props: { pollId?: string } — if provided loads specific poll, otherwise loads featured poll from /api/public/polls/featured
+
+(5) Build /polls page — client/src/pages/audience/polls.tsx:
+
+    Page header section:
+    - "Community Polls" h1
+    - Subtitle: "Vote on the issues that matter. Results updated in real time."
+
+    Active polls section:
+    - Section heading: "Open for Voting" with vote icon
+    - Responsive grid: 3 columns desktop, 2 tablet, 1 mobile
+    - Each card is 300px wide, uses the same PollWidget component with that poll's ID
+    - Empty state if no active polls: "No active polls right now. Check back soon."
+
+    Closed polls section:
+    - Section heading: "Past Polls" 
+    - Same grid layout
+    - Each closed poll uses PollWidget in results-only state
+    - Show up to 20 most recent closed polls
+    - "Load more" button if more than 20
+
+(6) Embed PollWidget in homepage:
+    Find the homepage component (client/src/pages/audience/home.tsx or similar).
+    Add a "Community Poll" section between the episodes grid and the articles grid.
+    Use <PollWidget /> with no pollId prop (auto-loads featured poll).
+    Section layout: left side = PollWidget (300x300), right side = section heading "Have Your Say" + brief copy "Vote on today's poll and see what the community thinks." + "See all polls →" link to /polls.
+    On mobile: stack vertically, PollWidget full width (but maintains 300px height).
+
+(7) Embed PollWidget in article sidebar:
+    Find the article page component. Add PollWidget to the right sidebar (desktop) or below the article content (mobile). Use <PollWidget /> with no pollId prop.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART B — /polls PAGE ROUTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(8) Add /polls route to the audience router. The page must be accessible from:
+    - Top navigation link "Polls"
+    - Footer link "Polls"
+    - PollWidget "View all polls →" link
+    - "See all polls →" link on homepage
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART C — /events PAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(9) Build or polish /events audience page:
+    Upcoming events: responsive card grid
+    Each card: cover image (placeholder gradient if none), date badge (large month + day overlay on image), title, location, category tag, "Add to Calendar" button
+    "Add to Calendar" generates and downloads a .ics file with event title, date, location, description
+    Past events: collapsible section below upcoming events, same card design with "Past Event" badge
+    Filter bar: "All" + category buttons (Business, Politics, Community, etc.) — filter client-side
+    Empty state: "No upcoming events. Check back soon."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART D — /community PAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(10) Build or polish /community audience page:
+    Thread list: most recent posts first, pinned posts always at top
+    Each thread row: avatar circle (initials, random muted color per name), author name, timestamp (relative: "2 hours ago"), message preview (1 line, truncated), reply count badge, like count
+    Click row → thread detail view (same page, slide in or replace)
+    Thread detail: full message, replies below, "Reply" button at bottom, "← Back" link
+    "Start a Discussion" button → modal or inline form: Name (required), Email (optional, shown as "anonymous" if blank), Message (textarea, 2000 char limit with counter), Submit
+    Like button: heart icon, click increments count, stores in localStorage to prevent re-liking, visual fill animation on click
+    Admin-pinned posts: gold pin icon badge, always sort first
+    Rate limit display: if user posts and is rate-limited, show "Please wait 60 seconds before posting again"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART E — NAVIGATION & FOOTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(11) Update audience top navigation to include all links:
+    Desktop: Logo | News | Podcasts | Events | Community | Polls | [Search icon] | [Subscribe button — primary color]
+    Mobile hamburger menu: same links in vertical list + Subscribe button at bottom
+    Active link: underline or color highlight on current page
+    Subscribe button: opens email capture modal or scrolls to subscribe section
+
+(12) Update footer:
+    Left: Logo + tagline
+    Middle columns: 
+      Column 1 — Explore: News, Podcasts, Events, Community, Polls
+      Column 2 — Company: About, Contact, Advertise With Us
+      Column 3 — Legal: Privacy Policy, Terms of Service, Cookie Policy (only show links where legal document is published)
+    Right: Newsletter signup (email input + "Subscribe" button)
+    Bottom bar: © 2026 Salem Media. All rights reserved.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART F — HOMEPAGE POLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(13) Polish homepage layout. Sections in order top to bottom:
+    1. Hero: featured article/episode with large image, headline overlay, category tag, "Read More" CTA
+    2. Breaking news ticker (if breaking_news_enabled in platform settings)
+    3. Latest Episodes: horizontal scroll row of episode cards on mobile, 3-col grid on desktop
+    4. Community Poll: PollWidget + "Have Your Say" copy (from step 6)
+    5. Latest Articles: 3-col grid, 6 articles
+    6. Upcoming Events: 2 event cards side by side
+    7. Community Preview: 3 most recent discussion posts in a card, "Join the Discussion →" link
+    8. Subscribe CTA: full-width dark band, "Join X readers getting the newsletter" + email input + Subscribe button
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFICATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] /polls page loads with active polls in voting state and closed polls in results state
+[ ] Voting on a poll: options replace with animated result bars immediately
+[ ] Revisiting page after voting: widget shows results (localStorage), no double-vote
+[ ] Voting twice: second attempt returns results view (fingerprint dedup on server)
+[ ] Poll widget appears on homepage in "Have Your Say" section
+[ ] Poll widget appears in article page sidebar
+[ ] "View all polls →" and "See all polls →" links navigate to /polls
+[ ] Poll expires → widget switches to closed/results state automatically (check by setting expiry to 1 minute in future and waiting)
+[ ] /polls shows closed polls in "Past Polls" section with final results
+[ ] /events shows upcoming events with "Add to Calendar" — .ics downloads correctly
+[ ] /community shows thread list, click opens thread detail, can post new discussion
+[ ] Top nav shows: News, Podcasts, Events, Community, Polls
+[ ] Footer shows legal links only for published documents
+[ ] Mobile hamburger menu includes all nav links
+[ ] Homepage has all 8 sections in correct order
+```
+
+---
+
+## Summary of What's New vs What's Polish
+
+| Item | New Build | Polish/Fix |
+|---|---|---|
+| PollWidget (300x300 embeddable) | ✅ New | — |
+| /polls page with active + closed sections | ✅ New | — |
+| Poll vote dedup (localStorage + fingerprint) | ✅ New | — |
+| Poll auto-close on expiry | ✅ New | — |
+| Poll embed on homepage | ✅ New | — |
+| Poll embed in article sidebar | ✅ New | — |
+| /events .ics calendar download | — | ✅ Polish |
+| /community thread detail + likes | — | ✅ Polish |
+| Top nav + footer completeness | — | ✅ Polish |
+| Homepage section order + CTA bar | — | ✅ Polish |

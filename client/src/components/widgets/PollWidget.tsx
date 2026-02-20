@@ -1,87 +1,97 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, Clock, BarChart3, Loader2, CheckCircle } from "lucide-react";
+import { Users, Clock, BarChart3, Check, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 
-function getVoterId(): string {
-  let id = localStorage.getItem("community_voter_id");
-  if (!id) {
-    id = "anon_" + Math.random().toString(36).slice(2, 10);
-    localStorage.setItem("community_voter_id", id);
+function getFingerprint(): string {
+  return btoa(navigator.userAgent + screen.width + screen.height);
+}
+
+function getSalemVotes(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem("salem_votes") || "{}");
+  } catch {
+    return {};
   }
-  return id;
 }
 
-function useCountdown(endDate: string | null | undefined) {
-  const [timeLeft, setTimeLeft] = useState("");
-  const [isExpired, setIsExpired] = useState(false);
-
-  useEffect(() => {
-    if (!endDate) { setTimeLeft(""); return; }
-    const update = () => {
-      const diff = new Date(endDate).getTime() - Date.now();
-      if (diff <= 0) { setIsExpired(true); setTimeLeft("Poll Closed"); return; }
-      const days = Math.floor(diff / 86400000);
-      const hrs = Math.floor((diff % 86400000) / 3600000);
-      const mins = Math.floor((diff % 3600000) / 60000);
-      if (days > 0) setTimeLeft(`Closes in ${days}d ${hrs}h`);
-      else if (hrs > 0) setTimeLeft(`Closes in ${hrs}h ${mins}m`);
-      else setTimeLeft(`Closes in ${mins}m`);
-    };
-    update();
-    const interval = setInterval(update, 60000);
-    return () => clearInterval(interval);
-  }, [endDate]);
-
-  return { timeLeft, isExpired };
+function setSalemVote(pollId: string, optionIndex: number) {
+  const votes = getSalemVotes();
+  votes[pollId] = optionIndex;
+  localStorage.setItem("salem_votes", JSON.stringify(votes));
 }
 
-export default function PollWidget({ pollId, zone }: { pollId?: string; zone?: string }) {
+export default function PollWidget({ pollId }: { pollId?: string }) {
   const queryClient = useQueryClient();
-  const voterId = getVoterId();
-  const [votedOptionId, setVotedOptionId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [votedIndex, setVotedIndex] = useState<number | null>(null);
+  const [justVoted, setJustVoted] = useState(false);
   const [animateResults, setAnimateResults] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const queryKey = pollId ? ["/api/public/polls", pollId] : ["/api/public/polls/zone", zone];
-  const queryUrl = pollId ? `/api/public/polls/${pollId}` : `/api/public/polls/zone/${zone}`;
+  const endpoint = pollId
+    ? `/api/public/polls/${pollId}`
+    : `/api/public/polls/featured`;
+
+  const queryKey = [endpoint];
 
   const { data: poll, isLoading } = useQuery<any>({
     queryKey,
     queryFn: async () => {
-      const res = await fetch(queryUrl);
+      const res = await fetch(endpoint);
       if (!res.ok) return null;
-      const data = await res.json();
-      return data;
+      return res.json();
     },
-    enabled: !!(pollId || zone),
   });
 
-  const storageKey = poll ? `voted_poll_${poll.id}` : null;
-  const hasVoted = votedOptionId !== null || (storageKey ? localStorage.getItem(storageKey) !== null : false);
+  useEffect(() => {
+    if (poll?.id) {
+      const saved = getSalemVotes();
+      if (saved[poll.id] !== undefined) {
+        setVotedIndex(saved[poll.id]);
+      }
+    }
+  }, [poll?.id]);
 
   useEffect(() => {
-    if (storageKey) {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) setVotedOptionId(saved);
+    if (votedIndex !== null) {
+      const t = setTimeout(() => setAnimateResults(true), 50);
+      return () => clearTimeout(t);
     }
-  }, [storageKey]);
+  }, [votedIndex]);
 
-  const { timeLeft, isExpired } = useCountdown(poll?.endDate);
+  const isExpired = poll?.expiresAt
+    ? new Date(poll.expiresAt).getTime() <= Date.now()
+    : false;
+
+  const isClosed = poll?.status === "closed" || isExpired;
+
+  const getDeadlineText = () => {
+    if (!poll?.expiresAt) return "No deadline";
+    const diff = new Date(poll.expiresAt).getTime() - Date.now();
+    if (diff <= 0) return "Closed";
+    const days = Math.floor(diff / 86400000);
+    const hrs = Math.floor((diff % 86400000) / 3600000);
+    if (days === 0 && hrs === 0) return "Closes today";
+    if (days > 0) return `Closes in ${days}d ${hrs}h`;
+    return `Closes in ${hrs}h`;
+  };
 
   const handleVote = async (optionIndex: number) => {
-    if (!poll || hasVoted || submitting || isExpired) return;
+    if (!poll || submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/public/polls/${poll.id}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ optionId: String(optionIndex), voterIdentifier: voterId }),
+        body: JSON.stringify({
+          optionId: String(optionIndex),
+          voterIdentifier: getFingerprint(),
+        }),
       });
-      if (res.ok) {
-        const optId = String(optionIndex);
-        setVotedOptionId(optId);
-        if (storageKey) localStorage.setItem(storageKey, optId);
-        setTimeout(() => setAnimateResults(true), 50);
+      if (res.ok || res.status === 409) {
+        setVotedIndex(optionIndex);
+        setJustVoted(true);
+        setSalemVote(poll.id, optionIndex);
         queryClient.invalidateQueries({ queryKey });
       }
     } catch (err) {
@@ -91,100 +101,147 @@ export default function PollWidget({ pollId, zone }: { pollId?: string; zone?: s
     }
   };
 
+  const containerClass =
+    "w-[300px] h-[300px] max-w-[300px] max-h-[300px] overflow-hidden rounded-lg bg-card border border-border flex flex-col p-3";
+
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border bg-card/50 p-4 animate-pulse">
-        <div className="h-4 bg-muted rounded w-3/4 mb-4" />
-        <div className="space-y-2">
-          <div className="h-10 bg-muted rounded-lg" />
-          <div className="h-10 bg-muted rounded-lg" />
-          <div className="h-10 bg-muted rounded-lg" />
+      <div className={containerClass}>
+        <div className="h-3 bg-muted rounded w-1/2 mb-3" />
+        <div className="h-4 bg-muted rounded w-3/4 mb-auto" />
+        <div className="space-y-1.5">
+          <div className="h-8 bg-muted rounded-md" />
+          <div className="h-8 bg-muted rounded-md" />
+          <div className="h-8 bg-muted rounded-md" />
         </div>
+        <div className="h-3 bg-muted rounded w-1/3 mt-2" />
       </div>
     );
   }
 
-  if (!poll) return null;
-
-  if (poll.startDate && new Date(poll.startDate) > new Date()) {
-    const startStr = new Date(poll.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  if (!poll) {
     return (
-      <div className="rounded-xl border border-border bg-card/50 p-4" data-testid={`poll-widget-${poll.id}`}>
-        <p className="text-sm font-semibold mb-2">{poll.question}</p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="h-3.5 w-3.5" />
-          <span>Poll opens {startStr}</span>
-        </div>
+      <div className={containerClass + " items-center justify-center"}>
+        <BarChart3 className="h-8 w-8 text-muted-foreground mb-2" />
+        <span className="text-sm text-muted-foreground">No active polls</span>
       </div>
     );
   }
 
   const options: { text: string; votes: number }[] = poll.options || [];
-  const totalVotes = options.reduce((sum: number, o: any) => sum + (o.votes || 0), 0);
-  const showResults = hasVoted || isExpired || poll.showResultsBeforeVote;
-  const savedVote = storageKey ? localStorage.getItem(storageKey) : null;
+  const totalVotes = options.reduce(
+    (sum: number, o: any) => sum + (o.votes || 0),
+    0
+  );
+  const showResults = votedIndex !== null || isClosed;
 
-  return (
-    <div className="rounded-xl border border-border bg-card/50 p-4" data-testid={`poll-widget-${poll.id}`}>
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <p className="text-sm font-semibold">{poll.question}</p>
-        <BarChart3 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-      </div>
+  const maxVotes = Math.max(...options.map((o: any) => o.votes || 0));
 
-      <div className="space-y-2 mb-3">
-        {options.map((option: any, idx: number) => {
-          const pct = totalVotes > 0 ? Math.round(((option.votes || 0) / totalVotes) * 100) : 0;
-          const isSelected = savedVote === String(idx) || votedOptionId === String(idx);
+  if (showResults) {
+    return (
+      <div className={containerClass} data-testid={`poll-widget-${poll.id}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
+            Community Poll
+          </span>
+          {isClosed ? (
+            <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+              Poll Closed
+            </span>
+          ) : justVoted ? (
+            <span className="text-[10px] text-green-400">Vote recorded</span>
+          ) : null}
+        </div>
 
-          if (showResults) {
+        <p className="text-sm font-bold text-foreground line-clamp-2 mt-2">
+          {poll.question}
+        </p>
+
+        <div className="flex flex-col gap-1.5 mt-auto">
+          {options.map((option: any, idx: number) => {
+            const pct =
+              totalVotes > 0
+                ? Math.round(((option.votes || 0) / totalVotes) * 100)
+                : 0;
+            const isWinner = (option.votes || 0) === maxVotes && maxVotes > 0;
+            const isVoted = votedIndex === idx;
+
             return (
-              <div key={idx} className="relative" data-testid={`poll-result-${poll.id}-${idx}`}>
-                <div className="relative h-9 rounded-lg overflow-hidden bg-muted border border-border">
-                  <div
-                    className={`absolute inset-y-0 left-0 rounded-lg transition-all duration-700 ease-out ${
-                      isSelected ? "bg-amber-500/30" : "bg-muted/50"
-                    }`}
-                    style={{ width: animateResults || hasVoted ? `${pct}%` : "0%" }}
-                  />
-                  <div className="relative flex items-center justify-between h-full px-3">
-                    <span className={`text-xs font-medium ${isSelected ? "text-amber-300" : "text-foreground/80"}`}>
-                      {isSelected && <CheckCircle className="h-3 w-3 inline mr-1" />}
-                      {option.text}
-                    </span>
-                    <span className={`text-xs font-bold ${isSelected ? "text-amber-400" : "text-muted-foreground"}`}>
-                      {pct}%
-                    </span>
-                  </div>
-                </div>
+              <div
+                key={idx}
+                className="h-7 rounded-md bg-muted/50 border border-border overflow-hidden relative flex items-center"
+                data-testid={`poll-result-${poll.id}-${idx}`}
+              >
+                <div
+                  className={`absolute inset-y-0 left-0 transition-all duration-[600ms] ease-out ${
+                    isWinner ? "bg-primary/20" : "bg-muted"
+                  }`}
+                  style={{ width: animateResults ? `${pct}%` : "0%" }}
+                />
+                <span className="text-[11px] font-medium z-10 relative px-2 flex items-center gap-1 flex-1 truncate">
+                  {isVoted && <Check className="h-3 w-3 flex-shrink-0" />}
+                  {option.text}
+                </span>
+                <span className="text-[11px] font-bold z-10 relative px-2">
+                  {pct}%
+                </span>
               </div>
             );
-          }
+          })}
+        </div>
 
-          return (
-            <button
-              key={idx}
-              onClick={() => handleVote(idx)}
-              disabled={submitting || isExpired}
-              className="w-full h-9 rounded-lg border border-border bg-muted text-foreground/80 text-xs font-medium hover:border-amber-500/50 hover:bg-amber-500/5 transition-all disabled:opacity-50 px-3 text-left"
-              data-testid={`poll-option-${poll.id}-${idx}`}
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[10px] text-muted-foreground">
+            {totalVotes} total votes
+          </span>
+          {isClosed && (
+            <Link
+              href="/polls"
+              className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
             >
-              {option.text}
-            </button>
-          );
-        })}
+              View all polls <ArrowRight className="h-2.5 w-2.5" />
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={containerClass} data-testid={`poll-widget-${poll.id}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
+          Community Poll
+        </span>
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {getDeadlineText()}
+        </span>
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <div className="flex items-center gap-1.5">
+      <p className="text-sm font-bold text-foreground line-clamp-2 mt-2">
+        {poll.question}
+      </p>
+
+      <div className="flex flex-col gap-1.5 mt-auto">
+        {options.map((option: any, idx: number) => (
+          <button
+            key={idx}
+            onClick={() => handleVote(idx)}
+            disabled={submitting}
+            className="w-full h-8 rounded-md border border-border bg-muted/50 text-foreground text-xs font-medium hover:border-primary/50 transition-colors disabled:opacity-50 px-2 text-left"
+            data-testid={`poll-option-${poll.id}-${idx}`}
+          >
+            {option.text}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-2">
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
           <Users className="h-3 w-3" />
-          <span>{totalVotes} vote{totalVotes !== 1 ? "s" : ""}</span>
-        </div>
-        {timeLeft && (
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            <span className={isExpired ? "text-red-400" : ""}>{timeLeft}</span>
-          </div>
-        )}
+          {totalVotes} votes cast
+        </span>
       </div>
     </div>
   );

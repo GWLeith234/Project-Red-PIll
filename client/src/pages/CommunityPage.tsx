@@ -569,7 +569,9 @@ export default function CommunityPage() {
           </button>
         </div>
 
-        <PollWidget zone="community_page" />
+        <div className="flex justify-center mb-2">
+          <PollWidget />
+        </div>
 
         <div className="mt-6">
           {activeTab === "polls" ? <PollsTab /> : <DiscussionTab />}

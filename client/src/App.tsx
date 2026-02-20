@@ -44,6 +44,7 @@ import CommunityAdmin from "@/pages/CommunityAdmin";
 import PushCampaigns from "@/pages/PushCampaigns";
 import EventsPage from "@/pages/EventsPage";
 import CommunityPage from "@/pages/CommunityPage";
+import PollsPage from "@/pages/PollsPage";
 import LiveMapBroadcast from "@/pages/LiveMapBroadcast";
 import NotFound from "@/pages/not-found";
 
@@ -268,6 +269,7 @@ function App() {
             <Route path="/news/:podcastId/article/:articleId">{() => <AudienceLayout><ArticlePage /></AudienceLayout>}</Route>
             <Route path="/listen/:podcastId/episode/:episodeId">{() => <AudienceLayout><EpisodePage /></AudienceLayout>}</Route>
             <Route path="/events">{() => <AudienceLayout><EventsPage /></AudienceLayout>}</Route>
+            <Route path="/polls">{() => <AudienceLayout><PollsPage /></AudienceLayout>}</Route>
             <Route path="/community-hub">{() => <AudienceLayout><CommunityPage /></AudienceLayout>}</Route>
             <Route path="/legal/:slug">{() => <AudienceLayout><LegalPage /></AudienceLayout>}</Route>
             <Route path="/page/:slug">{() => <AudienceLayout><BuiltPage /></AudienceLayout>}</Route>

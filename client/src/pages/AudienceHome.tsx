@@ -429,7 +429,16 @@ export default function AudienceHome() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           <div className="lg:col-span-2">
-            <PollWidget zone="homepage" />
+            <div className="flex items-start gap-6">
+              <PollWidget />
+              <div className="hidden lg:flex flex-col justify-center py-4">
+                <h3 className="text-lg font-bold text-foreground mb-2">Have Your Say</h3>
+                <p className="text-sm text-muted-foreground mb-3">Vote on today's poll and see what the community thinks.</p>
+                <Link href="/polls" className="text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all" style={{ color: primaryColor }}>
+                  See all polls <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
           </div>
           <div className="rounded-xl border border-border bg-card/50 p-4">
             <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
