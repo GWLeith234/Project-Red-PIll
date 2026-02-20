@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 - **Project Management**: Kanban board with drag-and-drop columns (Uploaded, Transcribed, AI Processed, In Review, Published), task assignment with priorities and due dates, My Tasks dashboard with list and calendar views, threaded comments, and activity audit logs. Replaces Asana for content workflow management.
 - **Network Management**: Podcast network and show management.
 - **User Management**: Admin CRUD for users with role and permission assignment.
-- **Customization**: Branding management (logo, favicon, colors), company name, and hero carousel slide management.
+- **Customization**: Branding management (logo, favicon, colors), company name, and hero carousel slide management. **ImageUploadField** shared component (`client/src/components/ImageUploadField.tsx`) provides drag-and-drop file upload, URL input, preview, and clear functionality for all image fields across admin pages (Settings branding, ContentFactory show branding, CommunityAdmin events/directory, ArticleEditor, CampaignBuilder, PushCampaigns, PageBuilder). Uses object storage presigned URL upload flow.
 - **Commercial CRM**: B2B sales CRM for companies, contacts, and deals related to ad campaigns. Deals support multi-product line items with per-item rate override threshold enforcement. Deals moving to "closed_won" auto-create campaigns.
 - **Subscriber CRM**: Audience management with cross-pollination suggestions. Campaign builder with email cadence designer (timeline-based step sequencing), KPI dashboard (delivery/open/click rates), and email step composer with reordering.
 - **Public News/Podcast Directory**: Configurable public-facing news homepage and iHeart-inspired podcast discovery page with search and rankings.
