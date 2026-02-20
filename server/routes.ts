@@ -1626,6 +1626,114 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  const SENSITIVE_INTEGRATION_KEYS = new Set([
+    "twitter_api_key", "twitter_api_secret", "twitter_access_token", "twitter_access_secret",
+    "facebook_access_token", "linkedin_access_token", "youtube_api_key",
+    "sendgrid_api_key", "smtp_password", "mailgun_api_key",
+    "twilio_account_sid", "twilio_auth_token",
+    "vapid_public_key", "vapid_private_key", "firebase_server_key",
+    "s3_access_key", "s3_secret_key", "cloudflare_r2_access_key", "cloudflare_r2_secret_key",
+    "stripe_secret_key", "stripe_webhook_secret",
+  ]);
+
+  function maskValue(val: string): string {
+    if (!val || val.length <= 4) return val ? "••••" : "";
+    return "••••••••••••" + val.slice(-4);
+  }
+
+  app.get("/api/settings/integrations", requireAuth, async (_req, res) => {
+    try {
+      const data = await storage.getIntegrationSettings();
+      const masked: Record<string, string> = {};
+      for (const [key, value] of Object.entries(data)) {
+        masked[key] = SENSITIVE_INTEGRATION_KEYS.has(key) && value ? maskValue(value) : value;
+      }
+      res.json(masked);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/settings/integrations", requireAuth, async (req, res) => {
+    try {
+      const updates: Record<string, string> = {};
+      for (const [key, value] of Object.entries(req.body)) {
+        if (typeof value === "string") {
+          if (SENSITIVE_INTEGRATION_KEYS.has(key) && value.startsWith("••••")) continue;
+          updates[key] = value;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        await storage.upsertIntegrationSettings(updates);
+      }
+      const data = await storage.getIntegrationSettings();
+      const masked: Record<string, string> = {};
+      for (const [key, value] of Object.entries(data)) {
+        masked[key] = SENSITIVE_INTEGRATION_KEYS.has(key) && value ? maskValue(value) : value;
+      }
+      res.json(masked);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/settings/integrations/test/:integration", requireAuth, async (req, res) => {
+    const { integration } = req.params;
+    try {
+      const settings = await storage.getIntegrationSettings();
+      switch (integration) {
+        case "email": {
+          const provider = settings.email_provider || "";
+          if (provider === "sendgrid" && settings.sendgrid_api_key) {
+            return res.json({ success: true, message: "SendGrid API key is configured. Test email would be sent in production." });
+          } else if (provider === "smtp" && settings.smtp_host && settings.smtp_username) {
+            return res.json({ success: true, message: `SMTP configured for ${settings.smtp_host}:${settings.smtp_port || "587"}` });
+          } else if (provider === "mailgun" && settings.mailgun_api_key && settings.mailgun_domain) {
+            return res.json({ success: true, message: `Mailgun configured for ${settings.mailgun_domain}` });
+          }
+          return res.json({ success: false, message: "Email provider not fully configured" });
+        }
+        case "twitter": {
+          if (settings.twitter_api_key && settings.twitter_api_secret && settings.twitter_access_token && settings.twitter_access_secret) {
+            return res.json({ success: true, message: "Twitter/X credentials are configured" });
+          }
+          return res.json({ success: false, message: "All 4 Twitter credentials are required" });
+        }
+        case "facebook": {
+          if (settings.facebook_page_id && settings.facebook_access_token) {
+            return res.json({ success: true, message: "Facebook Page connection configured" });
+          }
+          return res.json({ success: false, message: "Page ID and Access Token are required" });
+        }
+        case "twilio": {
+          if (settings.twilio_account_sid && settings.twilio_auth_token && settings.twilio_phone_number) {
+            return res.json({ success: true, message: "Twilio SMS configured" });
+          }
+          return res.json({ success: false, message: "Account SID, Auth Token, and Phone Number are required" });
+        }
+        case "storage": {
+          const provider = settings.storage_provider || "";
+          if (provider === "s3" && settings.s3_bucket && settings.s3_region && settings.s3_access_key && settings.s3_secret_key) {
+            return res.json({ success: true, message: `S3 bucket '${settings.s3_bucket}' in ${settings.s3_region} configured` });
+          } else if (provider === "cloudflare_r2" && settings.cloudflare_r2_account_id && settings.cloudflare_r2_bucket) {
+            return res.json({ success: true, message: `Cloudflare R2 bucket '${settings.cloudflare_r2_bucket}' configured` });
+          }
+          return res.json({ success: false, message: "Storage provider not fully configured" });
+        }
+        case "stripe": {
+          if (settings.stripe_publishable_key && settings.stripe_secret_key) {
+            return res.json({ success: true, message: "Stripe payment gateway configured" });
+          }
+          return res.json({ success: false, message: "Publishable Key and Secret Key are required" });
+        }
+        default:
+          return res.json({ success: false, message: `Unknown integration: ${integration}` });
+      }
+    } catch (e: any) {
+      res.json({ success: false, message: e.message });
+    }
+  });
+
   app.get("/api/hero-slides", requirePermission("customize.view"), async (_req, res) => {
     const slides = await storage.getHeroSlides();
     res.json(slides);
